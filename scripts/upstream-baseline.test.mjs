@@ -452,11 +452,18 @@ describe("compareBaseline", () => {
       makeEntry("locator-click.spec.ts > b", "failed"),
       makeEntry("locator-click.spec.ts > c", "skipped"),
       makeEntry("page-goto.spec.ts > d", "passed"),
+      {
+        ...makeEntry("page-goto.spec.ts > diagnostic", "passed"),
+        execution: null,
+      },
     ];
     const baseline = { reviewed: [] };
     const result = compareBaseline(entries, baseline, names);
     const reconciled =
-      result.currentPassing.length + result.failed + result.skipped;
+      result.currentPassing.length +
+      result.diagnosticPassed +
+      result.failed +
+      result.skipped;
     assert.equal(reconciled, result.total);
   });
 });

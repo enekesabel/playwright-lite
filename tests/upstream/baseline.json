@@ -158,12 +158,7 @@
     {
       "id": "locator-misc-2.spec.ts > should waitFor",
       "method": "Locator.waitFor",
-      "evidence": "Assertions and awaited completion verify Locator.waitFor behavior: should waitFor."
-    },
-    {
-      "id": "locator-misc-2.spec.ts > should waitFor hidden",
-      "method": "Locator.waitFor",
-      "evidence": "Assertions and awaited completion verify Locator.waitFor behavior: should waitFor hidden."
+      "evidence": "After Locator.waitFor() resolves when <span>target</span> is inserted, toHaveText('target') verifies the located span contains 'target'."
     },
     {
       "id": "locator-query.spec.ts > alias methods coverage",
