@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- intentional casts to test runtime validation */
 import { describe, expect, it, afterEach, vi } from "vitest";
 
+import { createPage } from "./index";
 import {
-  createPage,
   isPlaywrightLiteLocator,
   LOCATOR_BRAND,
   resolveLocatorElements,
-} from "./index";
+} from "./locator";
 import { AdapterJSHandle, PageImpl } from "./page";
 import { ADAPTER_TIMEOUT_ERROR } from "./errors";
 

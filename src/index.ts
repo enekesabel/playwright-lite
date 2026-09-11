@@ -1,14 +1,6 @@
 import type { Page, PlaywrightTestOptions } from "@playwright/test";
 
-import { injectedScriptFor } from "./injected";
 import { PageImpl } from "./page";
-
-export { AdapterJSHandle } from "./page";
-export {
-  isPlaywrightLiteLocator,
-  LOCATOR_BRAND,
-  resolveLocatorElements,
-} from "./locator";
 
 export type CreatePageOptions = Partial<
   Pick<
@@ -16,10 +8,6 @@ export type CreatePageOptions = Partial<
     "testIdAttribute" | "actionTimeout" | "navigationTimeout"
   >
 >;
-
-export function ariaSnapshot(root: Element): string {
-  return injectedScriptFor(root).ariaSnapshot(root, { mode: "ai" });
-}
 
 /** Creates a Page for the current browser window. Omitted settings keep the runtime defaults. */
 export function createPage(options: CreatePageOptions = {}): Page {

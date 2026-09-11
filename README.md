@@ -27,7 +27,7 @@ Each Page owns its configuration. Creating another Page does not change the test
 
 Page objects can continue importing `Page` and `Locator` as types from `@playwright/test`. The tested type peer is Playwright 1.62.1. Playwright's Node runtime is not included in the browser bundle.
 
-The package also exports `ariaSnapshot(root)`, `isPlaywrightLiteLocator(value)`, and `resolveLocatorElements(locator)` for browser integrations.
+The package exports only `createPage` and the `CreatePageOptions` type. Use `page.ariaSnapshot()` or `locator.ariaSnapshot()` for accessibility snapshots. Implementation classes, locator brands, and DOM resolvers are not public.
 
 ## Scope
 
@@ -39,9 +39,12 @@ Compatibility checks run selected, unchanged Playwright tests through this runti
 
 ## Development
 
-Use Node.js 24 or newer and pnpm 11.24.0.
+Installing and bundling the package supports Node.js 20 or newer. This is separate from the contributor environment.
+
+Use Devbox for development. `devbox.json` selects Node.js 24 and enables Corepack; `devbox.lock` pins the environment, and `packageManager` pins pnpm 11.24.0.
 
 ```sh
+devbox shell
 pnpm install --frozen-lockfile
 pnpm exec playwright install --with-deps chromium
 pnpm check
@@ -51,7 +54,7 @@ pnpm check
 
 The generated injected script is committed and hash-checked during builds. Consumers do not generate it. Maintainers can reproduce it with `pnpm generate:check`. `pnpm generate:injected` regenerates it using the exact official revision in `tests/upstream/corpus.ts` and Playwright's own generator. Review artifact hash changes before updating the build pin. `pnpm upstream:sync` copies the selected tests from that same revision.
 
-CI uses Chromium on Ubuntu. It does not publish packages. The package is configured for GitHub Packages; `pnpm pack` creates a local tarball for installation before publication.
+CI runs the development checks on Node.js 24.12.0 with Chromium on Ubuntu. A separate Node.js 20.0.0 job installs the same tarball with engine checks enabled, compiles a consumer POM, and runs it in Chromium without repository development dependencies or a separately installed YAML package. CI does not publish packages. The package is configured for GitHub Packages; `pnpm pack` creates a local tarball for installation before publication.
 
 ## License
 
