@@ -1,0 +1,76 @@
+name: Prepare package cleanup
+on:
+  push:
+    branches: [work/package-interface-cleanup]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: work/package-interface-cleanup
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.12.0
+      - run: npm install --global pnpm@11.24.0
+      - name: Inspect callers and apply the agreed package cleanup
+        run: |
+          git grep -n -E 'AdapterJSHandle|LOCATOR_BRAND|isPlaywrightLiteLocator|resolveLocatorElements|ariaSnapshot' -- src/index.ts src/index.test.ts src/contract.test.ts tests/consumer.ts tests/upstream/adapter-bridge.ts || true
+          node --input-type=module <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const read = path => readFileSync(path, 'utf8');
+          const write = (path, text) => writeFileSync(path, text);
+          const once = (text, before, after) => {
+            assert.equal(text.split(before).length - 1, 1, `Expected one occurrence: ${before}`);
+            return text.replace(before, after);
+          };
+          const pkg = JSON.parse(read('package.json'));
+          pkg.engines.node = '>=20';
+          assert.equal(pkg.dependencies.yaml, '2.9.0');
+          pkg.devDependencies.yaml = pkg.dependencies.yaml;
+          delete pkg.dependencies;
+          write('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          let index = read('src/index.ts');
+          index = once(index, 'import { injectedScriptFor } from "./injected";\n', '');
+          index = once(index, 'export { AdapterJSHandle } from "./page";\nexport {\n  isPlaywrightLiteLocator,\n  LOCATOR_BRAND,\n  resolveLocatorElements,\n} from "./locator";\n\n', '');
+          index = once(index, 'export function ariaSnapshot(root: Element): string {\n  return injectedScriptFor(root).ariaSnapshot(root, { mode: "ai" });\n}\n\n', '');
+          write('src/index.ts', index);
+          let contract = read('src/contract.test.ts');
+          contract = once(contract, 'import {\n  createPage,\n  isPlaywrightLiteLocator,\n  LOCATOR_BRAND,\n  resolveLocatorElements,\n} from "./index";', 'import { createPage } from "./index";\nimport {\n  isPlaywrightLiteLocator,\n  LOCATOR_BRAND,\n  resolveLocatorElements,\n} from "./locator";');
+          write('src/contract.test.ts', contract);
+          let tests = read('src/index.test.ts');
+          tests = once(tests, 'import { ariaSnapshot, createPage, type CreatePageOptions } from "./index";', 'import { createPage, type CreatePageOptions } from "./index";\nimport * as publicExports from "./index";');
+          tests = once(tests, 'describe("public browser entry", () => {', 'describe("public browser entry", () => {\n  it("exports only the page factory at runtime", () => {\n    expect(Object.keys(publicExports)).toEqual(["createPage"]);\n  });');
+          tests = once(tests, 'it("captures an ordinary accessibility snapshot", () => {', 'it("captures an ordinary accessibility snapshot", async () => {');
+          tests = tests.replaceAll('ariaSnapshot(document.body)', 'await createPage().ariaSnapshot()');
+          write('src/index.test.ts', tests);
+          let readme = read('README.md');
+          readme = once(readme, 'The package also exports `ariaSnapshot(root)`, `isPlaywrightLiteLocator(value)`, and `resolveLocatorElements(locator)` for browser integrations.', 'The package exports only `createPage` and the `CreatePageOptions` type. Use `page.ariaSnapshot()` or `locator.ariaSnapshot()` for accessibility snapshots. Implementation classes, locator brands, and DOM resolvers are not public.');
+          readme = once(readme, 'Use Node.js 24 or newer and pnpm 11.24.0.', 'Installing and bundling the package supports Node.js 20 or newer. This is separate from the contributor environment.\n\nUse Devbox for development. `devbox.json` selects Node.js 24 and enables Corepack; `devbox.lock` pins the environment, and `packageManager` pins pnpm 11.24.0.');
+          readme = once(readme, '```sh\npnpm install --frozen-lockfile', '```sh\ndevbox shell\npnpm install --frozen-lockfile');
+          readme = once(readme, 'CI uses Chromium on Ubuntu. It does not publish packages.', 'CI runs the development checks on Node.js 24.12.0 with Chromium on Ubuntu. A separate Node.js 20.0.0 job installs the same tarball with engine checks enabled, compiles a consumer POM, and runs it in Chromium without repository development dependencies or a separately installed YAML package. CI does not publish packages.');
+          write('README.md', readme);
+          write('.gitignore', read('.gitignore') + '.devbox/\n');
+          JS
+      - run: pnpm install --lockfile-only --no-frozen-lockfile
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format
+      - name: Save prepared files on the temporary branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --stat
+          git diff --cached --quiet || git commit -m 'refactor: minimize package exports and consumer requirements'
+          git push origin HEAD:work/package-interface-cleanup
+          git rev-parse HEAD
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm build && pnpm lint && pnpm typecheck && pnpm test && pnpm test:package
+      - name: Check content and preserved implementation
+        run: |
+          git diff --exit-code 468d499a9f3f34561b6005b756bba66dc64f88e7 -- src/page.ts src/locator.ts src/elementHandle.ts src/injected.ts build tests/upstream/baseline.json
+          if git grep -n -i -E 'ayme|ayde|b25d782|@ayme-dev' -- . ':!.github/workflows/prepare-cleanup.yml'; then exit 1; fi
