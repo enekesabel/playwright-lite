@@ -201,6 +201,18 @@ it("copies waitForFunction arguments once and jsonValue results on every read", 
   await expect(handle.jsonValue()).rejects.toThrow(/disposed/i);
 });
 
+it("invalidates primitive waitForFunction handles on disposal", async () => {
+  const page = createPage();
+  const handle = await page.waitForFunction(() => 1);
+  await expect(handle.jsonValue()).resolves.toBe(1);
+  await handle.dispose();
+  await expect(handle.jsonValue()).rejects.toThrow(/disposed/i);
+  await expect(page.evaluate((value) => value, { handle })).rejects.toThrow(
+    /disposed/i
+  );
+  await expect(handle.dispose()).resolves.toBeUndefined();
+});
+
 it("does not leak DOM values or closures through waitForFunction", async () => {
   const page = createPage();
   const node = await page.waitForFunction(() => document.body);

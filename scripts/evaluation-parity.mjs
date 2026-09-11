@@ -127,7 +127,26 @@ async function observe(page) {
     original: waitArgument.calls,
     value: (await handle.jsonValue()).calls,
   };
-  await handle.dispose();
+  const primitiveHandle = await page.waitForFunction(() => 1);
+  output.primitiveBeforeDisposal = await primitiveHandle.jsonValue();
+  output.disposedHandles = [];
+  for (const disposable of [handle, primitiveHandle]) {
+    await disposable.dispose();
+    const observed = [];
+    for (const operation of [
+      () => disposable.jsonValue(),
+      () => page.evaluate((value) => value, { handle: disposable }),
+    ]) {
+      try {
+        await operation();
+        observed.push(false);
+      } catch {
+        observed.push(true);
+      }
+    }
+    await disposable.dispose();
+    output.disposedHandles.push(observed);
+  }
   await root.dispose();
   return output;
 }
@@ -157,6 +176,11 @@ try {
   assert.equal(expected.graph, true);
   assert.ok(expected.special.every(Boolean));
   assert.ok(expected.nodes.every(Boolean));
+  assert.equal(expected.primitiveBeforeDisposal, 1);
+  assert.deepEqual(expected.disposedHandles, [
+    [true, true],
+    [true, true],
+  ]);
   await lite.addScriptTag({ path: bundle });
   const actual = await lite.evaluate((source) => {
     const run = globalThis.eval(`(${source})`);
@@ -166,7 +190,7 @@ try {
   console.log("Lite observations:", actual);
   assert.deepEqual(actual, expected);
   console.log(
-    "Evaluation parity passed against stock Playwright 1.62.1: argument/result copies, object graphs, special values, all target entry points, nested handles, closures, errors, and waitForFunction jsonValue."
+    "Evaluation parity passed against stock Playwright 1.62.1: argument/result copies, object graphs, special values, all target entry points, nested handles, closures, errors, waitForFunction jsonValue, and object/primitive handle disposal."
   );
 } finally {
   await browser?.close();
