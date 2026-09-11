@@ -647,11 +647,11 @@ test("adapter values cannot collide with the timeout envelope", async ({
 }) => {
   await expect(
     (adapterPage as any).evaluate(() => ({
-      __pwLiteAdapterTimeout: true,
+      kind: "adapter-timeout",
       message: "ordinary callback value",
     }))
   ).resolves.toEqual({
-    __pwLiteAdapterTimeout: true,
+    kind: "adapter-timeout",
     message: "ordinary callback value",
   });
 });

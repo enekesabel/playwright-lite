@@ -3,6 +3,10 @@ import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
 import { type AddressInfo } from "node:net";
+import { dirname, extname, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const assetsDir = resolve(dirname(fileURLToPath(import.meta.url)), "../assets");
 
 type RouteHandler = (
   req: http.IncomingMessage,
@@ -82,12 +86,66 @@ export class TestServer {
     this.server.closeAllConnections?.();
   }
 
-  serveFile(routePath: string, filePath: string) {
-    this.setRoute(routePath, (_req, res) => {
+  serveFile(routePath: string, filePath: string): void;
+  serveFile(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    filePath?: string
+  ): void;
+  serveFile(
+    routeOrRequest: string | http.IncomingMessage,
+    fileOrResponse: string | http.ServerResponse,
+    explicitFilePath?: string
+  ): void {
+    if (typeof routeOrRequest === "string") {
+      const filePath = fileOrResponse as string;
+      this.setRoute(routeOrRequest, (req, res) =>
+        this.writeFileResponse(req, res, filePath)
+      );
+      return;
+    }
+
+    const req = routeOrRequest;
+    const res = fileOrResponse as http.ServerResponse;
+    const urlPath = new URL(req.url ?? "/", this.PREFIX).pathname;
+    const filePath = explicitFilePath ?? resolve(assetsDir, "." + urlPath);
+    if (
+      !explicitFilePath &&
+      filePath !== assetsDir &&
+      !filePath.startsWith(assetsDir + sep)
+    ) {
+      res.writeHead(403);
+      res.end("Forbidden");
+      return;
+    }
+    this.writeFileResponse(req, res, filePath);
+  }
+
+  private writeFileResponse(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    filePath: string
+  ): void {
+    try {
       const content = fs.readFileSync(filePath);
-      res.writeHead(200);
-      res.end(content);
-    });
+      if (!res.hasHeader("Content-Type")) {
+        const extension = extname(filePath);
+        if (extension === ".html")
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+        else if (extension === ".png")
+          res.setHeader("Content-Type", "image/png");
+      }
+      res.statusCode = 200;
+      res.end(req.method === "HEAD" ? undefined : content);
+    } catch {
+      if (!res.headersSent) {
+        res.statusCode = 404;
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+      }
+      res.end(
+        req.method === "HEAD" ? undefined : "File not found: " + filePath
+      );
+    }
   }
 
   reset() {

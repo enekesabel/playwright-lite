@@ -275,8 +275,15 @@ export async function installTestIdAttributeSynchronization(
   };
 
   selectors.setTestIdAttribute = synchronize;
-  synchronize(initialAttributeName);
-  await synchronization;
+  try {
+    synchronize(initialAttributeName);
+    await synchronization;
+  } catch (error) {
+    selectors.setTestIdAttribute = originalSetTestIdAttribute;
+    originalSetTestIdAttribute.call(selectors, DEFAULT_TEST_ID_ATTRIBUTE);
+    testIdAttributeSynchronizers.delete(realPage);
+    throw error;
+  }
   testIdAttributeSynchronizers.set(realPage, () => synchronization);
 
   return async () => {
