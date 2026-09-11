@@ -39,7 +39,7 @@ Compatibility checks run selected, unchanged Playwright tests through this runti
 
 ## Evaluation
 
-Supported `evaluate`, `$eval`, `$$eval`, and `evaluateAll` calls use the pinned Playwright client-protocol and UtilityScript serializers. Arguments and by-value results are copied rather than returned as live browser objects. Pass values through the argument parameter; callbacks do not capture caller-local variables.
+Supported `evaluate`, `$eval`, `$$eval`, and `evaluateAll` calls use the pinned Playwright client-protocol and UtilityScript serializers. Ordinary argument values and by-value results are copied. Supported handle arguments retain the referenced object's identity in the controlled window. Pass values through the argument parameter; callbacks do not capture caller-local variables.
 
 ```ts
 const suffix = "!";

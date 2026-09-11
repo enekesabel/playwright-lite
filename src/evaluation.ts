@@ -196,13 +196,8 @@ export class AdapterJSHandle<T = unknown> {
   }
 
   async dispose(): Promise<void> {
-    // Upstream primitive handles do not own a remote object to release.
-    if (
-      (typeof this.value === "object" && this.value !== null) ||
-      typeof this.value === "function"
-    ) {
-      this.disposed = true;
-      this.value = undefined as T;
-    }
+    // Playwright invalidates the protocol handle even for primitive values.
+    this.disposed = true;
+    this.value = undefined as T;
   }
 }
