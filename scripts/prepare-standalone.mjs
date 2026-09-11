@@ -53,10 +53,13 @@ if (contract.includes("const compiledTimeoutGlobals")) {
 }
 
 let bridge = read("tests/upstream/adapter-bridge.ts");
-if (bridge.includes("__aymeTestIdAttributeName?: string")) {
-  bridge = once(bridge, `          __aymeTestIdAttributeName?: string;
-        }).__aymeTestIdAttributeName = testIdAttributeName;`, `          __aymeAdapterPage: { testIdAttribute: string };
-        }).__aymeAdapterPage.testIdAttribute = testIdAttributeName;`);
+if (bridge.includes("__aymeAdapter.createPage();")) {
+  bridge = once(bridge, ").__aymeTestIdAttributeName = testIdAttributeName;", `).__aymeTestIdAttributeName = testIdAttributeName;
+      const adapter = (window as Window & { __aymeAdapterPage?: { testIdAttribute: string } }).__aymeAdapterPage;
+      if (adapter) adapter.testIdAttribute = testIdAttributeName;`);
+  bridge = once(bridge, "__aymeAdapter.createPage();", "__aymeAdapter.createPage({ testIdAttribute: window.__aymeTestIdAttributeName });");
+  bridge = bridge.replace("fixture only. The compiled browser adapter reads this private window value;\n * production code has no Playwright transport dependency.", "fixture only. The fixture passes its initial value to createPage and updates\n * the same adapter instance when upstream tests change the selector setting.");
+  bridge = bridge.replace("  // W-28 AC1: deterministic single-script initialization.\n", "");
   write("tests/upstream/adapter-bridge.ts", bridge);
 }
 
