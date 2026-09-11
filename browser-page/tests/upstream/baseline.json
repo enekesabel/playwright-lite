@@ -1,0 +1,1324 @@
+{
+  "source": {
+    "repository": "ayme-labs/playwright",
+    "commit": "b25d782e3fbdf21abdae60e974e49b78ca07e828"
+  },
+  "selectedTestCount": 588,
+  "reviewed": [
+    {
+      "id": "locator-click.spec.ts > should click if the target element is removed in pointerdown event",
+      "method": "Locator.click",
+      "evidence": "Awaiting Locator.click completes without rejection when the target element is removed in pointerdown event."
+    },
+    {
+      "id": "locator-click.spec.ts > should click if the target element is removed in pointerup event",
+      "method": "Locator.click",
+      "evidence": "Awaiting Locator.click completes without rejection when the target element is removed in pointerup event."
+    },
+    {
+      "id": "locator-convenience.spec.ts > allInnerTexts should work",
+      "method": "Locator.allInnerTexts",
+      "evidence": "With three divs containing A, B, and C, Locator.allInnerTexts returns ['A', 'B', 'C']."
+    },
+    {
+      "id": "locator-convenience.spec.ts > allTextContents should work",
+      "method": "Locator.allTextContents",
+      "evidence": "With three divs containing A, B, and C, Locator.allTextContents returns ['A', 'B', 'C']."
+    },
+    {
+      "id": "locator-convenience.spec.ts > innerText should produce log",
+      "method": "Locator.innerText",
+      "evidence": "The unchanged assertion verifies the missing-locator wait log after Locator.innerText enters the browser adapter."
+    },
+    {
+      "id": "locator-convenience.spec.ts > innerText should throw",
+      "method": "Page.innerText",
+      "evidence": "Page.innerText and Locator.innerText both reject an SVG node with an error containing 'Node is not an HTMLElement'."
+    },
+    {
+      "id": "locator-convenience.spec.ts > isChecked should work",
+      "method": "Locator.isChecked",
+      "evidence": "Assertions verify Locator and Page checked state before and after an adapter-routed browser mutation, plus the invalid-target error."
+    },
+    {
+      "id": "locator-convenience.spec.ts > isChecked should work for indeterminate input",
+      "method": "Locator.isChecked",
+      "evidence": "For a checked, indeterminate checkbox, Locator.isChecked and toBeChecked report true; after Locator.uncheck, both report false."
+    },
+    {
+      "id": "locator-convenience.spec.ts > isEditable should work",
+      "method": "Locator.isEditable",
+      "evidence": "Locator.isEditable and Page.isEditable classify disabled and readonly controls as false, editable controls as true, and reject a button with the expected error."
+    },
+    {
+      "id": "locator-convenience.spec.ts > isEnabled and isDisabled should work",
+      "method": "Locator.isEnabled",
+      "evidence": "Assertions verify Locator and Page enabled and disabled state across ordinary and disabled elements using InjectedScript element-state semantics."
+    },
+    {
+      "id": "locator-is-visible.spec.ts > isVisible and isHidden should work",
+      "method": "Locator.isVisible",
+      "evidence": "Locator and Page visibility checks report a div visible, an empty span hidden, and a missing selector not visible and hidden."
+    },
+    {
+      "id": "locator-is-visible.spec.ts > isVisible and isHidden should work with details",
+      "method": "Locator._expect",
+      "evidence": "Assertions verify visible and hidden expectation results with selector details."
+    },
+    {
+      "id": "locator-is-visible.spec.ts > isVisible inside a button",
+      "method": "Locator.isVisible",
+      "evidence": "Locator.isVisible reports an empty span inside a button as not visible; the paired hidden checks agree and the button reaches the visible wait state."
+    },
+    {
+      "id": "locator-is-visible.spec.ts > isVisible inside a role=button",
+      "method": "Locator.isVisible",
+      "evidence": "Locator.isVisible reports an empty span inside a role=button element as not visible; the paired hidden checks agree and the role button reaches the visible wait state."
+    },
+    {
+      "id": "locator-is-visible.spec.ts > isVisible should be true for element outside view",
+      "method": "Locator._expect",
+      "evidence": "Assertions verify an offscreen element is visible and not hidden through locator expectations."
+    },
+    {
+      "id": "locator-is-visible.spec.ts > isVisible should be true for opacity:0",
+      "method": "Locator._expect",
+      "evidence": "Assertions verify opacity-zero elements are visible and not hidden through locator expectations."
+    },
+    {
+      "id": "locator-is-visible.spec.ts > isVisible with invalid selector should throw",
+      "method": "Locator.isVisible",
+      "evidence": "Locator.isVisible rejects hey=what with an error containing 'Unknown engine \"hey\" while parsing selector hey=what'."
+    },
+    {
+      "id": "locator-list.spec.ts > locator.all should work",
+      "method": "Locator.all",
+      "evidence": "The unchanged test iterates the returned locator array and asserts all three browser-resolved text values in order."
+    },
+    {
+      "id": "locator-misc-1.spec.ts > focus should respect strictness",
+      "method": "Locator.focus",
+      "evidence": "The unchanged assertion verifies Locator.focus rejects a multi-match selector with Playwright strict-mode diagnostics."
+    },
+    {
+      "id": "locator-misc-1.spec.ts > should check the box",
+      "method": "Locator.check",
+      "evidence": "Locator.check changes an unchecked checkbox so the checked DOM property is true."
+    },
+    {
+      "id": "locator-misc-1.spec.ts > should check the box using setChecked",
+      "method": "Locator.setChecked",
+      "evidence": "Locator.setChecked(true) and Locator.setChecked(false) change the checkbox's checked DOM property to true and then false."
+    },
+    {
+      "id": "locator-misc-1.spec.ts > should uncheck the box",
+      "method": "Locator.uncheck",
+      "evidence": "Locator.uncheck changes a checked checkbox so the checked DOM property is false."
+    },
+    {
+      "id": "locator-misc-2.spec.ts > press should throw on unknown keys",
+      "method": "Locator.press",
+      "evidence": "Three assertions verify unsupported key names reject through the adapter with the expected Playwright-compatible error."
+    },
+    {
+      "id": "locator-misc-2.spec.ts > should combine visible with other selectors",
+      "method": "Page.locator",
+      "evidence": "Assertions verify visible selector composition chooses the expected elements."
+    },
+    {
+      "id": "locator-misc-2.spec.ts > should fill programmatically enabled textarea",
+      "method": "Locator.fill",
+      "evidence": "The test enables a textarea, fills it through the locator, and asserts the resulting value."
+    },
+    {
+      "id": "locator-misc-2.spec.ts > should press @smoke",
+      "method": "Locator.press",
+      "evidence": "Assertion verifies Locator.press inserts the pressed character into the input."
+    },
+    {
+      "id": "locator-misc-2.spec.ts > should pressSequentially",
+      "method": "Locator.pressSequentially",
+      "evidence": "Locator.pressSequentially('hello') leaves the input value equal to 'hello'."
+    },
+    {
+      "id": "locator-misc-2.spec.ts > should scroll zero-sized element into view",
+      "method": "Locator.scrollIntoViewIfNeeded",
+      "evidence": "The unchanged assertions verify a zero-sized target is scrolled through the adapter and its bounding box changes as expected."
+    },
+    {
+      "id": "locator-misc-2.spec.ts > should support filter(visible)",
+      "method": "Locator.filter",
+      "evidence": "Assertions verify visible and hidden filters, nth composition, and getByText chaining against the expected elements."
+    },
+    {
+      "id": "locator-misc-2.spec.ts > should type",
+      "method": "Locator.type",
+      "evidence": "Locator.type executes through the browser adapter; the upstream assertion reads the input value through Page.$eval and verifies the typed text is hello."
+    },
+    {
+      "id": "locator-misc-2.spec.ts > should waitFor",
+      "method": "Locator.waitFor",
+      "evidence": "Assertions and awaited completion verify Locator.waitFor behavior: should waitFor."
+    },
+    {
+      "id": "locator-misc-2.spec.ts > should waitFor hidden",
+      "method": "Locator.waitFor",
+      "evidence": "Assertions and awaited completion verify Locator.waitFor behavior: should waitFor hidden."
+    },
+    {
+      "id": "locator-query.spec.ts > alias methods coverage",
+      "method": "Locator.getByRole",
+      "evidence": "Four count assertions verify page, nested locator, role locator, and single-document mainFrame locator aliases."
+    },
+    {
+      "id": "locator-query.spec.ts > should filter by case-insensitive regex in a child",
+      "method": "Page.locator",
+      "evidence": "Assertions verify case-insensitive filtering matches descendant text."
+    },
+    {
+      "id": "locator-query.spec.ts > should filter by case-insensitive regex in multiple children",
+      "method": "Page.locator",
+      "evidence": "Assertions verify case-insensitive filtering across multiple descendants."
+    },
+    {
+      "id": "locator-query.spec.ts > should filter by regex",
+      "method": "Page.locator",
+      "evidence": "Assertions verify regular-expression text filtering selects the expected locator."
+    },
+    {
+      "id": "locator-query.spec.ts > should filter by regex and regexp flags",
+      "method": "Page.locator",
+      "evidence": "Assertions verify regular-expression flags are preserved during filtering."
+    },
+    {
+      "id": "locator-query.spec.ts > should filter by regex with a single quote",
+      "method": "Page.locator",
+      "evidence": "Positive and negative assertions verify quoted regular expressions compose and filter through adapter locator selectors."
+    },
+    {
+      "id": "locator-query.spec.ts > should filter by regex with quotes",
+      "method": "Page.locator",
+      "evidence": "Assertions verify regular expressions containing quotes filter correctly."
+    },
+    {
+      "id": "locator-query.spec.ts > should filter by regex with special symbols",
+      "method": "Page.locator",
+      "evidence": "Assertions verify special regular-expression symbols are serialized and matched correctly."
+    },
+    {
+      "id": "locator-query.spec.ts > should filter by text",
+      "method": "Page.locator",
+      "evidence": "Assertions verify hasText filtering selects the expected locator."
+    },
+    {
+      "id": "locator-query.spec.ts > should filter by text 2",
+      "method": "Page.locator",
+      "evidence": "Assertions verify hasText filtering across multiple matches."
+    },
+    {
+      "id": "locator-query.spec.ts > should filter by text with quotes",
+      "method": "Page.locator",
+      "evidence": "Assertions verify quoted text is serialized and filtered correctly."
+    },
+    {
+      "id": "locator-query.spec.ts > should respect first() and last() @smoke",
+      "method": "Locator.first",
+      "evidence": "Assertions count descendants of the first and last matching div as 1 and 3; unfiltered counts are 6."
+    },
+    {
+      "id": "locator-query.spec.ts > should respect nth()",
+      "method": "Locator.nth",
+      "evidence": "Assertions count descendants of indices 1 and 2 as 2 and 3, and the first paragraph as 1."
+    },
+    {
+      "id": "locator-query.spec.ts > should support has:locator",
+      "method": "Locator._expect",
+      "evidence": "Locator._expect verifies the expected counts for has locators, while exact outerHTML assertions identify the world, hello, and partial-text matches."
+    },
+    {
+      "id": "locator-query.spec.ts > should support locator.and",
+      "method": "Locator.and",
+      "evidence": "Locator.and intersections return the asserted counts and exact hello, world, and world2 texts."
+    },
+    {
+      "id": "locator-query.spec.ts > should support locator.filter",
+      "method": "Locator.filter",
+      "evidence": "Locator.filter returns the asserted 0, 1, and 2 match counts for hasText, has, hasNot, and hasNotText combinations."
+    },
+    {
+      "id": "locator-query.spec.ts > should support locator.locator with and/or",
+      "method": "Locator.locator",
+      "evidence": "Locator.locator compositions with and and or return the asserted exact text arrays for nested buttons and spans."
+    },
+    {
+      "id": "locator-query.spec.ts > should support locator.or",
+      "method": "Locator.or",
+      "evidence": "Locator.or returns the asserted counts and exact text results for matching and missing div, span, and article locators."
+    },
+    {
+      "id": "locator-query.spec.ts > should throw on capture w/ nth()",
+      "method": "Locator.click",
+      "evidence": "The click rejects an out-of-range nth target with the expected selector query error."
+    },
+    {
+      "id": "locator-query.spec.ts > should throw on due to strictness",
+      "method": "Locator.isVisible",
+      "evidence": "The unchanged assertion verifies Locator.isVisible rejects a multi-match selector with strict-mode diagnostics."
+    },
+    {
+      "id": "locator-query.spec.ts > should throw on due to strictness 2",
+      "method": "Locator.evaluate",
+      "evidence": "The unchanged assertion verifies Locator.evaluate rejects a multi-match selector with strict-mode diagnostics."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > emit generic roles for nodes w/o roles",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify emit generic roles for nodes w/o roles through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > return empty snapshot when iframe is not loaded",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Asserts current-document AI ARIA contains an unloaded iframe placeholder without children; no frame traversal."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should auto-wait for blocking CSS",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Unchanged assertion verifies ariaSnapshot waits for a parser-blocking external resource and contains markup parsed after that resource."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should collapse generic nodes",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should collapse generic nodes through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should collapse inline generic nodes",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should collapse inline generic nodes through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should generate refs",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should generate refs through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should gracefully fallback when child frame cant be captured",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Unchanged YAML assertion verifies current-document content and an iframe placeholder remain visible when child-frame capture is unavailable."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should include active element information",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should include active element information through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should include cursor pointer hint",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should include cursor pointer hint through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should inline a deeply nested generic",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should inline a deeply nested generic through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should inline single leaf generic child into parent generic",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should inline single leaf generic child into parent generic through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should keep icon-only clickable elements",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should keep icon-only clickable elements through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should keep names not derived from printed nodes",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should keep names not derived from printed nodes through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should keep the name when the contributing wrapper collapses into repeating text",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should keep the name when the contributing wrapper collapses into repeating text through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should limit depth",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should limit depth through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should not distill snapshots outside of ai mode",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should not distill snapshots outside of ai mode through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should not generate refs for elements with pointer-events:none",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should not generate refs for elements with pointer-events:none through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should not nest cursor pointer hints",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should not nest cursor pointer hints through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should not remove generic nodes with title",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should not remove generic nodes with title through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should omit a nameless image nested inside a link",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should omit a nameless image nested inside a link through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should omit images without an accessible name",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should omit images without an accessible name through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should omit leaf generic whose text is already in an ancestor name",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should omit leaf generic whose text is already in an ancestor name through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should omit name-repeating generic behind a wrapper",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should omit name-repeating generic behind a wrapper through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should omit names that just repeat printed descendant nodes",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should omit names that just repeat printed descendant nodes through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should omit redundant name when a contributing wrapper is collapsed",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should omit redundant name when a contributing wrapper is collapsed through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should omit redundant name when a contributor is a skipped leaf generic",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should omit redundant name when a contributor is a skipped leaf generic through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should resolve refs of distilled-away nodes",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should resolve refs of distilled-away nodes through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should show visible children of hidden elements",
+      "method": "Page.ariaSnapshot",
+      "evidence": "The unchanged exact snapshot assertion verifies browser-side ARIA capture preserves visible descendants of a hidden container."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should truncate data url in link",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should truncate data url in link through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot-ai.spec.ts > should update active element on focus",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Two Page.ariaSnapshot calls return the expected initial and post-focus YAML, with the second input becoming the active textbox after Locator.focus."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > auto-waits the locator and does not include iframes",
+      "method": "Locator.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify auto-waits the locator and does not include iframes through Locator.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > check aria-hidden text",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify check aria-hidden text through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > match values both against regex and string",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify match values both against regex and string through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should allow text nodes",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should allow text nodes through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should be ok with circular ownership",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should be ok with circular ownership through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should concatenate div text with spaces",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should concatenate div text with spaces through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should concatenate span text",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should concatenate span text through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should concatenate span text 2",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should concatenate span text 2 through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should escape special yaml characters",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should escape special yaml characters through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should escape special yaml values",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should escape special yaml values through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should escape yaml text in text nodes",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should escape yaml text in text nodes through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should handle long strings",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should handle long strings through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should ignore presentation and none roles",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should ignore presentation and none roles through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should include new line for block pseudo",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should include new line for block pseudo through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should include pseudo in text",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should include pseudo in text through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should limit depth",
+      "method": "Locator.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should limit depth through Locator.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should normalize whitespace",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should normalize whitespace through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should not include box when option is omitted",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should not include box when option is omitted through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should not include hidden pseudo in text",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should not include hidden pseudo in text through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should not report textarea textContent",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should not report textarea textContent through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should not show unhidden children of aria-hidden elements",
+      "method": "Locator.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should not show unhidden children of aria-hidden elements through Locator.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should not show visible children of hidden elements",
+      "method": "Locator.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should not show visible children of hidden elements through Locator.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should not use on as checkbox value",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should not use on as checkbox value through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should respect aria-owns",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should respect aria-owns through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should snapshot",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should snapshot complex",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot complex through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should snapshot details visibility",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot details visibility through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should snapshot inner text",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot inner text through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should snapshot integration",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot integration through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should snapshot list",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot list through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should snapshot list with accessible name",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot list with accessible name through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should snapshot placeholder when different from the name",
+      "method": "Locator.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should snapshot placeholder when different from the name through Locator.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should snapshot with box from locator",
+      "method": "Locator.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should snapshot with box from locator through Locator.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should snapshot with box from page",
+      "method": "Page.ariaSnapshot",
+      "evidence": "Exact upstream snapshot assertions verify should snapshot with box from page through Page.ariaSnapshot."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should support multiline text",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should support multiline text through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should treat input value as text in templates, but not for checkbox/radio/file",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should treat input value as text in templates, but not for checkbox/radio/file through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should work with slots",
+      "method": "Locator._expect",
+      "evidence": "The unchanged upstream ARIA assertions verify should work with slots through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-basic.spec.ts > has navigator.webdriver set to true",
+      "method": "Page.evaluate",
+      "evidence": "Assertion verifies an adapter-routed browser callback returns the expected boolean; it does not claim ownership of navigator.webdriver semantics."
+    },
+    {
+      "id": "page-basic.spec.ts > should have sane user agent",
+      "method": "Page.evaluate",
+      "evidence": "Assertions verify adapter-routed browser callback and string return transport while validating the browser-provided user-agent shape."
+    },
+    {
+      "id": "page-check.spec.ts > should check radio",
+      "method": "Page.check",
+      "evidence": "Checks the selected native radio and asserts its checked property."
+    },
+    {
+      "id": "page-check.spec.ts > should check radio by aria role",
+      "method": "Page.check",
+      "evidence": "A click listener on an ARIA radio updates aria-checked and the assertion observes true."
+    },
+    {
+      "id": "page-check.spec.ts > should check the box @smoke",
+      "method": "Page.check",
+      "evidence": "Checks an initially unchecked native checkbox and asserts its checked property is true."
+    },
+    {
+      "id": "page-check.spec.ts > should check the box by aria role",
+      "method": "Page.check",
+      "evidence": "For all seven upstream checked-state roles, browser clicks trigger the listener and aria-checked becomes true."
+    },
+    {
+      "id": "page-check.spec.ts > should check the box inside a button",
+      "method": "ElementHandle.isChecked",
+      "evidence": "Asserts nested checkbox state through evaluation, Page.isChecked and fixed ElementHandle.isChecked."
+    },
+    {
+      "id": "page-check.spec.ts > should check the box using setChecked",
+      "method": "Page.setChecked",
+      "evidence": "Sets a native checkbox true then false and asserts both resulting states."
+    },
+    {
+      "id": "page-check.spec.ts > should check the label with position",
+      "method": "Page.check",
+      "evidence": "Uses handle geometry to click the non-link portion of a label at a position and asserts the associated checkbox is checked."
+    },
+    {
+      "id": "page-check.spec.ts > should not check the checked box",
+      "method": "Page.check",
+      "evidence": "Checking an already checked native checkbox preserves its checked state."
+    },
+    {
+      "id": "page-check.spec.ts > should not uncheck the unchecked box",
+      "method": "Page.uncheck",
+      "evidence": "Unchecking an already unchecked checkbox preserves its unchecked state."
+    },
+    {
+      "id": "page-check.spec.ts > should throw when not a checkbox",
+      "method": "Page.check",
+      "evidence": "The entered browser check operation rejects an ordinary div with the pinned non-checkbox error."
+    },
+    {
+      "id": "page-check.spec.ts > should throw when not a checkbox 2",
+      "method": "Page.check",
+      "evidence": "The entered browser check operation rejects a role=button div with the pinned non-checkbox error."
+    },
+    {
+      "id": "page-check.spec.ts > should throw when trying to uncheck radio button",
+      "method": "Page.uncheck",
+      "evidence": "The entered uncheck operation rejects unchecking a checked native radio with the expected semantic error."
+    },
+    {
+      "id": "page-check.spec.ts > should uncheck radio by aria role",
+      "method": "Page.uncheck",
+      "evidence": "An ARIA radio click listener updates aria-checked and the assertion observes false."
+    },
+    {
+      "id": "page-check.spec.ts > should uncheck the box",
+      "method": "Page.uncheck",
+      "evidence": "Unchecks a checked native checkbox and asserts its checked property is false."
+    },
+    {
+      "id": "page-check.spec.ts > should uncheck the box by aria role",
+      "method": "Page.uncheck",
+      "evidence": "For all seven upstream checked-state roles, browser clicks trigger the listener and aria-checked becomes false."
+    },
+    {
+      "id": "page-check.spec.ts > trial run should not check",
+      "method": "Page.check",
+      "evidence": "Asserts an unchecked input stays unchecked after trial actionability checks."
+    },
+    {
+      "id": "page-check.spec.ts > trial run should not uncheck",
+      "method": "Page.uncheck",
+      "evidence": "Asserts a checked input stays checked after trial actionability checks."
+    },
+    {
+      "id": "page-fill.spec.ts > fill back to back",
+      "method": "Page.fill",
+      "evidence": "Consecutive fills on distinct inputs produce the two independently asserted values."
+    },
+    {
+      "id": "page-fill.spec.ts > should be able to fill exponent into the input[type=number]",
+      "method": "Page.fill",
+      "evidence": "Fills a numeric input with -10e5 and asserts that exact exponent representation."
+    },
+    {
+      "id": "page-fill.spec.ts > should be able to fill input[type=number] with empty string",
+      "method": "Page.fill",
+      "evidence": "Clears a numeric input initially containing 123 and asserts an empty value."
+    },
+    {
+      "id": "page-fill.spec.ts > should be able to fill the body",
+      "method": "Page.fill",
+      "evidence": "Fills a contenteditable body and asserts its resulting text content."
+    },
+    {
+      "id": "page-fill.spec.ts > should be able to fill the input[type=number]",
+      "method": "Page.fill",
+      "evidence": "Fills a numeric input with 42 and asserts the resulting numeric string."
+    },
+    {
+      "id": "page-fill.spec.ts > should be able to fill when focus is in the wrong frame",
+      "method": "Page.fill",
+      "evidence": "Asserts current-document text after focusing an iframe element; no iframe interior execution."
+    },
+    {
+      "id": "page-fill.spec.ts > should fill color input",
+      "method": "Page.fill",
+      "evidence": "Fills a color input and asserts the new color value."
+    },
+    {
+      "id": "page-fill.spec.ts > should fill color input case insensitive",
+      "method": "Page.fill",
+      "evidence": "Fills mixed-case color text and asserts the normalized lowercase value in Chromium."
+    },
+    {
+      "id": "page-fill.spec.ts > should fill contenteditable with focus handler that collapses selection",
+      "method": "Page.fill",
+      "evidence": "Fills an existing contenteditable despite its focus listener collapsing selection and asserts replacement text."
+    },
+    {
+      "id": "page-fill.spec.ts > should fill date input after clicking",
+      "method": "Page.fill",
+      "evidence": "Clicks then fills a date control and asserts its date value."
+    },
+    {
+      "id": "page-fill.spec.ts > should fill datetime-local input",
+      "method": "Page.fill",
+      "evidence": "Fills a datetime-local control and asserts its exact local date and time."
+    },
+    {
+      "id": "page-fill.spec.ts > should fill fixed position input",
+      "method": "Page.fill",
+      "evidence": "Fills a fixed-position input and asserts its value."
+    },
+    {
+      "id": "page-fill.spec.ts > should fill month input",
+      "method": "Page.fill",
+      "evidence": "Fills a month control and asserts 2020-07."
+    },
+    {
+      "id": "page-fill.spec.ts > should fill range input",
+      "method": "Page.fill",
+      "evidence": "Fills the range input and asserts the resulting value is 42."
+    },
+    {
+      "id": "page-fill.spec.ts > should fill time input",
+      "method": "Page.fill",
+      "evidence": "Fills a time control and asserts 13:15."
+    },
+    {
+      "id": "page-fill.spec.ts > should fill week input",
+      "method": "Page.fill",
+      "evidence": "Fills a week control and asserts 2020-W50."
+    },
+    {
+      "id": "page-fill.spec.ts > should not be able to fill text into the input[type=number]",
+      "method": "Page.fill",
+      "evidence": "The entered fill operation rejects abc using the pinned numeric validation error."
+    },
+    {
+      "id": "page-fill.spec.ts > should not double-fill in contenteditable with beforeinput handler in Firefox",
+      "method": "Locator.fill",
+      "evidence": "In the configured Chromium run, filling the contenteditable yields exactly Playwright, not duplicate text; this assertion does not certify beforeinput delivery."
+    },
+    {
+      "id": "page-fill.spec.ts > should throw on incorrect color value",
+      "method": "Page.fill",
+      "evidence": "The entered fill operation rejects invalid color text as malformed."
+    },
+    {
+      "id": "page-fill.spec.ts > should throw on incorrect date",
+      "method": "Page.fill",
+      "evidence": "The entered fill operation rejects an invalid month in a date value."
+    },
+    {
+      "id": "page-fill.spec.ts > should throw on incorrect datetime-local",
+      "method": "Page.fill",
+      "evidence": "The entered fill operation rejects non-date text as malformed."
+    },
+    {
+      "id": "page-fill.spec.ts > should throw on incorrect month",
+      "method": "Page.fill",
+      "evidence": "The entered fill operation rejects month 13 as malformed."
+    },
+    {
+      "id": "page-fill.spec.ts > should throw on incorrect range value",
+      "method": "Page.fill",
+      "evidence": "All three entered fills reject nonnumeric, out-of-range and step-incompatible values as malformed."
+    },
+    {
+      "id": "page-fill.spec.ts > should throw on incorrect time",
+      "method": "Page.fill",
+      "evidence": "The entered fill operation rejects hour 25 as malformed."
+    },
+    {
+      "id": "page-fill.spec.ts > should throw on incorrect week",
+      "method": "Page.fill",
+      "evidence": "The entered fill operation rejects an invalid week representation."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should throw on unknown keys",
+      "method": "Keyboard.press",
+      "evidence": "Three invalid keys reach browser Keyboard.press/down and are rejected with the exact unknown-key names asserted by the unchanged test. No native calls or transport failures."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should type into a textarea @smoke",
+      "method": "Keyboard.type",
+      "evidence": "Browser Page.evaluate creates and focuses a textarea; Keyboard.type enters the browser implementation and the final value equals the full requested string. No native calls or transport failures."
+    },
+    {
+      "id": "page-set-input-files.spec.ts > should set from memory",
+      "method": "Page.setInputFiles",
+      "evidence": "Native setContent installs an input; adapter Page.setInputFiles assigns an in-memory payload. Adapter $eval assertions verify one selected file named test.txt, with no transport failures or native upload calls."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should accept a string",
+      "method": "Page.waitForFunction",
+      "evidence": "The string predicate remains pending until adapter evaluate changes its observed value, then resolves."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should accept ElementHandle arguments",
+      "method": "Page.waitForFunction",
+      "evidence": "The predicate remains pending while the retained element has a parent and completes after Page.evaluate removes that same element."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should disable timeout when its set to 0",
+      "method": "Page.waitForFunction",
+      "evidence": "The watchdog remains active across repeated polling with timeout zero and resolves after the browser condition changes."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should fail with predicate throwing on first call",
+      "method": "Page.waitForFunction",
+      "evidence": "A predicate error on its first invocation propagates with its original message."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should fail with predicate throwing sometimes",
+      "method": "Page.waitForFunction",
+      "evidence": "A predicate error from a later polling iteration terminates polling and propagates."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should fail with ReferenceError on wrong page",
+      "method": "Page.waitForFunction",
+      "evidence": "A browser-context ReferenceError propagates with the missing identifier."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should poll on interval",
+      "method": "Page.waitForFunction",
+      "evidence": "The unchanged upstream assertion verifies interval polling waits at least the requested duration through browser-side Page.waitForFunction execution."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should poll on raf",
+      "method": "Page.waitForFunction",
+      "evidence": "The RAF polling form remains pending until an adapter-routed mutation and then resolves."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should respect default timeout",
+      "method": "Page.waitForFunction",
+      "evidence": "The unchanged assertions verify the configured default timeout produces Playwright TimeoutError identity and the exact timeout message."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should respect timeout",
+      "method": "Page.waitForFunction",
+      "evidence": "The unchanged assertions verify an explicit timeout produces Playwright TimeoutError identity and the exact timeout message."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should return the success value as a JSHandle",
+      "method": "Page.waitForFunction",
+      "evidence": "The returned handle preserves the predicate value through jsonValue()."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should return the window as a success value",
+      "method": "Page.waitForFunction",
+      "evidence": "Page.waitForFunction(() => window) returns a truthy adapter value; the assertion does not verify Window identity."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should throw negative polling interval",
+      "method": "Page.waitForFunction",
+      "evidence": "A non-positive numeric polling interval rejects with the expected error."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should throw on bad polling value",
+      "method": "Page.waitForFunction",
+      "evidence": "An invalid string polling option rejects and identifies polling in the error."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should throw on polling:mutation",
+      "method": "Page.waitForFunction",
+      "evidence": "The method rejects the unsupported mutation polling strategy with the expected error."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should timeout",
+      "method": "Page.waitForTimeout",
+      "evidence": "Elapsed-time assertion verifies Page.waitForTimeout waits for at least half the requested interval."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should wait for predicate with arguments",
+      "method": "Page.waitForFunction",
+      "evidence": "The predicate resolves only when the serialized argument object reaches the browser callback with both expected values."
+    },
+    {
+      "id": "page-wait-for-function.spec.ts > should work with multiline body",
+      "method": "Page.waitForFunction",
+      "evidence": "A multiline string expression resolves and its handle returns true."
+    },
+    {
+      "id": "retarget.spec.ts > check retargeting",
+      "method": "Locator.isChecked",
+      "evidence": "Across six label and control cases, Locator.isChecked observes false then true after direct mutation; uncheck, check, and setChecked(false) drive the input to false, true, then false."
+    },
+    {
+      "id": "retarget.spec.ts > direct actions retargeting",
+      "method": "Locator.innerText",
+      "evidence": "Across six DOM arrangements, Locator.innerText returns 'content'; the same div locator passes text, focus, count, JS-property, class, id, and attribute assertions after mutations."
+    },
+    {
+      "id": "retarget.spec.ts > editable retargeting",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "Explicit editable assertions and handle editable waits agree across label, readonly control and contenteditable cases."
+    },
+    {
+      "id": "retarget.spec.ts > element state checks should work as expected for label with zero-sized input",
+      "method": "Page.isVisible",
+      "evidence": "For a visible label wrapping a disabled zero-sized input, Page.isVisible and Page.isHidden report true and false for the label, while enabled and disabled checks report false and true for the input."
+    },
+    {
+      "id": "retarget.spec.ts > enabled/disabled retargeting",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "Explicit enabled and disabled assertions agree with label/control and fieldset retargeting; handle state waits complete for the corresponding state."
+    },
+    {
+      "id": "retarget.spec.ts > input value retargeting",
+      "method": "ElementHandle.inputValue",
+      "evidence": "Locator and retained handle report the associated control value before and after fills through labels, and selectText selects the resulting text."
+    },
+    {
+      "id": "retarget.spec.ts > select options retargeting",
+      "method": "ElementHandle.inputValue",
+      "evidence": "The handle reports the selected value changing from dog to cat after selectOption on the label-associated select."
+    },
+    {
+      "id": "retarget.spec.ts > selection retargeting",
+      "method": "ElementHandle.isEditable",
+      "evidence": "The retained handle reports editability and filling/selecting the contenteditable target produces the explicitly asserted value and selection."
+    },
+    {
+      "id": "retarget.spec.ts > should check the box outside shadow dom label",
+      "method": "Page.check",
+      "evidence": "Page.check('label') checks the checkbox associated with that label inside an open shadow root."
+    },
+    {
+      "id": "retarget.spec.ts > should not retarget anchor into parent label",
+      "method": "Locator.click",
+      "evidence": "Clicking an anchor inside disabled label arrangements invokes the anchor in both cases."
+    },
+    {
+      "id": "retarget.spec.ts > should wait for enclosing button with a disabled fieldset",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "The enabled-state wait remains pending while the enclosing fieldset is disabled and completes after enabling the fieldset."
+    },
+    {
+      "id": "retarget.spec.ts > should wait for enclosing disabled button",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "A disabled-state wait remains pending while the enclosing button is enabled and completes after its disabled mutation."
+    },
+    {
+      "id": "retarget.spec.ts > should wait for enclosing enabled button",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "An enabled-state wait remains pending for the disabled enclosing button and completes after enabling it."
+    },
+    {
+      "id": "retarget.spec.ts > visible/hidden retargeting",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "Explicit visibility assertions and handle state waits distinguish the tested label/control and hidden-parent cases."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getBy escaping",
+      "method": "Page.getByText",
+      "evidence": "Assertions verify escaping across the browser adapter's getBy locator factories."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByAltText should work",
+      "method": "Page.getByAltText",
+      "evidence": "Assertions verify case-insensitive, exact, and regex matching plus page, mainFrame, and nested locator forms."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByLabel should ignore empty aria-label",
+      "method": "Page.getByLabel",
+      "evidence": "The assertion verifies an empty aria-label does not mask the native label."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByLabel should prioritize aria-labelledby over aria-label",
+      "method": "Page.getByLabel",
+      "evidence": "The assertion verifies aria-labelledby takes precedence over aria-label."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByLabel should prioritize aria-labelledby over native label",
+      "method": "Page.getByLabel",
+      "evidence": "The assertion verifies aria-labelledby takes precedence over an ancestor native label."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByLabel should work",
+      "method": "Page.getByLabel",
+      "evidence": "Assertions distinguish text from label-target resolution and verify page, mainFrame, and nested locator forms."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByLabel should work with ancestor label and for",
+      "method": "Page.getByLabel",
+      "evidence": "The assertion verifies an explicit for association takes precedence over a nested control."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByLabel should work with ancestor label and multiple controls",
+      "method": "Page.getByLabel",
+      "evidence": "The assertion verifies ancestor-label resolution selects the first labelable control."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByLabel should work with aria-label",
+      "method": "Page.getByLabel",
+      "evidence": "The assertion verifies aria-label resolves the expected input."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByLabel should work with aria-labelledby",
+      "method": "Page.getByLabel",
+      "evidence": "The assertion verifies aria-labelledby resolves the labelled control."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByLabel should work with multiply-labelled input",
+      "method": "Page.getByLabel",
+      "evidence": "Assertions verify either associated label resolves the same input."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByLabel should work with nested elements",
+      "method": "Locator.elementHandles",
+      "evidence": "Nested label queries assert the target ID while exact and case-sensitive nonmatches return empty handle arrays."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByPlaceholder should work",
+      "method": "Page.getByPlaceholder",
+      "evidence": "Assertions verify case-insensitive, exact, and regex matching plus page, mainFrame, and nested locator forms."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByRole escaping",
+      "method": "Page.getByRole",
+      "evidence": "Assertions verify role selector escaping returns the exact expected elements."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByRole should accept regexp with v flag",
+      "method": "Page.getByRole",
+      "evidence": "Assertions verify a v-flag regular expression is accepted and matches the expected roles."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByRole with description",
+      "method": "Page.getByRole",
+      "evidence": "Assertions verify role description filtering returns the expected element."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByRole with description via aria-describedby",
+      "method": "Page.getByRole",
+      "evidence": "Assertions verify aria-describedby contributes the expected accessible description."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByRole with description via title fallback",
+      "method": "Page.getByRole",
+      "evidence": "Assertions verify title supplies the expected fallback description."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByRole with description whitespace normalization",
+      "method": "Page.getByRole",
+      "evidence": "Assertions verify accessible-description whitespace normalization."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByTestId should escape id",
+      "method": "Page.getByTestId",
+      "evidence": "The assertion verifies a quoted test id is escaped and resolves the expected element."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByTestId should work",
+      "method": "Page.getByTestId",
+      "evidence": "Assertions verify page, single-document mainFrame, and nested locator factories resolve the expected test-id element."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByTestId should work for regex",
+      "method": "Page.getByTestId",
+      "evidence": "Assertions verify regex test-id matching and page, mainFrame, and nested locator factory behavior."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByTestId with comma-separated testIdAttributes should match any",
+      "method": "Page.getByTestId",
+      "evidence": "Unchanged count and text assertions verify comma-separated configured test-id attributes across Page and nested Locator queries."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByTestId with custom testId should work",
+      "method": "Page.getByTestId",
+      "evidence": "Unchanged text assertions verify a custom configured test-id attribute across Page and nested Locator queries."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByText should work",
+      "method": "Page.getByText",
+      "evidence": "Assertions verify string and regex text matching, whitespace normalization, exact matching, and first composition."
+    },
+    {
+      "id": "selectors-get-by.spec.ts > getByTitle should work",
+      "method": "Page.getByTitle",
+      "evidence": "Assertions verify case-insensitive, exact, and regex matching plus page, mainFrame, and nested locator forms."
+    },
+    {
+      "id": "selectors-misc.spec.ts > chaining should work with large DOM @smoke",
+      "method": "Page.$$eval",
+      "evidence": "Upstream assertions verify chaining should work with large DOM @smoke through browser-side Page.$$eval selector evaluation."
+    },
+    {
+      "id": "selectors-misc.spec.ts > data-testid on the handle should be relative",
+      "method": "ElementHandle.$eval",
+      "evidence": "The same data-testid selector returns target2 within the retained element and target1 at document scope."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should escape the scope with >>",
+      "method": "Page.$eval",
+      "evidence": "Upstream assertions verify should escape the scope with >> through browser-side Page.$eval selector evaluation."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should print original xpath in error",
+      "method": "Locator.isVisible",
+      "evidence": "The unchanged assertions verify implicit XPath diagnostics retain the caller original expression and omit the transformed form."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should work with :nth-match",
+      "method": "Page.waitForSelector",
+      "evidence": "Indexed queries assert IDs and invalid-index errors; a pending wait returns the asserted third element after insertion."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should work with :visible",
+      "method": "Page.waitForSelector",
+      "evidence": "Visibility-filtered queries initially return null, the wait times out while hidden, then resolves to the asserted element ID after it becomes visible."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should work with >> visible=",
+      "method": "Page.waitForSelector",
+      "evidence": "The visible engine rejects hidden matches and the pending wait returns the asserted newly visible target."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should work with >> visible=false",
+      "method": "Locator._expect",
+      "evidence": "Assertions verify hidden matching before and after an adapter-routed locator callback mutation."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should work with internal:and=",
+      "method": "Page.$$eval",
+      "evidence": "Upstream assertions verify should work with internal:and= through browser-side Page.$$eval selector evaluation."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should work with internal:chain=",
+      "method": "Page.$$eval",
+      "evidence": "Upstream assertions verify should work with internal:chain= through browser-side Page.$$eval selector evaluation."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should work with internal:has-not=",
+      "method": "Page.$$eval",
+      "evidence": "Upstream assertions verify should work with internal:has-not= through browser-side Page.$$eval selector evaluation."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should work with internal:or=",
+      "method": "Page.$$eval",
+      "evidence": "Upstream assertions verify should work with internal:or= through browser-side Page.$$eval selector evaluation."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should work with layout selectors",
+      "method": "Page.$",
+      "evidence": "Spatial selectors assert exact matching IDs, null nonmatches, and invalid distance errors against the arranged layout."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should work with nth=",
+      "method": "Page.waitForSelector",
+      "evidence": "Positive and negative index queries assert IDs and a pending indexed wait returns the asserted inserted element."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should work with pipe in xpath",
+      "method": "Page.waitForSelector",
+      "evidence": "Union XPath queries assert result counts and waitForSelector returns the asserted first matching target before a click assertion."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should work with strict mode and chaining",
+      "method": "Locator.textContent",
+      "evidence": "Assertion verifies a uniquely resolving chained selector returns the expected text through Locator.textContent; it does not claim strict-violation coverage."
+    },
+    {
+      "id": "selectors-misc.spec.ts > xpath should be relative",
+      "method": "ElementHandle.$eval",
+      "evidence": "XPath queries rooted in a retained element return target2 while the document query returns target1."
+    },
+    {
+      "id": "selectors-text.spec.ts > hasText and internal:text should match full node text in strict mode",
+      "method": "Page.getByText",
+      "evidence": "Assertions verify strict getByText and hasText selectors use full normalized node text across nested elements."
+    },
+    {
+      "id": "selectors-text.spec.ts > should be case sensitive if quotes are specified",
+      "method": "Page.$",
+      "evidence": "Quoted selectors assert the case-matching element and null for the wrong case."
+    },
+    {
+      "id": "selectors-text.spec.ts > should clear caches",
+      "method": "ElementHandle.evaluate",
+      "evidence": "Mutations through the retained handle are reflected in subsequent explicitly asserted text query results and counts."
+    },
+    {
+      "id": "selectors-text.spec.ts > should match input[type=button|submit|reset]",
+      "method": "Page.$eval",
+      "evidence": "Upstream assertions verify should match input[type=button|submit|reset] through browser-side Page.$eval selector evaluation."
+    },
+    {
+      "id": "selectors-text.spec.ts > should match root after >>",
+      "method": "Page.$",
+      "evidence": "Both chained selectors return non-null handles when the scoped root itself matches."
+    },
+    {
+      "id": "selectors-text.spec.ts > should match root after >> with *",
+      "method": "Page.$$eval",
+      "evidence": "Upstream assertions verify should match root after >> with * through browser-side Page.$$eval selector evaluation."
+    },
+    {
+      "id": "selectors-text.spec.ts > should prioritize light dom over shadow dom in the same parent",
+      "method": "Page.$eval",
+      "evidence": "Upstream assertions verify should prioritize light dom over shadow dom in the same parent through browser-side Page.$eval selector evaluation."
+    },
+    {
+      "id": "selectors-text.spec.ts > should search for a substring without quotes",
+      "method": "Page.$",
+      "evidence": "Unquoted substring selectors assert matched markup and null for absent text."
+    },
+    {
+      "id": "selectors-text.spec.ts > should skip head, script and style",
+      "method": "ElementHandle.$",
+      "evidence": "Queries from retained head/title/script/style roots assert null and empty arrays for excluded text while document queries assert the visible body match."
+    },
+    {
+      "id": "selectors-text.spec.ts > should support empty string",
+      "method": "Page.$eval",
+      "evidence": "Upstream assertions verify should support empty string through browser-side Page.$eval selector evaluation."
+    },
+    {
+      "id": "selectors-text.spec.ts > should waitForSelector with distributed elements",
+      "method": "Page.waitForSelector",
+      "evidence": "The pending selector wait resolves after same-document shadow/slot insertion and the returned handle textContent equals Hello from light."
+    },
+    {
+      "id": "selectors-text.spec.ts > should work @smoke",
+      "method": "Page.$",
+      "evidence": "Text-engine queries assert exact outerHTML, null nonmatches, and handle-array lengths."
+    },
+    {
+      "id": "selectors-text.spec.ts > should work across nodes",
+      "method": "Page.$",
+      "evidence": "Text spanning child nodes is matched with asserted markup and counts; nonmatching exact text returns null."
+    },
+    {
+      "id": "selectors-text.spec.ts > should work with :has-text",
+      "method": "Page.$",
+      "evidence": "Substring ancestor queries assert selected markup and counts; nonmatches and invalid selector shapes are checked."
+    },
+    {
+      "id": "selectors-text.spec.ts > should work with :text",
+      "method": "Page.$",
+      "evidence": "Text pseudo-selector queries assert matched markup and null nonmatches across exact and substring forms."
+    },
+    {
+      "id": "selectors-text.spec.ts > should work with large DOM",
+      "method": "Page.$$eval",
+      "evidence": "Upstream assertions verify should work with large DOM through browser-side Page.$$eval selector evaluation."
+    },
+    {
+      "id": "selectors-text.spec.ts > should work with leading and trailing spaces",
+      "method": "Locator._expect",
+      "evidence": "Assertions verify text selectors with leading and trailing spaces remain visible."
+    },
+    {
+      "id": "selectors-text.spec.ts > should work with paired quotes in the middle of selector",
+      "method": "Locator.isVisible",
+      "evidence": "Locator.isVisible resolves all three paired-quote selector forms to the div, and the matching visibility assertions also pass."
+    },
+    {
+      "id": "selectors-text.spec.ts > should work with text nodes in quoted mode",
+      "method": "Page.$",
+      "evidence": "Quoted text queries assert exact matches and null nonmatches across separate text nodes."
+    },
+    {
+      "id": "selectors-text.spec.ts > should work with unpaired quotes when not at the start",
+      "method": "Page.$",
+      "evidence": "Unpaired quote text queries assert exact markup, locator matches, and null nonmatches."
+    },
+    {
+      "id": "selectors-text.spec.ts > text-is() should ignore comments",
+      "method": "Page.$eval",
+      "evidence": "Upstream assertions verify text-is() should ignore comments through browser-side Page.$eval selector evaluation."
+    }
+  ]
+}

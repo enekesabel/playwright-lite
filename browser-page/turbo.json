@@ -1,0 +1,10 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "dependsOn": ["build"],
+      "passThroughEnv": ["PLAYWRIGHT_BROWSERS_PATH"]
+    }
+  },
+  "tags": ["core"]
+}
