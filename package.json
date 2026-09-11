@@ -46,7 +46,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:package": "node scripts/packed-consumer.mjs",
-    "check": "pnpm build && pnpm lint && pnpm typecheck && pnpm upstream:check && pnpm test && pnpm test:e2e && pnpm test:package && pnpm format:check"
+    "check": "pnpm build && pnpm lint && pnpm typecheck && pnpm upstream:check && pnpm test && pnpm test:evaluation && pnpm test:e2e && pnpm test:package && pnpm format:check",
+    "test:evaluation": "node scripts/evaluation-parity.mjs"
   },
   "peerDependencies": {
     "@playwright/test": ">=1.62.1 <1.63.0"

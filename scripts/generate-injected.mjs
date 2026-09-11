@@ -63,6 +63,21 @@ try {
   }).trim();
   assert.equal(revision, corpus.source.commit);
   const require = createRequire(import.meta.url);
+  const { buildSync } = require("esbuild");
+  const protocol = buildSync({
+    entryPoints: [resolve(checkout, "packages/protocol/src/serializers.ts")],
+    absWorkingDir: checkout,
+    bundle: true,
+    write: false,
+    format: "cjs",
+    platform: "browser",
+    target: "es2019",
+    legalComments: "inline",
+  }).outputFiles[0].text;
+  output(
+    "build/generated/protocolSerializerSource.ts",
+    `export const source = ${JSON.stringify(protocol)};`
+  );
   const modules = resolve(
     dirname(require.resolve("esbuild/package.json")),
     ".."
@@ -83,6 +98,16 @@ try {
     )
   );
   output("build/generated/injectedScriptSource.ts", artifact);
+  const utility = readFileSync(
+    resolve(
+      checkout,
+      "packages/playwright-core/src/generated/utilityScriptSource.ts"
+    )
+  );
+  output("build/generated/utilityScriptSource.ts", utility);
+  console.log(
+    `UtilityScript: ${utility.byteLength} bytes, sha256 ${createHash("sha256").update(utility).digest("hex")}`
+  );
   console.log(
     `InjectedScript: ${artifact.byteLength} bytes, sha256 ${createHash("sha256").update(artifact).digest("hex")}`
   );

@@ -1,3 +1,5 @@
+import { assertMaxArguments } from "./evaluation";
+import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import type {
   AriaSnapshotOptions,
   PointerActionOptions,
@@ -375,13 +377,12 @@ export class LocatorImpl {
     return this.ownerPage.expect(this.selector, expression, options);
   }
 
-  async evaluate(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    pageFunction: (element: Element, arg?: unknown) => any,
+  async evaluate<R>(
+    pageFunction: EvaluationFunction<R>,
     arg?: unknown,
-    options?: LocatorQueryOptions
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<any> {
+    options?: LocatorQueryOptions & EvaluationOptions
+  ): Promise<R> {
+    assertMaxArguments(arguments.length, 3);
     return this.ownerPage.locatorEvaluate(
       this.selector,
       this.label,
@@ -391,13 +392,12 @@ export class LocatorImpl {
     );
   }
 
-  async evaluateAll(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    pageFunction: (elements: Element[], arg?: unknown) => any,
+  async evaluateAll<R>(
+    pageFunction: EvaluationFunction<R>,
     arg?: unknown
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<any> {
-    return await pageFunction(this.ownerPage.resolveAll(this.selector), arg);
+  ): Promise<R> {
+    assertMaxArguments(arguments.length, 2);
+    return this.ownerPage.$$eval(this.selector, pageFunction, arg);
   }
 
   // ── Terminal operations (delegated to Page) ───────────────────

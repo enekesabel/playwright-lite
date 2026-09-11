@@ -37,6 +37,21 @@ Playwright's types describe more capabilities than a script inside a document ca
 
 Compatibility checks run selected, unchanged Playwright tests through this runtime. The reviewed passing baseline is enforced; unsupported diagnostic tests are not advertised as supported behavior. See `tests/upstream/baseline.json` for reviewed cases and `AGENTS.md` for the promotion rules.
 
+## Evaluation
+
+Supported `evaluate`, `$eval`, `$$eval`, and `evaluateAll` calls use the pinned Playwright client-protocol and UtilityScript serializers. Arguments and by-value results are copied rather than returned as live browser objects. Pass values through the argument parameter; callbacks do not capture caller-local variables.
+
+```ts
+const suffix = "!";
+const title = await page
+  .locator("h1")
+  .evaluate((element, suffix) => element.textContent + suffix, suffix);
+```
+
+Native DOM objects returned by value use Playwright's reference markers, not `Element` references. `evaluateHandle` and exposed function arguments remain unsupported. The existing `waitForFunction` handle supports `jsonValue()` and `dispose()`; it is not a complete JSHandle implementation.
+
+Callback source is evaluated in the controlled window. A Content Security Policy that prohibits dynamic evaluation is not bypassed, and there is no fallback to invoking caller closures.
+
 ## Development
 
 Installing and bundling the package supports Node.js 20 or newer. This is separate from the contributor environment.
@@ -50,9 +65,9 @@ pnpm exec playwright install --with-deps chromium
 pnpm check
 ```
 
-`pnpm check` builds the package, checks linting and types, runs unit and browser compatibility tests, verifies an isolated packed consumer, and checks formatting.
+`pnpm check` builds the package, checks linting and types, runs unit and browser compatibility tests, verifies an isolated packed consumer, checks formatting, and compares evaluation behavior directly against stock Playwright (`pnpm test:evaluation`).
 
-The generated injected script is committed and hash-checked during builds. Consumers do not generate it. Maintainers can reproduce it with `pnpm generate:check`. `pnpm generate:injected` regenerates it using the exact official revision in `tests/upstream/corpus.ts` and Playwright's own generator. Review artifact hash changes before updating the build pin. `pnpm upstream:sync` copies the selected tests from that same revision.
+The generated injected, utility, and protocol-serializer scripts are committed and hash-checked during builds. Consumers do not generate them. Maintainers can reproduce them with `pnpm generate:check`. `pnpm generate:injected` regenerates them using the exact official revision in `tests/upstream/corpus.ts` and Playwright's own generator. Review artifact hash changes before updating the build pin. `pnpm upstream:sync` copies the selected tests from that same revision.
 
 CI runs the development checks on Node.js 24.12.0 with Chromium on Ubuntu. A separate Node.js 20.0.0 job installs the same tarball with engine checks enabled, compiles a consumer POM, and runs it in Chromium without repository development dependencies or a separately installed YAML package. CI does not publish packages. The package is configured for GitHub Packages; `pnpm pack` creates a local tarball for installation before publication.
 

@@ -1,4 +1,11 @@
 import {
+  Evaluation,
+  AdapterJSHandle,
+  assertEvaluationOptions,
+  assertMaxArguments,
+} from "./evaluation";
+import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
+import {
   injectedScriptFor,
   parseAriaExpectation,
   DEFAULT_TEST_ID_ATTRIBUTE,
@@ -145,58 +152,11 @@ type ActionableInjectedScript = {
   dispatchEvent(node: Node, type: string, eventInitObj: object): void;
 };
 
-/**
- * Normalizes an expression the same way pinned 26a9e47
- * server/javascript.ts normalizeEvaluationExpression does:
- *   - isFunction=true: ensure the expression is a valid function expression
- *     (wrap in parens, or prefix `function` for shorthand methods)
- *   - Any expression matching /^(async)?\s*function(\s|\()/ gets parens
- */
-function normalizeExpression(expression: string, isFunction: boolean): string {
-  let expr = expression.trim();
-  if (isFunction) {
-    try {
-      new Function("(" + expr + ")");
-    } catch {
-      if (expr.startsWith("async "))
-        expr = "async function " + expr.substring("async ".length);
-      else expr = "function " + expr;
-      try {
-        new Function("(" + expr + ")");
-      } catch {
-        throw new Error("Passed function is not well-serializable!");
-      }
-    }
-  }
-  if (/^(async)?\s*function(\s|\()/.test(expr)) expr = "(" + expr + ")";
-  return expr;
-}
-
-/**
- * Minimal JSHandle mirroring pinned 26a9e47 client JSHandle interface.
- * Returned by waitForFunction so callers can use `.jsonValue()` /
- * `.dispose()` without a harness-only shim.
- */
-export class AdapterJSHandle<T = unknown> {
-  private _value: T;
-
-  constructor(value: T) {
-    this._value = value;
-  }
-
-  async jsonValue(): Promise<T> {
-    return this._value;
-  }
-
-  async dispose(): Promise<void> {
-    // No remote object to release in a single-document adapter.
-  }
-}
-
 export class PageImpl {
   readonly document: Document;
   readonly window: Window & typeof globalThis;
   readonly keyboard: BrowserKeyboard;
+  readonly evaluation: Evaluation;
   private _injected: ReturnType<typeof injectedScriptFor> | undefined;
   private _injectedTestIdAttributeName: string | undefined;
   private defaultTimeout: number | undefined;
@@ -209,6 +169,7 @@ export class PageImpl {
     this.window = browserWindow;
     this.document = browserWindow.document;
     this.keyboard = new BrowserKeyboard(this);
+    this.evaluation = new Evaluation(this);
   }
 
   private get injected() {
@@ -1280,70 +1241,54 @@ export class PageImpl {
 
   // ── Evaluate / callback operations ──────────────────────────────
 
-  /**
-   * Executes a function or expression in the controlled document.
-   *
-   * Mirrors pinned 26a9e47 client/frame.ts:217-223 + server/javascript.ts:
-   *   Client sends { expression: String(pageFunction),
-   *                   isFunction: typeof pageFunction === 'function',
-   *                   arg: serializeArgument(arg) }
-   *   Server normalizes the expression, evals it once, and:
-   *     isFunction=true  → calls the result with arg
-   *     isFunction=false → returns the result directly
-   *
-   * For direct in-browser callers the function is called immediately.
-   * For bridge-transported strings the isFunction flag is explicit.
-   * Never retries evaluation after a runtime exception.
-   */
-  async evaluate(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    pageFunction: string | ((...a: any[]) => any),
-    arg?: unknown
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<any> {
-    const isFunction = typeof pageFunction === "function";
+  /** Evaluates through the pinned Playwright UtilityScript. */
+  async evaluate<R>(
+    pageFunction: EvaluationFunction<R>,
+    arg?: unknown,
+    options?: EvaluationOptions
+  ): Promise<R> {
+    assertMaxArguments(arguments.length, 3);
+    assertEvaluationOptions(options);
     return this._evaluateExpression(
-      isFunction ? pageFunction : String(pageFunction),
-      isFunction,
+      pageFunction,
+      typeof pageFunction === "function",
       arg
     );
   }
 
-  /**
-   * Calls a browser-native callback with one strictly resolved element.
-   *
-   * This is the single-document equivalent of pinned Frame.$eval. It accepts
-   * a function object already in the controlled runtime, so it has no
-   * callback-source transport or generic-handle behavior.
-   */
+  /** Evaluates through the pinned Playwright UtilityScript. */
   async $eval<T>(
     selector: string,
-    callback: (element: Element, arg?: unknown) => T | Promise<T>,
+    callback: EvaluationFunction<T>,
     arg?: unknown
   ): Promise<T> {
-    return await callback(
-      this.queryElement(
-        selector,
-        `page.$eval(${JSON.stringify(selector)})`,
-        false
-      ),
-      arg
+    assertMaxArguments(arguments.length, 3);
+    const element = this.queryElement(
+      selector,
+      `page.$eval(${JSON.stringify(selector)})`,
+      false
+    );
+    return this.evaluation.byValue(
+      callback,
+      typeof callback === "function",
+      arg,
+      element
     );
   }
 
-  /**
-   * Calls a browser-native callback with every matching element.
-   *
-   * Pinned Frame.$$eval delegates to Locator.evaluateAll. The controlled
-   * document already owns the elements, so a direct array callback preserves
-   * that behavior without introducing element or JS handles.
-   */
+  /** Evaluates through the pinned Playwright UtilityScript. */
   async $$eval<T>(
     selector: string,
-    callback: (elements: Element[], arg?: unknown) => T | Promise<T>,
+    callback: EvaluationFunction<T>,
     arg?: unknown
   ): Promise<T> {
-    return await callback(this.resolveAll(selector), arg);
+    assertMaxArguments(arguments.length, 3);
+    return this.evaluation.byValue(
+      callback,
+      typeof callback === "function",
+      arg,
+      this.resolveAll(selector)
+    );
   }
 
   url(): string {
@@ -1354,31 +1299,13 @@ export class PageImpl {
     await this.wait(timeout);
   }
 
-  /**
-   * Internal expression evaluator mirroring server/javascript.ts
-   * normalizeEvaluationExpression + evaluate flow.
-   *
-   * @param expression  String(pageFunction) or the raw function reference
-   * @param isFunction  true → call the evaled result with arg;
-   *                    false → return the evaled result directly
-   * @param arg         serialized argument
-   */
-  async _evaluateExpression(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    expression: string | ((...a: any[]) => any),
+  /** Evaluates through the pinned Playwright UtilityScript. */
+  async _evaluateExpression<R>(
+    expression: EvaluationFunction<R>,
     isFunction: boolean,
     arg?: unknown
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<any> {
-    const unwrappedArg = this.unwrapElementHandleArg(arg);
-    if (typeof expression === "function") return await expression(unwrappedArg);
-    // Normalize: wrap function expressions in parens per
-    // server/javascript.ts normalizeEvaluationExpression.
-    const normalized = normalizeExpression(expression, isFunction);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const evaled: any = this.window.eval(normalized);
-    if (isFunction) return await evaled(unwrappedArg);
-    return evaled;
+  ): Promise<R> {
+    return this.evaluation.byValue(expression, isFunction, arg);
   }
 
   /**
@@ -1434,7 +1361,7 @@ export class PageImpl {
     options?: { polling?: number | "raf"; timeout?: number }
   ): Promise<AdapterJSHandle> {
     const timeout = this.resolveTimeout(options?.timeout, 30_000);
-    const unwrappedArg = this.unwrapElementHandleArg(arg);
+    const predicate = this.evaluation.predicate(pageFunction, isFunction, arg);
     const polling = options?.polling ?? "raf";
 
     // Validate polling per frames.ts:1628
@@ -1442,12 +1369,6 @@ export class PageImpl {
       throw new Error("Unknown polling option: " + polling);
     if (typeof polling === "number" && polling <= 0)
       throw new Error("Cannot poll with non-positive interval: " + polling);
-
-    // For function references, call directly; for strings, normalize.
-    const expression =
-      typeof pageFunction === "function"
-        ? pageFunction
-        : normalizeExpression(String(pageFunction), isFunction);
 
     return new Promise<AdapterJSHandle>((resolve, reject) => {
       let aborted = false;
@@ -1474,23 +1395,6 @@ export class PageImpl {
         if (rafId !== undefined) this.window.cancelAnimationFrame(rafId);
       };
 
-      // Cache the evaled function for isFunction=true (frames.ts:1641).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let evaledFunction: ((...a: any[]) => any) | undefined;
-
-      const predicate = () => {
-        if (typeof expression === "function") return expression(unwrappedArg);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let result: any = evaledFunction ?? this.window.eval(expression);
-        if (isFunction) {
-          evaledFunction = result;
-          result = result(unwrappedArg);
-        }
-        // isFunction=false: result is already the expression value,
-        // re-evaluated each poll because evaledFunction is never set.
-        return result;
-      };
-
       const check = () => {
         if (aborted) return;
         try {
@@ -1504,7 +1408,7 @@ export class PageImpl {
                 if (aborted) return;
                 if (v) {
                   cleanup();
-                  resolve(new AdapterJSHandle(v));
+                  resolve(new AdapterJSHandle(v, this.evaluation));
                 } else {
                   scheduleNext();
                 }
@@ -1519,7 +1423,7 @@ export class PageImpl {
           }
           if (result) {
             cleanup();
-            resolve(new AdapterJSHandle(result));
+            resolve(new AdapterJSHandle(result, this.evaluation));
             return;
           }
         } catch (e) {
@@ -1799,12 +1703,27 @@ export class PageImpl {
   async locatorEvaluate<T>(
     selector: string,
     label: string,
-    pageFunction: (element: Element, arg?: unknown) => T | Promise<T>,
+    pageFunction: EvaluationFunction<T>,
     arg?: unknown,
-    options?: LocatorQueryOptions
+    options?: LocatorQueryOptions & EvaluationOptions
   ): Promise<T> {
-    return this.query(selector, label, options, true, (element) =>
-      pageFunction(element, arg)
+    assertEvaluationOptions(options);
+    const { exposeFunctions: _exposeFunctions, ...queryOptions } =
+      options ?? {};
+    void _exposeFunctions;
+    const element = await this.query(
+      selector,
+      label,
+      queryOptions,
+      true,
+      (element) => element
+    );
+    // Do not retry callback exceptions as selector resolution errors.
+    return this.evaluation.byValue(
+      pageFunction,
+      typeof pageFunction === "function",
+      arg,
+      element
     );
   }
 
@@ -1856,12 +1775,6 @@ export class PageImpl {
     if (result.received === "error:notconnected")
       throw new Error("Element is not connected");
     return result.matches;
-  }
-
-  unwrapElementHandleArg(arg: unknown): unknown {
-    if (arg instanceof AdapterElementHandle)
-      return arg.elementForEvaluation(this);
-    return arg;
   }
 
   async waitForElementState(

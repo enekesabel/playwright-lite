@@ -2,7 +2,7 @@ playwright-lite is MIT licensed. Included third-party code retains its own licen
 
 Playwright
 Copyright Microsoft Corporation and contributors.
-The browser injected script, copied upstream tests, keyboard layout, and other identified Playwright-derived code are distributed under Apache License 2.0.
+The browser injected and utility scripts, protocol serializers, copied upstream tests, keyboard layout, and other identified Playwright-derived code are distributed under Apache License 2.0.
 The pinned upstream revision is recorded in tests/upstream/corpus.ts. The injected script is generated with the upstream build tool, then bundled with a browser-side Page and Locator implementation. The keyboard layout retains its original data with local typing helpers. Copied upstream test specifications are unchanged.
 See LICENSES/PLAYWRIGHT-LICENSE.txt and the accompanying upstream notices in LICENSES.
 

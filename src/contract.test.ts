@@ -7,7 +7,8 @@ import {
   LOCATOR_BRAND,
   resolveLocatorElements,
 } from "./locator";
-import { AdapterJSHandle, PageImpl } from "./page";
+import { PageImpl } from "./page";
+import { AdapterJSHandle } from "./evaluation";
 import { ADAPTER_TIMEOUT_ERROR } from "./errors";
 
 describe("Single-document adapter contract", () => {
@@ -85,7 +86,7 @@ describe("Single-document adapter contract", () => {
       ).resolves.toEqual(["A", "B"]);
     });
 
-    it("runs Locator callbacks directly without callback-source transport", async () => {
+    it("runs Locator callbacks through the pinned evaluation boundary", async () => {
       document.body.innerHTML = "<li>One</li><li>Two</li>";
       const page = createPage();
       const items = page.locator("li");
@@ -2675,7 +2676,7 @@ describe("Single-document adapter contract", () => {
     it("string + isFunction=false returns expression value, not function", async () => {
       const page = createPage();
       // '(() => 42)' as a non-function expression evaluates to the
-      // function object, but isFunction=false means we return it raw.
+      // function object, but isFunction=false means it is not called.
       const result = await (page as any)._evaluateExpression("1 + 2", false);
       expect(result).toBe(3);
     });
@@ -2719,11 +2720,13 @@ describe("Single-document adapter contract", () => {
 
     it("polls until the predicate becomes truthy", async () => {
       const page = createPage();
-      let counter = 0;
+      (window as any).__wffCalls = 0;
       const handle = await (page as any).waitForFunction(
         () => {
-          counter++;
-          return counter >= 3 ? counter : 0;
+          (window as any).__wffCalls++;
+          return (window as any).__wffCalls >= 3
+            ? (window as any).__wffCalls
+            : 0;
         },
         undefined,
         { polling: 10 }
@@ -2743,10 +2746,10 @@ describe("Single-document adapter contract", () => {
 
     it("function reference: evals once, calls each poll", async () => {
       const page = createPage();
-      let counter = 0;
+      (window as any).__wffCalls = 0;
       const fn = () => {
-        counter++;
-        return counter >= 2 ? "done" : "";
+        (window as any).__wffCalls++;
+        return (window as any).__wffCalls >= 2 ? "done" : "";
       };
       const handle = await (page as any).waitForFunction(fn, undefined, {
         polling: 10,
@@ -2756,7 +2759,7 @@ describe("Single-document adapter contract", () => {
 
     it("string expression (isFunction=false) re-evaluates each poll", async () => {
       // A non-function string expression is evaled fresh each poll.
-      // We can verify by using a counter on the window.
+      // We can verify by using a (window as any).__wffCalls on the window.
       (window as any).__wffCounter = 0;
       const page = createPage();
       const handle = await (page as any).waitForFunction(
@@ -2808,19 +2811,22 @@ describe("Single-document adapter contract", () => {
 
     it("cleans up timers after resolve", async () => {
       const page = createPage();
-      let counter = 0;
+      (window as any).__wffCalls = 0;
       const handle = await (page as any).waitForFunction(
         () => {
-          counter++;
-          return counter >= 2 ? counter : 0;
+          (window as any).__wffCalls++;
+          return (window as any).__wffCalls >= 2
+            ? (window as any).__wffCalls
+            : 0;
         },
         undefined,
         { polling: 10 }
       );
       const val = await handle.jsonValue();
-      // Wait a bit — counter should NOT keep incrementing after resolve.
+      // Wait a bit — (window as any).__wffCalls should NOT keep incrementing after resolve.
       await new Promise((r) => setTimeout(r, 50));
-      expect(counter).toBe(val);
+      expect((window as any).__wffCalls).toBe(val);
+      delete (window as any).__wffCalls;
     });
 
     it("evaluates interval callback source in the controlled window", async () => {

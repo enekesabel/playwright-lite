@@ -39,8 +39,12 @@ export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),
   $: implemented("Adapter ElementHandle only."),
   $$: implemented("Adapter ElementHandle only."),
-  $$eval: implemented("Callback executes in the controlled browser realm."),
-  $eval: implemented("Callback executes in the controlled browser realm."),
+  $$eval: implemented(
+    "Pinned client-protocol and UtilityScript serialization; caller closures and exposed function arguments are unsupported."
+  ),
+  $eval: implemented(
+    "Pinned client-protocol and UtilityScript serialization; caller closures and exposed function arguments are unsupported."
+  ),
   addInitScript: undecided(),
   addListener: planned(
     "Only console and pageerror are planned; other events remain undecided."
@@ -65,7 +69,9 @@ export const pageLedger = {
   dispatchEvent: implemented("Accepts timeout and strict only."),
   dragAndDrop: undecided(),
   emulateMedia: undecided(),
-  evaluate: implemented("Callback executes in the controlled browser realm."),
+  evaluate: implemented(
+    "Pinned client-protocol and UtilityScript serialization; caller closures and exposed function arguments are unsupported."
+  ),
   evaluateHandle: undecided(),
   exposeBinding: undecided(),
   exposeFunction: undecided(),
@@ -180,7 +186,7 @@ export const pageLedger = {
     "Only console and pageerror are planned; other events remain undecided."
   ),
   waitForFunction: implemented(
-    "Callback executes in the controlled browser realm."
+    "Serialized predicate source and arguments; the returned handle supports jsonValue and dispose only."
   ),
   waitForLoadState: undecided(),
   waitForNavigation: undecided(),
@@ -217,9 +223,11 @@ export const locatorLedger = {
   drop: undecided(),
   elementHandle: implemented("Adapter ElementHandle only."),
   elementHandles: implemented("Adapter ElementHandle only."),
-  evaluate: implemented("Callback executes in the controlled browser realm."),
+  evaluate: implemented(
+    "Pinned client-protocol and UtilityScript serialization; caller closures and exposed function arguments are unsupported."
+  ),
   evaluateAll: implemented(
-    "Callback executes in the controlled browser realm."
+    "Pinned client-protocol and UtilityScript serialization; caller closures and exposed function arguments are unsupported."
   ),
   evaluateHandle: undecided(),
   fill: implemented("Accepts timeout only."),

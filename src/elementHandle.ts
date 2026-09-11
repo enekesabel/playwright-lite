@@ -1,3 +1,5 @@
+import { assertEvaluationOptions, assertMaxArguments } from "./evaluation";
+import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import type { PageImpl } from "./page";
 
 type ElementHandleWaitOptions = { timeout?: number };
@@ -37,9 +39,10 @@ export class AdapterElementHandle {
 
   async $eval<T>(
     selector: string,
-    pageFunction: (element: Element, arg?: unknown) => T | Promise<T>,
+    pageFunction: EvaluationFunction<T>,
     arg?: unknown
   ): Promise<T> {
+    assertMaxArguments(arguments.length, 3);
     const element = this.ownerPage.resolveWithinElement(
       this.requireElement(),
       selector,
@@ -47,30 +50,40 @@ export class AdapterElementHandle {
     );
     if (!element)
       throw new Error(`Failed to find element matching selector "${selector}"`);
-    return await pageFunction(
-      element,
-      this.ownerPage.unwrapElementHandleArg(arg)
+    return this.ownerPage.evaluation.byValue(
+      pageFunction,
+      typeof pageFunction === "function",
+      arg,
+      element
     );
   }
 
   async $$eval<T>(
     selector: string,
-    pageFunction: (elements: Element[], arg?: unknown) => T | Promise<T>,
+    pageFunction: EvaluationFunction<T>,
     arg?: unknown
   ): Promise<T> {
-    return await pageFunction(
-      this.ownerPage.resolveAllWithinElement(this.requireElement(), selector),
-      this.ownerPage.unwrapElementHandleArg(arg)
+    assertMaxArguments(arguments.length, 3);
+    return this.ownerPage.evaluation.byValue(
+      pageFunction,
+      typeof pageFunction === "function",
+      arg,
+      this.ownerPage.resolveAllWithinElement(this.requireElement(), selector)
     );
   }
 
   async evaluate<T>(
-    pageFunction: (element: Element, arg?: unknown) => T | Promise<T>,
-    arg?: unknown
+    pageFunction: EvaluationFunction<T>,
+    arg?: unknown,
+    options?: EvaluationOptions
   ): Promise<T> {
-    return await pageFunction(
-      this.requireElement(),
-      this.ownerPage.unwrapElementHandleArg(arg)
+    assertMaxArguments(arguments.length, 3);
+    assertEvaluationOptions(options);
+    return this.ownerPage.evaluation.byValue(
+      pageFunction,
+      typeof pageFunction === "function",
+      arg,
+      this.requireElement()
     );
   }
 
