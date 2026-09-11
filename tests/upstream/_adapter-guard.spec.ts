@@ -472,15 +472,15 @@ test("adapter locator composition reconstructs nested proxy locators", async ({
     adapterPage.locator("button").filter({ has: primary }).count()
   ).resolves.toBe(0);
 
-  // Fixture-only coverage for the recursive codec. Production evaluation runs
-  // in one browser realm and needs no Locator serializer.
+  // Locator composition needs recursive proxy reconstruction, but evaluation
+  // arguments must follow Playwright serialization rather than transport Locators.
   await expect(
-    (adapterPage as any).evaluate(
-      (value: { locators: Array<{ count(): Promise<number> }> }) =>
-        Promise.all(value.locators.map((locator) => locator.count())),
-      { locators: [buttons] }
-    )
-  ).resolves.toEqual([2]);
+    page.evaluate(value => value, { locators: [page.getByRole("button")] })
+  ).rejects.toThrow();
+  await expect(
+    adapterPage.evaluate(value => value, { locators: [buttons] })
+  ).rejects.toThrow("Attempting to serialize unexpected value");
+  await expect(buttons.count()).resolves.toBe(2);
 
   const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).toContain("Locator.and");

@@ -1097,8 +1097,8 @@ function createLocatorProxy(
           );
       }
 
-      // The production Locator receives a function already in the browser
-      // runtime. Reconstruct the Node callback only at this fixture boundary.
+      // Reconstruct the caller's function at the fixture boundary. Production
+      // evaluation remains responsible for serializing its source and values.
       if (prop === "evaluate" || prop === "evaluateAll") {
         return async (
           pageFunction: unknown,
@@ -1111,11 +1111,15 @@ function createLocatorProxy(
               const host = window as any;
               return host.__pwLiteInvokeAdapter(() => {
                 const current: any = host.__pwLiteReplayAdapterChain(c);
-                return current[method](
-                  (0, eval)(`(${expression})`),
-                  host.__pwLiteDecodeBridgeValue(a),
-                  host.__pwLiteDecodeBridgeValue(o)
-                );
+                const callback = (0, eval)(`(${expression})`);
+                const argument = host.__pwLiteDecodeBridgeValue(a);
+                return method === "evaluateAll"
+                  ? current.evaluateAll(callback, argument)
+                  : current.evaluate(
+                      callback,
+                      argument,
+                      host.__pwLiteDecodeBridgeValue(o)
+                    );
               });
             },
             {
