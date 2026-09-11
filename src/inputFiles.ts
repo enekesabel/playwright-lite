@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 export type InputFiles = Parameters<Page["setInputFiles"]>[1];
 
 /**
- * Pinned b25d782 client/elementHandle.ts converts payloads before resolving the
+ * Pinned 26a9e47 client/elementHandle.ts converts payloads before resolving the
  * input; server/fileUploadUtils.ts encodes the bytes for InjectedScript. Keep
  * that format without importing Node's Buffer or filesystem into the browser.
  */

@@ -1,4 +1,4 @@
-export { getByTestIdSelector } from "virtual:ayme-playwright-injected";
+export { getByTestIdSelector } from "virtual:playwright-lite-injected";
 
 export function escapeForAttributeSelector(
   value: string | RegExp,

@@ -7,7 +7,6 @@ import type {
 } from "./page";
 import { AdapterElementHandle } from "./elementHandle";
 import type { InputFiles } from "./inputFiles";
-import { testIdAttributeNameFor } from "./injected";
 import {
   formatLocatorDescription,
   locatorDescription,
@@ -27,7 +26,7 @@ import {
  * Cross-realm brand symbol. Any code can test for this with
  * `Symbol.for(...)` without importing LocatorImpl.
  */
-export const LOCATOR_BRAND = Symbol.for("ayme:locator");
+export const LOCATOR_BRAND = Symbol.for("playwright-lite:locator");
 
 /** Structured payload carried by the brand symbol. */
 export type LocatorBrandPayload = {
@@ -65,7 +64,7 @@ export class LocatorImpl {
    * Brand property carrying the structured payload.
    * Validated through {@link requireBrand} — no private-field casts needed.
    *
-   * Pinned source ref: ayme-labs/playwright@b25d782, Locator class uses
+   * Pinned source ref: microsoft/playwright@26a9e47, Locator class uses
    * `_frame` and `_selector` directly; we expose equivalent access through
    * the brand payload instead.
    */
@@ -78,7 +77,7 @@ export class LocatorImpl {
     options?: LocatorOptions,
     private readonly customDescription?: string
   ) {
-    // Mirrors pinned b25d782 Locator constructor option processing
+    // Mirrors pinned 26a9e47 Locator constructor option processing
     if (options?.hasText)
       this.selector += ` >> internal:has-text=${escapeForTextSelector(options.hasText, false)}`;
     if (options?.hasNotText)
@@ -153,7 +152,7 @@ export class LocatorImpl {
   }
   getByTestId(testId: string | RegExp) {
     return this.locator(
-      getByTestIdSelector(testIdAttributeNameFor(this.ownerPage.window), testId)
+      getByTestIdSelector(this.ownerPage.testIdAttribute, testId)
     );
   }
   getByPlaceholder(text: string | RegExp, options: { exact?: boolean } = {}) {
@@ -167,7 +166,7 @@ export class LocatorImpl {
   }
 
   /**
-   * Mirrors pinned b25d782 Locator.locator:
+   * Mirrors pinned 26a9e47 Locator.locator:
    * - string → `this._selector + ' >> ' + selector`
    * - Locator → `this._selector + ' >> internal:chain=' + JSON.stringify(locator._selector)`
    */
@@ -204,7 +203,7 @@ export class LocatorImpl {
     );
   }
 
-  /** Mirrors pinned b25d782 Locator.and selector serialization. */
+  /** Mirrors pinned 26a9e47 Locator.and selector serialization. */
   and(locator: LocatorImpl) {
     const brand = requireBrand(locator, "locator");
     if (brand.ownerPage !== this.ownerPage)
@@ -216,7 +215,7 @@ export class LocatorImpl {
     );
   }
 
-  /** Mirrors pinned b25d782 Locator.or selector serialization. */
+  /** Mirrors pinned 26a9e47 Locator.or selector serialization. */
   or(locator: LocatorImpl) {
     const brand = requireBrand(locator, "locator");
     if (brand.ownerPage !== this.ownerPage)
@@ -610,7 +609,7 @@ export class LocatorImpl {
 function requireBrand(value: unknown, context: string): LocatorBrandPayload {
   if (typeof value !== "object" || value === null || !(LOCATOR_BRAND in value))
     throw new TypeError(
-      `${context}: expected an Ayme Locator, ` +
+      `${context}: expected an PlaywrightLite Locator, ` +
         `got ${value === null ? "null" : typeof value}`
     );
   const payload = (value as Record<symbol, unknown>)[LOCATOR_BRAND];
@@ -621,7 +620,7 @@ function requireBrand(value: unknown, context: string): LocatorBrandPayload {
     typeof (payload as Record<string, unknown>).resolveElements !== "function"
   )
     throw new TypeError(
-      `${context}: expected an Ayme Locator, got incompatible branded object`
+      `${context}: expected an PlaywrightLite Locator, got incompatible branded object`
     );
   return payload as LocatorBrandPayload;
 }
@@ -632,9 +631,9 @@ function requireBrand(value: unknown, context: string): LocatorBrandPayload {
  * Returns `true` if `value` carries a valid structured locator brand.
  * Does NOT use `instanceof`; works cross-realm.
  */
-export function isAymeLocator(value: unknown): boolean {
+export function isPlaywrightLiteLocator(value: unknown): boolean {
   try {
-    requireBrand(value, "isAymeLocator");
+    requireBrand(value, "isPlaywrightLiteLocator");
     return true;
   } catch {
     return false;

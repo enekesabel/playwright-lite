@@ -527,52 +527,6 @@ it('should resolve refs of distilled-away nodes', async ({ page }) => {
   await expect(page.locator('aria-ref=e3')).toHaveText('[Feature] a dedicated clipboard API');
 });
 
-it('should capture full refs without changing public snapshots', async ({ page, toImpl }) => {
-  await page.setContent(`
-    <h2 style="pointer-events: none">Heading</h2>
-    <a style="cursor: pointer" href="/issues/15860"><div>[Feature] a dedicated clipboard API</div></a>
-    <p style="pointer-events: none">Static text</p>
-  `);
-
-  const publicSnapshotBefore = await snapshotForAI(page);
-
-  const mainContext = await toImpl(page).mainFrame().mainContext();
-  const injected = await mainContext.injectedScript();
-  const capture = await injected.evaluate((injected: {
-    document: Document;
-    captureAriaSnapshot: (root: Element) => { distilledText: string, fullText: string, refsByElement: Map<Element, string> };
-  }) => {
-    const result = injected.captureAriaSnapshot(injected.document.body);
-    const elements = [...injected.document.querySelectorAll('body, h2, a, div, p')];
-    return {
-      keys: Object.keys(result).sort(),
-      distilledText: result.distilledText,
-      fullText: result.fullText,
-      refs: elements.map(element => result.refsByElement.get(element)),
-      allRefs: [...result.refsByElement.values()],
-    };
-  });
-  expect(capture.keys).toEqual(['distilledText', 'fullText', 'refsByElement']);
-  expect(capture.refs).not.toContain(undefined);
-  expect(capture.allRefs).toHaveLength(capture.refs.length);
-  for (const ref of capture.allRefs)
-    expect(capture.fullText).toContain(`[ref=${ref}]`);
-  const headingRef = capture.refs[1];
-  const linkRef = capture.refs[2];
-  const distilledAwayRef = capture.refs[3];
-  const paragraphRef = capture.refs[4];
-  expect(capture.distilledText).toContain(`heading "Heading" [level=2] [ref=${headingRef}]`);
-  expect(capture.fullText).toContain(`heading "Heading" [level=2] [ref=${headingRef}]`);
-  expect(capture.distilledText).toContain(`[ref=${linkRef}]`);
-  expect(capture.fullText).toContain(`[ref=${linkRef}]`);
-  expect(capture.distilledText).toContain(`paragraph [ref=${paragraphRef}]: Static text`);
-  expect(capture.fullText).toContain(`[ref=${paragraphRef}]`);
-  expect(capture.distilledText).not.toContain(`[ref=${distilledAwayRef}]`);
-  expect(capture.fullText).toContain(`[ref=${distilledAwayRef}]`);
-  expect(await snapshotForAI(page)).toBe(publicSnapshotBefore);
-  expect(publicSnapshotBefore).not.toContain(`[ref=${headingRef}]`);
-});
-
 it('should not distill snapshots outside of ai mode', async ({ page }) => {
   await page.setContent(`
     <h3><a href="/issues/1">Clipboard API</a></h3>

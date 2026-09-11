@@ -3,9 +3,7 @@
  * Playwright's Node-side error classes. The global symbol is deliberately
  * stable across independently compiled copies of this package.
  */
-export const ADAPTER_TIMEOUT_ERROR = Symbol.for(
-  "ayme:playwright-browser:TimeoutError"
-);
+export const ADAPTER_TIMEOUT_ERROR = Symbol.for("playwright-lite:TimeoutError");
 
 export class AdapterTimeoutError extends Error {
   readonly [ADAPTER_TIMEOUT_ERROR] = true;

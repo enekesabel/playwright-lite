@@ -72,7 +72,7 @@ export function isBidiChannel(channel: string | undefined): boolean {
 }
 
 /**
- * Mirrors ayme-labs/playwright@b25d782e3fbdf21abdae60e974e49b78ca07e828
+ * Mirrors microsoft/playwright@26a9e470a7b3c7822084b09fb7f13902c5f37b51
  * tests/config/utils.ts for the unchanged ARIA snapshot specs.
  */
 export function unshift(snapshot: string): string {

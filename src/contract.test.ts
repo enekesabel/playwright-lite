@@ -3,42 +3,12 @@ import { describe, expect, it, afterEach, vi } from "vitest";
 
 import {
   createPage,
-  isAymeLocator,
+  isPlaywrightLiteLocator,
   LOCATOR_BRAND,
   resolveLocatorElements,
 } from "./index";
 import { AdapterJSHandle, PageImpl } from "./page";
 import { ADAPTER_TIMEOUT_ERROR } from "./errors";
-
-const compiledTimeoutGlobals = {
-  action: "__AYME_PLAYWRIGHT_ACTION_TIMEOUT__",
-  navigation: "__AYME_PLAYWRIGHT_NAVIGATION_TIMEOUT__",
-} as const;
-
-function installCompiledTimeouts(
-  actionTimeout: number | undefined,
-  navigationTimeout: number | undefined
-) {
-  const previous = new Map<string, PropertyDescriptor | undefined>();
-  const values = [
-    [compiledTimeoutGlobals.action, actionTimeout],
-    [compiledTimeoutGlobals.navigation, navigationTimeout],
-  ] as const;
-
-  for (const [name, value] of values) {
-    previous.set(name, Object.getOwnPropertyDescriptor(globalThis, name));
-    if (value === undefined) delete (globalThis as any)[name];
-    else (globalThis as any)[name] = value;
-  }
-
-  return () => {
-    for (const [name] of values) {
-      const descriptor = previous.get(name);
-      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
-      else delete (globalThis as any)[name];
-    }
-  };
-}
 
 describe("Single-document adapter contract", () => {
   describe("ARIA snapshots", () => {
@@ -447,23 +417,15 @@ describe("Single-document adapter contract", () => {
       );
     });
 
-    it("applies compiled defaults to the page returned by createPage", async () => {
-      const restoreCompiledTimeouts = installCompiledTimeouts(5, undefined);
-
-      try {
-        document.body.innerHTML = "";
-        const page = createPage();
-
-        await expect(page.locator("#missing").click()).rejects.toThrow(
-          "Timeout 5ms exceeded"
-        );
-      } finally {
-        restoreCompiledTimeouts();
-      }
+    it("applies configured defaults to the page returned by createPage", async () => {
+      document.body.innerHTML = "";
+      const page = createPage({ actionTimeout: 5 });
+      await expect(page.locator("#missing").click()).rejects.toThrow(
+        "Timeout 5ms exceeded"
+      );
     });
 
-    it("applies compiled and runtime navigation defaults to same-document goto", async () => {
-      const restoreCompiledTimeouts = installCompiledTimeouts(undefined, 7);
+    it("applies configured and runtime navigation defaults to same-document goto", async () => {
       const originalSetTimeout = window.setTimeout;
       const navigationTimeouts: number[] = [];
       window.setTimeout = ((
@@ -476,9 +438,9 @@ describe("Single-document adapter contract", () => {
       }) as typeof window.setTimeout;
 
       try {
-        const page = createPage();
+        const page = createPage({ navigationTimeout: 7 });
 
-        await expect(page.goto("#compiled")).resolves.toBeNull();
+        await expect(page.goto("#configured")).resolves.toBeNull();
         expect(navigationTimeouts).toContain(7);
 
         page.setDefaultNavigationTimeout(11);
@@ -494,7 +456,6 @@ describe("Single-document adapter contract", () => {
         expect(navigationTimeouts).toHaveLength(scheduledBeforeZero);
       } finally {
         window.setTimeout = originalSetTimeout;
-        restoreCompiledTimeouts();
       }
     });
   });
@@ -656,23 +617,23 @@ describe("Single-document adapter contract", () => {
   // ── AC3: locator brand (structured payload, no instanceof) ────
 
   describe("locator brand", () => {
-    it("isAymeLocator detects a real locator", () => {
+    it("isPlaywrightLiteLocator detects a real locator", () => {
       const page = createPage();
       const loc = page.locator("div");
-      expect(isAymeLocator(loc)).toBe(true);
+      expect(isPlaywrightLiteLocator(loc)).toBe(true);
     });
 
-    it("isAymeLocator rejects a plain object", () => {
-      expect(isAymeLocator({ selector: "div" })).toBe(false);
+    it("isPlaywrightLiteLocator rejects a plain object", () => {
+      expect(isPlaywrightLiteLocator({ selector: "div" })).toBe(false);
     });
 
-    it("isAymeLocator rejects null", () => {
-      expect(isAymeLocator(null)).toBe(false);
+    it("isPlaywrightLiteLocator rejects null", () => {
+      expect(isPlaywrightLiteLocator(null)).toBe(false);
     });
 
-    it("isAymeLocator rejects a boolean brand (no structured payload)", () => {
+    it("isPlaywrightLiteLocator rejects a boolean brand (no structured payload)", () => {
       const fake = { [LOCATOR_BRAND]: true };
-      expect(isAymeLocator(fake)).toBe(false);
+      expect(isPlaywrightLiteLocator(fake)).toBe(false);
     });
 
     it("brand payload exposes getSelector and resolveElements", () => {
@@ -690,7 +651,7 @@ describe("Single-document adapter contract", () => {
       const fakeLocator = { selector: "div" };
       expect(() =>
         page.locator("div").filter({ has: fakeLocator as any })
-      ).toThrow(/expected an Ayme Locator/);
+      ).toThrow(/expected an PlaywrightLite Locator/);
     });
 
     it("skips null/undefined in filter.has (falsy, matches Playwright truthy check)", () => {
@@ -703,7 +664,7 @@ describe("Single-document adapter contract", () => {
     it("rejects a number in filter.hasNot with diagnostic type", () => {
       const page = createPage();
       expect(() => page.locator("div").filter({ hasNot: 42 as any })).toThrow(
-        /expected an Ayme Locator.*got number/
+        /expected an PlaywrightLite Locator.*got number/
       );
     });
   });
@@ -721,13 +682,13 @@ describe("Single-document adapter contract", () => {
 
     it("resolveLocatorElements throws for non-locator", () => {
       expect(() => resolveLocatorElements({})).toThrow(
-        /expected an Ayme Locator/
+        /expected an PlaywrightLite Locator/
       );
     });
 
     it("resolveLocatorElements throws for null", () => {
       expect(() => resolveLocatorElements(null)).toThrow(
-        /expected an Ayme Locator.*got null/
+        /expected an PlaywrightLite Locator.*got null/
       );
     });
   });

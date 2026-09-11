@@ -1,6 +1,6 @@
 /**
  * Guard tests that verify the fixture routes compatibility calls
- * through the Ayme in-browser adapter, not the real Playwright driver.
+ * through the PlaywrightLite in-browser adapter, not the real Playwright driver.
  *
  * These tests would fail if the proxy was accidentally removed and
  * the real Playwright page/locator was passed through instead.
@@ -56,7 +56,7 @@ for (const owner of ["Page", "Locator"] as const) {
         const file = document.querySelector("input")!.files![0];
         return { name: file.name, bytes: Array.from(new Uint8Array(await file.arrayBuffer())) };
       })).toEqual({ name: "bytes.bin", bytes: [0, 128, 255] });
-      expect((page as any).__aymeNativeOperations).toEqual([]);
+      expect((page as any).__pwLiteNativeOperations).toEqual([]);
     } finally {
       page.setInputFiles = nativeSetInputFiles;
       page.locator = nativeLocator;
@@ -70,7 +70,7 @@ test("all preserves the actual runtime-returned locators", async ({
 }) => {
   await page.setContent("<p>first</p><p>second</p>");
   await page.evaluate(() => {
-    const runtime = (window as any).__aymeAdapterPage;
+    const runtime = (window as any).__pwLiteAdapterPage;
     const locator = runtime.locator.bind(runtime);
     runtime.locator = (...args: unknown[]) => {
       const result = locator(...args);
@@ -94,7 +94,7 @@ test("waitForFunction invokes the public runtime and preserves its handle", asyn
 }) => {
   await page.evaluate(() => {
     const host = window as any;
-    host.__aymeAdapterPage.waitForFunction = async (
+    host.__pwLiteAdapterPage.waitForFunction = async (
       callback: () => unknown
     ) => {
       host.handleDisposed = false;
@@ -128,10 +128,10 @@ test("execution evidence records browser method entry and swallowed dispatch fai
   await page.setContent("<button>hello</button>");
   await adapterPage.locator("button").count();
   await adapterPage.reload().catch(() => {});
-  const execution = await page.evaluate(() => (window as any).__aymeEvidence);
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).toContain("Locator.count");
   expect(execution.entered).not.toContain("Page.reload");
-  expect((page as any).__aymeTransportFailures.length).toBeGreaterThan(0);
+  expect((page as any).__pwLiteTransportFailures.length).toBeGreaterThan(0);
 });
 
 test("explicit out-of-scope Page methods use native operations without adapter evidence", async ({
@@ -141,10 +141,10 @@ test("explicit out-of-scope Page methods use native operations without adapter e
   await adapterPage.setContent("<p>native setup</p>");
   await adapterPage.setViewportSize({ width: 320, height: 240 });
 
-  const execution = await page.evaluate(() => (window as any).__aymeEvidence);
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).not.toContain("Page.setContent");
   expect(execution.entered).not.toContain("Page.setViewportSize");
-  expect((page as any).__aymeNativeOperations).toEqual([
+  expect((page as any).__pwLiteNativeOperations).toEqual([
     "Page.setContent",
     "Page.setViewportSize",
   ]);
@@ -181,13 +181,13 @@ test("explicit out-of-scope Locator iframe methods stay native downstream", asyn
     adapterPage.frame({ name: "nested" })?.locator("p").textContent()
   ).resolves.toBe("native iframe");
 
-  const execution = await page.evaluate(() => (window as any).__aymeEvidence);
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).not.toContain("Locator.contentFrame");
   expect(execution.entered).not.toContain("Locator.frameLocator");
   expect(execution.entered).not.toContain("Page.frameLocator");
   expect(execution.entered).not.toContain("Page.frames");
   expect(execution.entered).not.toContain("Page.frame");
-  expect((page as any).__aymeNativeOperations).toEqual(
+  expect((page as any).__pwLiteNativeOperations).toEqual(
     expect.arrayContaining([
       "Locator.contentFrame",
       "Locator.frameLocator",
@@ -226,16 +226,16 @@ test("Locator.all() retains a native counterpart for explicit out-of-scope calls
       .textContent()
   ).resolves.toBe("all result");
 
-  const execution = await page.evaluate(() => (window as any).__aymeEvidence);
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).toContain("Locator.all");
   expect(execution.entered).not.toContain("Locator.contentFrame");
-  expect((page as any).__aymeNativeOperations).toEqual(
+  expect((page as any).__pwLiteNativeOperations).toEqual(
     expect.arrayContaining(["Locator.contentFrame", "Locator.textContent"])
   );
 });
 
 test("page fixture is the adapter proxy", async ({ adapterPage }) => {
-  expect((adapterPage as any).__aymeAdapter).toBe(true);
+  expect((adapterPage as any).__pwLiteAdapter).toBe(true);
 });
 
 test("page.locator returns an adapter proxy locator", async ({
@@ -244,7 +244,7 @@ test("page.locator returns an adapter proxy locator", async ({
 }) => {
   await page.setContent("<div></div>");
   const locator = adapterPage.locator("div");
-  expect((locator as any).__aymeAdapter).toBe(true);
+  expect((locator as any).__pwLiteAdapter).toBe(true);
 });
 
 test("page.mainFrame keeps the single-document adapter facade", async ({
@@ -254,7 +254,7 @@ test("page.mainFrame keeps the single-document adapter facade", async ({
   await page.setContent("<main><p>hello</p></main>");
 
   const mainFrame = adapterPage.mainFrame();
-  expect((mainFrame as any).__aymeAdapter).toBe(true);
+  expect((mainFrame as any).__pwLiteAdapter).toBe(true);
   await expect(mainFrame.locator("p").textContent()).resolves.toBe("hello");
 });
 
@@ -311,7 +311,7 @@ test("adapter goto keeps hash navigation in the current document", async ({
   // Assigning the existing fragment does not emit another hashchange.
   await expect(adapterPage.goto("#load")).resolves.toBeNull();
   expect(
-    await page.evaluate(() => (window as any).__aymeEvidence.entered)
+    await page.evaluate(() => (window as any).__pwLiteEvidence.entered)
   ).toContain("Page.goto");
 });
 
@@ -334,7 +334,7 @@ for (const reload of [false, true]) {
       );
       const navigation = reload
         ? page.evaluate(async (url) => {
-            await (window as any).__aymeAdapterPage.goto(url);
+            await (window as any).__pwLiteAdapterPage.goto(url);
             window.name = "incorrectly resumed";
           }, server.EMPTY_PAGE)
         : adapterPage.goto(server.EMPTY_PAGE);
@@ -347,7 +347,7 @@ for (const reload of [false, true]) {
       expect(await result).toMatch(/execution context.*destroyed/i);
       expect(await page.evaluate(() => window.name)).toBe("old execution");
       expect(
-        await page.evaluate(() => typeof (window as any).__aymeAdapterPage.goto)
+        await page.evaluate(() => typeof (window as any).__pwLiteAdapterPage.goto)
       ).toBe("function");
     } finally {
       await server.close();
@@ -482,7 +482,7 @@ test("adapter locator composition reconstructs nested proxy locators", async ({
     )
   ).resolves.toEqual([2]);
 
-  const execution = await page.evaluate(() => (window as any).__aymeEvidence);
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).toContain("Locator.and");
   expect(execution.entered).toContain("Locator.or");
 });
@@ -503,7 +503,7 @@ test("adapter locator matchers use pinned InjectedScript semantics", async ({
   await expect(adapterPage.locator("p.message").first()).toBeVisible();
   await expect(adapterPage.locator("p.message").last()).toBeHidden();
 
-  const execution = await page.evaluate(() => (window as any).__aymeEvidence);
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).toContain("Locator._expect");
 });
 
@@ -548,7 +548,7 @@ test("adapter callback operations reconstruct in the adapter", async ({
 
   expect(one).toBe("A!");
   expect(all).toEqual(["item:A:true:true", "item:B:true:true"]);
-  const execution = await page.evaluate(() => (window as any).__aymeEvidence);
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).toContain("Locator.evaluate");
   expect(execution.entered).toContain("Locator.evaluateAll");
 });
@@ -571,7 +571,7 @@ test("adapter page callbacks enter public adapter methods", async ({
     (adapterPage as any).$$eval("p", (elements) => elements.length)
   ).resolves.toBe(1);
 
-  const execution = await page.evaluate(() => (window as any).__aymeEvidence);
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).toContain("Page.evaluate");
   expect(execution.entered).toContain("Page.$eval");
   expect(execution.entered).toContain("Page.$$eval");
@@ -617,7 +617,7 @@ test("adapter element handles keep native identity, scope queries, and release b
   await expect(root.dispose()).resolves.toBeUndefined();
   await expect(root.textContent()).rejects.toThrow(/disposed|unknown/i);
 
-  const execution = await page.evaluate(() => (window as any).__aymeEvidence);
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).toContain("Page.$");
   expect(execution.entered).toContain("Page.waitForSelector");
   expect(execution.entered).toContain("Locator.elementHandle");
@@ -647,11 +647,11 @@ test("adapter values cannot collide with the timeout envelope", async ({
 }) => {
   await expect(
     (adapterPage as any).evaluate(() => ({
-      __aymeAdapterTimeout: true,
+      __pwLiteAdapterTimeout: true,
       message: "ordinary callback value",
     }))
   ).resolves.toEqual({
-    __aymeAdapterTimeout: true,
+    __pwLiteAdapterTimeout: true,
     message: "ordinary callback value",
   });
 });
@@ -673,7 +673,7 @@ test("adapter locator evaluate forwards its third timeout option", async ({
       .evaluate((element) => element.textContent, undefined, { timeout: 500 })
   ).resolves.toBe("Ready");
 
-  const execution = await page.evaluate(() => (window as any).__aymeEvidence);
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).toContain("Locator.evaluate");
 });
 
@@ -709,7 +709,7 @@ test("proxy page methods do not fall through to real Playwright driver", async (
     await expect(
       (adapterPage as any).route("**/*", () => {})
     ).rejects.toThrow();
-    expect((page as any).__aymeNativeOperations).toEqual([]);
+    expect((page as any).__pwLiteNativeOperations).toEqual([]);
   } finally {
     page.title = originalTitle;
   }
@@ -726,7 +726,7 @@ test("adapter content observes native fixture setup", async ({
     "<!DOCTYPE html><html><head></head><body><div>serialized</div></body></html>"
   );
   const execution = await adapterPage.evaluate(
-    () => (window as any).__aymeEvidence
+    () => (window as any).__pwLiteEvidence
   );
   expect(execution.entered).toContain("Page.content");
 });
@@ -816,7 +816,7 @@ test("adapter timeout is rethrown without real driver fallback", async ({
     (page as any).waitForFunction = realWaitForFunction;
   }
 
-  const execution = await page.evaluate(() => (window as any).__aymeEvidence);
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).toContain("Page.waitForFunction");
 });
 
@@ -920,7 +920,7 @@ test("proxy does not expose real driver sub-objects", async ({
   await proxyKbd.insertText("c");
   await proxyKbd.press("a");
   await expect(adapterPage.locator("input")).toHaveValue("bca");
-  const execution = await page.evaluate(() => (window as any).__aymeEvidence);
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).toEqual(
     expect.arrayContaining([
       "Keyboard.down",

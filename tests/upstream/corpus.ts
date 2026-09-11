@@ -1,7 +1,7 @@
 export const corpus = {
   source: {
-    repository: "ayme-labs/playwright",
-    commit: "b25d782e3fbdf21abdae60e974e49b78ca07e828",
+    repository: "microsoft/playwright",
+    commit: "26a9e470a7b3c7822084b09fb7f13902c5f37b51",
     basePath: "tests/page",
   },
   specs: {
@@ -42,7 +42,7 @@ export const corpus = {
     "page-aria-snapshot.spec.ts":
       "06c07f70d181d19664d043111ecdfe89f6f8f8168d6fae0fda1161b74ed4f8d6",
     "page-aria-snapshot-ai.spec.ts":
-      "01e3d7002f9407dd65189a89530366a611c1a658435fbaf2f5bbd831aa6426d7",
+      "ce02685117c5bdceb67637deb238875f4e83835ef170da330c2ca17ba85ad073",
     "page-basic.spec.ts":
       "e9773aacf91a00c79c838cd8c8c9cf3edb05355c5ba035cbeb05a2db29fd931c",
     "page-filechooser.spec.ts":

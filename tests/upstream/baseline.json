@@ -1,9 +1,9 @@
 {
   "source": {
-    "repository": "ayme-labs/playwright",
-    "commit": "b25d782e3fbdf21abdae60e974e49b78ca07e828"
+    "repository": "microsoft/playwright",
+    "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 588,
+  "selectedTestCount": 587,
   "reviewed": [
     {
       "id": "locator-click.spec.ts > should click if the target element is removed in pointerdown event",

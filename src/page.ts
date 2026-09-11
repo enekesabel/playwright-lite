@@ -1,7 +1,7 @@
 import {
   injectedScriptFor,
   parseAriaExpectation,
-  testIdAttributeNameFor,
+  DEFAULT_TEST_ID_ATTRIBUTE,
 } from "./injected";
 import { AdapterTimeoutError } from "./errors";
 import { AdapterElementHandle } from "./elementHandle";
@@ -146,7 +146,7 @@ type ActionableInjectedScript = {
 };
 
 /**
- * Normalizes an expression the same way pinned b25d782
+ * Normalizes an expression the same way pinned 26a9e47
  * server/javascript.ts normalizeEvaluationExpression does:
  *   - isFunction=true: ensure the expression is a valid function expression
  *     (wrap in parens, or prefix `function` for shorthand methods)
@@ -173,7 +173,7 @@ function normalizeExpression(expression: string, isFunction: boolean): string {
 }
 
 /**
- * Minimal JSHandle mirroring pinned b25d782 client JSHandle interface.
+ * Minimal JSHandle mirroring pinned 26a9e47 client JSHandle interface.
  * Returned by waitForFunction so callers can use `.jsonValue()` /
  * `.dispose()` without a harness-only shim.
  */
@@ -202,26 +202,35 @@ export class PageImpl {
   private defaultTimeout: number | undefined;
   private defaultNavigationTimeout: number | undefined;
 
-  constructor(browserWindow: Window & typeof globalThis) {
+  constructor(
+    browserWindow: Window & typeof globalThis,
+    public testIdAttribute = DEFAULT_TEST_ID_ATTRIBUTE
+  ) {
     this.window = browserWindow;
     this.document = browserWindow.document;
     this.keyboard = new BrowserKeyboard(this);
   }
 
   private get injected() {
-    const testIdAttributeName = testIdAttributeNameFor(this.window);
+    const testIdAttributeName = this.testIdAttribute;
     if (
       !this._injected ||
       this._injectedTestIdAttributeName !== testIdAttributeName
     ) {
-      this._injected = injectedScriptFor(this.document.documentElement);
+      this._injected = injectedScriptFor(
+        this.document.documentElement,
+        testIdAttributeName
+      );
       this._injectedTestIdAttributeName = testIdAttributeName;
     }
     return this._injected;
   }
 
-  static fromWindow(browserWindow: Window & typeof globalThis = window) {
-    return new PageImpl(browserWindow);
+  static fromWindow(
+    browserWindow: Window & typeof globalThis = window,
+    testIdAttribute = DEFAULT_TEST_ID_ATTRIBUTE
+  ) {
+    return new PageImpl(browserWindow, testIdAttribute);
   }
 
   // ── Resolution ──────────────────────────────────────────────────
@@ -370,7 +379,7 @@ export class PageImpl {
   /**
    * Adapts the client Locator._expect protocol to InjectedScript.expect.
    *
-   * Pinned b25d782 `Frame.expect` performs one check and then retries with
+   * Pinned 26a9e47 `Frame.expect` performs one check and then retries with
    * bounded backoff. InjectedScript remains responsible for each matcher
    * evaluation. This method only supplies the client/server orchestration that
    * is feasible within the controlled document.
@@ -830,7 +839,7 @@ export class PageImpl {
   /**
    * Serializes the controlled document.
    *
-   * Mirrors pinned b25d782 `server/frames.ts` Frame._content: serialize the
+   * Mirrors pinned 26a9e47 `server/frames.ts` Frame._content: serialize the
    * document type separately, then append documentElement.outerHTML. This is
    * intentionally a browser-native observation, rather than a reconstruction
    * of document-setup markup, so DOM mutations remain visible.
@@ -1119,7 +1128,7 @@ export class PageImpl {
   }
 
   /**
-   * Pinned b25d782 client/frame.ts and server/frames.ts default to load,
+   * Pinned 26a9e47 client/frame.ts and server/frames.ts default to load,
    * wait for navigation then lifecycle, and return null for same-document
    * navigation. Location supplies the browser-side navigation here.
    * Full-document navigation ends this execution; it never resolves with a
@@ -1206,7 +1215,7 @@ export class PageImpl {
   /**
    * Captures the accessibility snapshot for the controlled document.
    *
-   * Pinned b25d782 `Page.ariaSnapshot` delegates to the main frame. The
+   * Pinned 26a9e47 `Page.ariaSnapshot` delegates to the main frame. The
    * single-document adapter has that frame in-process, so it delegates
    * directly to the compiled InjectedScript which owns ARIA-tree generation
    * and rendering. There is no frame traversal or protocol transport here.
@@ -1274,7 +1283,7 @@ export class PageImpl {
   /**
    * Executes a function or expression in the controlled document.
    *
-   * Mirrors pinned b25d782 client/frame.ts:217-223 + server/javascript.ts:
+   * Mirrors pinned 26a9e47 client/frame.ts:217-223 + server/javascript.ts:
    *   Client sends { expression: String(pageFunction),
    *                   isFunction: typeof pageFunction === 'function',
    *                   arg: serializeArgument(arg) }
@@ -1376,7 +1385,7 @@ export class PageImpl {
    * Polls a predicate in the controlled document until it returns a
    * truthy value.
    *
-   * Mirrors pinned b25d782 server/frames.ts:1626-1694:
+   * Mirrors pinned 26a9e47 server/frames.ts:1626-1694:
    *   - pollingInterval must be >0 (frames.ts:1628)
    *   - expression is normalized (frames.ts:1629)
    *   - isFunction=true  → eval once, call each poll (frames.ts:1640-1642)
@@ -1408,7 +1417,7 @@ export class PageImpl {
   /**
    * Internal: accepts explicit isFunction for bridge transport.
    *
-   * Mirrors pinned b25d782 server/frames.ts:1626-1694:
+   * Mirrors pinned 26a9e47 server/frames.ts:1626-1694:
    *   - pollingInterval must be >0 (frames.ts:1628)
    *   - expression is normalized (frames.ts:1629)
    *   - isFunction=true  → eval once, call each poll (frames.ts:1640-1642)
@@ -1553,9 +1562,7 @@ export class PageImpl {
     return this.locator(getByLabelSelector(text, options.exact));
   }
   getByTestId(testId: string | RegExp) {
-    return this.locator(
-      getByTestIdSelector(testIdAttributeNameFor(this.window), testId)
-    );
+    return this.locator(getByTestIdSelector(this.testIdAttribute, testId));
   }
   getByPlaceholder(text: string | RegExp, options: { exact?: boolean } = {}) {
     return this.locator(getByPlaceholderSelector(text, options.exact));

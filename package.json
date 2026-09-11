@@ -5,12 +5,31 @@
   "license": "MIT",
   "author": "Ábel Énekes",
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "packageManager": "pnpm@11.24.0",
-  "repository": { "type": "git", "url": "git+https://github.com/enekesabel/playwright-lite.git" },
-  "publishConfig": { "registry": "https://npm.pkg.github.com" },
-  "files": ["dist", "LICENSE", "LICENSES", "THIRD_PARTY_NOTICES.txt", "README.md"],
-  "exports": { ".": { "types": "./dist/index.d.mts", "import": "./dist/index.mjs", "default": "./dist/index.mjs" } },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/enekesabel/playwright-lite.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "LICENSES",
+    "THIRD_PARTY_NOTICES.txt",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
+    }
+  },
   "scripts": {
     "build": "tsdown",
     "lint": "eslint src --max-warnings 0",
@@ -27,7 +46,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
-  "peerDependencies": { "@playwright/test": ">=1.62.1 <1.63.0" },
+  "peerDependencies": {
+    "@playwright/test": ">=1.62.1 <1.63.0"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "typescript-eslint": "^8.68.0",
@@ -45,5 +66,7 @@
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"
   },
-  "dependencies": { "yaml": "2.9.0" }
+  "dependencies": {
+    "yaml": "2.9.0"
+  }
 }

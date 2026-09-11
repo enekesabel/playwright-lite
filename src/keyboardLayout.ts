@@ -15,7 +15,7 @@
  * limitations under the License.
  *
  * Pinned Playwright US keyboard layout data from
- * ayme-labs/playwright@b25d782e3fbdf21abdae60e974e49b78ca07e828
+ * microsoft/playwright@26a9e470a7b3c7822084b09fb7f13902c5f37b51
  * (`packages/playwright-core/src/server/usKeyboardLayout.ts`).
  *
  * This is a data-only copy used by the browser-only synthetic keyboard. Keep

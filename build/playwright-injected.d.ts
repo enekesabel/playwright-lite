@@ -1,10 +1,4 @@
-declare module "virtual:ayme-playwright-injected" {
-  export type CaptureAriaSnapshotResult = {
-    distilledText: string;
-    fullText: string;
-    refsByElement: Map<Element, string>;
-  };
-
+declare module "virtual:playwright-lite-injected" {
   type InjectedScriptOptions = {
     browserName: string;
     customEngines: Array<{ name: string; source: string }>;
@@ -44,7 +38,6 @@ declare module "virtual:ayme-playwright-injected" {
         mode: "ai" | "default";
       }
     ): string;
-    captureAriaSnapshot(root: Element): CaptureAriaSnapshotResult;
     parseSelector(selector: string): ParsedSelector;
     querySelector(
       selector: ParsedSelector,

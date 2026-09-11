@@ -1,5 +1,5 @@
 /**
- * Bridges the @ayme-dev/playwright-browser in-browser adapter with
+ * Bridges the @enekesabel/playwright-lite in-browser adapter with
  * Playwright Test's Node.js fixture. Loads the compiled dist bundle
  * (which includes the real pinned InjectedScript), injects it into
  * the browser page, and creates proxy Page/Locator objects that route
@@ -23,8 +23,8 @@ import { statusFor } from "../../compatibility/api";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ADAPTER_DIST_PATH = resolve(__dirname, "../../dist/index.mjs");
-const LOCATOR_CHAIN_PAYLOAD = "__aymeLocatorChain";
-const ELEMENT_HANDLE_REF_PAYLOAD = "__aymeElementHandleRef";
+const LOCATOR_CHAIN_PAYLOAD = "__pwLiteLocatorChain";
+const ELEMENT_HANDLE_REF_PAYLOAD = "__pwLiteElementHandleRef";
 const DEFAULT_TEST_ID_ATTRIBUTE = "data-testid";
 type ChainStep = [string, unknown[]];
 type AdapterPageState = { url: string };
@@ -40,7 +40,7 @@ function isOutOfScope(owner: "Page" | "Locator", member: string) {
 }
 
 function nativeOperationLog(realPage: Page) {
-  return (realPage as any).__aymeNativeOperations as string[];
+  return (realPage as any).__pwLiteNativeOperations as string[];
 }
 
 function nativeKind(value: object): string {
@@ -95,7 +95,7 @@ function nativeLocatorArgument(value: unknown, realPage: Page): unknown {
 function nativeLocatorForChain(realPage: Page, chain: ChainStep[]): Locator {
   let current: any = realPage;
   for (const [method, rawArgs] of chain) {
-    if (method === "__aymeLocatorRef") {
+    if (method === "__pwLiteLocatorRef") {
       current = nativeLocatorReferences
         .get(realPage)
         ?.get(rawArgs[0] as string);
@@ -189,7 +189,7 @@ function encodeBridgeValue(
 
   // Transport only. The runtime receives bytes and owns file assignment.
   // Buffer extends Uint8Array; preserve subarray offsets by copying its view.
-  if (value instanceof Uint8Array) return { __aymeBytes: Array.from(value) };
+  if (value instanceof Uint8Array) return { __pwLiteBytes: Array.from(value) };
 
   if (Array.isArray(value)) {
     const encoded: unknown[] = [];
@@ -238,8 +238,8 @@ type SelectorsWithWritableTestIdAttribute = Playwright["selectors"] & {
 
 /**
  * Mirrors Playwright's selectors.setTestIdAttribute propagation in the
- * fixture only. The compiled browser adapter reads this private window value;
- * production code has no Playwright transport dependency.
+ * fixture only. The fixture passes its initial value to createPage and updates
+ * the same adapter instance when upstream tests change the selector setting.
  */
 export async function installTestIdAttributeSynchronization(
   realPage: Page,
@@ -254,8 +254,12 @@ export async function installTestIdAttributeSynchronization(
   const synchronizeBrowser = (attributeName: string) =>
     realPage.evaluate((testIdAttributeName) => {
       (
-        window as Window & { __aymeTestIdAttributeName?: string }
-      ).__aymeTestIdAttributeName = testIdAttributeName;
+        window as Window & { __pwLiteTestIdAttributeName?: string }
+      ).__pwLiteTestIdAttributeName = testIdAttributeName;
+      const adapter = (
+        window as Window & { __pwLiteAdapterPage?: { testIdAttribute: string } }
+      ).__pwLiteAdapterPage;
+      if (adapter) adapter.testIdAttribute = testIdAttributeName;
     }, attributeName);
 
   const queueSynchronization = (attributeName: string) => {
@@ -329,7 +333,7 @@ function buildAdapterBundle(): string {
   const js = dist.replace(/^export\s+\{[^}]*\}.*$/gm, "");
 
   cachedBundle = [
-    "window.__aymeAdapter = (function() {",
+    "window.__pwLiteAdapter = (function() {",
     js,
     "return { createPage: createPage };",
     "})();",
@@ -347,20 +351,19 @@ export async function createAdapterPage(
   const bundle = buildAdapterBundle();
   const configuredTimeouts = [
     typeof timeoutDefaults.actionTimeout === "number"
-      ? `window.__aymeAdapterPage.setDefaultTimeout(${JSON.stringify(timeoutDefaults.actionTimeout)});`
+      ? `window.__pwLiteAdapterPage.setDefaultTimeout(${JSON.stringify(timeoutDefaults.actionTimeout)});`
       : "",
     typeof timeoutDefaults.navigationTimeout === "number"
-      ? `window.__aymeAdapterPage.setDefaultNavigationTimeout(${JSON.stringify(timeoutDefaults.navigationTimeout)});`
+      ? `window.__pwLiteAdapterPage.setDefaultNavigationTimeout(${JSON.stringify(timeoutDefaults.navigationTimeout)});`
       : "",
   ].join("\n");
   const adapterPageSetup =
     "\nwindow.builtins ??= {}; window.builtins.Date ??= window.Date;" +
-    "\nwindow.__aymeAdapterPage = window.__aymeAdapter.createPage();" +
+    "\nwindow.__pwLiteAdapterPage = window.__pwLiteAdapter.createPage({ testIdAttribute: window.__pwLiteTestIdAttributeName });" +
     `\n${configuredTimeouts}`;
 
   // Single init script: on every navigation, inject the adapter bundle
   // and create the adapter page from the current window.
-  // W-28 AC1: deterministic single-script initialization.
   await realPage.addInitScript(bundle + adapterPageSetup);
 
   // Init scripts apply to future navigations. Execute the same bundle in the
@@ -373,8 +376,8 @@ export async function createAdapterPage(
 
   await realPage.evaluate(() => {
     const host = window as any;
-    host.__aymeEvidence = { entered: [], failures: [] };
-    host.__aymeInvokeAdapter = async function invoke(operation: () => any) {
+    host.__pwLiteEvidence = { entered: [], failures: [] };
+    host.__pwLiteInvokeAdapter = async function invoke(operation: () => any) {
       try {
         return { kind: "value", value: await operation() };
       } catch (error) {
@@ -385,7 +388,7 @@ export async function createAdapterPage(
           typeof error === "object" &&
           error !== null &&
           (error as Record<symbol, unknown>)[
-            Symbol.for("ayme:playwright-browser:TimeoutError")
+            Symbol.for("playwright-lite:TimeoutError")
           ] === true
         )
           return {
@@ -395,27 +398,27 @@ export async function createAdapterPage(
         throw error;
       }
     };
-    host.__aymeDecodeBridgeValue = function decode(value: any): any {
+    host.__pwLiteDecodeBridgeValue = function decode(value: any): any {
       if (!value || typeof value !== "object") return value;
       if (Array.isArray(value)) return value.map(decode);
-      if (Array.isArray(value.__aymeBytes))
-        return Uint8Array.from(value.__aymeBytes);
-      if (typeof value.__aymeElementHandleRef === "string")
-        return host.__aymeElementHandleForId(value.__aymeElementHandleRef);
-      if (Array.isArray(value.__aymeLocatorChain))
-        return host.__aymeReplayAdapterChain(value.__aymeLocatorChain);
+      if (Array.isArray(value.__pwLiteBytes))
+        return Uint8Array.from(value.__pwLiteBytes);
+      if (typeof value.__pwLiteElementHandleRef === "string")
+        return host.__pwLiteElementHandleForId(value.__pwLiteElementHandleRef);
+      if (Array.isArray(value.__pwLiteLocatorChain))
+        return host.__pwLiteReplayAdapterChain(value.__pwLiteLocatorChain);
       if (Object.getPrototypeOf(value) !== Object.prototype) return value;
       return Object.fromEntries(
         Object.entries(value).map(([key, item]) => [key, decode(item)])
       );
     };
-    host.__aymeReplayAdapterChain = function replay(chain: any[]): any {
-      let current: any = host.__aymeAdapterPage;
+    host.__pwLiteReplayAdapterChain = function replay(chain: any[]): any {
+      let current: any = host.__pwLiteAdapterPage;
       for (const [method, args] of chain)
         current =
-          method === "__aymeLocatorRef"
-            ? host.__aymeLocators.get(args[0])
-            : current[method](...host.__aymeDecodeBridgeValue(args));
+          method === "__pwLiteLocatorRef"
+            ? host.__pwLiteLocators.get(args[0])
+            : current[method](...host.__pwLiteDecodeBridgeValue(args));
       return current;
     };
     const wrapped = new WeakSet<object>();
@@ -444,7 +447,7 @@ export async function createAdapterPage(
               ? "waitForFunction"
               : name;
         object[name] = function (...args: unknown[]) {
-          host.__aymeEvidence.entered.push(`${kind}.${publicName}`);
+          host.__pwLiteEvidence.entered.push(`${kind}.${publicName}`);
           const result = original.apply(this, args);
           if (
             result &&
@@ -457,22 +460,22 @@ export async function createAdapterPage(
       }
       return object;
     };
-    instrument(host.__aymeAdapterPage, "Page");
-    instrument(host.__aymeAdapterPage.keyboard, "Keyboard", [
+    instrument(host.__pwLiteAdapterPage, "Page");
+    instrument(host.__pwLiteAdapterPage.keyboard, "Keyboard", [
       "down",
       "up",
       "press",
       "type",
       "insertText",
     ]);
-    host.__aymeElementHandles = new Map<string, any>();
+    host.__pwLiteElementHandles = new Map<string, any>();
     const handleContext =
       typeof crypto.randomUUID === "function"
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random()}`;
     let nextElementHandleId = 0;
-    host.__aymeLocators = new Map<string, any>();
-    host.__aymeStoreLocator = function store(locator: any): {
+    host.__pwLiteLocators = new Map<string, any>();
+    host.__pwLiteStoreLocator = function store(locator: any): {
       id: string;
       selector: string;
     } {
@@ -481,36 +484,36 @@ export async function createAdapterPage(
           "Cannot preserve a native counterpart for a runtime Locator without a selector."
         );
       const id = `${handleContext}:locator-${++nextElementHandleId}`;
-      host.__aymeLocators.set(id, instrument(locator, "Locator"));
+      host.__pwLiteLocators.set(id, instrument(locator, "Locator"));
       return { id, selector: locator.selector };
     };
-    host.__aymeStoreElementHandle = function store(
+    host.__pwLiteStoreElementHandle = function store(
       handle: any,
       kind = "ElementHandle"
     ): string | null {
       if (!handle) return null;
       const id = `${handleContext}:element-${++nextElementHandleId}`;
-      host.__aymeElementHandles.set(id, instrument(handle, kind));
+      host.__pwLiteElementHandles.set(id, instrument(handle, kind));
       return id;
     };
-    host.__aymeElementHandleForId = function resolve(id: string): any {
-      const handle = host.__aymeElementHandles.get(id);
+    host.__pwLiteElementHandleForId = function resolve(id: string): any {
+      const handle = host.__pwLiteElementHandles.get(id);
       if (!handle)
         throw new Error(`Unknown or disposed adapter ElementHandle: ${id}`);
       return handle;
     };
-    host.__aymeDisposeElementHandle = async function dispose(id: string) {
-      const handle = host.__aymeElementHandles.get(id);
+    host.__pwLiteDisposeElementHandle = async function dispose(id: string) {
+      const handle = host.__pwLiteElementHandles.get(id);
       if (!handle) return;
       await handle.dispose();
-      host.__aymeElementHandles.delete(id);
+      host.__pwLiteElementHandles.delete(id);
     };
   });
 
   const evaluate = realPage.evaluate.bind(realPage);
   const failures: string[] = [];
-  (realPage as any).__aymeTransportFailures = failures;
-  (realPage as any).__aymeNativeOperations = [] as string[];
+  (realPage as any).__pwLiteTransportFailures = failures;
+  (realPage as any).__pwLiteNativeOperations = [] as string[];
   realPage.evaluate = (async (...args: any[]) => {
     try {
       return await (evaluate as any)(...args);
@@ -530,7 +533,7 @@ export async function createAdapterPage(
       realPage,
       () => {
         const host = window as any;
-        return host.__aymeInvokeAdapter(() => host.__aymeAdapterPage.url());
+        return host.__pwLiteInvokeAdapter(() => host.__pwLiteAdapterPage.url());
       },
       undefined
     ),
@@ -542,7 +545,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
   return new Proxy(realPage, {
     get(target, prop, receiver) {
       if (typeof prop === "symbol") return Reflect.get(target, prop, receiver);
-      if (prop === "__aymeAdapter") return true;
+      if (prop === "__pwLiteAdapter") return true;
       if (prop === "then") return undefined;
 
       // The production single-document adapter defines mainFrame() as the
@@ -583,11 +586,11 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
             realPage,
             ({ method, selector: s, options: o }) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(async () =>
-                host.__aymeStoreElementHandle(
-                  await host.__aymeAdapterPage[method](
+              return host.__pwLiteInvokeAdapter(async () =>
+                host.__pwLiteStoreElementHandle(
+                  await host.__pwLiteAdapterPage[method](
                     s,
-                    host.__aymeDecodeBridgeValue(o)
+                    host.__pwLiteDecodeBridgeValue(o)
                   )
                 )
               );
@@ -608,9 +611,9 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
             realPage,
             ({ selector: s }) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(async () =>
-                (await host.__aymeAdapterPage.$$(s)).map((handle: any) =>
-                  host.__aymeStoreElementHandle(handle)
+              return host.__pwLiteInvokeAdapter(async () =>
+                (await host.__pwLiteAdapterPage.$$(s)).map((handle: any) =>
+                  host.__pwLiteStoreElementHandle(handle)
                 )
               );
             },
@@ -631,16 +634,16 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
             realPage,
             ({ expression, isFunction, arg: a }) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(async () => {
+              return host.__pwLiteInvokeAdapter(async () => {
                 const callback = isFunction
                   ? (0, eval)(`(${expression})`)
                   : expression;
                 return {
-                  value: await host.__aymeAdapterPage.evaluate(
+                  value: await host.__pwLiteAdapterPage.evaluate(
                     callback,
-                    host.__aymeDecodeBridgeValue(a)
+                    host.__pwLiteDecodeBridgeValue(a)
                   ),
-                  url: host.__aymeAdapterPage.url(),
+                  url: host.__pwLiteAdapterPage.url(),
                 };
               });
             },
@@ -665,13 +668,13 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
             realPage,
             ({ expression, isFunction, arg: a, options: opts }) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(async () => {
-                const handle = await host.__aymeAdapterPage.waitForFunction(
+              return host.__pwLiteInvokeAdapter(async () => {
+                const handle = await host.__pwLiteAdapterPage.waitForFunction(
                   isFunction ? (0, eval)(`(${expression})`) : expression,
-                  host.__aymeDecodeBridgeValue(a),
-                  host.__aymeDecodeBridgeValue(opts)
+                  host.__pwLiteDecodeBridgeValue(a),
+                  host.__pwLiteDecodeBridgeValue(opts)
                 );
-                return host.__aymeStoreElementHandle(handle, "JSHandle");
+                return host.__pwLiteStoreElementHandle(handle, "JSHandle");
               });
             },
             {
@@ -696,11 +699,11 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
             realPage,
             ({ method, selector: s, expression, arg: a }) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(() =>
-                host.__aymeAdapterPage[method](
+              return host.__pwLiteInvokeAdapter(() =>
+                host.__pwLiteAdapterPage[method](
                   s,
                   (0, eval)(`(${expression})`),
-                  host.__aymeDecodeBridgeValue(a)
+                  host.__pwLiteDecodeBridgeValue(a)
                 )
               );
             },
@@ -722,16 +725,16 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
           realPage,
           ({ member, args: a }) => {
             const host = window as any;
-            return host.__aymeInvokeAdapter(async () => {
-              const p = host.__aymeAdapterPage;
+            return host.__pwLiteInvokeAdapter(async () => {
+              const p = host.__pwLiteAdapterPage;
               const v = p[member];
-              const args = host.__aymeDecodeBridgeValue(a);
+              const args = host.__pwLiteDecodeBridgeValue(a);
               let value: unknown;
               if (typeof v === "function") value = await v.call(p, ...args);
               else if (a.length === 0 && v !== undefined) value = v;
               else
                 throw new TypeError(
-                  `__aymeAdapterPage.${member} is not a function`
+                  `__pwLiteAdapterPage.${member} is not a function`
                 );
               return { value, url: p.url() };
             });
@@ -758,9 +761,9 @@ function createKeyboardProxy(realPage: Page) {
       realPage,
       ({ method: member, args: rawArgs }) => {
         const host = window as any;
-        return host.__aymeInvokeAdapter(() =>
-          host.__aymeAdapterPage.keyboard[member](
-            ...host.__aymeDecodeBridgeValue(rawArgs)
+        return host.__pwLiteInvokeAdapter(() =>
+          host.__pwLiteAdapterPage.keyboard[member](
+            ...host.__pwLiteDecodeBridgeValue(rawArgs)
           )
         );
       },
@@ -786,7 +789,7 @@ function createElementHandleProxy(
   const handler: ProxyHandler<object> = {
     get(_, prop) {
       if (typeof prop === "symbol") return undefined;
-      if (prop === "__aymeAdapter") return true;
+      if (prop === "__pwLiteAdapter") return true;
       if (prop === "then") return undefined;
 
       if (prop === "dispose") {
@@ -795,8 +798,8 @@ function createElementHandleProxy(
             realPage,
             (handleId) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(() =>
-                host.__aymeDisposeElementHandle(handleId)
+              return host.__pwLiteInvokeAdapter(() =>
+                host.__pwLiteDisposeElementHandle(handleId)
               );
             },
             id
@@ -809,11 +812,11 @@ function createElementHandleProxy(
             realPage,
             ({ handleId, method, selector: s, options: o }) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(async () =>
-                host.__aymeStoreElementHandle(
+              return host.__pwLiteInvokeAdapter(async () =>
+                host.__pwLiteStoreElementHandle(
                   await host
-                    .__aymeElementHandleForId(handleId)
-                    [method](s, host.__aymeDecodeBridgeValue(o))
+                    .__pwLiteElementHandleForId(handleId)
+                    [method](s, host.__pwLiteDecodeBridgeValue(o))
                 )
               );
             },
@@ -836,9 +839,9 @@ function createElementHandleProxy(
             realPage,
             ({ handleId, selector: s }) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(async () =>
-                (await host.__aymeElementHandleForId(handleId).$$(s)).map(
-                  (handle: any) => host.__aymeStoreElementHandle(handle)
+              return host.__pwLiteInvokeAdapter(async () =>
+                (await host.__pwLiteElementHandleForId(handleId).$$(s)).map(
+                  (handle: any) => host.__pwLiteStoreElementHandle(handle)
                 )
               );
             },
@@ -856,13 +859,13 @@ function createElementHandleProxy(
             realPage,
             ({ handleId, method, selector: s, expression, arg: a }) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(() =>
+              return host.__pwLiteInvokeAdapter(() =>
                 host
-                  .__aymeElementHandleForId(handleId)
+                  .__pwLiteElementHandleForId(handleId)
                   [method](
                     s,
                     (0, eval)(`(${expression})`),
-                    host.__aymeDecodeBridgeValue(a)
+                    host.__pwLiteDecodeBridgeValue(a)
                   )
               );
             },
@@ -882,12 +885,12 @@ function createElementHandleProxy(
             realPage,
             ({ handleId, method, expression, arg: a }) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(() =>
+              return host.__pwLiteInvokeAdapter(() =>
                 host
-                  .__aymeElementHandleForId(handleId)
+                  .__pwLiteElementHandleForId(handleId)
                   [method](
                     (0, eval)(`(${expression})`),
-                    host.__aymeDecodeBridgeValue(a)
+                    host.__pwLiteDecodeBridgeValue(a)
                   )
               );
             },
@@ -905,10 +908,10 @@ function createElementHandleProxy(
           realPage,
           ({ handleId, method, args: a }) => {
             const host = window as any;
-            return host.__aymeInvokeAdapter(() =>
+            return host.__pwLiteInvokeAdapter(() =>
               host
-                .__aymeElementHandleForId(handleId)
-                [method](...host.__aymeDecodeBridgeValue(a))
+                .__pwLiteElementHandleForId(handleId)
+                [method](...host.__pwLiteDecodeBridgeValue(a))
             );
           },
           {
@@ -935,7 +938,7 @@ function createLocatorProxy(
   const handler: ProxyHandler<object> = {
     get(_, prop) {
       if (typeof prop === "symbol") return undefined;
-      if (prop === "__aymeAdapter") return true;
+      if (prop === "__pwLiteAdapter") return true;
       if (prop === "_apiName") return "Locator";
       if (prop === "then") return undefined;
 
@@ -972,10 +975,10 @@ function createLocatorProxy(
               realPage,
               async ({ chain: c }) => {
                 const host = window as any;
-                return host.__aymeInvokeAdapter(async () => {
-                  const current: any = host.__aymeReplayAdapterChain(c);
+                return host.__pwLiteInvokeAdapter(async () => {
+                  const current: any = host.__pwLiteReplayAdapterChain(c);
                   return (await current.all()).map((locator: any) =>
-                    host.__aymeStoreLocator(locator)
+                    host.__pwLiteStoreLocator(locator)
                   );
                 });
               },
@@ -989,7 +992,7 @@ function createLocatorProxy(
           return references.map(({ id, selector }) => {
             nativeReferences.set(id, realPage.locator(selector));
             return createLocatorProxy(realPage, state, [
-              ["__aymeLocatorRef", [id]],
+              ["__pwLiteLocatorRef", [id]],
             ]);
           });
         };
@@ -1023,10 +1026,10 @@ function createLocatorProxy(
             realPage,
             ({ chain: c, options: o }) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(async () => {
-                const current: any = host.__aymeReplayAdapterChain(c);
-                return host.__aymeStoreElementHandle(
-                  await current.elementHandle(host.__aymeDecodeBridgeValue(o))
+              return host.__pwLiteInvokeAdapter(async () => {
+                const current: any = host.__pwLiteReplayAdapterChain(c);
+                return host.__pwLiteStoreElementHandle(
+                  await current.elementHandle(host.__pwLiteDecodeBridgeValue(o))
                 );
               });
             },
@@ -1045,10 +1048,10 @@ function createLocatorProxy(
             realPage,
             ({ chain: c }) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(async () => {
-                const current: any = host.__aymeReplayAdapterChain(c);
+              return host.__pwLiteInvokeAdapter(async () => {
+                const current: any = host.__pwLiteReplayAdapterChain(c);
                 return (await current.elementHandles()).map((handle: any) =>
-                  host.__aymeStoreElementHandle(handle)
+                  host.__pwLiteStoreElementHandle(handle)
                 );
               });
             },
@@ -1068,9 +1071,9 @@ function createLocatorProxy(
             realPage,
             ({ chain: c, expression: e, options: o }) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(() => {
-                const current: any = host.__aymeReplayAdapterChain(c);
-                return current._expect(e, host.__aymeDecodeBridgeValue(o));
+              return host.__pwLiteInvokeAdapter(() => {
+                const current: any = host.__pwLiteReplayAdapterChain(c);
+                return current._expect(e, host.__pwLiteDecodeBridgeValue(o));
               });
             },
             {
@@ -1099,12 +1102,12 @@ function createLocatorProxy(
             realPage,
             ({ chain: c, method, expression, arg: a, options: o }) => {
               const host = window as any;
-              return host.__aymeInvokeAdapter(() => {
-                const current: any = host.__aymeReplayAdapterChain(c);
+              return host.__pwLiteInvokeAdapter(() => {
+                const current: any = host.__pwLiteReplayAdapterChain(c);
                 return current[method](
                   (0, eval)(`(${expression})`),
-                  host.__aymeDecodeBridgeValue(a),
-                  host.__aymeDecodeBridgeValue(o)
+                  host.__pwLiteDecodeBridgeValue(a),
+                  host.__pwLiteDecodeBridgeValue(o)
                 );
               });
             },
@@ -1126,9 +1129,9 @@ function createLocatorProxy(
           realPage,
           ({ chain: c, method, args: a }) => {
             const host = window as any;
-            return host.__aymeInvokeAdapter(() => {
-              const current: any = host.__aymeReplayAdapterChain(c);
-              return current[method](...host.__aymeDecodeBridgeValue(a));
+            return host.__pwLiteInvokeAdapter(() => {
+              const current: any = host.__pwLiteReplayAdapterChain(c);
+              return current[method](...host.__pwLiteDecodeBridgeValue(a));
             });
           },
           {

@@ -2,7 +2,7 @@
  * Package-local replacement for Playwright's tests/page/pageTest.ts.
  *
  * Routes all Page/Locator calls through the actual
- * @ayme-dev/playwright-browser createPage adapter running in the browser.
+ * @enekesabel/playwright-lite createPage adapter running in the browser.
  * No calls fall back to the real Playwright driver.
  *
  * Upstream spec files import { test, expect } from './pageTest' unchanged.
@@ -94,11 +94,11 @@ export const test = base.extend<
     } finally {
       await resetTestIdAttribute();
       const evidence = await page
-        .evaluate(() => (window as any).__aymeEvidence)
+        .evaluate(() => (window as any).__pwLiteEvidence)
         .catch(() => null);
       if (evidence) {
-        evidence.failures = (page as any).__aymeTransportFailures;
-        evidence.native = (page as any).__aymeNativeOperations;
+        evidence.failures = (page as any).__pwLiteTransportFailures;
+        evidence.native = (page as any).__pwLiteNativeOperations;
       }
       testInfo.annotations.push({
         type: "adapter-execution",
