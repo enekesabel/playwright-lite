@@ -1,10 +1,15 @@
 {
-  "name": "@ayme-dev/playwright-browser",
+  "name": "@enekesabel/playwright-lite",
   "version": "0.1.0",
-  "private": true,
+  "description": "Playwright-compatible Page and Locator operations in the current browser document",
+  "license": "MIT",
+  "author": "Ábel Énekes",
   "type": "module",
   "engines": { "node": ">=24" },
   "packageManager": "pnpm@11.24.0",
+  "repository": { "type": "git", "url": "git+https://github.com/enekesabel/playwright-lite.git" },
+  "publishConfig": { "registry": "https://npm.pkg.github.com" },
+  "files": ["dist", "LICENSE", "LICENSES", "THIRD_PARTY_NOTICES.txt", "README.md"],
   "exports": { ".": { "types": "./dist/index.d.mts", "import": "./dist/index.mjs", "default": "./dist/index.mjs" } },
   "scripts": {
     "build": "tsdown",
@@ -16,8 +21,13 @@
     "baseline:promote": "node scripts/upstream-baseline.mjs promote",
     "baseline:check": "node scripts/upstream-baseline.mjs check",
     "upstream:sync": "node scripts/upstream-specs.mjs sync",
-    "upstream:check": "node scripts/upstream-specs.mjs check"
+    "upstream:check": "node scripts/upstream-specs.mjs check",
+    "generate:injected": "node scripts/generate-injected.mjs",
+    "generate:check": "node scripts/generate-injected.mjs --check",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
+  "peerDependencies": { "@playwright/test": ">=1.62.1 <1.63.0" },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "typescript-eslint": "^8.68.0",
@@ -29,7 +39,7 @@
     "esbuild": "0.28.1",
     "formidable": "^3.5.4",
     "playwright": "1.62.1",
-    "playwright-core": "github:ayme-labs/playwright#path:/packages/playwright-core&b25d782e3fbdf21abdae60e974e49b78ca07e828",
+    "playwright-core": "1.62.1",
     "prettier": "^3.9.6",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",

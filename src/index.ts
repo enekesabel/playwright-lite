@@ -1,39 +1,35 @@
-import type { Page } from "@playwright/test";
-import type { CaptureAriaSnapshotResult } from "./types";
+import type { Page, PlaywrightTestOptions } from "@playwright/test";
 
 import { injectedScriptFor } from "./injected";
 import { PageImpl } from "./page";
 
 export { AdapterJSHandle } from "./page";
+export { isPlaywrightLiteLocator, LOCATOR_BRAND, resolveLocatorElements } from "./locator";
 
-export type { CaptureAriaSnapshotResult } from "./types";
+export type CreatePageOptions = Partial<
+  Pick<PlaywrightTestOptions, "testIdAttribute" | "actionTimeout" | "navigationTimeout">
+>;
 
-export {
-  isAymeLocator,
-  LOCATOR_BRAND,
-  resolveLocatorElements,
-} from "./locator";
-
-// ── ARIA capture ────────────────────────────────────────────────────
-
-export function ariaSnapshot(root: Element) {
+export function ariaSnapshot(root: Element): string {
   return injectedScriptFor(root).ariaSnapshot(root, { mode: "ai" });
 }
 
-export function captureAriaSnapshot(root: Element): CaptureAriaSnapshotResult {
-  return injectedScriptFor(root).captureAriaSnapshot(root);
-}
-
-// ── Page factory ────────────────────────────────────────────────────
-
-declare const __AYME_PLAYWRIGHT_ACTION_TIMEOUT__: number | undefined;
-declare const __AYME_PLAYWRIGHT_NAVIGATION_TIMEOUT__: number | undefined;
-
-export function createPage(): Page {
-  const page = PageImpl.fromWindow(window);
-  if (typeof __AYME_PLAYWRIGHT_ACTION_TIMEOUT__ === "number")
-    page.setDefaultTimeout(__AYME_PLAYWRIGHT_ACTION_TIMEOUT__);
-  if (typeof __AYME_PLAYWRIGHT_NAVIGATION_TIMEOUT__ === "number")
-    page.setDefaultNavigationTimeout(__AYME_PLAYWRIGHT_NAVIGATION_TIMEOUT__);
+/** Creates a Page for the current browser window. Omitted settings keep the runtime defaults. */
+export function createPage(options: CreatePageOptions = {}): Page {
+  if (
+    options.testIdAttribute !== undefined &&
+    (typeof options.testIdAttribute !== "string" || !options.testIdAttribute.trim())
+  ) {
+    throw new TypeError("testIdAttribute must be a non-empty string.");
+  }
+  for (const name of ["actionTimeout", "navigationTimeout"] as const) {
+    const value = options[name];
+    if (value !== undefined && (typeof value !== "number" || !Number.isFinite(value) || value < 0)) {
+      throw new TypeError(`${name} must be a finite, non-negative number.`);
+    }
+  }
+  const page = PageImpl.fromWindow(window, options.testIdAttribute);
+  if (options.actionTimeout !== undefined) page.setDefaultTimeout(options.actionTimeout);
+  if (options.navigationTimeout !== undefined) page.setDefaultNavigationTimeout(options.navigationTimeout);
   return page as unknown as Page;
 }

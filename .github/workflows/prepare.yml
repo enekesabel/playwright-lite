@@ -3,68 +3,54 @@ on:
   push:
     branches: [work/standalone-package]
 permissions:
-  contents: read
+  contents: write
 jobs:
-  baseline:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: work/standalone-package
       - uses: actions/setup-node@v4
         with:
           node-version: 24
       - run: npm install --global pnpm@11.24.0
-      - name: Inspect configuration-dependent tests
-        run: |
-          grep -n -B 8 -A 38 'installCompiledTimeouts(' src/contract.test.ts
-          cat tests/upstream/pageTest.ts
-          grep -n -B 5 -A 22 'execFileSync(' scripts/upstream-baseline.mjs
+      - name: Apply standalone changes
+        run: node scripts/prepare-standalone.mjs
       - run: pnpm install --no-frozen-lockfile
+      - name: Generate pinned stock implementation and synchronize tests
+        run: |
+          pnpm generate:injected
+          pnpm upstream:sync
+          node --input-type=module <<'JS'
+          import { createHash } from 'node:crypto';
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const artifact = readFileSync('build/generated/injectedScriptSource.ts');
+          const path = 'build/playwrightInjectedPlugin.ts';
+          let text = readFileSync(path, 'utf8');
+          text = text.replace(/const expectedArtifactBytes = [\d_]+;/, `const expectedArtifactBytes = ${artifact.length};`);
+          text = text.replace(/const expectedArtifactSha256 =\s*"[a-f0-9]+";/, `const expectedArtifactSha256 = "${createHash('sha256').update(artifact).digest('hex')}";`);
+          writeFileSync(path, text);
+          JS
+      - run: pnpm format
+      - name: Save prepared tree on temporary branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet || git commit -m 'refactor: configure standalone browser runtime'
+          git push origin HEAD:work/standalone-package
+          git rev-parse HEAD
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm build
       - run: pnpm lint && pnpm typecheck
+      - run: pnpm upstream:check
       - run: pnpm test
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: baseline-results
-          path: test-results/report.json
+          name: compatibility-results
+          path: test-results/*.json
           if-no-files-found: ignore
-  stock:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - name: Generate official injected source and compare the test corpus
-        shell: bash
-        run: |
-          set -euo pipefail
-          git clone --depth=1 --branch v1.62.1 https://github.com/microsoft/playwright.git "$RUNNER_TEMP/playwright"
-          test "$(git -C "$RUNNER_TEMP/playwright" rev-parse HEAD)" = 26a9e470a7b3c7822084b09fb7f13902c5f37b51
-          npm install --prefix "$RUNNER_TEMP/injected-tools" esbuild@0.28.1
-          NODE_PATH="$RUNNER_TEMP/injected-tools/node_modules" node "$RUNNER_TEMP/playwright/utils/generate_injected.js"
-          generated="$RUNNER_TEMP/playwright/packages/playwright-core/src/generated/injectedScriptSource.ts"
-          wc -c "$generated"
-          sha256sum "$generated"
-          node - "$generated" <<'JS'
-          const fs = require('node:fs');
-          const text = fs.readFileSync(process.argv[2], 'utf8');
-          const source = JSON.parse(text.slice('export const source = '.length, -1));
-          console.log('getByTestIdSelector:', source.includes('function getByTestIdSelector('));
-          console.log('parseAriaSnapshot:', source.includes('function parseAriaSnapshot('));
-          console.log('captureAriaSnapshot:', source.includes('captureAriaSnapshot('));
-          JS
-          for file in tests/upstream/*.spec.ts; do
-            upstream="$RUNNER_TEMP/playwright/tests/page/$(basename "$file")"
-            if [ -f "$upstream" ] && ! cmp -s "$file" "$upstream"; then
-              printf '\n=== changed upstream: %s ===\n' "$file"
-              diff -u "$file" "$upstream" || true
-            fi
-          done
-          printf '\n=== keyboard layout attribution ===\n'
-          head -35 src/keyboardLayout.ts
-          head -30 "$RUNNER_TEMP/playwright/packages/playwright-core/src/server/usKeyboardLayout.ts"

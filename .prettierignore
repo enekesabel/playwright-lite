@@ -1,0 +1,10 @@
+node_modules
+dist
+build/generated
+LICENSES
+pnpm-lock.yaml
+test-results
+playwright-report
+tests/upstream/*.spec.ts
+scripts/prepare-standalone.mjs
+.github/workflows/prepare.yml
