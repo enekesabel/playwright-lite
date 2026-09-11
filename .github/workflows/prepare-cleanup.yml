@@ -27,8 +27,6 @@ jobs:
           disable-nix-access-token: true
       - name: Verify the locked development environment
         run: |
-          devbox run -- node --version
-          devbox run -- pnpm --version
-          test "$(devbox run -- node --version)" = 'v24.12.0'
-          test "$(devbox run -- pnpm --version)" = '11.24.0'
+          devbox run -- node -e 'require("node:assert/strict").equal(process.version, "v24.12.0"); console.log(process.version)'
+          devbox run -- node -e 'const v = require("node:child_process").execFileSync("pnpm", ["--version"], { encoding: "utf8" }).trim(); require("node:assert/strict").equal(v, "11.24.0"); console.log(v)'
           git diff --exit-code -- devbox.json devbox.lock
