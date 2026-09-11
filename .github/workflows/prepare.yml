@@ -7,7 +7,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -16,41 +16,38 @@ jobs:
         with:
           node-version: 24
       - run: npm install --global pnpm@11.24.0
-      - name: Apply standalone changes
-        run: node scripts/prepare-standalone.mjs
-      - run: pnpm install --no-frozen-lockfile
-      - name: Generate pinned stock implementation and synchronize tests
+      - name: Complete package commands
         run: |
-          pnpm generate:injected
-          pnpm upstream:sync
           node --input-type=module <<'JS'
-          import { createHash } from 'node:crypto';
           import { readFileSync, writeFileSync } from 'node:fs';
-          const artifact = readFileSync('build/generated/injectedScriptSource.ts');
-          const path = 'build/playwrightInjectedPlugin.ts';
-          let text = readFileSync(path, 'utf8');
-          text = text.replace(/const expectedArtifactBytes = [\d_]+;/, `const expectedArtifactBytes = ${artifact.length};`);
-          text = text.replace(/const expectedArtifactSha256 =\s*"[a-f0-9]+";/, `const expectedArtifactSha256 = "${createHash('sha256').update(artifact).digest('hex')}";`);
-          writeFileSync(path, text);
+          const path = 'package.json';
+          const pkg = JSON.parse(readFileSync(path, 'utf8'));
+          pkg.scripts['test:package'] = 'node scripts/packed-consumer.mjs';
+          pkg.scripts.check = 'pnpm build && pnpm lint && pnpm typecheck && pnpm upstream:check && pnpm test && pnpm test:e2e && pnpm test:package && pnpm format:check';
+          writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
           JS
+      - run: pnpm install --frozen-lockfile
       - run: pnpm format
-      - name: Save prepared tree on temporary branch
+      - name: Save completed package tree
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
-          git diff --cached --quiet || git commit -m 'refactor: configure standalone browser runtime'
+          git diff --cached --quiet || git commit -m 'test: verify standalone package installation'
           git push origin HEAD:work/standalone-package
           git rev-parse HEAD
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm build
-      - run: pnpm lint && pnpm typecheck
-      - run: pnpm upstream:check
-      - run: pnpm test
-      - run: pnpm test:e2e
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: compatibility-results
-          path: test-results/*.json
-          if-no-files-found: ignore
+      - run: pnpm generate:check
+      - run: pnpm build && pnpm lint && pnpm typecheck && pnpm upstream:check
+      - run: pnpm test:package
+      - name: Audit final package content
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git grep -n -i -E 'ayme|ayde|ayme-labs|b25d782|@ayme-dev|packages/playwright-browser' -- . ':!scripts/prepare-standalone.mjs' ':!.github/workflows/prepare.yml'; then
+            echo 'Unexpected former-project reference'; exit 1
+          fi
+          if grep -R -n -i -E 'ayme|ayde|b25d782|@ayme-dev' dist; then
+            echo 'Unexpected reference in build output'; exit 1
+          fi
+          git status --short
