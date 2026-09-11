@@ -1,0 +1,32 @@
+name: Package preparation
+on:
+  push:
+    branches: [work/standalone-package]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Inspect package dependencies and browser configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n=== tracked files ===\n'
+          git ls-files
+          printf '\n=== references ===\n'
+          git grep -n -i -E 'ayme|ayde|captureAriaSnapshot|__.*TIMEOUT|testIdAttributeName|packages/playwright-browser|\.\./\.\./\.\.' -- . ':!.github' || true
+          printf '\n=== package configuration ===\n'
+          for file in package.json tsconfig.json tsconfig.compatibility.json tsdown.config.ts vitest.config.ts playwright.config.ts tests/upstream/corpus.ts scripts/upstream-specs.mjs src/injected.ts src/index.ts src/index.test.ts build/playwright-injected.d.ts; do
+            printf '\n=== %s ===\n' "$file"
+            cat "$file"
+          done
+          printf '\n=== stock package availability ===\n'
+          npm view playwright-core@1.62.1 version dist.tarball
+          printf '\n=== stock source tag ===\n'
+          git ls-remote https://github.com/microsoft/playwright.git 'refs/tags/v1.62.1*'
