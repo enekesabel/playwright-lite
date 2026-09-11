@@ -1,9 +1,12 @@
 {
-  "extends": "@ayme-dev/typescript-config/library.json",
   "compilerOptions": {
-    "paths": {
-      "@ayme-dev/playwright-browser": ["./src/index.ts"]
-    },
+    "strict": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2024",
+    "paths": { "@ayme-dev/playwright-browser": ["./src/index.ts"] },
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "build/playwright-injected.d.ts"]

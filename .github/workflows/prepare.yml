@@ -5,7 +5,33 @@ on:
 permissions:
   contents: read
 jobs:
-  inspect:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --global pnpm@11.24.0
+      - name: Inspect configuration-dependent tests
+        run: |
+          grep -n -B 8 -A 38 'installCompiledTimeouts(' src/contract.test.ts
+          cat tests/upstream/pageTest.ts
+          grep -n -B 5 -A 22 'execFileSync(' scripts/upstream-baseline.mjs
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm build
+      - run: pnpm lint && pnpm typecheck
+      - run: pnpm test
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: baseline-results
+          path: test-results/report.json
+          if-no-files-found: ignore
+  stock:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -13,20 +39,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Inspect package dependencies and browser configuration
+      - name: Generate official injected source and compare the test corpus
         shell: bash
         run: |
           set -euo pipefail
-          printf '\n=== tracked files ===\n'
-          git ls-files
-          printf '\n=== references ===\n'
-          git grep -n -i -E 'ayme|ayde|captureAriaSnapshot|__.*TIMEOUT|testIdAttributeName|packages/playwright-browser|\.\./\.\./\.\.' -- . ':!.github' || true
-          printf '\n=== package configuration ===\n'
-          for file in package.json tsconfig.json tsconfig.compatibility.json tsdown.config.ts vitest.config.ts playwright.config.ts tests/upstream/corpus.ts scripts/upstream-specs.mjs src/injected.ts src/index.ts src/index.test.ts build/playwright-injected.d.ts; do
-            printf '\n=== %s ===\n' "$file"
-            cat "$file"
+          git clone --depth=1 --branch v1.62.1 https://github.com/microsoft/playwright.git "$RUNNER_TEMP/playwright"
+          test "$(git -C "$RUNNER_TEMP/playwright" rev-parse HEAD)" = 26a9e470a7b3c7822084b09fb7f13902c5f37b51
+          npm install --prefix "$RUNNER_TEMP/injected-tools" esbuild@0.28.1
+          NODE_PATH="$RUNNER_TEMP/injected-tools/node_modules" node "$RUNNER_TEMP/playwright/utils/generate_injected.js"
+          generated="$RUNNER_TEMP/playwright/packages/playwright-core/src/generated/injectedScriptSource.ts"
+          wc -c "$generated"
+          sha256sum "$generated"
+          node - "$generated" <<'JS'
+          const fs = require('node:fs');
+          const text = fs.readFileSync(process.argv[2], 'utf8');
+          const source = JSON.parse(text.slice('export const source = '.length, -1));
+          console.log('getByTestIdSelector:', source.includes('function getByTestIdSelector('));
+          console.log('parseAriaSnapshot:', source.includes('function parseAriaSnapshot('));
+          console.log('captureAriaSnapshot:', source.includes('captureAriaSnapshot('));
+          JS
+          for file in tests/upstream/*.spec.ts; do
+            upstream="$RUNNER_TEMP/playwright/tests/page/$(basename "$file")"
+            if [ -f "$upstream" ] && ! cmp -s "$file" "$upstream"; then
+              printf '\n=== changed upstream: %s ===\n' "$file"
+              diff -u "$file" "$upstream" || true
+            fi
           done
-          printf '\n=== stock package availability ===\n'
-          npm view playwright-core@1.62.1 version dist.tarball
-          printf '\n=== stock source tag ===\n'
-          git ls-remote https://github.com/microsoft/playwright.git 'refs/tags/v1.62.1*'
+          printf '\n=== keyboard layout attribution ===\n'
+          head -35 src/keyboardLayout.ts
+          head -30 "$RUNNER_TEMP/playwright/packages/playwright-core/src/server/usKeyboardLayout.ts"

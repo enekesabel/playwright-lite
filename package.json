@@ -3,17 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.mts",
-      "import": "./dist/index.mjs",
-      "default": "./dist/index.mjs"
-    }
-  },
+  "engines": { "node": ">=24" },
+  "packageManager": "pnpm@11.24.0",
+  "exports": { ".": { "types": "./dist/index.d.mts", "import": "./dist/index.mjs", "default": "./dist/index.mjs" } },
   "scripts": {
     "build": "tsdown",
     "lint": "eslint src --max-warnings 0",
-    "test": "vitest run --passWithNoTests && node --test scripts/upstream-baseline.test.mjs",
+    "test": "vitest run && node --test scripts/upstream-baseline.test.mjs",
     "test:guards": "pnpm exec playwright test tests/upstream/_adapter-guard.spec.ts tests/upstream/_page-test-fixture.spec.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.compatibility.json --noEmit",
     "test:e2e": "pnpm run test:guards && node scripts/upstream-baseline.mjs check",
@@ -23,21 +19,21 @@
     "upstream:check": "node scripts/upstream-specs.mjs check"
   },
   "devDependencies": {
-    "@ayme-dev/eslint-config": "workspace:*",
-    "@ayme-dev/typescript-config": "workspace:*",
-    "@playwright/test": "^1.62.1",
+    "@eslint/js": "^10.0.1",
+    "typescript-eslint": "^8.68.0",
+    "@playwright/test": "1.62.1",
     "@types/formidable": "^3.5.1",
     "@types/node": "^24.0.0",
     "@vitest/browser-playwright": "^4.1.11",
     "eslint": "^10.9.1",
+    "esbuild": "0.28.1",
     "formidable": "^3.5.4",
-    "playwright": "^1.62.1",
+    "playwright": "1.62.1",
     "playwright-core": "github:ayme-labs/playwright#path:/packages/playwright-core&b25d782e3fbdf21abdae60e974e49b78ca07e828",
+    "prettier": "^3.9.6",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"
   },
-  "dependencies": {
-    "yaml": "2.9.0"
-  }
+  "dependencies": { "yaml": "2.9.0" }
 }
