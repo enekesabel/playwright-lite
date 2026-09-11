@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2024",
+    "paths": { "@enekesabel/playwright-lite": ["./src/index.ts"] },
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "build/playwright-injected.d.ts"]
+}

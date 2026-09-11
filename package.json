@@ -1,0 +1,74 @@
+{
+  "name": "@enekesabel/playwright-lite",
+  "version": "0.1.0",
+  "description": "Playwright-compatible Page and Locator operations in the current browser document",
+  "license": "MIT",
+  "author": "Ábel Énekes",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.24.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/enekesabel/playwright-lite.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "LICENSES",
+    "THIRD_PARTY_NOTICES.txt",
+    "README.md"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "lint": "eslint src --max-warnings 0",
+    "test": "vitest run && node --test scripts/upstream-baseline.test.mjs",
+    "test:guards": "pnpm exec playwright test tests/upstream/_adapter-guard.spec.ts tests/upstream/_page-test-fixture.spec.ts",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.compatibility.json --noEmit",
+    "test:e2e": "pnpm run test:guards && node scripts/upstream-baseline.mjs check",
+    "baseline:promote": "node scripts/upstream-baseline.mjs promote",
+    "baseline:check": "node scripts/upstream-baseline.mjs check",
+    "upstream:sync": "node scripts/upstream-specs.mjs sync",
+    "upstream:check": "node scripts/upstream-specs.mjs check",
+    "generate:injected": "node scripts/generate-injected.mjs",
+    "generate:check": "node scripts/generate-injected.mjs --check",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:package": "node scripts/packed-consumer.mjs",
+    "check": "pnpm build && pnpm lint && pnpm typecheck && pnpm upstream:check && pnpm test && pnpm test:e2e && pnpm test:package && pnpm format:check"
+  },
+  "peerDependencies": {
+    "@playwright/test": ">=1.62.1 <1.63.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "typescript-eslint": "^8.68.0",
+    "@playwright/test": "1.62.1",
+    "@types/formidable": "^3.5.1",
+    "@types/node": "^24.0.0",
+    "@vitest/browser-playwright": "^4.1.11",
+    "eslint": "^10.9.1",
+    "esbuild": "0.28.1",
+    "formidable": "^3.5.4",
+    "playwright": "1.62.1",
+    "playwright-core": "1.62.1",
+    "prettier": "^3.9.6",
+    "tsdown": "^0.22.14",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "dependencies": {
+    "yaml": "2.9.0"
+  }
+}
