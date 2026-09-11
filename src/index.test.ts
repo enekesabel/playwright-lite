@@ -1,14 +1,18 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { ariaSnapshot, createPage, type CreatePageOptions } from "./index";
+import { createPage, type CreatePageOptions } from "./index";
+import * as publicExports from "./index";
 
 afterEach(() => {
   document.body.innerHTML = "";
 });
 
 describe("public browser entry", () => {
-  it("captures an ordinary accessibility snapshot", () => {
+  it("exports only the page factory at runtime", () => {
+    expect(Object.keys(publicExports)).toEqual(["createPage"]);
+  });
+  it("captures an ordinary accessibility snapshot", async () => {
     document.body.innerHTML = "<h1>Settings</h1><button>Save</button>";
-    const snapshot = ariaSnapshot(document.body);
+    const snapshot = await createPage().ariaSnapshot();
     expect(snapshot).toContain('heading "Settings" [level=1]');
     expect(snapshot).toContain('button "Save"');
   });
@@ -38,7 +42,7 @@ describe("public browser entry", () => {
     expect(await createPage().getByTestId("save").textContent()).toBe(
       "Default"
     );
-    ariaSnapshot(document.body);
+    await createPage().ariaSnapshot();
     expect(await first.getByTestId("save").textContent()).toBe("A");
   });
 

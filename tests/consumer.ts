@@ -1,5 +1,8 @@
 import type { Locator, Page } from "@playwright/test";
-import { createPage, type CreatePageOptions } from "@enekesabel/playwright-lite";
+import {
+  createPage,
+  type CreatePageOptions,
+} from "@enekesabel/playwright-lite";
 import * as publicExports from "@enekesabel/playwright-lite";
 
 class ProfilePage {
