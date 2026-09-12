@@ -28,7 +28,7 @@ jobs:
         with:
           enable-cache: "true"
           disable-nix-access-token: "true"
-      - name: Apply and verify in one Devbox shell
+      - name: Promote reviewed cases and run all checks in Devbox
         id: verify
         run: |
           devbox run -- bash -euo pipefail <<'SHELL'
@@ -38,57 +38,70 @@ jobs:
           pnpm exec playwright install --with-deps chromium
           pnpm format
           pnpm build
-          pnpm lint
-          pnpm typecheck
-          node scripts/upstream-specs.mjs check --upstream
-          pnpm test
           pnpm test:guards
+          node scripts/upstream-specs.mjs check --upstream
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
-          import { spawnSync } from 'node:child_process';
-          import { readFileSync, writeFileSync } from 'node:fs';
-          import { createRequire } from 'node:module';
-          import { resolve } from 'node:path';
-          import { parseReport, validateReportErrors, validateCompleteness, isCandidate } from './scripts/upstream-baseline.mjs';
-          const require = createRequire(import.meta.url);
-          const names = ['page-localstorage.spec.ts', 'locator-highlight.spec.ts', 'elementhandle-convenience.spec.ts'];
-          const reportPath = resolve('test-results/pr5-focused.json');
-          const run = spawnSync(process.execPath, [require.resolve('@playwright/test/cli'), 'test', '--reporter=list,json', ...names.map(name => `tests/upstream/${name}`)], {
-            stdio: 'inherit', env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath },
-          });
-          assert(!run.error && !run.signal && [0, 1].includes(run.status), 'Focused runner failed');
-          const report = JSON.parse(readFileSync(reportPath, 'utf8'));
-          assert.deepEqual(validateReportErrors(report), []);
-          const entries = parseReport(report);
-          assert.deepEqual(validateCompleteness(entries, names).errors, []);
-          writeFileSync('test-results/pr5-focused-evidence.json', JSON.stringify(entries, null, 2) + '\n');
-          for (const entry of entries) console.log(JSON.stringify(entry));
-          const required = entries.filter(entry => entry.file !== 'elementhandle-convenience.spec.ts' || [
-            'elementhandle-convenience.spec.ts > isVisible and isHidden should work',
-            'elementhandle-convenience.spec.ts > isEnabled and isDisabled should work',
-            'elementhandle-convenience.spec.ts > isEnabled and isDisabled should work with <select/> option/optgroup correctly',
-          ].includes(entry.id));
-          assert.equal(required.length, 16);
-          for (const entry of required) assert(isCandidate(entry), `Unverified new behavior: ${entry.id}`);
-          console.log('All 16 required new upstream cases have clean browser execution. No promotion performed.');
+          import { execFileSync } from 'node:child_process';
+          import { readFileSync, mkdirSync, copyFileSync } from 'node:fs';
+          const baselinePath = 'tests/upstream/baseline.json';
+          const original = JSON.parse(execFileSync('git', ['show', '673fb1090dc2497a06db99f366075ad923f6227d:' + baselinePath], { encoding: 'utf8' }));
+          const before = JSON.parse(readFileSync(baselinePath, 'utf8'));
+          assert.deepEqual(before.reviewed, original.reviewed, 'Existing reviewed entries changed before promotion');
+          // Each entry was reviewed against its complete pinned source and the
+          // recorded adapter execution in workbench runs 34721584326/34722113062.
+          // These explicit approvals are not inferred from passing status.
+          const reviews = [
+            { id: 'page-localstorage.spec.ts > localStorage.items returns empty array on fresh origin', method: 'Page.localStorage.items', evidence: 'After explicitly recorded native origin setup, the browser storage wrapper returns an empty array for a fresh origin. This certifies storage enumeration, not Page.goto.' },
+            { id: 'page-localstorage.spec.ts > localStorage.getItem returns null for missing key', method: 'Page.localStorage.getItem', evidence: 'The unchanged toBeNull assertion checks that the browser storage wrapper returns null for an absent key; native goto only establishes the origin.' },
+            { id: 'page-localstorage.spec.ts > localStorage.setItem persists and surfaces in items()/getItem()', method: 'Page.localStorage.setItem', evidence: 'The unchanged assertions verify both written name/value pairs without imposing key order, getItem(alpha) equals 1, and browser evaluation reads the same persisted value. Storage writes and reads enter the adapter; native goto is setup only.' },
+            { id: 'page-localstorage.spec.ts > localStorage.setItem overwrites existing value', method: 'Page.localStorage.setItem', evidence: 'After two browser-adapter writes to k, getItem(k) returns second, proving overwrite rather than duplicate entries. Native goto only establishes the origin.' },
+            { id: 'page-localstorage.spec.ts > localStorage.removeItem removes a single item', method: 'Page.localStorage.removeItem', evidence: 'After adapter writes of a and b, removeItem(a) leaves exactly b=2 in items(). This proves selective deletion; recorded native goto is setup only.' },
+            { id: 'page-localstorage.spec.ts > localStorage.clear empties storage', method: 'Page.localStorage.clear', evidence: 'After two adapter writes, clear() is followed by an unchanged items() assertion of an empty array. All storage operations are browser-side; native goto is setup only.' },
+            { id: 'page-localstorage.spec.ts > sessionStorage round-trip', method: 'Page.sessionStorage.setItem', evidence: 'The unchanged test checks empty enumeration, both written values, getItem, selective removal and final clear through the browser sessionStorage wrapper. Native goto establishes the origin and is not certified.' },
+            { id: 'page-localstorage.spec.ts > localStorage and sessionStorage are independent', method: 'Page.sessionStorage.getItem', evidence: 'The same key has distinct local and session values; clearing local storage leaves the session value intact. All storage methods enter the adapter and native goto is setup only.' },
+            { id: 'page-localstorage.spec.ts > storage methods are scoped to the current origin', method: 'Page.localStorage.getItem', evidence: 'Across three explicitly recorded native setup navigations, the second origin starts empty and returning to the first recovers origin-1 rather than origin-2. Adapter storage calls prove origin scoping, not navigation support.' },
+            { id: 'elementhandle-convenience.spec.ts > isVisible and isHidden should work', method: 'ElementHandle.isVisible', evidence: 'The unchanged assertions check visible div and empty span handle results for both isVisible and isHidden, with corresponding Page and missing-selector checks. Handle state methods execute in the adapter; native setContent only sets up the document.' },
+            { id: 'elementhandle-convenience.spec.ts > isEnabled and isDisabled should work', method: 'ElementHandle.isEnabled', evidence: 'The unchanged assertions verify both enabled/disabled booleans for a div, a disabled button and an enabled button. Actual handle methods enter the browser adapter; native setContent is setup only.' },
+            { id: 'elementhandle-convenience.spec.ts > isEnabled and isDisabled should work with <select/> option/optgroup correctly', method: 'ElementHandle.isDisabled', evidence: 'The unchanged assertions verify complementary enabled/disabled results for ordinary and disabled options and optgroups through adapter handles. Native setContent only establishes the controls.' },
+            { id: 'locator-highlight.spec.ts > highlight should accept a CSS string style', method: 'Locator.highlight', evidence: 'The unchanged test observes a visible overlay and reads its actual inline outline and background color after a CSS-string highlight. Highlight, matcher and evaluate calls enter the adapter; native navigation/context creation are setup only. Pinned test mode exposes the overlay shadow root.' },
+            { id: 'locator-highlight.spec.ts > highlight should accept an object style (JS only)', method: 'Locator.highlight', evidence: 'The unchanged test observes a visible overlay and verifies the actual dashed blue outline and camelCase backgroundColor from an object style. Runtime highlight, matcher and evaluation execute in the browser; native navigation/context calls are setup and teardown. Pinned test mode only exposes the shadow root.' },
+            { id: 'locator-highlight.spec.ts > hideHighlight removes a styled highlight', method: 'Locator.hideHighlight', evidence: 'The unchanged test first proves the styled overlay is visible, then invokes adapter Locator.hideHighlight and asserts zero overlays through the adapter matcher. Native navigation/context calls only establish and dispose the document; pinned test mode exposes the shadow root.' },
+            { id: 'locator-highlight.spec.ts > Page.hideHighlight clears all locator highlights', method: 'Page.hideHighlight', evidence: 'The unchanged test highlights two different buttons, proves there are two overlays, invokes adapter Page.hideHighlight and asserts zero overlays. Both count assertions use the browser adapter; native context/setContent calls are setup only and pinned test mode exposes the shadow root.' },
+          ];
+          assert.equal(reviews.length, 16);
+          execFileSync(process.execPath, ['scripts/upstream-baseline.mjs', 'promote', ...reviews.flatMap(({ id, method, evidence }) => [id, method, evidence])], { stdio: 'inherit' });
+          const after = JSON.parse(readFileSync(baselinePath, 'utf8'));
+          assert.equal(after.reviewed.length, original.reviewed.length + reviews.length);
+          for (const entry of original.reviewed) assert.deepEqual(after.reviewed.find(e => e.id === entry.id), entry);
+          for (const entry of reviews) assert.deepEqual(after.reviewed.find(e => e.id === entry.id), entry);
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          const originalPkg = JSON.parse(execFileSync('git', ['show', '673fb1090dc2497a06db99f366075ad923f6227d:package.json'], { encoding: 'utf8' }));
+          for (const field of ['exports', 'dependencies', 'devDependencies', 'peerDependencies']) assert.deepEqual(pkg[field], originalPkg[field]);
+          execFileSync('git', ['diff', '--exit-code', '673fb1090dc2497a06db99f366075ad923f6227d', '--', 'src/index.ts']);
+          const output = process.env.RUNNER_TEMP + '/pr5';
+          mkdirSync(output, { recursive: true });
+          copyFileSync('test-results/compatibility.json', output + '/promotion-execution.json');
+          console.log(`Reviewed baseline: ${original.reviewed.length} preserved + ${reviews.length} new = ${after.reviewed.length}; no exports or dependencies added.`);
           NODE
+          pnpm check
           git diff --check
           SHELL
-      - name: Publish changes without overwriting concurrent work
-        if: always() && steps.verify.outputs.prepared == 'true'
+      - name: Publish verified baseline and remove temporary workbench
+        if: success()
         env:
-          VERIFIED: ${{ steps.verify.outcome }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git fetch origin codex/browser-compat-wins
           test "$(git rev-parse HEAD)" = "$(git rev-parse origin/codex/browser-compat-wins)"
-          git add src tests
+          git rm .github/workflows/pr5-workbench.yml scripts/pr5-workbench.py
+          git add src tests AGENTS.md .prettierignore scripts/upstream-specs.mjs
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          if ! git diff --cached --quiet; then
-            git commit -m "fix: initialize highlight test mode lazily ($VERIFIED)"
-            git push origin HEAD:codex/browser-compat-wins
-          fi
+          git commit -m "test: promote 16 reviewed upstream browser compatibility cases"
+          git push origin HEAD:codex/browser-compat-wins
+          gh workflow run ci.yml --ref codex/browser-compat-wins
       - name: Preserve verification artifacts
         if: always()
         run: |
