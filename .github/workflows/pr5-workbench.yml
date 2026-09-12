@@ -19,9 +19,6 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    env:
-      FINALIZE: "false"
-      REVIEWED_PROMOTIONS: "[]"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -40,67 +37,57 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm exec playwright install --with-deps chromium
           pnpm format
+          pnpm build
+          pnpm lint
+          pnpm typecheck
+          node scripts/upstream-specs.mjs check --upstream
+          pnpm test
+          pnpm test:guards
           node --input-type=module <<'NODE'
-          import { execFileSync } from 'node:child_process';
+          import assert from 'node:assert/strict';
+          import { spawnSync } from 'node:child_process';
           import { readFileSync, writeFileSync } from 'node:fs';
           import { createRequire } from 'node:module';
-          import { specNames } from './tests/upstream/corpus.ts';
+          import { resolve } from 'node:path';
+          import { parseReport, validateReportErrors, validateCompleteness, isCandidate } from './scripts/upstream-baseline.mjs';
           const require = createRequire(import.meta.url);
-          const args = [require.resolve('@playwright/test/cli'), 'test', '--list', '--reporter=json', ...specNames.map(name => `tests/upstream/${name}`)];
-          const report = JSON.parse(execFileSync(process.execPath, args, { encoding: 'utf8' }));
-          if (report.errors?.length) throw new Error(JSON.stringify(report.errors));
-          const count = suites => suites.reduce((sum, suite) => sum + (suite.specs ?? []).reduce((n, spec) => n + spec.tests.length, 0) + count(suite.suites ?? []), 0);
-          const baselinePath = 'tests/upstream/baseline.json';
-          const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
-          // Collection metadata only; no candidate is promoted by this step.
-          baseline.selectedTestCount = count(report.suites);
-          writeFileSync(baselinePath, JSON.stringify(baseline, null, 2) + '\n');
-          console.log('Collected corpus:', baseline.selectedTestCount);
-          const reviews = JSON.parse(process.env.REVIEWED_PROMOTIONS);
-          if (reviews.length) {
-            execFileSync(process.execPath, ['scripts/upstream-baseline.mjs', 'promote', ...reviews.flatMap(({ id, method, evidence }) => [id, method, evidence])], { stdio: 'inherit' });
-          }
+          const names = ['page-localstorage.spec.ts', 'locator-highlight.spec.ts', 'elementhandle-convenience.spec.ts'];
+          const reportPath = resolve('test-results/pr5-focused.json');
+          const run = spawnSync(process.execPath, [require.resolve('@playwright/test/cli'), 'test', '--reporter=list,json', ...names.map(name => `tests/upstream/${name}`)], {
+            stdio: 'inherit', env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath },
+          });
+          assert(!run.error && !run.signal && [0, 1].includes(run.status), 'Focused runner failed');
+          const report = JSON.parse(readFileSync(reportPath, 'utf8'));
+          assert.deepEqual(validateReportErrors(report), []);
+          const entries = parseReport(report);
+          assert.deepEqual(validateCompleteness(entries, names).errors, []);
+          writeFileSync('test-results/pr5-focused-evidence.json', JSON.stringify(entries, null, 2) + '\n');
+          for (const entry of entries) console.log(JSON.stringify(entry));
+          const required = entries.filter(entry => entry.file !== 'elementhandle-convenience.spec.ts' || [
+            'elementhandle-convenience.spec.ts > isVisible and isHidden should work',
+            'elementhandle-convenience.spec.ts > isEnabled and isDisabled should work',
+            'elementhandle-convenience.spec.ts > isEnabled and isDisabled should work with <select/> option/optgroup correctly',
+          ].includes(entry.id));
+          assert.equal(required.length, 16);
+          for (const entry of required) assert(isCandidate(entry), `Unverified new behavior: ${entry.id}`);
+          console.log('All 16 required new upstream cases have clean browser execution. No promotion performed.');
           NODE
-          node scripts/upstream-specs.mjs check --upstream
-          pnpm check
           git diff --check
           SHELL
-      - name: Inspect new corpus evidence
-        if: always()
-        run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const file = 'test-results/compatibility.json';
-          if (!fs.existsSync(file)) {
-            console.log('No completed corpus report. Inspect the preceding failure.');
-            process.exit(0);
-          }
-          const entries = JSON.parse(fs.readFileSync(file, 'utf8'));
-          for (const entry of entries.filter(e => ['page-localstorage.spec.ts', 'locator-highlight.spec.ts', 'elementhandle-convenience.spec.ts'].includes(e.file))) {
-            console.log(JSON.stringify(entry));
-          }
-          NODE
       - name: Publish changes without overwriting concurrent work
         if: always() && steps.verify.outputs.prepared == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
           VERIFIED: ${{ steps.verify.outcome }}
         run: |
           set -euo pipefail
           git fetch origin codex/browser-compat-wins
           test "$(git rev-parse HEAD)" = "$(git rev-parse origin/codex/browser-compat-wins)"
-          if [ "$FINALIZE" = true ] && [ "$VERIFIED" = success ]; then
-            git rm .github/workflows/pr5-workbench.yml scripts/pr5-workbench.py
-          fi
-          git add src tests AGENTS.md .prettierignore scripts/upstream-specs.mjs
+          git add src tests
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           if ! git diff --cached --quiet; then
-            git commit -m "fix: complete pinned browser compatibility coverage ($VERIFIED)"
+            git commit -m "fix: initialize highlight test mode lazily ($VERIFIED)"
             git push origin HEAD:codex/browser-compat-wins
-          fi
-          if [ "$FINALIZE" = true ] && [ "$VERIFIED" = success ]; then
-            gh workflow run ci.yml --ref codex/browser-compat-wins
           fi
       - name: Preserve verification artifacts
         if: always()
