@@ -1,4 +1,6 @@
+import type { Locator } from "@playwright/test";
 import { assertMaxArguments } from "./evaluation";
+import { validateNoWaitAfter } from "./protocolValidation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import type {
   AriaSnapshotOptions,
@@ -66,14 +68,8 @@ export type LocatorOptions = {
   visible?: boolean;
 };
 
-export type HighlightOptions = {
-  style?: string | Record<string, string | number>;
-};
-
-export type HighlightDisposable = {
-  dispose(): Promise<void>;
-  [Symbol.asyncDispose](): Promise<void>;
-};
+type HighlightOptions = NonNullable<Parameters<Locator["highlight"]>[0]>;
+type HighlightDisposable = Awaited<ReturnType<Locator["highlight"]>>;
 
 export class LocatorImpl {
   /**
@@ -184,7 +180,7 @@ export class LocatorImpl {
   /**
    * Mirrors pinned 26a9e47 Locator.locator:
    * - string → `this._selector + ' >> ' + selector`
-   * - Locator → `this._selector + ' >> internal:chain=' + JSON.stringify(locator._selector)`
+   * - Locator → `this._frame._selector + ' >> internal:chain=' + JSON.stringify(locator._selector)`
    */
   locator(
     selectorOrLocator: string | LocatorImpl,
@@ -729,12 +725,8 @@ function rejectUnsupportedOptions(
       `${method}(): unsupported Playwright option(s): ${unsupported.join(", ")}.`
     );
   }
-  if (
-    supported.includes("noWaitAfter") &&
-    options.noWaitAfter !== undefined &&
-    typeof options.noWaitAfter !== "boolean"
-  )
-    throw new TypeError(`${method} noWaitAfter must be a boolean`);
+  if (supported.includes("noWaitAfter"))
+    validateNoWaitAfter(method, options.noWaitAfter);
 }
 
 function cssObjectToString(style: Record<string, string | number>): string {

@@ -11,6 +11,7 @@ import {
   DEFAULT_TEST_ID_ATTRIBUTE,
 } from "./injected";
 import { AdapterTimeoutError } from "./errors";
+import { validateNoWaitAfter, validateString } from "./protocolValidation";
 import { AdapterElementHandle } from "./elementHandle";
 import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
@@ -2506,7 +2507,9 @@ export class PageImpl {
   }
 }
 
-class PageWebStorage {
+type WebStorage = Page["localStorage"];
+
+class PageWebStorage implements WebStorage {
   constructor(
     private readonly page: PageImpl,
     private readonly kind: "local" | "session"
@@ -2524,14 +2527,18 @@ class PageWebStorage {
   }
 
   async getItem(name: string): Promise<string | null> {
+    name = validateString(name, "name");
     return this.storage().getItem(name);
   }
 
   async setItem(name: string, value: string): Promise<void> {
+    name = validateString(name, "name");
+    value = validateString(value, "value");
     this.storage().setItem(name, value);
   }
 
   async removeItem(name: string): Promise<void> {
+    name = validateString(name, "name");
     this.storage().removeItem(name);
   }
 
@@ -2925,12 +2932,8 @@ function assertPageActionOptions(
     );
   if (options.timeout !== undefined)
     validateTimeout(options.timeout, `${method} timeout`);
-  if (
-    supported.includes("noWaitAfter") &&
-    options.noWaitAfter !== undefined &&
-    typeof options.noWaitAfter !== "boolean"
-  )
-    throw new TypeError(`${method} noWaitAfter must be a boolean`);
+  if (supported.includes("noWaitAfter"))
+    validateNoWaitAfter(method, options.noWaitAfter);
 }
 
 type PageDispatchEventOptions = PageActionOptions & { strict?: boolean };
