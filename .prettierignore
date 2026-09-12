@@ -7,3 +7,4 @@ test-results
 playwright-report
 tests/upstream/*.spec.ts
 tests/assets/input/button.html
+tests/assets/input/mouse-helper.js

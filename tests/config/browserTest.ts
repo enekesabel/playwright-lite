@@ -46,6 +46,10 @@ async function capture(record: ContextRecord, result: Evidence) {
 export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
   server: async ({ server, asset }, use) => {
     server.serveFile("/input/button.html", asset("input/button.html"));
+    server.setRoute("/input/mouse-helper.js", (req, res) => {
+      res.setHeader("Content-Type", "text/javascript; charset=utf-8");
+      server.serveFile(req, res, asset("input/mouse-helper.js"));
+    });
     await use(server);
   },
   browser: [

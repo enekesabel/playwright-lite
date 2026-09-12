@@ -6,6 +6,21 @@
   "selectedTestCount": 615,
   "reviewed": [
     {
+      "id": "elementhandle-convenience.spec.ts > isEnabled and isDisabled should work",
+      "method": "ElementHandle.isEnabled",
+      "evidence": "The unchanged assertions verify both enabled/disabled booleans for a div, a disabled button and an enabled button. Actual handle methods enter the browser adapter; native setContent is setup only."
+    },
+    {
+      "id": "elementhandle-convenience.spec.ts > isEnabled and isDisabled should work with <select/> option/optgroup correctly",
+      "method": "ElementHandle.isDisabled",
+      "evidence": "The unchanged assertions verify complementary enabled/disabled results for ordinary and disabled options and optgroups through adapter handles. Native setContent only establishes the controls."
+    },
+    {
+      "id": "elementhandle-convenience.spec.ts > isVisible and isHidden should work",
+      "method": "ElementHandle.isVisible",
+      "evidence": "The unchanged assertions check visible div and empty span handle results for both isVisible and isHidden, with corresponding Page and missing-selector checks. Handle state methods execute in the adapter; native setContent only sets up the document."
+    },
+    {
       "id": "locator-click.spec.ts > should click if the target element is removed in pointerdown event",
       "method": "Locator.click",
       "evidence": "Awaiting Locator.click completes without rejection when the target element is removed in pointerdown event."
@@ -54,6 +69,26 @@
       "id": "locator-convenience.spec.ts > isEnabled and isDisabled should work",
       "method": "Locator.isEnabled",
       "evidence": "Assertions verify Locator and Page enabled and disabled state across ordinary and disabled elements using InjectedScript element-state semantics."
+    },
+    {
+      "id": "locator-highlight.spec.ts > hideHighlight removes a styled highlight",
+      "method": "Locator.hideHighlight",
+      "evidence": "The unchanged test first proves the styled overlay is visible, then invokes adapter Locator.hideHighlight and asserts zero overlays through the adapter matcher. Native navigation/context calls only establish and dispose the document; pinned test mode exposes the shadow root."
+    },
+    {
+      "id": "locator-highlight.spec.ts > highlight should accept a CSS string style",
+      "method": "Locator.highlight",
+      "evidence": "The unchanged test observes a visible overlay and reads its actual inline outline and background color after a CSS-string highlight. Highlight, matcher and evaluate calls enter the adapter; native navigation/context creation are setup only. Pinned test mode exposes the overlay shadow root."
+    },
+    {
+      "id": "locator-highlight.spec.ts > highlight should accept an object style (JS only)",
+      "method": "Locator.highlight",
+      "evidence": "The unchanged test observes a visible overlay and verifies the actual dashed blue outline and camelCase backgroundColor from an object style. Runtime highlight, matcher and evaluation execute in the browser; native navigation/context calls are setup and teardown. Pinned test mode only exposes the shadow root."
+    },
+    {
+      "id": "locator-highlight.spec.ts > Page.hideHighlight clears all locator highlights",
+      "method": "Page.hideHighlight",
+      "evidence": "The unchanged test highlights two different buttons, proves there are two overlays, invokes adapter Page.hideHighlight and asserts zero overlays. Both count assertions use the browser adapter; native context/setContent calls are setup only and pinned test mode exposes the shadow root."
     },
     {
       "id": "locator-is-visible.spec.ts > isVisible and isHidden should work",
@@ -829,6 +864,51 @@
       "id": "page-keyboard.spec.ts > should type into a textarea @smoke",
       "method": "Keyboard.type",
       "evidence": "Browser Page.evaluate creates and focuses a textarea; Keyboard.type enters the browser implementation and the final value equals the full requested string. No native calls or transport failures."
+    },
+    {
+      "id": "page-localstorage.spec.ts > localStorage and sessionStorage are independent",
+      "method": "Page.sessionStorage.getItem",
+      "evidence": "The same key has distinct local and session values; clearing local storage leaves the session value intact. All storage methods enter the adapter and native goto is setup only."
+    },
+    {
+      "id": "page-localstorage.spec.ts > localStorage.clear empties storage",
+      "method": "Page.localStorage.clear",
+      "evidence": "After two adapter writes, clear() is followed by an unchanged items() assertion of an empty array. All storage operations are browser-side; native goto is setup only."
+    },
+    {
+      "id": "page-localstorage.spec.ts > localStorage.getItem returns null for missing key",
+      "method": "Page.localStorage.getItem",
+      "evidence": "The unchanged toBeNull assertion checks that the browser storage wrapper returns null for an absent key; native goto only establishes the origin."
+    },
+    {
+      "id": "page-localstorage.spec.ts > localStorage.items returns empty array on fresh origin",
+      "method": "Page.localStorage.items",
+      "evidence": "After explicitly recorded native origin setup, the browser storage wrapper returns an empty array for a fresh origin. This certifies storage enumeration, not Page.goto."
+    },
+    {
+      "id": "page-localstorage.spec.ts > localStorage.removeItem removes a single item",
+      "method": "Page.localStorage.removeItem",
+      "evidence": "After adapter writes of a and b, removeItem(a) leaves exactly b=2 in items(). This proves selective deletion; recorded native goto is setup only."
+    },
+    {
+      "id": "page-localstorage.spec.ts > localStorage.setItem overwrites existing value",
+      "method": "Page.localStorage.setItem",
+      "evidence": "After two browser-adapter writes to k, getItem(k) returns second, proving overwrite rather than duplicate entries. Native goto only establishes the origin."
+    },
+    {
+      "id": "page-localstorage.spec.ts > localStorage.setItem persists and surfaces in items()/getItem()",
+      "method": "Page.localStorage.setItem",
+      "evidence": "The unchanged assertions verify both written name/value pairs without imposing key order, getItem(alpha) equals 1, and browser evaluation reads the same persisted value. Storage writes and reads enter the adapter; native goto is setup only."
+    },
+    {
+      "id": "page-localstorage.spec.ts > sessionStorage round-trip",
+      "method": "Page.sessionStorage.setItem",
+      "evidence": "The unchanged test checks empty enumeration, both written values, getItem, selective removal and final clear through the browser sessionStorage wrapper. Native goto establishes the origin and is not certified."
+    },
+    {
+      "id": "page-localstorage.spec.ts > storage methods are scoped to the current origin",
+      "method": "Page.localStorage.getItem",
+      "evidence": "Across three explicitly recorded native setup navigations, the second origin starts empty and returning to the first recovers origin-1 rather than origin-2. Adapter storage calls prove origin scoping, not navigation support."
     },
     {
       "id": "page-set-input-files.spec.ts > should set from memory",

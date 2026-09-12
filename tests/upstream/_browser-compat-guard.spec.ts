@@ -152,10 +152,12 @@ test("noWaitAfter uses the pinned method-specific validation", async ({ page, ad
   }
 });
 
-browserTest("library-created pages use the same adapter before context cleanup", async ({ browser }) => {
+browserTest("library-created pages use the same adapter before context cleanup", async ({ browser, server }) => {
   const context = await browser.newContext();
   const page = await context.newPage();
   expect((page as any).__pwLiteAdapter).toBe(true);
+  await page.goto(server.PREFIX + "/input/button.html");
+  expect(await page.locator(".mouse-helper").count()).toBe(1);
   await page.setContent("<button>Library</button>");
   expect(await page.locator("button").textContent()).toBe("Library");
   expect(await page.evaluate(() => typeof (window as any).__pwLiteAdapterPage)).toBe("object");
