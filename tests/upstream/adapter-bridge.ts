@@ -377,7 +377,22 @@ export async function createAdapterPage(
     // Pinned upstream tests expose the highlight shadow root in test mode.
     // Keep production closed-root behavior unchanged and separately tested.
     (timeoutDefaults.underTest
-      ? "\nwindow.__pwLiteAdapterPage.injected.isUnderTest = true;"
+      ? `
+        {
+          // Init scripts run before documentElement exists. Preserve the lazy
+          // production getter; only expose overlays when it is actually used.
+          const page = window.__pwLiteAdapterPage;
+          const getInjected = Object.getOwnPropertyDescriptor(
+            Object.getPrototypeOf(page), "injected"
+          ).get;
+          Object.defineProperty(page, "injected", {
+            get() {
+              const injected = getInjected.call(this);
+              injected.isUnderTest = true;
+              return injected;
+            },
+          });
+        }`
       : "") +
     `\n(${initializeAdapterBridge.toString()})();`;
 

@@ -161,3 +161,42 @@ browserTest("library-created pages use the same adapter before context cleanup",
   expect(await page.evaluate(() => typeof (window as any).__pwLiteAdapterPage)).toBe("object");
   await context.close();
 });
+
+
+base("explicit navigation setup preserves browser evidence and failures", async ({ page }) => {
+  await page.route("http://pw-lite.test/**", route => route.fulfill({
+    contentType: "text/html",
+    body: "<button>Target</button>",
+  }));
+  const adapter = await createAdapterPage(page, { nativeNavigationForSetup: true });
+  await adapter.goto("http://pw-lite.test/one");
+  await adapter.localStorage.setItem("key", "value");
+  await expect((adapter as any).missingBrowserOperation()).rejects.toThrow("is not a function");
+  await adapter.goto("http://pw-lite.test/two");
+  expect(await adapter.localStorage.getItem("key")).toBe("value");
+  const entered = await page.evaluate(() => (window as any).__pwLiteEvidence.entered);
+  expect(entered.filter((method: string) => method === "Page.localStorage.setItem")).toEqual([
+    "Page.localStorage.setItem",
+  ]);
+  expect(entered).toContain("Page.localStorage.getItem");
+  expect((page as any).__pwLiteTransportFailures).toHaveLength(1);
+  expect((page as any).__pwLiteNativeOperations).toEqual(["Page.goto", "Page.goto"]);
+
+  // Even with native setup enabled, a missing subject method must fail.
+  await page.evaluate(() => {
+    (window as any).__pwLiteAdapterPage.localStorage.getItem = undefined;
+  });
+  await expect(adapter.localStorage.getItem("key")).rejects.toThrow("is not a function");
+  expect((page as any).__pwLiteNativeOperations).toEqual(["Page.goto", "Page.goto"]);
+  expect((page as any).__pwLiteTransportFailures).toHaveLength(2);
+});
+
+test("highlight validates its style like stock Playwright before rendering", async ({ page, adapterPage }) => {
+  for (const candidate of [page, adapterPage]) {
+    for (const style of [123, true]) {
+      await expect(candidate.locator("button").highlight({ style } as never)).rejects.toThrow(
+        "style: expected string"
+      );
+    }
+  }
+});

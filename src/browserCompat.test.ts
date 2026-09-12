@@ -118,6 +118,7 @@ it("renders styled highlights and removes only the requested overlay", async () 
     style: { backgroundColor: "lime", zIndex: 3, "--accent": "blue" },
   });
   await expect.poll(() => highlights().length).toBe(2);
+  for (const root of roots) expect(root.mode).toBe("closed");
   for (const element of highlights())
     expect(element.getBoundingClientRect().width).toBeGreaterThan(0);
   const colors = highlights().map(
