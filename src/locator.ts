@@ -180,7 +180,7 @@ export class LocatorImpl {
   /**
    * Mirrors pinned 26a9e47 Locator.locator:
    * - string → `this._selector + ' >> ' + selector`
-   * - Locator → `this._frame._selector + ' >> internal:chain=' + JSON.stringify(locator._selector)`
+   * - Locator → `this._selector + ' >> internal:chain=' + JSON.stringify(locator._selector)`
    */
   locator(
     selectorOrLocator: string | LocatorImpl,

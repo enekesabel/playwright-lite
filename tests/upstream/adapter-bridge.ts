@@ -27,10 +27,16 @@ const LOCATOR_CHAIN_PAYLOAD = "__pwLiteLocatorChain";
 const ELEMENT_HANDLE_REF_PAYLOAD = "__pwLiteElementHandleRef";
 const DEFAULT_TEST_ID_ATTRIBUTE = "data-testid";
 type ChainStep = [string, unknown[]];
-type AdapterPageState = { url: string };
+type AdapterPageState = {
+  url: string;
+  nativeNavigationForSetup?: boolean;
+};
 type AdapterTimeoutDefaults = {
   actionTimeout?: number;
   navigationTimeout?: number;
+  // Fixture-only settings. Neither is a production createPage option.
+  nativeNavigationForSetup?: boolean;
+  underTest?: boolean;
 };
 
 const nativeLocatorReferences = new WeakMap<Page, Map<string, Locator>>();
@@ -367,7 +373,13 @@ export async function createAdapterPage(
   const adapterPageSetup =
     "\nwindow.builtins ??= {}; window.builtins.Date ??= window.Date;" +
     "\nwindow.__pwLiteAdapterPage = window.__pwLiteAdapter.createPage({ testIdAttribute: window.__pwLiteTestIdAttributeName });" +
-    `\n${configuredTimeouts}`;
+    `\n${configuredTimeouts}` +
+    // Pinned upstream tests expose the highlight shadow root in test mode.
+    // Keep production closed-root behavior unchanged and separately tested.
+    (timeoutDefaults.underTest
+      ? "\nwindow.__pwLiteAdapterPage.injected.isUnderTest = true;"
+      : "") +
+    `\n(${initializeAdapterBridge.toString()})();`;
 
   // Single init script: on every navigation, inject the adapter bundle
   // and create the adapter page from the current window.
@@ -380,150 +392,6 @@ export async function createAdapterPage(
     (source) => (0, eval)(source),
     bundle + adapterPageSetup
   );
-
-  await realPage.evaluate(() => {
-    const host = window as any;
-    host.__pwLiteEvidence = { entered: [], failures: [] };
-    host.__pwLiteInvokeAdapter = async function invoke(operation: () => any) {
-      try {
-        return { kind: "value", value: await operation() };
-      } catch (error) {
-        // Symbols do not cross the browser evaluation boundary. Preserve only
-        // the adapter's stable timeout identity in a fixture-private sentinel;
-        // all other errors continue through Playwright unchanged.
-        if (
-          typeof error === "object" &&
-          error !== null &&
-          (error as Record<symbol, unknown>)[
-            Symbol.for("playwright-lite:TimeoutError")
-          ] === true
-        )
-          return {
-            kind: "adapter-timeout",
-            message: error instanceof Error ? error.message : String(error),
-          };
-        throw error;
-      }
-    };
-    host.__pwLiteDecodeBridgeValue = function decode(value: any): any {
-      if (!value || typeof value !== "object") return value;
-      if (Array.isArray(value)) return value.map(decode);
-      if (Array.isArray(value.__pwLiteBytes))
-        return Uint8Array.from(value.__pwLiteBytes);
-      if (typeof value.__pwLiteElementHandleRef === "string")
-        return host.__pwLiteElementHandleForId(value.__pwLiteElementHandleRef);
-      if (Array.isArray(value.__pwLiteLocatorChain))
-        return host.__pwLiteReplayAdapterChain(value.__pwLiteLocatorChain);
-      if (Object.getPrototypeOf(value) !== Object.prototype) return value;
-      return Object.fromEntries(
-        Object.entries(value).map(([key, item]) => [key, decode(item)])
-      );
-    };
-    host.__pwLiteReplayAdapterChain = function replay(chain: any[]): any {
-      let current: any = host.__pwLiteAdapterPage;
-      for (const [method, args] of chain)
-        current =
-          method === "__pwLiteLocatorRef"
-            ? host.__pwLiteLocators.get(args[0])
-            : current[method](...host.__pwLiteDecodeBridgeValue(args));
-      return current;
-    };
-    const wrapped = new WeakSet<object>();
-    const instrument = (
-      object: any,
-      kind: string,
-      members?: readonly string[]
-    ): any => {
-      if (!object || typeof object !== "object" || wrapped.has(object))
-        return object;
-      wrapped.add(object);
-      const prototype = Object.getPrototypeOf(object);
-      for (const name of Object.getOwnPropertyNames(prototype)) {
-        if (
-          name === "constructor" ||
-          (members && !members.includes(name)) ||
-          typeof Object.getOwnPropertyDescriptor(prototype, name)?.value !==
-            "function"
-        )
-          continue;
-        const original = object[name];
-        const publicName =
-          name === "_evaluateExpression"
-            ? "evaluate"
-            : name === "_waitForFunctionExpression"
-              ? "waitForFunction"
-              : name;
-        object[name] = function (...args: unknown[]) {
-          host.__pwLiteEvidence.entered.push(`${kind}.${publicName}`);
-          const result = original.apply(this, args);
-          if (
-            result &&
-            typeof result.then !== "function" &&
-            typeof result.count === "function"
-          )
-            instrument(result, "Locator");
-          return result;
-        };
-      }
-      return object;
-    };
-    instrument(host.__pwLiteAdapterPage, "Page");
-    instrument(host.__pwLiteAdapterPage.keyboard, "Keyboard", [
-      "down",
-      "up",
-      "press",
-      "type",
-      "insertText",
-    ]);
-    for (const kind of ["localStorage", "sessionStorage"])
-      instrument(host.__pwLiteAdapterPage[kind], `Page.${kind}`, [
-        "items",
-        "getItem",
-        "setItem",
-        "removeItem",
-        "clear",
-      ]);
-    host.__pwLiteElementHandles = new Map<string, any>();
-    const handleContext =
-      typeof crypto.randomUUID === "function"
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random()}`;
-    let nextElementHandleId = 0;
-    host.__pwLiteLocators = new Map<string, any>();
-    host.__pwLiteStoreLocator = function store(locator: any): {
-      id: string;
-      selector: string;
-    } {
-      if (typeof locator.selector !== "string")
-        throw new Error(
-          "Cannot preserve a native counterpart for a runtime Locator without a selector."
-        );
-      const id = `${handleContext}:locator-${++nextElementHandleId}`;
-      host.__pwLiteLocators.set(id, instrument(locator, "Locator"));
-      return { id, selector: locator.selector };
-    };
-    host.__pwLiteStoreElementHandle = function store(
-      handle: any,
-      kind = "ElementHandle"
-    ): string | null {
-      if (!handle) return null;
-      const id = `${handleContext}:element-${++nextElementHandleId}`;
-      host.__pwLiteElementHandles.set(id, instrument(handle, kind));
-      return id;
-    };
-    host.__pwLiteElementHandleForId = function resolve(id: string): any {
-      const handle = host.__pwLiteElementHandles.get(id);
-      if (!handle)
-        throw new Error(`Unknown or disposed adapter ElementHandle: ${id}`);
-      return handle;
-    };
-    host.__pwLiteDisposeElementHandle = async function dispose(id: string) {
-      const handle = host.__pwLiteElementHandles.get(id);
-      if (!handle) return;
-      await handle.dispose();
-      host.__pwLiteElementHandles.delete(id);
-    };
-  });
 
   const evaluate = realPage.evaluate.bind(realPage);
   const failures: string[] = [];
@@ -544,6 +412,7 @@ export async function createAdapterPage(
     }
   }) as Page["evaluate"];
   const state: AdapterPageState = {
+    nativeNavigationForSetup: timeoutDefaults.nativeNavigationForSetup,
     url: await evaluateAdapter(
       realPage,
       () => {
@@ -581,6 +450,35 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       if (prop === "keyboard") return createKeyboardProxy(realPage);
       if (prop === "localStorage" || prop === "sessionStorage")
         return storage[prop];
+
+      // Explicit fixture setup, never fallback after an adapter failure.
+      // Only specs whose subject is storage/highlighting opt in. Every such
+      // navigation is recorded and cannot certify Page.goto compatibility.
+      if (prop === "goto" && state.nativeNavigationForSetup) {
+        return async (...args: Parameters<Page["goto"]>) => {
+          const previous = await realPage.evaluate(
+            () => (window as any).__pwLiteEvidence
+          );
+          nativeOperationLog(realPage).push("Page.goto");
+          const response = await realPage.goto(...args);
+          await realPage.evaluate((prior) => {
+            const current = (window as any).__pwLiteEvidence;
+            current.entered.unshift(...prior.entered);
+            current.failures.unshift(...prior.failures);
+          }, previous);
+          state.url = await evaluateAdapter<string>(
+            realPage,
+            () => {
+              const host = window as any;
+              return host.__pwLiteInvokeAdapter(() =>
+                host.__pwLiteAdapterPage.url()
+              );
+            },
+            undefined
+          );
+          return wrapNativeResult(response, realPage);
+        };
+      }
 
       // Only ledger-declared out-of-scope Page members may use the native
       // driver. Record them, and wrap any object they return so downstream
@@ -1287,4 +1185,148 @@ function serializableQueryOptions(options: unknown) {
     unknown
   >;
   return serializable;
+}
+
+function initializeAdapterBridge() {
+  const host = window as any;
+  host.__pwLiteEvidence = { entered: [], failures: [] };
+  host.__pwLiteInvokeAdapter = async function invoke(operation: () => any) {
+    try {
+      return { kind: "value", value: await operation() };
+    } catch (error) {
+      // Symbols do not cross the browser evaluation boundary. Preserve only
+      // the adapter's stable timeout identity in a fixture-private sentinel;
+      // all other errors continue through Playwright unchanged.
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        (error as Record<symbol, unknown>)[
+          Symbol.for("playwright-lite:TimeoutError")
+        ] === true
+      )
+        return {
+          kind: "adapter-timeout",
+          message: error instanceof Error ? error.message : String(error),
+        };
+      throw error;
+    }
+  };
+  host.__pwLiteDecodeBridgeValue = function decode(value: any): any {
+    if (!value || typeof value !== "object") return value;
+    if (Array.isArray(value)) return value.map(decode);
+    if (Array.isArray(value.__pwLiteBytes))
+      return Uint8Array.from(value.__pwLiteBytes);
+    if (typeof value.__pwLiteElementHandleRef === "string")
+      return host.__pwLiteElementHandleForId(value.__pwLiteElementHandleRef);
+    if (Array.isArray(value.__pwLiteLocatorChain))
+      return host.__pwLiteReplayAdapterChain(value.__pwLiteLocatorChain);
+    if (Object.getPrototypeOf(value) !== Object.prototype) return value;
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, decode(item)])
+    );
+  };
+  host.__pwLiteReplayAdapterChain = function replay(chain: any[]): any {
+    let current: any = host.__pwLiteAdapterPage;
+    for (const [method, args] of chain)
+      current =
+        method === "__pwLiteLocatorRef"
+          ? host.__pwLiteLocators.get(args[0])
+          : current[method](...host.__pwLiteDecodeBridgeValue(args));
+    return current;
+  };
+  const wrapped = new WeakSet<object>();
+  const instrument = (
+    object: any,
+    kind: string,
+    members?: readonly string[]
+  ): any => {
+    if (!object || typeof object !== "object" || wrapped.has(object))
+      return object;
+    wrapped.add(object);
+    const prototype = Object.getPrototypeOf(object);
+    for (const name of Object.getOwnPropertyNames(prototype)) {
+      if (
+        name === "constructor" ||
+        (members && !members.includes(name)) ||
+        typeof Object.getOwnPropertyDescriptor(prototype, name)?.value !==
+          "function"
+      )
+        continue;
+      const original = object[name];
+      const publicName =
+        name === "_evaluateExpression"
+          ? "evaluate"
+          : name === "_waitForFunctionExpression"
+            ? "waitForFunction"
+            : name;
+      object[name] = function (...args: unknown[]) {
+        host.__pwLiteEvidence.entered.push(`${kind}.${publicName}`);
+        const result = original.apply(this, args);
+        if (
+          result &&
+          typeof result.then !== "function" &&
+          typeof result.count === "function"
+        )
+          instrument(result, "Locator");
+        return result;
+      };
+    }
+    return object;
+  };
+  instrument(host.__pwLiteAdapterPage, "Page");
+  instrument(host.__pwLiteAdapterPage.keyboard, "Keyboard", [
+    "down",
+    "up",
+    "press",
+    "type",
+    "insertText",
+  ]);
+  for (const kind of ["localStorage", "sessionStorage"])
+    instrument(host.__pwLiteAdapterPage[kind], `Page.${kind}`, [
+      "items",
+      "getItem",
+      "setItem",
+      "removeItem",
+      "clear",
+    ]);
+  host.__pwLiteElementHandles = new Map<string, any>();
+  const handleContext =
+    typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`;
+  let nextElementHandleId = 0;
+  host.__pwLiteLocators = new Map<string, any>();
+  host.__pwLiteStoreLocator = function store(locator: any): {
+    id: string;
+    selector: string;
+  } {
+    if (typeof locator.selector !== "string")
+      throw new Error(
+        "Cannot preserve a native counterpart for a runtime Locator without a selector."
+      );
+    const id = `${handleContext}:locator-${++nextElementHandleId}`;
+    host.__pwLiteLocators.set(id, instrument(locator, "Locator"));
+    return { id, selector: locator.selector };
+  };
+  host.__pwLiteStoreElementHandle = function store(
+    handle: any,
+    kind = "ElementHandle"
+  ): string | null {
+    if (!handle) return null;
+    const id = `${handleContext}:element-${++nextElementHandleId}`;
+    host.__pwLiteElementHandles.set(id, instrument(handle, kind));
+    return id;
+  };
+  host.__pwLiteElementHandleForId = function resolve(id: string): any {
+    const handle = host.__pwLiteElementHandles.get(id);
+    if (!handle)
+      throw new Error(`Unknown or disposed adapter ElementHandle: ${id}`);
+    return handle;
+  };
+  host.__pwLiteDisposeElementHandle = async function dispose(id: string) {
+    const handle = host.__pwLiteElementHandles.get(id);
+    if (!handle) return;
+    await handle.dispose();
+    host.__pwLiteElementHandles.delete(id);
+  };
 }

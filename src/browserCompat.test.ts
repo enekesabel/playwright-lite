@@ -125,7 +125,9 @@ it("renders styled highlights and removes only the requested overlay", async () 
   );
   expect(colors).toEqual(["rgb(255, 0, 0)", "rgb(0, 255, 0)"]);
   expect(highlights()[1].style.zIndex).toBe("3");
-  expect(highlights()[1].style.getPropertyValue("--accent").trim()).toBe("blue");
+  expect(highlights()[1].style.getPropertyValue("--accent").trim()).toBe(
+    "blue"
+  );
 
   await disposable.dispose();
   await disposable[Symbol.asyncDispose]();

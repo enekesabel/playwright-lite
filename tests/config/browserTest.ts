@@ -1,4 +1,9 @@
-import { test as base, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
+import {
+  test as base,
+  type BrowserContext,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 import { test as pageTest } from "../upstream/pageTest";
 import { createAdapterPage } from "../upstream/adapter-bridge";
 
@@ -18,8 +23,8 @@ async function capture(record: ContextRecord, result: Evidence) {
     if (record.captured.has(page)) continue;
     record.captured.add(page);
     try {
-      const observed = await page.evaluate(() =>
-        (window as any).__pwLiteEvidence
+      const observed = await page.evaluate(
+        () => (window as any).__pwLiteEvidence
       );
       if (!observed || !Array.isArray(observed.entered))
         throw new Error("Adapter execution evidence is unavailable");
@@ -35,47 +40,68 @@ async function capture(record: ContextRecord, result: Evidence) {
 }
 
 /** Infrastructure for unchanged library specs that create their own pages.
- * Navigation and every Page/Locator operation still use the normal adapter.
+ * Only declared navigation setup is native and recorded. The methods under
+ * test and all their assertions still execute through the browser adapter.
  */
 export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
+  server: async ({ server, asset }, use) => {
+    server.serveFile("/input/button.html", asset("input/button.html"));
+    await use(server);
+  },
   browser: [
     async ({ browser }, use) => {
-      await use(new Proxy(browser, {
-        get(target, prop) {
-          if (prop === "then" || typeof prop === "symbol") return undefined;
-          if (prop !== "newContext")
-            throw new TypeError(`Unsupported library fixture Browser.${prop}`);
-          return async (...args: Parameters<typeof browser.newContext>) => {
-            const info = base.info();
-            const result = evidence.get(info)!;
-            const context = await target.newContext(...args);
-            const record: ContextRecord = { context, pages: [], captured: new Set() };
-            contexts.get(info)!.push(record);
-            result.native.push("Browser.newContext");
-            return new Proxy(context, {
-              get(nativeContext, member) {
-                if (member === "then" || typeof member === "symbol") return undefined;
-                if (member === "newPage") {
-                  return async () => {
-                    const page = await nativeContext.newPage();
-                    record.pages.push(page);
-                    result.native.push("BrowserContext.newPage");
-                    return createAdapterPage(page);
-                  };
-                }
-                if (member === "close") {
-                  return async (...closeArgs: Parameters<typeof context.close>) => {
-                    await capture(record, result);
-                    result.native.push("BrowserContext.close");
-                    await nativeContext.close(...closeArgs);
-                  };
-                }
-                throw new TypeError(`Unsupported library fixture BrowserContext.${member}`);
-              },
-            });
-          };
-        },
-      }));
+      await use(
+        new Proxy(browser, {
+          get(target, prop) {
+            if (prop === "then" || typeof prop === "symbol") return undefined;
+            if (prop !== "newContext")
+              throw new TypeError(
+                `Unsupported library fixture Browser.${prop}`
+              );
+            return async (...args: Parameters<typeof browser.newContext>) => {
+              const info = base.info();
+              const result = evidence.get(info)!;
+              const context = await target.newContext(...args);
+              const record: ContextRecord = {
+                context,
+                pages: [],
+                captured: new Set(),
+              };
+              contexts.get(info)!.push(record);
+              result.native.push("Browser.newContext");
+              return new Proxy(context, {
+                get(nativeContext, member) {
+                  if (member === "then" || typeof member === "symbol")
+                    return undefined;
+                  if (member === "newPage") {
+                    return async () => {
+                      const page = await nativeContext.newPage();
+                      record.pages.push(page);
+                      result.native.push("BrowserContext.newPage");
+                      return createAdapterPage(page, {
+                        nativeNavigationForSetup: true,
+                        underTest: true,
+                      });
+                    };
+                  }
+                  if (member === "close") {
+                    return async (
+                      ...closeArgs: Parameters<typeof context.close>
+                    ) => {
+                      await capture(record, result);
+                      result.native.push("BrowserContext.close");
+                      await nativeContext.close(...closeArgs);
+                    };
+                  }
+                  throw new TypeError(
+                    `Unsupported library fixture BrowserContext.${member}`
+                  );
+                },
+              });
+            };
+          },
+        })
+      );
     },
     { scope: "worker" },
   ],

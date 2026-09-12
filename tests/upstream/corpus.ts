@@ -4,7 +4,16 @@ export const corpus = {
     commit: "26a9e470a7b3c7822084b09fb7f13902c5f37b51",
     basePath: "tests/page",
   },
+  sourcePaths: {
+    "locator-highlight.spec.ts": "tests/library/locator-highlight.spec.ts",
+  },
   specs: {
+    "page-localstorage.spec.ts":
+      "487a0688882a93286cfcdd203b4dfe14b213e608c8661846f1fd0d6dfd774db1",
+    "locator-highlight.spec.ts":
+      "ef24b6ad481d73ce66958129d7e0f5c8ffc53ba8e8fb33069e0e5484284d6e16",
+    "elementhandle-convenience.spec.ts":
+      "de695b8a38bbb63f34422aa844a67354fd569895aea67e848423c06c5bdc499a",
     "page-keyboard.spec.ts":
       "5b848c208876e406712354841b59d4dc306e8e4e390efa2c4b31037576751c3f",
     "page-set-input-files.spec.ts":

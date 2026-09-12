@@ -89,6 +89,11 @@ export const test = base.extend<
       const proxyPage = await createAdapterPage(page, {
         actionTimeout,
         navigationTimeout,
+        // This exact upstream spec tests WebStorage, not navigation.
+        // The bridge records setup navigation separately from browser calls.
+        nativeNavigationForSetup: testInfo.file.endsWith(
+          "/page-localstorage.spec.ts"
+        ),
       });
       await use(proxyPage);
     } finally {

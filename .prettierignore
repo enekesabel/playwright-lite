@@ -6,3 +6,4 @@ pnpm-lock.yaml
 test-results
 playwright-report
 tests/upstream/*.spec.ts
+tests/assets/input/button.html

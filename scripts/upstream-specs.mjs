@@ -33,7 +33,8 @@ if (isMain) {
 /** Fetch a spec file from the pinned upstream commit. */
 async function fetchSpec(spec) {
   const { repository, commit, basePath } = corpus.source;
-  const url = `https://raw.githubusercontent.com/${repository}/${commit}/${basePath}/${spec}`;
+  const sourcePath = corpus.sourcePaths[spec] ?? `${basePath}/${spec}`;
+  const url = `https://raw.githubusercontent.com/${repository}/${commit}/${sourcePath}`;
   const response = await fetch(url);
   if (!response.ok)
     throw new Error(
@@ -77,6 +78,7 @@ function writeCorpusTs(specs) {
     commit: "${corpus.source.commit}",
     basePath: "${corpus.source.basePath}",
   },
+  sourcePaths: ${JSON.stringify(corpus.sourcePaths, null, 2)},
   specs: {
 ${specEntries}
   },

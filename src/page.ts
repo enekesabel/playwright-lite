@@ -252,6 +252,7 @@ export class PageImpl {
   }
 
   async addHighlight(selector: string, style?: string): Promise<void> {
+    if (style !== undefined) style = validateString(style, "style");
     try {
       this.injected.addHighlight(this.injected.parseSelector(selector), style);
     } catch (error) {
