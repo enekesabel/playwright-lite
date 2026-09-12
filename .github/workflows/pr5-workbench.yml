@@ -1,0 +1,118 @@
+name: PR 5 workbench
+
+on:
+  push:
+    branches: [codex/browser-compat-wins]
+    paths:
+      - .github/workflows/pr5-workbench.yml
+      - scripts/pr5-workbench.py
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pr5-workbench
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FINALIZE: "false"
+      REVIEWED_PROMOTIONS: "[]"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: codex/browser-compat-wins
+          fetch-depth: 0
+      - uses: jetify-com/devbox-install-action@8c6a66ed6273138b1915457069de78cb52fe3bd7
+        with:
+          enable-cache: "true"
+          disable-nix-access-token: "true"
+      - name: Apply and verify in one Devbox shell
+        id: verify
+        run: |
+          devbox run -- bash -euo pipefail <<'SHELL'
+          python3 scripts/pr5-workbench.py
+          echo "prepared=true" >> "$GITHUB_OUTPUT"
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+          pnpm format
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { readFileSync, writeFileSync } from 'node:fs';
+          import { createRequire } from 'node:module';
+          import { specNames } from './tests/upstream/corpus.ts';
+          const require = createRequire(import.meta.url);
+          const args = [require.resolve('@playwright/test/cli'), 'test', '--list', '--reporter=json', ...specNames.map(name => `tests/upstream/${name}`)];
+          const report = JSON.parse(execFileSync(process.execPath, args, { encoding: 'utf8' }));
+          if (report.errors?.length) throw new Error(JSON.stringify(report.errors));
+          const count = suites => suites.reduce((sum, suite) => sum + (suite.specs ?? []).reduce((n, spec) => n + spec.tests.length, 0) + count(suite.suites ?? []), 0);
+          const baselinePath = 'tests/upstream/baseline.json';
+          const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
+          // Collection metadata only; no candidate is promoted by this step.
+          baseline.selectedTestCount = count(report.suites);
+          writeFileSync(baselinePath, JSON.stringify(baseline, null, 2) + '\n');
+          console.log('Collected corpus:', baseline.selectedTestCount);
+          const reviews = JSON.parse(process.env.REVIEWED_PROMOTIONS);
+          if (reviews.length) {
+            execFileSync(process.execPath, ['scripts/upstream-baseline.mjs', 'promote', ...reviews.flatMap(({ id, method, evidence }) => [id, method, evidence])], { stdio: 'inherit' });
+          }
+          NODE
+          node scripts/upstream-specs.mjs check --upstream
+          pnpm check
+          git diff --check
+          SHELL
+      - name: Inspect new corpus evidence
+        if: always()
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const file = 'test-results/compatibility.json';
+          if (!fs.existsSync(file)) {
+            console.log('No completed corpus report. Inspect the preceding failure.');
+            process.exit(0);
+          }
+          const entries = JSON.parse(fs.readFileSync(file, 'utf8'));
+          for (const entry of entries.filter(e => ['page-localstorage.spec.ts', 'locator-highlight.spec.ts', 'elementhandle-convenience.spec.ts'].includes(e.file))) {
+            console.log(JSON.stringify(entry));
+          }
+          NODE
+      - name: Publish changes without overwriting concurrent work
+        if: always() && steps.verify.outputs.prepared == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFIED: ${{ steps.verify.outcome }}
+        run: |
+          set -euo pipefail
+          git fetch origin codex/browser-compat-wins
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/codex/browser-compat-wins)"
+          if [ "$FINALIZE" = true ] && [ "$VERIFIED" = success ]; then
+            git rm .github/workflows/pr5-workbench.yml scripts/pr5-workbench.py
+          fi
+          git add src tests AGENTS.md .prettierignore scripts/upstream-specs.mjs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: complete pinned browser compatibility coverage ($VERIFIED)"
+            git push origin HEAD:codex/browser-compat-wins
+          fi
+          if [ "$FINALIZE" = true ] && [ "$VERIFIED" = success ]; then
+            gh workflow run ci.yml --ref codex/browser-compat-wins
+          fi
+      - name: Preserve verification artifacts
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/pr5"
+          git diff > "$RUNNER_TEMP/pr5/uncommitted.diff"
+          git rev-parse HEAD > "$RUNNER_TEMP/pr5/head.txt"
+          git ls-files -z | tar --null -T - -czf "$RUNNER_TEMP/pr5/repository.tgz"
+          if [ -d test-results ]; then cp -R test-results "$RUNNER_TEMP/pr5/"; fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: pr5-workbench-${{ github.run_id }}
+          path: ${{ runner.temp }}/pr5
+          if-no-files-found: error
