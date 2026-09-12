@@ -475,6 +475,14 @@ export async function createAdapterPage(
       "type",
       "insertText",
     ]);
+    for (const kind of ["localStorage", "sessionStorage"])
+      instrument(host.__pwLiteAdapterPage[kind], `Page.${kind}`, [
+        "items",
+        "getItem",
+        "setItem",
+        "removeItem",
+        "clear",
+      ]);
     host.__pwLiteElementHandles = new Map<string, any>();
     const handleContext =
       typeof crypto.randomUUID === "function"
@@ -549,6 +557,10 @@ export async function createAdapterPage(
 }
 
 function createPageProxy(realPage: Page, state: AdapterPageState): Page {
+  const storage = {
+    localStorage: createWebStorageProxy(realPage, "localStorage"),
+    sessionStorage: createWebStorageProxy(realPage, "sessionStorage"),
+  };
   return new Proxy(realPage, {
     get(target, prop, receiver) {
       if (typeof prop === "symbol") return Reflect.get(target, prop, receiver);
@@ -567,6 +579,8 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       // Keyboard is a synchronous Page property whose methods must execute in
       // the browser adapter. Do not leak the native Playwright keyboard.
       if (prop === "keyboard") return createKeyboardProxy(realPage);
+      if (prop === "localStorage" || prop === "sessionStorage")
+        return storage[prop];
 
       // Only ledger-declared out-of-scope Page members may use the native
       // driver. Record them, and wrap any object they return so downstream
@@ -626,7 +640,9 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
             },
             { selector }
           );
-          return ids.map((id) => createElementHandleProxy(realPage, state, id));
+          return Promise.all(
+            ids.map((id) => createElementHandleProxy(realPage, state, id))
+          );
         };
       }
 
@@ -758,6 +774,32 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
   }) as Page;
 }
 
+function createWebStorageProxy(
+  realPage: Page,
+  kind: "localStorage" | "sessionStorage"
+): Page["localStorage"] {
+  const call = <T>(method: string, args: unknown[]) =>
+    evaluateAdapter<T>(
+      realPage,
+      ({ kind: storageKind, method: member, args: rawArgs }) => {
+        const host = window as any;
+        return host.__pwLiteInvokeAdapter(() =>
+          host.__pwLiteAdapterPage[storageKind][member](
+            ...host.__pwLiteDecodeBridgeValue(rawArgs)
+          )
+        );
+      },
+      { kind, method, args: encodeBridgeValueForPage(args, realPage) }
+    );
+  return {
+    items: () => call<{ name: string; value: string }[]>("items", []),
+    getItem: (name) => call<string | null>("getItem", [name]),
+    setItem: (name, value) => call<void>("setItem", [name, value]),
+    removeItem: (name) => call<void>("removeItem", [name]),
+    clear: () => call<void>("clear", []),
+  };
+}
+
 function createKeyboardProxy(realPage: Page) {
   const call = async (method: string, args: unknown[]) => {
     if (statusFor("Keyboard", method) !== "implemented")
@@ -788,16 +830,38 @@ function createKeyboardProxy(realPage: Page) {
 
 // ── ElementHandle proxy ─────────────────────────────────────────────
 
-function createElementHandleProxy(
+async function createElementHandleProxy(
   realPage: Page,
   state: AdapterPageState,
   id: string
-): object {
+): Promise<object> {
+  // Like Page.url(), this synchronous API needs a browser-observed snapshot.
+  // Read the actual identity result before publishing the proxy; do not assume
+  // every stored JSHandle is an ElementHandle or manufacture a passing result.
+  const asElement = await evaluateAdapter<"self" | "null" | "unsupported">(
+    realPage,
+    (handleId) => {
+      const host = window as any;
+      return host.__pwLiteInvokeAdapter(() => {
+        const handle = host.__pwLiteElementHandleForId(handleId);
+        if (typeof handle.asElement !== "function") return "unsupported";
+        const element = handle.asElement();
+        if (element === handle) return "self";
+        if (element === null) return "null";
+        throw new TypeError(
+          "Cannot serialize a non-identity ElementHandle.asElement result."
+        );
+      });
+    },
+    id
+  );
   const handler: ProxyHandler<object> = {
     get(_, prop) {
       if (typeof prop === "symbol") return undefined;
       if (prop === "__pwLiteAdapter") return true;
       if (prop === "then") return undefined;
+      if (prop === "asElement" && asElement !== "unsupported")
+        return () => (asElement === "self" ? proxy : null);
 
       if (prop === "dispose") {
         return async () =>
@@ -854,8 +918,10 @@ function createElementHandleProxy(
             },
             { handleId: id, selector }
           );
-          return ids.map((childId) =>
-            createElementHandleProxy(realPage, state, childId)
+          return Promise.all(
+            ids.map((childId) =>
+              createElementHandleProxy(realPage, state, childId)
+            )
           );
         };
       }
@@ -932,6 +998,32 @@ function createElementHandleProxy(
   const proxy = new Proxy({}, handler);
   elementHandleProxyReferences.set(proxy, { realPage, id });
   return proxy;
+}
+
+function createHighlightDisposableProxy(
+  realPage: Page,
+  id: string
+): Awaited<ReturnType<Locator["highlight"]>> {
+  // Retain the returned object for this fixture's document lifetime. Both
+  // disposal paths execute on it, including repeated calls and exceptions.
+  const invoke = (asyncDispose: boolean) =>
+    evaluateAdapter<void>(
+      realPage,
+      ({ handleId, useSymbol }) => {
+        const host = window as any;
+        return host.__pwLiteInvokeAdapter(() => {
+          const disposable = host.__pwLiteElementHandleForId(handleId);
+          return useSymbol
+            ? disposable[Symbol.asyncDispose]()
+            : disposable.dispose();
+        });
+      },
+      { handleId: id, useSymbol: asyncDispose }
+    );
+  return {
+    dispose: () => invoke(false),
+    [Symbol.asyncDispose]: () => invoke(true),
+  };
 }
 
 // ── Locator proxy ───────────────────────────────────────────────────
@@ -1027,6 +1119,29 @@ function createLocatorProxy(
         };
       }
 
+      if (prop === "highlight") {
+        return async (options?: Parameters<Locator["highlight"]>[0]) => {
+          const id = await evaluateAdapter<string>(
+            realPage,
+            ({ chain: c, options: o }) => {
+              const host = window as any;
+              return host.__pwLiteInvokeAdapter(async () => {
+                const current = host.__pwLiteReplayAdapterChain(c);
+                return host.__pwLiteStoreElementHandle(
+                  await current.highlight(host.__pwLiteDecodeBridgeValue(o)),
+                  "Disposable"
+                );
+              });
+            },
+            {
+              chain: encodeBridgeValueForPage(chain, realPage),
+              options: encodeBridgeValueForPage(options, realPage),
+            }
+          );
+          return createHighlightDisposableProxy(realPage, id);
+        };
+      }
+
       if (prop === "elementHandle") {
         return async (options?: unknown) => {
           const id = await evaluateAdapter<string>(
@@ -1064,7 +1179,9 @@ function createLocatorProxy(
             },
             { chain: encodeBridgeValueForPage(chain, realPage) }
           );
-          return ids.map((id) => createElementHandleProxy(realPage, state, id));
+          return Promise.all(
+            ids.map((id) => createElementHandleProxy(realPage, state, id))
+          );
         };
       }
 

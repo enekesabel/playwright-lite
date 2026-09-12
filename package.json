@@ -34,7 +34,7 @@
     "build": "pnpm generate:injected && tsdown",
     "lint": "eslint src --max-warnings 0",
     "test": "vitest run && node --test scripts/upstream-baseline.test.mjs",
-    "test:guards": "pnpm exec playwright test tests/upstream/_adapter-guard.spec.ts tests/upstream/_page-test-fixture.spec.ts tests/upstream/_synchronization-guard.spec.ts",
+    "test:guards": "pnpm exec playwright test tests/upstream/_adapter-guard.spec.ts tests/upstream/_page-test-fixture.spec.ts tests/upstream/_synchronization-guard.spec.ts tests/upstream/_browser-compat-guard.spec.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.compatibility.json --noEmit",
     "test:e2e": "pnpm run test:guards && node scripts/upstream-baseline.mjs check",
     "baseline:promote": "node scripts/upstream-baseline.mjs promote",

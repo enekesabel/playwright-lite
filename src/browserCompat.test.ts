@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createPage } from "./index";
-import { PageImpl } from "./page";
 
-afterEach(() => {
+afterEach(async () => {
+  await createPage().hideHighlight();
   document.body.innerHTML = "";
   localStorage.clear();
   sessionStorage.clear();
@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 describe("noWaitAfter", () => {
-  it("accepts it for Page and Locator click and press without changing local dispatch", async () => {
+  it("accepts booleans and boxed booleans for click and press", async () => {
     document.body.innerHTML = '<button id="target">Target</button>';
     const page = createPage();
     const target = document.querySelector<HTMLButtonElement>("#target")!;
@@ -20,118 +20,179 @@ describe("noWaitAfter", () => {
 
     await page.click("#target", { noWaitAfter: true });
     await page.locator("#target").press("a", { noWaitAfter: false });
+    await page.locator("#target").click({ noWaitAfter: Object(false) });
+    await page.press("#target", "a", { noWaitAfter: Object(true) });
 
-    expect(events).toEqual(["click", "keydown"]);
+    expect(events).toEqual(["click", "keydown", "click", "keydown"]);
   });
 
-  it("rejects non-booleans and keeps rejecting unknown options", async () => {
+  it("validates click and press before dispatch", async () => {
     document.body.innerHTML = '<button id="target">Target</button>';
     const page = createPage();
+    const dispatched = vi.fn();
+    const target = document.querySelector("button")!;
+    target.addEventListener("click", dispatched);
+    target.addEventListener("keydown", dispatched);
+    const invalid = { noWaitAfter: "yes" } as never;
 
-    await expect(
-      page.click("#target", { noWaitAfter: "yes" } as never)
-    ).rejects.toThrow("click noWaitAfter must be a boolean");
-    await expect(
-      page.locator("#target").press("Enter", { noWaitAfter: 1 } as never)
-    ).rejects.toThrow("press noWaitAfter must be a boolean");
+    for (const operation of [
+      () => page.click("#target", invalid),
+      () => page.locator("#target").click(invalid),
+      () => page.press("#target", "a", invalid),
+      () => page.locator("#target").press("a", invalid),
+    ])
+      await expect(operation()).rejects.toThrow(
+        "noWaitAfter: expected boolean, got string"
+      );
+    expect(dispatched).not.toHaveBeenCalled();
     await expect(
       page.locator("#target").click({ unexpected: true } as never)
     ).rejects.toThrow("unsupported Playwright option(s): unexpected");
   });
 
-  it("accepts it for fill and clear while validating the value", async () => {
-    document.body.innerHTML = '<input id="target" value="initial" />';
+  it("drops deprecated no-op values on every supported action path", async () => {
+    document.body.innerHTML = `
+      <input id="text"><input id="check" type="checkbox">
+      <select><option value="one">One</option></select>
+      <input id="file" type="file"><button>Target</button>
+    `;
     const page = createPage();
-    const locator = page.locator("#target");
-
-    await page.fill("#target", "filled", { noWaitAfter: true });
-    await locator.clear({ noWaitAfter: false });
-
-    await expect(locator.inputValue()).resolves.toBe("");
-    await expect(
-      page.fill("#target", "filled", { noWaitAfter: "yes" } as never)
-    ).rejects.toThrow("fill noWaitAfter must be a boolean");
-    await expect(locator.clear({ noWaitAfter: 1 } as never)).rejects.toThrow(
-      "clear noWaitAfter must be a boolean"
-    );
+    const options = { noWaitAfter: "ignored" } as never;
+    await page.fill("#text", "page", options);
+    await page.locator("#text").fill("locator", options);
+    await page.locator("#text").clear(options);
+    await page.type("#text", "a", options);
+    await page.locator("#text").type("b", options);
+    await page.locator("#text").pressSequentially("c", options);
+    expect(await page.inputValue("#text")).toBe("abc");
+    await page.hover("button", options);
+    await page.locator("button").hover(options);
+    await page.dblclick("button", options);
+    await page.locator("button").dblclick(options);
+    await page.check("#check", options);
+    await page.locator("#check").uncheck(options);
+    await page.locator("#check").check(options);
+    await page.uncheck("#check", options);
+    await page.setChecked("#check", true, options);
+    await page.locator("#check").setChecked(false, options);
+    expect(await page.isChecked("#check")).toBe(false);
+    const selected = await page.selectOption("select", "one", options);
+    expect(selected).toEqual(["one"]);
+    const locatorSelected = await page
+      .locator("select")
+      .selectOption("one", options);
+    expect(locatorSelected).toEqual(["one"]);
+    await page.setInputFiles("#file", [], options);
+    await page.locator("#file").setInputFiles([], options);
+    const input = document.querySelector<HTMLInputElement>("#file")!;
+    expect(input.files!.length).toBe(0);
   });
 });
 
-describe("Locator highlights", () => {
-  it("converts object styles and delegates them to the cached InjectedScript", async () => {
-    document.body.innerHTML = '<div class="target"></div>';
-    const page = createPage() as unknown as PageImpl;
-    const injected = injectedFor(page);
-    const addHighlight = vi.spyOn(injected, "addHighlight");
-
-    await page.locator(".target").highlight({
-      style: { backgroundColor: "red", zIndex: 3, "--accent": "blue" },
-    });
-    await page.locator(".target").highlight({ style: "outline: solid" });
-
-    expect(addHighlight.mock.calls.map(([, style]) => style)).toEqual([
-      "background-color: red; z-index: 3; --accent: blue",
-      "outline: solid",
-    ]);
+it("renders styled highlights and removes only the requested overlay", async () => {
+  // Observe the real closed shadow root without changing its mode or the
+  // production InjectedScript. These are DOM assertions, not delegate spies.
+  const roots: ShadowRoot[] = [];
+  const attachShadow = Element.prototype.attachShadow;
+  vi.spyOn(Element.prototype, "attachShadow").mockImplementation(function (
+    this: Element,
+    options: ShadowRootInit
+  ) {
+    const root = attachShadow.call(this, options);
+    if (this.localName === "x-pw-glass") roots.push(root);
+    return root;
   });
-
-  it("allows no match, removes only one locator highlight, and clears all page highlights", async () => {
-    document.body.innerHTML =
-      '<div class="first"></div><div class="second"></div>';
-    const page = createPage() as unknown as PageImpl;
-    const injected = injectedFor(page);
-    const removeHighlight = vi.spyOn(injected, "removeHighlight");
-    const hideHighlight = vi.spyOn(injected, "hideHighlight");
-
-    await expect(page.locator(".missing").highlight()).resolves.toBeDefined();
-    await page.locator(".first").hideHighlight();
-    await page.hideHighlight();
-
-    expect(removeHighlight).toHaveBeenCalledTimes(1);
-    expect(hideHighlight).toHaveBeenCalledTimes(1);
+  const highlights = () =>
+    roots.flatMap((root) =>
+      Array.from(root.querySelectorAll<HTMLElement>("x-pw-highlight")).filter(
+        (element) => element.isConnected
+      )
+    );
+  document.body.innerHTML =
+    '<button id="first">One</button><button id="second">Two</button>';
+  const page = createPage();
+  const first = page.locator("#first");
+  const second = page.locator("#second");
+  const disposable = await first.highlight({ style: "background-color: red" });
+  await second.highlight({
+    style: { backgroundColor: "lime", zIndex: 3, "--accent": "blue" },
   });
+  await expect.poll(() => highlights().length).toBe(2);
+  for (const element of highlights())
+    expect(element.getBoundingClientRect().width).toBeGreaterThan(0);
+  const colors = highlights().map(
+    (element) => getComputedStyle(element).backgroundColor
+  );
+  expect(colors).toEqual(["rgb(255, 0, 0)", "rgb(0, 255, 0)"]);
+  expect(highlights()[1].style.zIndex).toBe("3");
+  expect(highlights()[1].style.getPropertyValue("--accent").trim()).toBe("blue");
 
-  it("rejects invalid selectors and disposes a highlight once", async () => {
-    document.body.innerHTML = '<div class="target"></div>';
-    const page = createPage() as unknown as PageImpl;
-    const injected = injectedFor(page);
-    const removeHighlight = vi.spyOn(injected, "removeHighlight");
+  await disposable.dispose();
+  await disposable[Symbol.asyncDispose]();
+  await expect.poll(() => highlights().length).toBe(1);
+  const remainingColor = getComputedStyle(highlights()[0]).backgroundColor;
+  expect(remainingColor).toBe("rgb(0, 255, 0)");
+  await second.hideHighlight();
+  await expect.poll(() => highlights().length).toBe(0);
 
-    await expect(page.locator("[").highlight()).rejects.toThrow();
-    const disposable = await page.locator(".target").highlight();
-    await disposable.dispose();
-    await disposable[Symbol.asyncDispose]();
-
-    expect(removeHighlight).toHaveBeenCalledTimes(1);
-  });
+  await first.highlight();
+  await second.highlight();
+  await page.locator(".missing").highlight();
+  await expect.poll(() => highlights().length).toBe(2);
+  await page.hideHighlight();
+  await expect.poll(() => highlights().length).toBe(0);
+  await expect(page.locator("[").highlight()).rejects.toThrow();
 });
 
 describe("Page web storage", () => {
-  it("exposes independent native local and session storage wrappers", async () => {
+  it("keeps storage independent without imposing key order", async () => {
     const page = createPage();
-
     expect(await page.localStorage.getItem("missing")).toBeNull();
     await page.localStorage.setItem("first", "one");
     await page.localStorage.setItem("second", "two");
     await page.localStorage.setItem("first", "updated");
     await page.sessionStorage.setItem("first", "session");
-
+    expect(new Set(await page.localStorage.items())).toEqual(
+      new Set([
+        { name: "first", value: "updated" },
+        { name: "second", value: "two" },
+      ])
+    );
+    await page.localStorage.removeItem("first");
     expect(await page.localStorage.items()).toEqual([
-      { name: "first", value: "updated" },
       { name: "second", value: "two" },
     ]);
-    expect(await page.sessionStorage.items()).toEqual([
-      { name: "first", value: "session" },
-    ]);
-    await page.localStorage.removeItem("first");
     await page.localStorage.clear();
     expect(await page.localStorage.items()).toEqual([]);
     expect(await page.sessionStorage.getItem("first")).toBe("session");
   });
+
+  for (const kind of ["localStorage", "sessionStorage"] as const) {
+    it(`${kind} validates strings before touching native storage`, async () => {
+      const storage = createPage()[kind];
+      await storage.setItem("key", "original");
+      for (const value of [undefined, null, 123, true, {}, []]) {
+        for (const operation of [
+          () => storage.getItem(value as never),
+          () => storage.removeItem(value as never),
+          () => storage.setItem(value as never, "value"),
+          () => storage.setItem("key", value as never),
+        ])
+          await expect(operation()).rejects.toThrow("expected string");
+      }
+      expect(await storage.items()).toEqual([
+        { name: "key", value: "original" },
+      ]);
+      await storage.setItem(Object("boxed"), Object("accepted"));
+      expect(await storage.getItem(Object("boxed"))).toBe("accepted");
+      await storage.removeItem(Object("boxed"));
+      expect(await storage.getItem("boxed")).toBeNull();
+    });
+  }
 });
 
 describe("AdapterElementHandle state", () => {
-  it("reports handle state and returns itself from asElement", async () => {
+  it("reports state and returns itself from asElement", async () => {
     document.body.innerHTML = `
       <button id="enabled">Enabled</button>
       <button id="disabled" disabled>Disabled</button>
@@ -141,7 +202,6 @@ describe("AdapterElementHandle state", () => {
     const enabled = (await page.$("#enabled"))!;
     const disabled = (await page.$("#disabled"))!;
     const hidden = (await page.$("#hidden"))!;
-
     expect(enabled.asElement()).toBe(enabled);
     await expect(enabled.isEnabled()).resolves.toBe(true);
     await expect(disabled.isDisabled()).resolves.toBe(true);
@@ -149,12 +209,10 @@ describe("AdapterElementHandle state", () => {
     await expect(hidden.isHidden()).resolves.toBe(true);
   });
 
-  it("uses Playwright detached semantics while preserving disposed-handle errors", async () => {
+  it("preserves detached and disposed handle behavior", async () => {
     document.body.innerHTML = '<button id="target">Target</button>';
-    const page = createPage();
-    const handle = (await page.$("#target"))!;
+    const handle = (await createPage().$("#target"))!;
     document.querySelector("#target")!.remove();
-
     await expect(handle.isVisible()).resolves.toBe(false);
     await expect(handle.isHidden()).resolves.toBe(true);
     await expect(handle.isEnabled()).rejects.toThrow(
@@ -169,12 +227,3 @@ describe("AdapterElementHandle state", () => {
     );
   });
 });
-
-function injectedFor(page: PageImpl) {
-  const getter = Object.getOwnPropertyDescriptor(
-    Object.getPrototypeOf(page),
-    "injected"
-  )?.get;
-  if (!getter) throw new Error("PageImpl injected getter is unavailable");
-  return getter.call(page);
-}
