@@ -110,6 +110,34 @@ export class AdapterElementHandle {
     return this.ownerPage.inputValueForElement(this.requireElement());
   }
 
+  asElement(): AdapterElementHandle {
+    return this;
+  }
+
+  async isEnabled(): Promise<boolean> {
+    return this.ownerPage.elementStateForHandle(
+      this.requireElement(),
+      "enabled"
+    );
+  }
+
+  async isDisabled(): Promise<boolean> {
+    return this.ownerPage.elementStateForHandle(
+      this.requireElement(),
+      "disabled"
+    );
+  }
+
+  async isVisible(): Promise<boolean> {
+    const element = this.requireElement();
+    if (!element.isConnected) return false;
+    return this.ownerPage.elementState(element, "visible").matches;
+  }
+
+  async isHidden(): Promise<boolean> {
+    return !(await this.isVisible());
+  }
+
   async isEditable(): Promise<boolean> {
     return this.ownerPage.elementStateForHandle(
       this.requireElement(),

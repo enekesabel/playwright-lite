@@ -55,17 +55,21 @@ export const pageLedger = {
   ariaSnapshot: implemented("Current document only; no iframe traversal."),
   bringToFront: undecided(),
   cancelPickLocator: undecided(),
-  check: implemented("Accepts timeout, position, and trial only."),
+  check: implemented("Accepts timeout, noWaitAfter, position, and trial only."),
   clearConsoleMessages: undecided(),
   clearPageErrors: undecided(),
-  click: implemented("Accepts timeout, position, and trial only."),
+  click: implemented(
+    "Accepts timeout, noWaitAfter, position, and trial only. Does not wait for navigation."
+  ),
   clock: undecided(),
   close: undecided(),
   consoleMessages: undecided(),
   content: implemented("Serializes the current controlled document."),
   context: undecided(),
   coverage: undecided(),
-  dblclick: implemented("Accepts timeout, position, and trial only."),
+  dblclick: implemented(
+    "Accepts timeout, noWaitAfter, position, and trial only."
+  ),
   dispatchEvent: implemented("Accepts timeout and strict only."),
   dragAndDrop: undecided(),
   emulateMedia: undecided(),
@@ -75,7 +79,7 @@ export const pageLedger = {
   evaluateHandle: undecided(),
   exposeBinding: undecided(),
   exposeFunction: undecided(),
-  fill: implemented("Accepts timeout only."),
+  fill: implemented("Accepts timeout and noWaitAfter only."),
   focus: implemented("Accepts timeout only."),
   frame: outOfScope("Iframe realms are outside the single-document boundary."),
   frameLocator: outOfScope(
@@ -99,8 +103,8 @@ export const pageLedger = {
   goto: implemented(
     "Accepts http/https/about/file/data URLs and timeout, commit, domcontentloaded, or load waitUntil; full navigation ends execution."
   ),
-  hideHighlight: undecided(),
-  hover: implemented("Accepts timeout only."),
+  hideHighlight: implemented("Clears highlights in the current document."),
+  hover: implemented("Accepts timeout and noWaitAfter only."),
   innerHTML: implemented(),
   innerText: implemented(),
   inputValue: implemented(),
@@ -114,7 +118,7 @@ export const pageLedger = {
   keyboard: implemented(
     "Synthetic current-document events and editable insertion only; browser cursor movement, deletion, focus traversal, and navigation defaults are not simulated."
   ),
-  localStorage: undecided(),
+  localStorage: implemented("Native current-window Storage only."),
   locator: implemented(),
   mainFrame: implemented("Returns the current Page facade, not a Frame."),
   mouse: planned("Synthetic functional input only."),
@@ -135,7 +139,9 @@ export const pageLedger = {
   prependListener: planned(
     "Only console and pageerror are planned; other events remain undecided."
   ),
-  press: implemented("Accepts timeout only."),
+  press: implemented(
+    "Accepts timeout and noWaitAfter only. Does not wait for navigation."
+  ),
   reload: planned(
     "Initiates browser navigation; execution ends on document replacement."
   ),
@@ -155,10 +161,12 @@ export const pageLedger = {
   screencast: undecided(),
   screenshot: undecided(),
   selectOption: implemented(
-    "Accepts strings, value/label/index objects, arrays, null, and timeout only."
+    "Accepts strings, value/label/index objects, arrays, null, timeout, and noWaitAfter only."
   ),
-  sessionStorage: undecided(),
-  setChecked: implemented("Accepts timeout, position, and trial only."),
+  sessionStorage: implemented("Native current-window Storage only."),
+  setChecked: implemented(
+    "Accepts timeout, noWaitAfter, position, and trial only."
+  ),
   setContent: outOfScope(
     "No single-document runtime implementation; native bridge calls are recorded and cannot certify browser behavior."
   ),
@@ -166,7 +174,7 @@ export const pageLedger = {
   setDefaultTimeout: implemented(),
   setExtraHTTPHeaders: undecided(),
   setInputFiles: implemented(
-    "In-memory payloads with explicit non-empty mimeType, under 50Mb total; accepts timeout and strict. Paths, File, Blob, and directories throw."
+    "In-memory payloads with explicit non-empty mimeType, under 50Mb total; accepts timeout, noWaitAfter, and strict. Paths, File, Blob, and directories throw."
   ),
   setViewportSize: outOfScope(
     "No single-document runtime implementation; native bridge calls are recorded and cannot certify browser behavior."
@@ -175,8 +183,10 @@ export const pageLedger = {
   textContent: implemented(),
   title: implemented(),
   touchscreen: planned("Synthetic functional input only."),
-  type: implemented("Accepts timeout and delay only."),
-  uncheck: implemented("Accepts timeout, position, and trial only."),
+  type: implemented("Accepts timeout, delay, and noWaitAfter only."),
+  uncheck: implemented(
+    "Accepts timeout, noWaitAfter, position, and trial only."
+  ),
   unroute: undecided(),
   unrouteAll: undecided(),
   url: implemented(),
@@ -208,14 +218,18 @@ export const locatorLedger = {
   ariaSnapshot: implemented("Current document only; no iframe traversal."),
   blur: implemented(),
   boundingBox: implemented(),
-  check: implemented("Accepts timeout, position, and trial only."),
-  clear: implemented("Accepts timeout only."),
-  click: implemented("Accepts timeout, position, and trial only."),
+  check: implemented("Accepts timeout, noWaitAfter, position, and trial only."),
+  clear: implemented("Accepts timeout and noWaitAfter only."),
+  click: implemented(
+    "Accepts timeout, noWaitAfter, position, and trial only. Does not wait for navigation."
+  ),
   contentFrame: outOfScope(
     "Iframe realms are outside the single-document boundary."
   ),
   count: implemented(),
-  dblclick: implemented("Accepts timeout, position, and trial only."),
+  dblclick: implemented(
+    "Accepts timeout, noWaitAfter, position, and trial only."
+  ),
   describe: implemented(),
   description: implemented(),
   dispatchEvent: implemented("Accepts timeout only."),
@@ -230,7 +244,7 @@ export const locatorLedger = {
     "Pinned client-protocol and UtilityScript serialization; caller closures and exposed function arguments are unsupported."
   ),
   evaluateHandle: undecided(),
-  fill: implemented("Accepts timeout only."),
+  fill: implemented("Accepts timeout and noWaitAfter only."),
   filter: implemented(),
   first: implemented(),
   focus: implemented(),
@@ -245,9 +259,13 @@ export const locatorLedger = {
   getByTestId: implemented(),
   getByText: implemented(),
   getByTitle: implemented(),
-  hideHighlight: undecided(),
-  highlight: undecided(),
-  hover: implemented("Accepts timeout only."),
+  hideHighlight: implemented(
+    "Removes this locator's highlight in the current document."
+  ),
+  highlight: implemented(
+    "Uses the pinned InjectedScript overlay in the current document."
+  ),
+  hover: implemented("Accepts timeout and noWaitAfter only."),
   innerHTML: implemented(),
   innerText: implemented(),
   inputValue: implemented(),
@@ -263,23 +281,31 @@ export const locatorLedger = {
   nth: implemented(),
   or: implemented(),
   page: implemented("Returns the adapter Page facade."),
-  press: implemented("Accepts timeout only."),
-  pressSequentially: implemented("Accepts timeout and delay only."),
+  press: implemented(
+    "Accepts timeout and noWaitAfter only. Does not wait for navigation."
+  ),
+  pressSequentially: implemented(
+    "Accepts timeout, delay, and noWaitAfter only."
+  ),
   screenshot: undecided(),
   scrollIntoViewIfNeeded: implemented("Accepts timeout only."),
   selectOption: implemented(
-    "Accepts strings, value/label/index objects, arrays, null, and timeout only."
+    "Accepts strings, value/label/index objects, arrays, null, timeout, and noWaitAfter only."
   ),
   selectText: implemented("Accepts timeout only."),
-  setChecked: implemented("Accepts timeout, position, and trial only."),
+  setChecked: implemented(
+    "Accepts timeout, noWaitAfter, position, and trial only."
+  ),
   setInputFiles: implemented(
-    "In-memory payloads with explicit non-empty mimeType, under 50Mb total; accepts timeout only. Paths, File, Blob, and directories throw."
+    "In-memory payloads with explicit non-empty mimeType, under 50Mb total; accepts timeout and noWaitAfter only. Paths, File, Blob, and directories throw."
   ),
   tap: undecided(),
   textContent: implemented(),
   toString: implemented(),
-  type: implemented("Accepts timeout and delay only."),
-  uncheck: implemented("Accepts timeout, position, and trial only."),
+  type: implemented("Accepts timeout, delay, and noWaitAfter only."),
+  uncheck: implemented(
+    "Accepts timeout, noWaitAfter, position, and trial only."
+  ),
   waitFor: implemented(),
   waitForFunction: undecided(),
 } as const satisfies Ledger<Locator>;

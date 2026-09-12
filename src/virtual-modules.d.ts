@@ -53,6 +53,9 @@ declare module "virtual:playwright-lite-injected" {
       node: Element,
       state: "visible" | "hidden" | "enabled" | "disabled" | "editable"
     ): ElementStateResult;
+    addHighlight(selector: ParsedSelector, style?: string): void;
+    removeHighlight(selector: ParsedSelector): void;
+    hideHighlight(): void;
   }
 }
 

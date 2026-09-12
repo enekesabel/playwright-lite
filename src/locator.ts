@@ -51,7 +51,12 @@ export type ByRoleOptions = {
 };
 
 type LocatorActionOptions = { timeout?: number };
-type LocatorTypeOptions = LocatorActionOptions & { delay?: number };
+type LocatorActionWithNoWaitAfterOptions = LocatorActionOptions & {
+  noWaitAfter?: boolean;
+};
+type LocatorTypeOptions = LocatorActionWithNoWaitAfterOptions & {
+  delay?: number;
+};
 
 export type LocatorOptions = {
   hasText?: string | RegExp;
@@ -59,6 +64,15 @@ export type LocatorOptions = {
   has?: LocatorImpl;
   hasNot?: LocatorImpl;
   visible?: boolean;
+};
+
+export type HighlightOptions = {
+  style?: string | Record<string, string | number>;
+};
+
+export type HighlightDisposable = {
+  dispose(): Promise<void>;
+  [Symbol.asyncDispose](): Promise<void>;
 };
 
 export class LocatorImpl {
@@ -377,6 +391,21 @@ export class LocatorImpl {
     return this.ownerPage.expect(this.selector, expression, options);
   }
 
+  async highlight(
+    options: HighlightOptions = {}
+  ): Promise<HighlightDisposable> {
+    const style =
+      typeof options.style === "object"
+        ? cssObjectToString(options.style)
+        : options.style;
+    await this.ownerPage.addHighlight(this.selector, style);
+    return new HighlightDisposableImpl(() => this.hideHighlight());
+  }
+
+  async hideHighlight(): Promise<void> {
+    await this.ownerPage.removeHighlight(this.selector);
+  }
+
   async evaluate<R>(
     pageFunction: EvaluationFunction<R>,
     arg?: unknown,
@@ -404,6 +433,7 @@ export class LocatorImpl {
 
   async click(options?: PointerActionOptions) {
     rejectUnsupportedOptions("click", options, [
+      "noWaitAfter",
       "timeout",
       "position",
       "trial",
@@ -417,8 +447,8 @@ export class LocatorImpl {
     );
   }
 
-  async fill(value: string, options?: LocatorActionOptions) {
-    rejectUnsupportedOptions("fill", options, ["timeout"]);
+  async fill(value: string, options?: LocatorActionWithNoWaitAfterOptions) {
+    rejectUnsupportedOptions("fill", options, ["noWaitAfter", "timeout"]);
     await this.ownerPage.fillSelector(
       this.selector,
       value,
@@ -427,8 +457,14 @@ export class LocatorImpl {
     );
   }
 
-  async setInputFiles(files: InputFiles, options?: LocatorActionOptions) {
-    rejectUnsupportedOptions("setInputFiles", options, ["timeout"]);
+  async setInputFiles(
+    files: InputFiles,
+    options?: LocatorActionWithNoWaitAfterOptions
+  ) {
+    rejectUnsupportedOptions("setInputFiles", options, [
+      "noWaitAfter",
+      "timeout",
+    ]);
     await this.ownerPage.setInputFilesSelector(
       this.selector,
       files,
@@ -437,8 +473,8 @@ export class LocatorImpl {
     );
   }
 
-  async press(key: string, options?: LocatorActionOptions) {
-    rejectUnsupportedOptions("press", options, ["timeout"]);
+  async press(key: string, options?: LocatorActionWithNoWaitAfterOptions) {
+    rejectUnsupportedOptions("press", options, ["noWaitAfter", "timeout"]);
     await this.ownerPage.pressSelector(
       this.selector,
       key,
@@ -455,8 +491,8 @@ export class LocatorImpl {
     await this.ownerPage.blurSelector(this.selector, this.label, options);
   }
 
-  async clear(options?: LocatorActionOptions) {
-    rejectUnsupportedOptions("clear", options, ["timeout"]);
+  async clear(options?: LocatorActionWithNoWaitAfterOptions) {
+    rejectUnsupportedOptions("clear", options, ["noWaitAfter", "timeout"]);
     await this.ownerPage.fillSelector(
       this.selector,
       "",
@@ -465,8 +501,8 @@ export class LocatorImpl {
     );
   }
 
-  async hover(options?: LocatorActionOptions) {
-    rejectUnsupportedOptions("hover", options, ["timeout"]);
+  async hover(options?: LocatorActionWithNoWaitAfterOptions) {
+    rejectUnsupportedOptions("hover", options, ["noWaitAfter", "timeout"]);
     await this.ownerPage.hoverSelector(
       this.selector,
       this.label,
@@ -476,6 +512,7 @@ export class LocatorImpl {
 
   async check(options?: PointerActionOptions) {
     rejectUnsupportedOptions("check", options, [
+      "noWaitAfter",
       "position",
       "timeout",
       "trial",
@@ -490,6 +527,7 @@ export class LocatorImpl {
 
   async uncheck(options?: PointerActionOptions) {
     rejectUnsupportedOptions("uncheck", options, [
+      "noWaitAfter",
       "position",
       "timeout",
       "trial",
@@ -504,6 +542,7 @@ export class LocatorImpl {
 
   async setChecked(checked: boolean, options?: PointerActionOptions) {
     rejectUnsupportedOptions("setChecked", options, [
+      "noWaitAfter",
       "position",
       "timeout",
       "trial",
@@ -518,6 +557,7 @@ export class LocatorImpl {
 
   async dblclick(options?: PointerActionOptions) {
     rejectUnsupportedOptions("dblclick", options, [
+      "noWaitAfter",
       "position",
       "timeout",
       "trial",
@@ -542,9 +582,12 @@ export class LocatorImpl {
 
   async selectOption(
     values: string | SelectOptionValue | (string | SelectOptionValue)[] | null,
-    options?: LocatorActionOptions
+    options?: LocatorActionWithNoWaitAfterOptions
   ) {
-    rejectUnsupportedOptions("selectOption", options, ["timeout"]);
+    rejectUnsupportedOptions("selectOption", options, [
+      "noWaitAfter",
+      "timeout",
+    ]);
     return this.ownerPage.selectOptionSelector(
       this.selector,
       values,
@@ -572,7 +615,11 @@ export class LocatorImpl {
   }
 
   async type(text: string, options: LocatorTypeOptions = {}): Promise<void> {
-    rejectUnsupportedOptions("type", options, ["delay", "timeout"]);
+    rejectUnsupportedOptions("type", options, [
+      "delay",
+      "noWaitAfter",
+      "timeout",
+    ]);
     await this.ownerPage.type(this.selector, text, options, this.label);
   }
 
@@ -681,5 +728,41 @@ function rejectUnsupportedOptions(
     throw new Error(
       `${method}(): unsupported Playwright option(s): ${unsupported.join(", ")}.`
     );
+  }
+  if (
+    supported.includes("noWaitAfter") &&
+    options.noWaitAfter !== undefined &&
+    typeof options.noWaitAfter !== "boolean"
+  )
+    throw new TypeError(`${method} noWaitAfter must be a boolean`);
+}
+
+function cssObjectToString(style: Record<string, string | number>): string {
+  return Object.entries(style)
+    .map(([key, value]) => {
+      const property = key.startsWith("--")
+        ? key
+        : key.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
+      return `${property}: ${value}`;
+    })
+    .join("; ");
+}
+
+class HighlightDisposableImpl implements HighlightDisposable {
+  private disposeCallback: (() => Promise<void>) | undefined;
+
+  constructor(dispose: () => Promise<void>) {
+    this.disposeCallback = dispose;
+  }
+
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.dispose();
+  }
+
+  async dispose(): Promise<void> {
+    const dispose = this.disposeCallback;
+    if (!dispose) return;
+    this.disposeCallback = undefined;
+    await dispose();
   }
 }

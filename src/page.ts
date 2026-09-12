@@ -79,8 +79,11 @@ type WaitForSelectorOptions = {
 };
 
 type PageActionOptions = { timeout?: number };
-type PageTypeOptions = PageActionOptions & { delay?: number };
-export type PointerActionOptions = PageActionOptions & {
+type PageActionWithNoWaitAfterOptions = PageActionOptions & {
+  noWaitAfter?: boolean;
+};
+type PageTypeOptions = PageActionWithNoWaitAfterOptions & { delay?: number };
+export type PointerActionOptions = PageActionWithNoWaitAfterOptions & {
   position?: ActionPoint;
   trial?: boolean;
 };
@@ -157,6 +160,8 @@ export class PageImpl {
   readonly window: Window & typeof globalThis;
   readonly keyboard: BrowserKeyboard;
   readonly evaluation: Evaluation;
+  readonly localStorage: PageWebStorage;
+  readonly sessionStorage: PageWebStorage;
   private _injected: ReturnType<typeof injectedScriptFor> | undefined;
   private _injectedTestIdAttributeName: string | undefined;
   private defaultTimeout: number | undefined;
@@ -170,6 +175,8 @@ export class PageImpl {
     this.document = browserWindow.document;
     this.keyboard = new BrowserKeyboard(this);
     this.evaluation = new Evaluation(this);
+    this.localStorage = new PageWebStorage(this, "local");
+    this.sessionStorage = new PageWebStorage(this, "session");
   }
 
   private get injected() {
@@ -241,6 +248,26 @@ export class PageImpl {
 
   elementState(element: Element, state: "visible" | "hidden") {
     return this.injected.elementState(element, state);
+  }
+
+  async addHighlight(selector: string, style?: string): Promise<void> {
+    try {
+      this.injected.addHighlight(this.injected.parseSelector(selector), style);
+    } catch (error) {
+      throw presentOriginalXPath(error, selector);
+    }
+  }
+
+  async removeHighlight(selector: string): Promise<void> {
+    try {
+      this.injected.removeHighlight(this.injected.parseSelector(selector));
+    } catch (error) {
+      throw presentOriginalXPath(error, selector);
+    }
+  }
+
+  async hideHighlight(): Promise<void> {
+    this.injected.hideHighlight();
   }
 
   // ── Selector query operations ──────────────────────────────────
@@ -757,10 +784,13 @@ export class PageImpl {
   async setInputFilesSelector(
     selector: string,
     files: InputFiles,
-    options: { timeout?: number; strict?: boolean } = {},
+    options: PageActionWithNoWaitAfterOptions & { strict?: boolean } = {},
     strict = false
   ): Promise<void> {
-    assertPageActionOptions("setInputFiles", options, ["strict"]);
+    assertPageActionOptions("setInputFiles", options, [
+      "noWaitAfter",
+      "strict",
+    ]);
     if (options.strict !== undefined && typeof options.strict !== "boolean")
       throw new TypeError("setInputFiles strict must be a boolean");
     const payloads = inputFilePayloads(files);
@@ -915,9 +945,9 @@ export class PageImpl {
   async fill(
     selector: string,
     value: string,
-    options?: PageActionOptions
+    options?: PageActionWithNoWaitAfterOptions
   ): Promise<void> {
-    assertPageActionOptions("fill", options);
+    assertPageActionOptions("fill", options, ["noWaitAfter"]);
     await this.fillSelector(
       selector,
       value,
@@ -929,7 +959,7 @@ export class PageImpl {
   async setInputFiles(
     selector: string,
     files: InputFiles,
-    options?: { timeout?: number; strict?: boolean }
+    options?: PageActionWithNoWaitAfterOptions & { strict?: boolean }
   ): Promise<void> {
     await this.setInputFilesSelector(selector, files, options);
   }
@@ -937,9 +967,9 @@ export class PageImpl {
   async press(
     selector: string,
     key: string,
-    options?: PageActionOptions
+    options?: PageActionWithNoWaitAfterOptions
   ): Promise<void> {
-    assertPageActionOptions("press", options);
+    assertPageActionOptions("press", options, ["noWaitAfter"]);
     await this.pressSelector(
       selector,
       key,
@@ -954,7 +984,7 @@ export class PageImpl {
     options?: PageTypeOptions,
     label = `page.type(${JSON.stringify(selector)})`
   ): Promise<void> {
-    assertPageActionOptions("type", options, ["delay"]);
+    assertPageActionOptions("type", options, ["delay", "noWaitAfter"]);
     const deadline = this.createActionDeadline(options?.timeout);
     for (const character of text) {
       if (keyboardLayout.has(character)) {
@@ -982,8 +1012,11 @@ export class PageImpl {
     );
   }
 
-  async hover(selector: string, options?: PageActionOptions): Promise<void> {
-    assertPageActionOptions("hover", options);
+  async hover(
+    selector: string,
+    options?: PageActionWithNoWaitAfterOptions
+  ): Promise<void> {
+    assertPageActionOptions("hover", options, ["noWaitAfter"]);
     await this.hoverSelector(
       selector,
       `page.hover(${JSON.stringify(selector)})`,
@@ -994,9 +1027,9 @@ export class PageImpl {
   async selectOption(
     selector: string,
     values: string | SelectOptionValue | (string | SelectOptionValue)[] | null,
-    options?: PageActionOptions
+    options?: PageActionWithNoWaitAfterOptions
   ): Promise<string[]> {
-    assertPageActionOptions("selectOption", options);
+    assertPageActionOptions("selectOption", options, ["noWaitAfter"]);
     return this.selectOptionSelector(
       selector,
       values,
@@ -1773,7 +1806,7 @@ export class PageImpl {
       this.injected as typeof this.injected & QueryCapableInjectedScript
     ).elementState(element, state);
     if (result.received === "error:notconnected")
-      throw new Error("Element is not connected");
+      throw new Error("Element is not attached to the DOM");
     return result.matches;
   }
 
@@ -2473,6 +2506,46 @@ export class PageImpl {
   }
 }
 
+class PageWebStorage {
+  constructor(
+    private readonly page: PageImpl,
+    private readonly kind: "local" | "session"
+  ) {}
+
+  async items(): Promise<{ name: string; value: string }[]> {
+    const storage = this.storage();
+    const items: { name: string; value: string }[] = [];
+    for (let index = 0; index < storage.length; index++) {
+      const name = storage.key(index);
+      if (name !== null)
+        items.push({ name, value: storage.getItem(name) ?? "" });
+    }
+    return items;
+  }
+
+  async getItem(name: string): Promise<string | null> {
+    return this.storage().getItem(name);
+  }
+
+  async setItem(name: string, value: string): Promise<void> {
+    this.storage().setItem(name, value);
+  }
+
+  async removeItem(name: string): Promise<void> {
+    this.storage().removeItem(name);
+  }
+
+  async clear(): Promise<void> {
+    this.storage().clear();
+  }
+
+  private storage(): Storage {
+    return this.kind === "local"
+      ? this.page.window.localStorage
+      : this.page.window.sessionStorage;
+  }
+}
+
 /**
  * Browser-only analogue of pinned `server/input.ts` Keyboard. It deliberately
  * owns only synthetic event/input behavior in the current document; browser
@@ -2852,6 +2925,12 @@ function assertPageActionOptions(
     );
   if (options.timeout !== undefined)
     validateTimeout(options.timeout, `${method} timeout`);
+  if (
+    supported.includes("noWaitAfter") &&
+    options.noWaitAfter !== undefined &&
+    typeof options.noWaitAfter !== "boolean"
+  )
+    throw new TypeError(`${method} noWaitAfter must be a boolean`);
 }
 
 type PageDispatchEventOptions = PageActionOptions & { strict?: boolean };
@@ -2868,7 +2947,11 @@ function assertPointerActionOptions(
   method: string,
   options: PointerActionOptions | undefined
 ): void {
-  assertPageActionOptions(method, options, ["position", "trial"]);
+  assertPageActionOptions(method, options, [
+    "noWaitAfter",
+    "position",
+    "trial",
+  ]);
   if (options?.trial !== undefined && typeof options.trial !== "boolean")
     throw new TypeError(`${method} trial must be a boolean`);
   if (options?.position === undefined) return;
