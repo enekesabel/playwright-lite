@@ -9,3 +9,4 @@ test-results/
 .env.*
 !.env.example
 .devbox/
+build/generated/

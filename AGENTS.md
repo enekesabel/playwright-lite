@@ -15,3 +15,8 @@ Treat newly passing upstream tests as candidates for review. Before promoting ea
 5. Run the package compatibility checks and inspect the baseline diff. Review each new entry as part of the PR; ordinary test runs must never promote entries automatically.
 
 Execution tracking is necessary evidence, not proof that an assertion is adequate. The implementing agent performs this review; individual promotions do not require separate user approval. Preserve existing reviewed entries when adding support, and investigate regressions instead of deleting entries to make CI pass.
+
+## Development environment
+
+- Start a persistent Devbox shell and run all project commands inside it.
+- If Devbox is unavailable, surface the environment blocker.

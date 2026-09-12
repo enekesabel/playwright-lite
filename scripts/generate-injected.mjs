@@ -16,7 +16,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { corpus } from "../tests/upstream/corpus.ts";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const check = process.argv.includes("--check");
 assert.equal(corpus.source.repository, "microsoft/playwright");
 assert.match(corpus.source.commit, /^[a-f0-9]{40}$/);
 const temporary = mkdtempSync(resolve(tmpdir(), "playwright-lite-upstream-"));
@@ -26,16 +25,8 @@ const run = (command, args, options = {}) =>
 
 function output(path, bytes) {
   const target = resolve(root, path);
-  if (check) {
-    assert.ok(existsSync(target), `Missing generated file: ${path}`);
-    assert.ok(
-      readFileSync(target).equals(Buffer.from(bytes)),
-      `Generated file differs: ${path}`
-    );
-  } else {
-    mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, bytes);
-  }
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, bytes);
 }
 
 try {

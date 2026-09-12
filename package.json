@@ -31,7 +31,7 @@
     }
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "pnpm generate:injected && tsdown",
     "lint": "eslint src --max-warnings 0",
     "test": "vitest run && node --test scripts/upstream-baseline.test.mjs",
     "test:guards": "pnpm exec playwright test tests/upstream/_adapter-guard.spec.ts tests/upstream/_page-test-fixture.spec.ts tests/upstream/_synchronization-guard.spec.ts",
@@ -42,7 +42,6 @@
     "upstream:sync": "node scripts/upstream-specs.mjs sync",
     "upstream:check": "node scripts/upstream-specs.mjs check",
     "generate:injected": "node scripts/generate-injected.mjs",
-    "generate:check": "node scripts/generate-injected.mjs --check",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:package": "node scripts/packed-consumer.mjs",

@@ -67,7 +67,7 @@ pnpm check
 
 `pnpm check` builds the package, checks linting and types, runs unit and browser compatibility tests, verifies an isolated packed consumer, checks formatting, and compares evaluation behavior directly against stock Playwright (`pnpm test:evaluation`).
 
-The generated injected, utility, and protocol-serializer scripts are committed and hash-checked during builds. Consumers do not generate them. Maintainers can reproduce them with `pnpm generate:check`. `pnpm generate:injected` regenerates them using the exact official revision in `tests/upstream/corpus.ts` and Playwright's own generator. Review artifact hash changes before updating the build pin. `pnpm upstream:sync` copies the selected tests from that same revision.
+Playwright sources are generated during `pnpm build` into ignored internal build inputs. The build verifies them against the committed Playwright pin and hash guards. Consumers do not generate them. Maintainers regenerate them from the exact upstream revision when updating the pin. They review pin and hash-guard changes while generated sources remain ignored.
 
 CI runs the development checks on Node.js 24.12.0 with Chromium on Ubuntu. A separate Node.js 20.0.0 job installs the same tarball with engine checks enabled, compiles a consumer POM, and runs it in Chromium without repository development dependencies or a separately installed YAML package. CI does not publish packages. The package is configured for GitHub Packages; `pnpm pack` creates a local tarball for installation before publication.
 

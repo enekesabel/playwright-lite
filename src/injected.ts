@@ -1,6 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/triple-slash-reference
-/// <reference path="../build/playwright-injected.d.ts" />
-
 import {
   InjectedScript,
   parseAriaSnapshot,
