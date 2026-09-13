@@ -30,7 +30,6 @@ jobs:
           node --input-type=module <<'NODE'
           import { execFileSync } from 'node:child_process';
           import { readFileSync } from 'node:fs';
-
           const promotions = [
             { id: 'elementhandle-convenience.spec.ts > innerText should throw', method: 'ElementHandle.innerText', evidence: 'The unchanged test resolves an SVG ElementHandle through the browser adapter and asserts ElementHandle.innerText rejects with the same Node-is-not-an-HTMLElement diagnostic; Page.setContent is setup only.' },
             { id: 'elementhandle-convenience.spec.ts > isVisible should not throw when the DOM element is not connected', method: 'Page.isVisible', evidence: 'The unchanged regression test churns the target in requestAnimationFrame and awaits Page.isVisible ten times without rejection. Every Page.isVisible call enters the browser adapter; Page.setContent is setup only.' },
@@ -42,7 +41,6 @@ jobs:
             { id: 'page-keyboard.spec.ts > type to non-focusable element should maintain old focus', method: 'Locator.type', evidence: 'The unchanged test focuses one element, types through Locator.type on a non-focusable non-editable element, and asserts document.activeElement remains the original element. Locator.type and both page evaluations execute through the browser adapter.' },
             { id: 'selectors-misc.spec.ts > should properly determine visibility of display:contents elements', method: 'Page.waitForSelector', evidence: 'The unchanged regression test exercises five display:contents DOM shapes and proves Page.waitForSelector resolves for the visible cases and for state:hidden when the element has no rendered content. All waitForSelector state checks execute through the adapter; Page.setContent is setup only.' }
           ];
-
           const before = JSON.parse(readFileSync('tests/upstream/baseline.json', 'utf8'));
           if (before.reviewed.length !== 278) throw new Error(`Expected 278 reviewed entries before second pass, got ${before.reviewed.length}`);
           const beforeIds = new Set(before.reviewed.map(entry => entry.id));
@@ -64,6 +62,7 @@ jobs:
           cp /tmp/pr5-promotion.log pr5-promotion.log 2>/dev/null || true
           cp /tmp/pr5-second-pass.log pr5-second-pass.log 2>/dev/null || true
           cp tests/upstream/baseline.json second-pass-baseline.json 2>/dev/null || true
+          cp test-results/compatibility.json second-pass-compatibility.json 2>/dev/null || true
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
@@ -72,6 +71,7 @@ jobs:
             pr5-promotion.log
             pr5-second-pass.log
             second-pass-baseline.json
+            second-pass-compatibility.json
       - name: Commit verified baseline and remove temporary workflow
         run: |
           set -euo pipefail
