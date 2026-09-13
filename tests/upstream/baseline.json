@@ -6,6 +6,21 @@
   "selectedTestCount": 615,
   "reviewed": [
     {
+      "id": "elementhandle-convenience.spec.ts > innerText should throw",
+      "method": "ElementHandle.innerText",
+      "evidence": "The unchanged test resolves an SVG ElementHandle through the browser adapter and asserts ElementHandle.innerText rejects with the same Node-is-not-an-HTMLElement diagnostic; Page.setContent is setup only."
+    },
+    {
+      "id": "elementhandle-convenience.spec.ts > isChecked should work",
+      "method": "ElementHandle.isChecked",
+      "evidence": "The unchanged assertions verify a checked handle becomes unchecked after an adapter ElementHandle.evaluate mutation, with matching Page.isChecked results and invalid-target diagnostics. ElementHandle.isChecked executes through the adapter."
+    },
+    {
+      "id": "elementhandle-convenience.spec.ts > isEditable should work",
+      "method": "ElementHandle.isEditable",
+      "evidence": "The unchanged assertions verify disabled input, enabled input and readonly textarea editability through both ElementHandle.isEditable and Page.isEditable. ElementHandle calls execute through adapter handles; Page.setContent is setup only."
+    },
+    {
       "id": "elementhandle-convenience.spec.ts > isEnabled and isDisabled should work",
       "method": "ElementHandle.isEnabled",
       "evidence": "The unchanged assertions verify both enabled/disabled booleans for a div, a disabled button and an enabled button. Actual handle methods enter the browser adapter; native setContent is setup only."
@@ -19,6 +34,11 @@
       "id": "elementhandle-convenience.spec.ts > isVisible and isHidden should work",
       "method": "ElementHandle.isVisible",
       "evidence": "The unchanged assertions check visible div and empty span handle results for both isVisible and isHidden, with corresponding Page and missing-selector checks. Handle state methods execute in the adapter; native setContent only sets up the document."
+    },
+    {
+      "id": "elementhandle-convenience.spec.ts > isVisible should not throw when the DOM element is not connected",
+      "method": "Page.isVisible",
+      "evidence": "The unchanged regression test churns the target in requestAnimationFrame and awaits Page.isVisible ten times without rejection. Every Page.isVisible call enters the browser adapter; Page.setContent is setup only."
     },
     {
       "id": "locator-click.spec.ts > should click if the target element is removed in pointerdown event",
@@ -194,6 +214,11 @@
       "id": "locator-misc-2.spec.ts > should waitFor",
       "method": "Locator.waitFor",
       "evidence": "After Locator.waitFor() resolves when <span>target</span> is inserted, toHaveText('target') verifies the located span contains 'target'."
+    },
+    {
+      "id": "locator-misc-2.spec.ts > should waitFor hidden",
+      "method": "Locator.waitFor",
+      "evidence": "The unchanged test starts Locator.waitFor({ state: hidden }), removes the child through adapter Page.$eval, and proves the wait completes. Locator.waitFor and hidden-state polling execute through the browser adapter; Page.setContent is setup only."
     },
     {
       "id": "locator-query.spec.ts > alias methods coverage",
@@ -856,6 +881,11 @@
       "evidence": "The entered fill operation rejects an invalid week representation."
     },
     {
+      "id": "page-keyboard.spec.ts > pressing Meta should not result in any text insertion on any platform",
+      "method": "Keyboard.press",
+      "evidence": "The unchanged assertions prove the input value remains hello world before and after adapter Keyboard.press(Meta). Focus, keyboard dispatch and matcher checks all execute through the browser adapter; Page.setContent is setup only."
+    },
+    {
       "id": "page-keyboard.spec.ts > should throw on unknown keys",
       "method": "Keyboard.press",
       "evidence": "Three invalid keys reach browser Keyboard.press/down and are rejected with the exact unknown-key names asserted by the unchanged test. No native calls or transport failures."
@@ -864,6 +894,16 @@
       "id": "page-keyboard.spec.ts > should type into a textarea @smoke",
       "method": "Keyboard.type",
       "evidence": "Browser Page.evaluate creates and focuses a textarea; Keyboard.type enters the browser implementation and the final value equals the full requested string. No native calls or transport failures."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should type repeatedly in input in shadow dom",
+      "method": "Locator.type",
+      "evidence": "The unchanged test types two different strings into inputs inside an open shadow root and asserts each resulting inputValue exactly. Locator.type and inputValue execute through the browser adapter; Page.setContent is setup only."
+    },
+    {
+      "id": "page-keyboard.spec.ts > type to non-focusable element should maintain old focus",
+      "method": "Locator.type",
+      "evidence": "The unchanged test focuses one element, types through Locator.type on a non-focusable non-editable element, and asserts document.activeElement remains the original element. Locator.type and both page evaluations execute through the browser adapter."
     },
     {
       "id": "page-localstorage.spec.ts > localStorage and sessionStorage are independent",
@@ -1224,6 +1264,11 @@
       "id": "selectors-misc.spec.ts > should print original xpath in error",
       "method": "Locator.isVisible",
       "evidence": "The unchanged assertions verify implicit XPath diagnostics retain the caller original expression and omit the transformed form."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should properly determine visibility of display:contents elements",
+      "method": "Page.waitForSelector",
+      "evidence": "The unchanged regression test exercises five display:contents DOM shapes and proves Page.waitForSelector resolves for the visible cases and for state:hidden when the element has no rendered content. All waitForSelector state checks execute through the adapter; Page.setContent is setup only."
     },
     {
       "id": "selectors-misc.spec.ts > should work with :nth-match",
