@@ -27,6 +27,7 @@ jobs:
           devbox run -- bash -euo pipefail <<'SHELL' 2>&1 | tee /tmp/pr5-promotion.log
           pnpm install --frozen-lockfile
           pnpm exec playwright install --with-deps chromium
+          pnpm build
           node --input-type=module <<'NODE'
           import { execFileSync } from 'node:child_process';
           import { readFileSync } from 'node:fs';
