@@ -23,7 +23,8 @@ jobs:
           disable-nix-access-token: "true"
       - name: Promote reviewed cases
         run: |
-          devbox run -- bash -euo pipefail <<'SHELL'
+          set -o pipefail
+          devbox run -- bash -euo pipefail <<'SHELL' 2>&1 | tee /tmp/pr5-promotion.log
           pnpm install --frozen-lockfile
           pnpm exec playwright install --with-deps chromium
           node --input-type=module <<'NODE'
@@ -60,6 +61,7 @@ jobs:
       - name: Preserve verification output
         if: always()
         run: |
+          cp /tmp/pr5-promotion.log pr5-promotion.log 2>/dev/null || true
           cp /tmp/pr5-second-pass.log pr5-second-pass.log 2>/dev/null || true
           cp tests/upstream/baseline.json second-pass-baseline.json 2>/dev/null || true
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -67,6 +69,7 @@ jobs:
         with:
           name: pr5-second-pass-${{ github.run_id }}
           path: |
+            pr5-promotion.log
             pr5-second-pass.log
             second-pass-baseline.json
       - name: Commit verified baseline and remove temporary workflow
