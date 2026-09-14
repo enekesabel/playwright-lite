@@ -84,10 +84,10 @@ type PageActionWithNoWaitAfterOptions = PageActionOptions & {
   noWaitAfter?: boolean;
 };
 type PageTypeOptions = PageActionWithNoWaitAfterOptions & { delay?: number };
-export type PointerActionOptions = PageActionWithNoWaitAfterOptions & {
-  position?: ActionPoint;
-  trial?: boolean;
-};
+export type PointerActionOptions = NonNullable<Parameters<Page["click"]>[1]>;
+type HoverActionOptions = NonNullable<Parameters<Page["hover"]>[1]>;
+type DoubleClickActionOptions = NonNullable<Parameters<Page["dblclick"]>[1]>;
+type CheckedActionOptions = NonNullable<Parameters<Page["check"]>[1]>;
 
 export type AriaSnapshotOptions = {
   boxes?: boolean;
@@ -111,7 +111,10 @@ export type SelectOptionValue = {
 
 type QueryCapableInjectedScript = {
   elementState(element: Element, state: QueryState): QueryStateResult;
-  retarget(element: Element, behavior: "follow-label"): Element | null;
+  retarget(
+    element: Element,
+    behavior: "follow-label" | "button-link"
+  ): Element | null;
 };
 
 type ExpectCapableInjectedScript = {
@@ -135,6 +138,12 @@ type ActionableInjectedScript = {
     point: { x: number; y: number },
     element: Element
   ): "done" | { hitTargetDescription: string };
+  setupHitTargetInterceptor(
+    element: Element,
+    action: "hover" | "mouse",
+    point: ActionPoint,
+    trial: boolean
+  ): string | { stop(): "done" | { hitTargetDescription: string } };
   fill(
     element: Element,
     value: string
@@ -165,6 +174,7 @@ export class PageImpl {
   readonly sessionStorage: PageWebStorage;
   private _injected: ReturnType<typeof injectedScriptFor> | undefined;
   private _injectedTestIdAttributeName: string | undefined;
+  private pointerTarget: Element | undefined;
   private defaultTimeout: number | undefined;
   private defaultNavigationTimeout: number | undefined;
 
@@ -473,53 +483,195 @@ export class PageImpl {
   // ── Terminal actions ────────────────────────────────────────────
 
   async clickSelector(
-    selector: string,
+    selector: string | Element,
     label: string,
     timeout?: number,
     deadline = this.createActionDeadline(timeout),
-    options: Pick<PointerActionOptions, "position" | "trial"> & {
-      clickCount?: 1 | 2;
-      actionName?: "click" | "dblclick";
-    } = {}
-  ) {
-    const actionName = options.actionName ?? "click";
-    assertPointerActionOptions(actionName, {
-      timeout,
-      position: options.position,
-      trial: options.trial,
-    });
-    const target = await this.retryActionability(
+    options: PointerActionOptions = {}
+  ): Promise<void> {
+    options = assertPointerActionOptions("click", options);
+    await this.performPointerAction(
       selector,
       label,
-      actionName,
-      ["visible", "enabled", "stable"],
-      true,
-      deadline,
-      options.position
+      "click",
+      options,
+      deadline
     );
-
-    this.assertActionDeadline(deadline, actionName);
-    if (options.trial) return;
-
-    // Playwright drives a real mouse. The browser's native activation behavior
-    // runs for this single synthesized click, so do not follow it with
-    // HTMLElement.click(): that would duplicate handlers and lose position
-    // and click-count detail.
-    this.dispatchClick(target.element, target.point, options.clickCount ?? 1);
   }
 
   async dblclickSelector(
-    selector: string,
+    selector: string | Element,
     label: string,
-    options: PointerActionOptions = {},
+    options: DoubleClickActionOptions = {},
     deadline = this.createActionDeadline(options.timeout)
   ): Promise<void> {
-    assertPointerActionOptions("dblclick", options);
-    await this.clickSelector(selector, label, options.timeout, deadline, {
-      ...options,
-      actionName: "dblclick",
-      clickCount: 2,
-    });
+    options = assertPointerActionOptions("dblclick", options);
+    await this.performPointerAction(
+      selector,
+      label,
+      "dblclick",
+      options,
+      deadline
+    );
+  }
+
+  /** Pinned dom.ts owns the ordering: actionability, scroll, hit interception,
+   * temporary modifiers, input, interception cleanup. Only input is synthetic.
+   */
+  private async performPointerAction(
+    selector: string | Element,
+    label: string,
+    action: "click" | "dblclick" | "hover",
+    options: PointerActionOptions,
+    deadline: ActionDeadline,
+    checked?: boolean,
+    apiMethod:
+      | "click"
+      | "dblclick"
+      | "hover"
+      | "check"
+      | "uncheck"
+      | "setChecked" = action
+  ): Promise<void> {
+    try {
+      while (true) {
+        this.assertActionDeadline(deadline, action);
+        try {
+          if (checked !== undefined) {
+            const candidate = this.resolvePointerElement(
+              selector,
+              label,
+              options.strict ?? true
+            );
+            if (this.hasCheckedState(candidate, checked)) return;
+          }
+          const target = await this.retryActionability(
+            selector,
+            label,
+            action,
+            action === "hover"
+              ? ["visible", "stable"]
+              : ["visible", "enabled", "stable"],
+            true,
+            deadline,
+            options.position,
+            options
+          );
+          // A Locator may have resolved a replacement while waiting. Never
+          // toggle it when its checked state already satisfies the request.
+          if (
+            checked !== undefined &&
+            this.hasCheckedState(target.element, checked)
+          )
+            return;
+          let interceptor:
+            { stop(): "done" | { hitTargetDescription: string } } | undefined;
+          if (!options.force) {
+            const result = this.actionableInjected.setupHitTargetInterceptor(
+              target.element,
+              action === "hover" ? "hover" : "mouse",
+              target.point,
+              !!options.trial
+            );
+            if (typeof result === "string")
+              throw new Error(
+                result === "error:notconnected"
+                  ? "Element is not connected"
+                  : `Element does not receive pointer events: ${result}`
+              );
+            interceptor = result;
+          }
+          const previousModifiers = this.keyboard.modifierState();
+          let interception: "done" | { hitTargetDescription: string } = "done";
+          try {
+            if (options.modifiers)
+              await this.keyboard.ensureModifiers(options.modifiers, deadline);
+            this.assertActionDeadline(deadline, action);
+            await this.movePointer(target.point, deadline, action);
+            if (!options.trial && action !== "hover")
+              await this.dispatchClick(
+                target.element,
+                target.point,
+                action === "dblclick" ? 2 : (options.clickCount ?? 1),
+                options,
+                deadline,
+                action
+              );
+          } finally {
+            interception = interceptor?.stop() ?? "done";
+            // Cleanup is not input activation and must also run after timeout.
+            if (options.modifiers)
+              await this.keyboard.ensureModifiers(previousModifiers);
+          }
+          if (interception !== "done")
+            throw new Error(
+              `Element does not receive pointer events: ${interception.hitTargetDescription}`
+            );
+          if (
+            !options.trial &&
+            checked !== undefined &&
+            !this.hasCheckedState(target.element, checked)
+          )
+            throw new Error("Clicking the checkbox did not change its state");
+          return;
+        } catch (error) {
+          if (typeof selector !== "string" && !selector.isConnected)
+            throw new Error("Element is not attached to the DOM", {
+              cause: error,
+            });
+          // The preflight loop handles state/geometry. Only retry a target
+          // replacement or interception discovered between preflight and input.
+          const message = asError(error).message;
+          if (!(
+            message === "Element is not connected" ||
+            message.startsWith("Element does not receive pointer events") ||
+            message.startsWith("No elements found for locator")
+          ))
+            throw error;
+          await this.waitWithinActionDeadline(
+            ACTION_RETRY_DELAY,
+            deadline,
+            action
+          );
+        }
+      }
+    } catch (error) {
+      const result = asError(error);
+      const method = label.match(
+        /^(page|elementHandle)\.(click|dblclick|hover|check|uncheck|setChecked)(?:\(|$)/
+      );
+      const prefix = method
+        ? `${method[1]}.${method[2]}`
+        : `locator.${apiMethod}`;
+      result.message = `${prefix}: ${result.message.replace(new RegExp(`^${action}: `), "")}`;
+      throw result;
+    }
+  }
+
+  private resolvePointerElement(
+    subject: string | Element,
+    label: string,
+    strict: boolean
+  ): Element {
+    if (typeof subject === "string")
+      return this.queryElement(subject, label, strict);
+    if (!subject.isConnected)
+      throw new Error("Element is not attached to the DOM");
+    return subject;
+  }
+
+  private hasCheckedState(element: Element, checked: boolean): boolean {
+    const state = (
+      this.injected as typeof this.injected & QueryCapableInjectedScript
+    ).elementState(element, "checked");
+    if (state.received === "error:notconnected")
+      throw new Error("Element is not connected");
+    if (state.matches === checked) return true;
+    if (!checked && "isRadio" in state && state.isRadio)
+      throw new Error(
+        "Cannot uncheck radio button. Radio buttons can only be unchecked by selecting another radio button in the same group."
+      );
+    return state.matches === checked;
   }
 
   async fillSelector(
@@ -606,68 +758,42 @@ export class PageImpl {
   }
 
   async hoverSelector(
-    selector: string,
+    selector: string | Element,
     label: string,
     timeout?: number,
-    deadline = this.createActionDeadline(timeout)
+    deadline = this.createActionDeadline(timeout),
+    options: HoverActionOptions = {}
   ): Promise<void> {
-    const { element, point } = await this.retryActionability(
+    options = assertPointerActionOptions("hover", options);
+    await this.performPointerAction(
       selector,
       label,
       "hover",
-      ["visible", "stable"],
-      true,
+      options,
       deadline
     );
-    this.assertActionDeadline(deadline, "hover");
-    this.dispatchPointerEvent(element, "pointerover", point, 0, 0, 0);
-    this.dispatchPointerEvent(element, "pointerenter", point, 0, 0, 0, false);
-    this.dispatchMouseEvent(element, "mouseover", point, 0, 0, 0);
-    this.dispatchMouseEvent(element, "mouseenter", point, 0, 0, 0, false);
-    this.dispatchPointerEvent(element, "pointermove", point, 0, 0, 0);
-    this.dispatchMouseEvent(element, "mousemove", point, 0, 0, 0);
   }
 
   async setCheckedSelector(
-    selector: string,
+    selector: string | Element,
     checked: boolean,
     label: string,
-    options: PointerActionOptions = {},
-    deadline = this.createActionDeadline(options.timeout)
+    options: CheckedActionOptions = {},
+    deadline = this.createActionDeadline(options.timeout),
+    apiMethod: "check" | "uncheck" | "setChecked" = "setChecked"
   ): Promise<void> {
-    assertPointerActionOptions("setChecked", options);
-    const before = await this.query(
+    options = assertPointerActionOptions("setChecked", options);
+    if (typeof checked !== "boolean")
+      throw new TypeError("checked must be a boolean");
+    await this.performPointerAction(
       selector,
       label,
-      { timeout: options.timeout },
-      true,
-      (element) => element,
-      deadline
-    );
-    const state = (
-      this.injected as typeof this.injected & QueryCapableInjectedScript
-    ).elementState(before, "checked");
-    if (state.matches === checked) return;
-    if (!checked && "isRadio" in state && state.isRadio)
-      throw new Error(
-        "Cannot uncheck radio button. Radio buttons can only be unchecked by selecting another radio button in the same group."
-      );
-
-    this.assertActionDeadline(deadline, "click");
-    await this.clickSelector(
-      selector,
-      label,
-      options.timeout,
+      "click",
+      options,
       deadline,
-      options
+      checked,
+      apiMethod
     );
-    if (options.trial) return;
-    this.assertActionDeadline(deadline, "click");
-    const after = (
-      this.injected as typeof this.injected & QueryCapableInjectedScript
-    ).elementState(this.requireSingle(selector, label), "checked");
-    if (after.matches !== checked)
-      throw new Error("Clicking the checkbox did not change its state");
   }
 
   async selectOptionSelector(
@@ -940,7 +1066,7 @@ export class PageImpl {
       `page.click(${JSON.stringify(selector)})`,
       options?.timeout,
       undefined,
-      options
+      { ...options, strict: options?.strict ?? false }
     );
   }
 
@@ -1014,15 +1140,13 @@ export class PageImpl {
     );
   }
 
-  async hover(
-    selector: string,
-    options?: PageActionWithNoWaitAfterOptions
-  ): Promise<void> {
-    assertPageActionOptions("hover", options, ["noWaitAfter"]);
+  async hover(selector: string, options?: HoverActionOptions): Promise<void> {
     await this.hoverSelector(
       selector,
       `page.hover(${JSON.stringify(selector)})`,
-      options?.timeout
+      options?.timeout,
+      undefined,
+      { ...options, strict: options?.strict ?? false }
     );
   }
 
@@ -1040,48 +1164,48 @@ export class PageImpl {
     );
   }
 
-  async check(selector: string, options?: PointerActionOptions): Promise<void> {
+  async check(selector: string, options?: CheckedActionOptions): Promise<void> {
     await this.setCheckedSelector(
       selector,
       true,
       `page.check(${JSON.stringify(selector)})`,
-      options
+      { ...options, strict: options?.strict ?? false }
     );
   }
 
   async uncheck(
     selector: string,
-    options?: PointerActionOptions
+    options?: CheckedActionOptions
   ): Promise<void> {
     await this.setCheckedSelector(
       selector,
       false,
       `page.uncheck(${JSON.stringify(selector)})`,
-      options
+      { ...options, strict: options?.strict ?? false }
     );
   }
 
   async setChecked(
     selector: string,
     checked: boolean,
-    options?: PointerActionOptions
+    options?: CheckedActionOptions
   ): Promise<void> {
     await this.setCheckedSelector(
       selector,
       checked,
       `page.setChecked(${JSON.stringify(selector)})`,
-      options
+      { ...options, strict: options?.strict ?? false }
     );
   }
 
   async dblclick(
     selector: string,
-    options?: PointerActionOptions
+    options?: DoubleClickActionOptions
   ): Promise<void> {
     await this.dblclickSelector(
       selector,
       `page.dblclick(${JSON.stringify(selector)})`,
-      options
+      { ...options, strict: options?.strict ?? false }
     );
   }
 
@@ -2034,7 +2158,7 @@ export class PageImpl {
   }
 
   private async retryActionability(
-    selector: string,
+    selector: string | Element,
     label: string,
     actionName:
       | "click"
@@ -2047,43 +2171,99 @@ export class PageImpl {
     states: ("visible" | "enabled" | "editable" | "stable")[],
     checkHitTarget: boolean,
     deadline: ActionDeadline,
-    position?: ActionPoint
+    position?: ActionPoint,
+    pointerOptions?: PointerActionOptions
   ): Promise<ActionTarget> {
     let lastError: Error | undefined;
+    let retry = 0;
+    const log: string[] = [];
+    const timeoutError = () =>
+      new AdapterTimeoutError(
+        `${actionName}: Timeout ${deadline.timeout}ms exceeded.${lastError ? ` ${lastError.message}` : ""}` +
+          (pointerOptions
+            ? `\nCall log:\n  - attempting ${actionName} action${pointerOptions.trial ? " (trial run)" : ""}\n${log.join("\n")}`
+            : ""),
+        { cause: lastError }
+      );
     const throwTimeout = () => {
-      if (lastError)
-        throw new AdapterTimeoutError(
-          `${actionName}: Timeout ${deadline.timeout}ms exceeded. ${lastError.message}`,
-          { cause: lastError }
-        );
+      if (lastError) throw timeoutError();
       this.assertActionDeadline(deadline, actionName);
     };
 
     while (true) {
       if (Date.now() >= deadline.expiresAt) throwTimeout();
       try {
-        const element = this.requireSingle(selector, label);
-        await this.ensureActionable(element, states, deadline);
+        const element = this.resolvePointerElement(
+          selector,
+          label,
+          pointerOptions?.strict ?? true
+        );
+        if (pointerOptions && !pointerOptions.force)
+          log.push(
+            `  - waiting for element to be ${states.includes("enabled") ? "visible, enabled and stable" : "visible and stable"}`
+          );
+        if (!pointerOptions?.force)
+          await this.ensureActionable(element, states, deadline);
         if (Date.now() >= deadline.expiresAt) throwTimeout();
-        if (actionName !== "scroll into view")
-          this.scrollIntoView(element, position);
+        if (
+          actionName !== "scroll into view" &&
+          pointerOptions?.scroll !== "none"
+        ) {
+          if (!pointerOptions || position)
+            this.scrollIntoView(element, position);
+          else if (retry % 4 === 0) this.scrollIntoViewIfNeeded(element);
+          else
+            element.scrollIntoView({
+              block: (["end", "center", "start"] as const)[(retry - 1) % 4],
+              inline: (["end", "center", "start"] as const)[(retry - 1) % 4],
+              behavior: "instant",
+            });
+        }
         // Scrolling can change visibility or expose a covering element.
-        await this.ensureActionable(element, states, deadline);
+        if (!pointerOptions?.force)
+          await this.ensureActionable(element, states, deadline);
         const point = checkHitTarget
-          ? this.ensureReceivesEvents(element, position)
+          ? this.ensureReceivesEvents(
+              element,
+              position,
+              !!pointerOptions?.force
+            )
           : actionPoint(element, position, this.window);
         if (Date.now() >= deadline.expiresAt) throwTimeout();
         return { element, point };
       } catch (error) {
-        if (!isRetryableActionError(error)) throw error;
+        if (typeof selector !== "string" && !selector.isConnected)
+          throw new Error("Element is not attached to the DOM", {
+            cause: error,
+          });
+        if (
+          !isRetryableActionError(error) ||
+          (pointerOptions?.force &&
+            !asError(error).message.startsWith("No elements found for locator"))
+        )
+          throw error;
         lastError = asError(error);
         const remaining = deadline.expiresAt - Date.now();
-        if (remaining <= 0)
-          throw new AdapterTimeoutError(
-            `${actionName}: Timeout ${deadline.timeout}ms exceeded. ${lastError.message}`,
-            { cause: error }
-          );
-        await this.wait(Math.min(ACTION_RETRY_DELAY, remaining));
+        const delay = pointerOptions
+          ? [0, 20, 100, 100, 500][Math.min(retry++, 4)]
+          : ACTION_RETRY_DELAY;
+        if (pointerOptions) {
+          const reason = lastError.message
+            .replace(/^Element/, "element")
+            .replace(
+              /^element does not receive pointer events: (.*)$/,
+              "$1 intercepts pointer events"
+            );
+          log.push(`  - ${reason}`);
+          if (remaining > 0)
+            log.push(
+              `  - retrying ${actionName} action`,
+              `  - waiting ${delay}ms`
+            );
+          if (log.length > 60) log.splice(0, log.length - 60);
+        }
+        if (remaining <= 0) throw timeoutError();
+        await this.wait(Math.min(delay, remaining));
       }
     }
   }
@@ -2095,7 +2275,18 @@ export class PageImpl {
       inline: "center",
       behavior: "instant",
     });
-    if (!position) return;
+    const isContents =
+      this.window.getComputedStyle(element).display === "contents";
+    if (!position && !isContents) return;
+    const requestedPoint = () => {
+      if (position) return actionPoint(element, position, this.window);
+      // display:contents has no element box. Scroll its real text/child
+      // fragment geometry; never dispatch directly to an offscreen element.
+      const range = this.document.createRange();
+      range.selectNodeContents(element);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    };
 
     // Pinned ElementHandle._performPointerAction scrolls the requested point,
     // not the whole element. DOM scrollIntoView has no rectangle parameter;
@@ -2104,7 +2295,7 @@ export class PageImpl {
       if (node instanceof ShadowRoot) node = node.host;
       if (!(node instanceof Element) || node === this.document.scrollingElement)
         continue;
-      const point = actionPoint(element, position, this.window);
+      const point = requestedPoint();
       const bounds = node.getBoundingClientRect();
       const left = bounds.left + node.clientLeft;
       const top = bounds.top + node.clientTop;
@@ -2120,9 +2311,13 @@ export class PageImpl {
         behavior: "instant",
       });
     }
-    const point = actionPoint(element, position, this.window);
-    const width = this.document.documentElement.clientWidth;
-    const height = this.document.documentElement.clientHeight;
+    const point = requestedPoint();
+    const viewport =
+      this.document.compatMode === "BackCompat"
+        ? this.document.body
+        : this.document.documentElement;
+    const width = viewport.clientWidth;
+    const height = viewport.clientHeight;
     this.window.scrollBy({
       left: point.x < 0 || point.x >= width ? point.x - width / 2 : 0,
       top: point.y < 0 || point.y >= height ? point.y - height / 2 : 0,
@@ -2131,6 +2326,10 @@ export class PageImpl {
   }
 
   private scrollIntoViewIfNeeded(element: Element) {
+    if (this.window.getComputedStyle(element).display === "contents") {
+      this.scrollIntoView(element);
+      return;
+    }
     const nativeScrollIntoViewIfNeeded = (
       element as Element & { scrollIntoViewIfNeeded?: () => void }
     ).scrollIntoViewIfNeeded;
@@ -2143,19 +2342,18 @@ export class PageImpl {
 
   private ensureReceivesEvents(
     element: Element,
-    position?: ActionPoint
+    position?: ActionPoint,
+    force = false
   ): ActionPoint {
-    const rect = element.getBoundingClientRect();
-    // Layoutless DOM environments have no meaningful hit point. The pinned
-    // primitive remains the authority whenever a browser supplies geometry.
-    const point = actionPoint(element, position, this.window);
-    if (
-      !rect.width ||
-      !rect.height ||
-      typeof this.document.elementFromPoint !== "function"
-    )
-      return point;
-    const result = this.actionableInjected.expectHitTarget(point, element);
+    const point = this.pointerPoint(element, position);
+    if (force) return point;
+    // Same retargeting as dom.ts setupHitTargetInterceptor, not a custom
+    // ancestor heuristic: nested labels/buttons/links retain pinned semantics.
+    const target = (
+      this.injected as typeof this.injected & QueryCapableInjectedScript
+    ).retarget(element, "button-link");
+    if (!target) throw new Error("Element is not connected");
+    const result = this.actionableInjected.expectHitTarget(point, target);
     if (result !== "done")
       throw new Error(
         `Element does not receive pointer events: ${result.hitTargetDescription}`
@@ -2163,52 +2361,320 @@ export class PageImpl {
     return point;
   }
 
-  private dispatchClick(
-    element: Element,
-    point: ActionPoint,
-    clickCount: 1 | 2
-  ) {
-    const target = this.eventTargetAtPoint(element, point);
-    this.dispatchPointerEvent(target, "pointerover", point, 0, 0, 0);
-    this.dispatchPointerEvent(target, "pointerenter", point, 0, 0, 0, false);
-    this.dispatchMouseEvent(target, "mouseover", point, 0, 0, 0);
-    this.dispatchMouseEvent(target, "mouseenter", point, 0, 0, 0, false);
-    this.dispatchPointerEvent(target, "pointermove", point, 0, 0, 0);
-    this.dispatchMouseEvent(target, "mousemove", point, 0, 0, 0);
-
-    for (let detail = 1; detail <= clickCount; detail++) {
-      const pointerDownAllowed = this.dispatchPointerEvent(
-        target,
-        "pointerdown",
-        point,
-        0,
-        1,
-        0
-      );
-      if (pointerDownAllowed) {
-        const mouseDownAllowed = this.dispatchMouseEvent(
-          target,
-          "mousedown",
-          point,
-          0,
-          1,
-          detail
-        );
-        if (mouseDownAllowed) this.focusElement(target);
-      }
-      this.dispatchPointerEvent(target, "pointerup", point, 0, 0, 0);
-      if (pointerDownAllowed)
-        this.dispatchMouseEvent(target, "mouseup", point, 0, 0, detail);
-
-      this.dispatchMouseEvent(target, "click", point, 0, 0, detail);
+  private pointerPoint(element: Element, position?: ActionPoint): ActionPoint {
+    if (!element.isConnected) throw new Error("Element is not connected");
+    let rects = Array.from(element.getClientRects());
+    if (
+      !rects.length &&
+      this.window.getComputedStyle(element).display === "contents"
+    ) {
+      const range = this.document.createRange();
+      range.selectNodeContents(element);
+      rects = Array.from(range.getClientRects());
     }
-    if (clickCount === 2)
-      this.dispatchMouseEvent(target, "dblclick", point, 0, 0, 2);
+    if (!rects.length) throw new Error("Element is not visible");
+    const viewport =
+      this.document.compatMode === "BackCompat"
+        ? this.document.body
+        : this.document.documentElement;
+    const width = viewport.clientWidth;
+    const height = viewport.clientHeight;
+    if (position) {
+      const point = actionPoint(element, position, this.window);
+      if (point.x < 0 || point.y < 0 || point.x >= width || point.y >= height)
+        throw new Error("Element is outside of the viewport");
+      return point;
+    }
+    // Pinned dom.ts clips content quads and uses the first nonempty one.
+    // ponytail: DOM client rectangles cover inline fragments, not protocol
+    // quadrilaterals for arbitrary 3D transforms; those remain diagnostic.
+    for (const rect of rects) {
+      const left = Math.max(0, rect.left),
+        right = Math.min(width, rect.right);
+      const top = Math.max(0, rect.top),
+        bottom = Math.min(height, rect.bottom);
+      if (
+        right > left &&
+        bottom > top &&
+        (right - left) * (bottom - top) > 0.99
+      )
+        return { x: (left + right) / 2, y: (top + bottom) / 2 };
+    }
+    throw new Error("Element is outside of the viewport");
   }
 
-  private eventTargetAtPoint(element: Element, point: ActionPoint): Element {
-    const target = this.document.elementFromPoint?.(point.x, point.y);
-    return target && element.contains(target) ? target : element;
+  private async pointerTask<T>(
+    deadline: ActionDeadline,
+    action: string,
+    task: () => T
+  ): Promise<T> {
+    // Like pinned WebViewInput._postTask, each event is a browser task. Check
+    // the shared deadline inside the task, so expiration cannot activate later.
+    return new Promise<T>((resolve, reject) =>
+      this.window.setTimeout(() => {
+        try {
+          this.assertActionDeadline(deadline, action);
+          resolve(task());
+        } catch (error) {
+          reject(error);
+        }
+      })
+    );
+  }
+
+  private async movePointer(
+    point: ActionPoint,
+    deadline: ActionDeadline,
+    action: string
+  ) {
+    const target = this.eventTargetAtPoint(point);
+    const previous = this.pointerTarget;
+    if (previous !== target && previous?.isConnected) {
+      await this.pointerTask(deadline, action, () =>
+        this.dispatchPointerEvent(
+          previous,
+          "pointerout",
+          point,
+          -1,
+          0,
+          0,
+          true,
+          target
+        )
+      );
+      await this.pointerTask(deadline, action, () =>
+        this.dispatchPointerEvent(
+          previous,
+          "pointerleave",
+          point,
+          -1,
+          0,
+          0,
+          false,
+          target
+        )
+      );
+      await this.pointerTask(deadline, action, () =>
+        this.dispatchMouseEvent(
+          previous,
+          "mouseout",
+          point,
+          0,
+          0,
+          0,
+          true,
+          target
+        )
+      );
+      await this.pointerTask(deadline, action, () =>
+        this.dispatchMouseEvent(
+          previous,
+          "mouseleave",
+          point,
+          0,
+          0,
+          0,
+          false,
+          target
+        )
+      );
+    }
+    this.pointerTarget = target;
+    if (previous !== target) {
+      await this.pointerTask(deadline, action, () =>
+        this.dispatchPointerEvent(
+          target,
+          "pointerover",
+          point,
+          -1,
+          0,
+          0,
+          true,
+          previous
+        )
+      );
+      await this.pointerTask(deadline, action, () =>
+        this.dispatchPointerEvent(
+          target,
+          "pointerenter",
+          point,
+          -1,
+          0,
+          0,
+          false,
+          previous
+        )
+      );
+      await this.pointerTask(deadline, action, () =>
+        this.dispatchMouseEvent(
+          target,
+          "mouseover",
+          point,
+          0,
+          0,
+          0,
+          true,
+          previous
+        )
+      );
+      await this.pointerTask(deadline, action, () =>
+        this.dispatchMouseEvent(
+          target,
+          "mouseenter",
+          point,
+          0,
+          0,
+          0,
+          false,
+          previous
+        )
+      );
+    }
+    await this.pointerTask(deadline, action, () =>
+      this.dispatchPointerEvent(
+        this.eventTargetAtPoint(point),
+        "pointermove",
+        point,
+        -1,
+        0,
+        0
+      )
+    );
+    await this.pointerTask(deadline, action, () =>
+      this.dispatchMouseEvent(
+        this.eventTargetAtPoint(point),
+        "mousemove",
+        point,
+        0,
+        0,
+        0
+      )
+    );
+  }
+
+  private async dispatchClick(
+    element: Element,
+    point: ActionPoint,
+    clickCount: number,
+    options: PointerActionOptions,
+    deadline: ActionDeadline,
+    action: string
+  ) {
+    const button =
+      options.button === "right" ? 2 : options.button === "middle" ? 1 : 0;
+    const buttons = button === 0 ? 1 : button === 1 ? 4 : 2;
+    for (let detail = 1; detail <= clickCount; detail++) {
+      if (!element.isConnected) throw new Error("Element is not connected");
+      const downTarget = this.eventTargetAtPoint(point);
+      const pointerDownAllowed = await this.pointerTask(deadline, action, () =>
+        this.dispatchPointerEvent(
+          this.eventTargetAtPoint(point),
+          "pointerdown",
+          point,
+          button,
+          buttons,
+          0
+        )
+      );
+      if (pointerDownAllowed) {
+        await this.pointerTask(deadline, action, () => {
+          const target = this.eventTargetAtPoint(point);
+          const allowed = this.dispatchMouseEvent(
+            target,
+            "mousedown",
+            point,
+            button,
+            buttons,
+            detail
+          );
+          this.assertActionDeadline(deadline, action);
+          if (allowed) this.focusPointerTarget(target);
+        });
+      }
+      if (button === 2)
+        await this.pointerTask(deadline, action, () =>
+          this.dispatchMouseEvent(
+            this.eventTargetAtPoint(point),
+            "contextmenu",
+            point,
+            button,
+            buttons,
+            detail
+          )
+        );
+      await this.waitWithinActionDeadline(options.delay, deadline, action);
+      await this.pointerTask(deadline, action, () =>
+        this.dispatchPointerEvent(
+          this.eventTargetAtPoint(point),
+          "pointerup",
+          point,
+          button,
+          0,
+          0
+        )
+      );
+      if (pointerDownAllowed)
+        await this.pointerTask(deadline, action, () =>
+          this.dispatchMouseEvent(
+            this.eventTargetAtPoint(point),
+            "mouseup",
+            point,
+            button,
+            0,
+            detail
+          )
+        );
+      await this.pointerTask(deadline, action, () => {
+        const upTarget = this.eventTargetAtPoint(point);
+        let target: Element | null = downTarget;
+        while (target && !target.contains(upTarget))
+          target = target.parentElement;
+        if (target?.isConnected)
+          this.dispatchMouseEvent(
+            target,
+            button === 0 ? "click" : "auxclick",
+            point,
+            button,
+            0,
+            detail
+          );
+      });
+      if (detail === 2 && button === 0)
+        await this.pointerTask(deadline, action, () =>
+          this.dispatchMouseEvent(
+            this.eventTargetAtPoint(point),
+            "dblclick",
+            point,
+            button,
+            0,
+            detail
+          )
+        );
+      if (detail < clickCount)
+        await this.waitWithinActionDeadline(options.delay, deadline, action);
+    }
+  }
+
+  private eventTargetAtPoint(point: ActionPoint): Element {
+    let target =
+      this.document.elementFromPoint(point.x, point.y) ??
+      this.document.documentElement;
+    while (target.shadowRoot?.mode === "open") {
+      const inner = target.shadowRoot.elementFromPoint(point.x, point.y);
+      if (!inner || inner === target) break;
+      target = inner;
+    }
+    return target;
+  }
+
+  private focusPointerTarget(element: Element) {
+    const target = (
+      this.injected as typeof this.injected & QueryCapableInjectedScript
+    ).retarget(element, "follow-label");
+    // Real mouse focus does not scroll a different part of a large control
+    // into view. InjectedScript.focusNode is the keyboard focus operation.
+    if (target && typeof (target as HTMLElement).focus === "function")
+      (target as HTMLElement).focus({ preventScroll: true });
   }
 
   private focusElement(element: Element) {
@@ -2423,21 +2889,25 @@ export class PageImpl {
     button: number,
     buttons: number,
     detail: number,
-    bubbles = true
+    bubbles = true,
+    relatedTarget?: Element
   ): boolean {
-    const PointerEvent = this.window.PointerEvent ?? this.window.Event;
-    return element.dispatchEvent(
-      new PointerEvent(type, {
-        bubbles,
+    const event = new this.window.PointerEvent(type, {
+      ...this.pointerEventInit(
+        point,
         button,
         buttons,
-        cancelable: true,
-        clientX: point.x,
-        clientY: point.y,
-        composed: true,
         detail,
-      })
-    );
+        bubbles,
+        relatedTarget
+      ),
+      pointerId: 1,
+      pointerType: "mouse",
+      isPrimary: true,
+      pressure: buttons ? 0.5 : 0,
+    });
+    Object.defineProperty(event, "__pwTrustedSynthetic", { value: true });
+    return element.dispatchEvent(event);
   }
 
   private dispatchMouseEvent(
@@ -2447,20 +2917,55 @@ export class PageImpl {
     button: number,
     buttons: number,
     detail: number,
-    bubbles = true
+    bubbles = true,
+    relatedTarget?: Element
   ): boolean {
-    return element.dispatchEvent(
-      new this.window.MouseEvent(type, {
-        bubbles,
-        button,
-        buttons,
-        cancelable: true,
-        clientX: point.x,
-        clientY: point.y,
-        composed: true,
-        detail,
-      })
+    const init = this.pointerEventInit(
+      point,
+      button,
+      buttons,
+      detail,
+      bubbles,
+      relatedTarget
     );
+    const event =
+      type === "click" || type === "auxclick"
+        ? new this.window.PointerEvent(type, {
+            ...init,
+            pointerId: 1,
+            pointerType: "mouse",
+            isPrimary: true,
+          })
+        : new this.window.MouseEvent(type, init);
+    Object.defineProperty(event, "__pwTrustedSynthetic", { value: true });
+    return element.dispatchEvent(event);
+  }
+
+  private pointerEventInit(
+    point: ActionPoint,
+    button: number,
+    buttons: number,
+    detail: number,
+    bubbles: boolean,
+    relatedTarget?: Element
+  ): MouseEventInit {
+    const modifiers = this.keyboard.modifierState();
+    return {
+      bubbles,
+      button,
+      buttons,
+      cancelable: true,
+      composed: bubbles,
+      clientX: point.x,
+      clientY: point.y,
+      detail,
+      view: this.window,
+      relatedTarget: relatedTarget ?? null,
+      altKey: modifiers.includes("Alt"),
+      ctrlKey: modifiers.includes("Control"),
+      metaKey: modifiers.includes("Meta"),
+      shiftKey: modifiers.includes("Shift"),
+    };
   }
 
   dispatchKeyboardEvent(
@@ -2569,6 +3074,26 @@ class BrowserKeyboard {
   >();
 
   constructor(private readonly page: PageImpl) {}
+
+  modifierState(): string[] {
+    return [...this.pressedModifiers];
+  }
+
+  // Pinned server/input.ts Keyboard.ensureModifiers, using our existing
+  // key-state machine rather than inventing a second modifier implementation.
+  async ensureModifiers(
+    modifiers: readonly string[],
+    deadline?: ActionDeadline
+  ): Promise<void> {
+    const desired = new Set(
+      modifiers.map((key) => resolveKeyboardKey(key, this.page.window))
+    );
+    for (const key of ["Alt", "Control", "Meta", "Shift"]) {
+      if (desired.has(key) === this.pressedModifiers.has(key)) continue;
+      if (desired.has(key)) await this.down(key, deadline);
+      else await this.up(key, deadline);
+    }
+  }
 
   async down(key: string, deadline?: ActionDeadline): Promise<void> {
     await this.downForTarget(key, deadline);
@@ -2899,6 +3424,7 @@ function isRetryableActionError(error: unknown): boolean {
     message.startsWith("No elements found for locator") ||
     message === "Element is not connected" ||
     message.startsWith("Element is not ") ||
+    message === "Element is outside of the viewport" ||
     message.startsWith("Element does not receive pointer events")
   );
 }
@@ -2950,23 +3476,84 @@ function assertPageDispatchEventOptions(
 function assertPointerActionOptions(
   method: string,
   options: PointerActionOptions | undefined
-): void {
-  assertPageActionOptions(method, options, [
+): PointerActionOptions {
+  const supported = [
     "noWaitAfter",
     "position",
     "trial",
-  ]);
-  if (options?.trial !== undefined && typeof options.trial !== "boolean")
-    throw new TypeError(`${method} trial must be a boolean`);
-  if (options?.position === undefined) return;
-  const { x, y } = options.position;
+    "force",
+    "scroll",
+    "strict",
+  ];
+  if (method === "click" || method === "dblclick")
+    supported.push("button", "delay", "modifiers");
+  if (method === "click") supported.push("clickCount");
+  if (method === "hover") supported.push("modifiers");
+  if (!options) return {};
+  options = { ...options };
+  // Pinned tBoolean/tFloat/tInt unwrap primitive objects without mutating
+  // the caller's options. Enum values deliberately are not coerced.
+  for (const key of ["trial", "force", "strict"] as const) {
+    const value: unknown = options[key];
+    if (value instanceof Boolean) options[key] = value.valueOf();
+  }
+  for (const key of ["delay", "clickCount"] as const) {
+    const value: unknown = options[key];
+    if (value instanceof Number) options[key] = value.valueOf();
+  }
+  const unsupported = Object.keys(options).filter(
+    (key) =>
+      options[key as keyof PointerActionOptions] !== undefined &&
+      key !== "timeout" &&
+      !supported.includes(key)
+  );
+  if (unsupported.length)
+    throw new Error(
+      `${method}(): unsupported Playwright option(s): ${unsupported.join(", ")}`
+    );
+  assertPageActionOptions(method, options, supported);
+  for (const key of ["trial", "force", "strict"] as const)
+    if (options[key] !== undefined && typeof options[key] !== "boolean")
+      throw new TypeError(`${method} ${key} must be a boolean`);
   if (
-    typeof x !== "number" ||
-    !Number.isFinite(x) ||
-    typeof y !== "number" ||
-    !Number.isFinite(y)
+    options.button !== undefined &&
+    !["left", "middle", "right"].includes(options.button)
+  )
+    throw new TypeError("button: expected one of (left|right|middle)");
+  if (
+    options.scroll !== undefined &&
+    !["auto", "none"].includes(options.scroll)
+  )
+    throw new TypeError("scroll: expected one of (auto|none)");
+  for (const key of ["delay", "clickCount"] as const)
+    if (
+      options[key] !== undefined &&
+      (typeof options[key] !== "number" || !Number.isFinite(options[key]))
+    )
+      throw new TypeError(`${key}: expected number`);
+  if (options.clickCount !== undefined && !Number.isInteger(options.clickCount))
+    throw new TypeError(
+      `clickCount: expected integer, got float ${options.clickCount}`
+    );
+  if (
+    options.modifiers !== undefined &&
+    (!Array.isArray(options.modifiers) ||
+      options.modifiers.some(
+        (value) =>
+          !["Alt", "Control", "ControlOrMeta", "Meta", "Shift"].includes(value)
+      ))
+  )
+    throw new TypeError("modifiers: expected an array of keyboard modifiers");
+  if (
+    options.position !== undefined &&
+    (!options.position ||
+      typeof options.position.x !== "number" ||
+      !Number.isFinite(options.position.x) ||
+      typeof options.position.y !== "number" ||
+      !Number.isFinite(options.position.y))
   )
     throw new TypeError(`${method} position must have finite x and y numbers`);
+  return options;
 }
 
 function assertAriaSnapshotOptions(options: AriaSnapshotOptions) {

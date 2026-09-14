@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -110,8 +117,13 @@ test("generation is repeatable and check mode rejects drift without writing", as
   const directory = await mkdtemp(join(tmpdir(), "playwright-lite-readme-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const fixture = pathToFileURL(`${directory}/`);
-  for (const name of ["README.hbs", "package.json", ".prettierrc"])
+  for (const name of ["package.json", ".prettierrc"])
     await copyFile(new URL(name, root), new URL(name, fixture));
+  await mkdir(new URL("docs", fixture));
+  await copyFile(
+    new URL("docs/readme-template.hbs", root),
+    new URL("docs/readme-template.hbs", fixture)
+  );
   const output = new URL("README.md", fixture);
   await assert.rejects(generateReadme(fixture, true), /README.md is stale/);
   await assert.rejects(readFile(output), { code: "ENOENT" });
@@ -122,7 +134,7 @@ test("generation is repeatable and check mode rejects drift without writing", as
   assert.equal(await readFile(output, "utf8"), first);
   await generateReadme(fixture, true);
 
-  const template = new URL("README.hbs", fixture);
+  const template = new URL("docs/readme-template.hbs", fixture);
   await writeFile(
     template,
     (await readFile(template, "utf8")) + "\nTemplate edit.\n"

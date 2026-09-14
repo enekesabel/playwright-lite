@@ -73,7 +73,7 @@ function rowsFor(owner, ledger) {
 export async function renderReadme(root = projectRoot) {
   const filepath = fileURLToPath(new URL("README.md", root));
   const [template, packageJson, options] = await Promise.all([
-    readFile(new URL("README.hbs", root), "utf8"),
+    readFile(new URL("docs/readme-template.hbs", root), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
     resolveConfig(filepath),
   ]);

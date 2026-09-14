@@ -132,6 +132,10 @@ export class TestServer {
         const extension = extname(filePath);
         if (extension === ".html")
           res.setHeader("Content-Type", "text/html; charset=utf-8");
+        else if (extension === ".js")
+          res.setHeader("Content-Type", "text/javascript; charset=utf-8");
+        else if (extension === ".css")
+          res.setHeader("Content-Type", "text/css; charset=utf-8");
         else if (extension === ".png")
           res.setHeader("Content-Type", "image/png");
       }
@@ -201,8 +205,8 @@ export class TestServer {
       return;
     }
 
-    res.writeHead(404);
-    res.end("Not found");
+    // Same asset-root containment check as explicit serveFile calls.
+    this.serveFile(req, res);
   }
 }
 

@@ -3,8 +3,38 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 615,
+  "selectedTestCount": 738,
   "reviewed": [
+    {
+      "id": "elementhandle-click.spec.ts > should double click the button",
+      "method": "ElementHandle.dblclick",
+      "evidence": "Both the dblclick listener and ordinary button activation are observed after the actual handled-node double click. Native goto is fixture setup only."
+    },
+    {
+      "id": "elementhandle-click.spec.ts > should throw for <br> elements with force",
+      "method": "ElementHandle.click",
+      "evidence": "Force-clicking the handled br rejects with Element is outside of the viewport rather than fabricating a usable click point."
+    },
+    {
+      "id": "elementhandle-click.spec.ts > should throw for detached nodes",
+      "method": "ElementHandle.click",
+      "evidence": "After removing the exact handled node, the click rejects with Element is not attached to the DOM; it does not silently resolve another node."
+    },
+    {
+      "id": "elementhandle-click.spec.ts > should throw for hidden nodes with force",
+      "method": "ElementHandle.click",
+      "evidence": "The handled display:none button rejects with Element is not visible even with force, proving force does not bypass missing geometry."
+    },
+    {
+      "id": "elementhandle-click.spec.ts > should throw for recursively hidden nodes with force",
+      "method": "ElementHandle.click",
+      "evidence": "Hiding the handled button parent causes force-click to reject with Element is not visible."
+    },
+    {
+      "id": "elementhandle-click.spec.ts > should work @smoke",
+      "method": "ElementHandle.click",
+      "evidence": "The actual button handler changes result to Clicked after the browser ElementHandle click. Recorded native goto establishes the fixture only."
+    },
     {
       "id": "elementhandle-convenience.spec.ts > innerText should throw",
       "method": "ElementHandle.innerText",
@@ -754,6 +784,381 @@
       "id": "page-check.spec.ts > trial run should not uncheck",
       "method": "Page.uncheck",
       "evidence": "Asserts a checked input stays checked after trial actionability checks."
+    },
+    {
+      "id": "page-click-scroll.spec.ts > should click in-viewport element when scroll is \"none\"",
+      "method": "Locator.click",
+      "evidence": "The in-viewport handler runs while window.scrollY remains zero with scroll:none."
+    },
+    {
+      "id": "page-click-scroll.spec.ts > should not crash when force-clicking hidden input",
+      "method": "Locator.click",
+      "evidence": "Force-clicking input[type=hidden] rejects with Element is not visible; the asserted rejection is an adapter geometry error, not a dispatch error."
+    },
+    {
+      "id": "page-click-scroll.spec.ts > should not scroll nested container when scroll is \"none\"",
+      "method": "Locator.click",
+      "evidence": "The clipped nested-container button does not activate with scroll:none; the subsequent ordinary click scrolls and activates the same button."
+    },
+    {
+      "id": "page-click-scroll.spec.ts > should not scroll on hover when scroll is \"none\"",
+      "method": "Locator.hover",
+      "evidence": "Hovering the offscreen target with scroll:none reports outside-viewport geometry, does not run its hover handler and leaves window.scrollY at zero."
+    },
+    {
+      "id": "page-click-scroll.spec.ts > should not scroll the page when scroll is \"none\"",
+      "method": "Locator.click",
+      "evidence": "The offscreen click reports outside-viewport geometry, never runs its handler, and leaves window.scrollY at zero with scroll:none."
+    },
+    {
+      "id": "page-click-scroll.spec.ts > should scroll into view display:contents",
+      "method": "Page.click",
+      "evidence": "The click handler runs on a text-only display:contents button initially below a 2000px filler, proving real fragment scrolling and activation."
+    },
+    {
+      "id": "page-click-scroll.spec.ts > should scroll into view display:contents with a child",
+      "method": "Page.click",
+      "evidence": "The display:contents button with a child, initially below a 2000px filler, runs its click handler through the adapter."
+    },
+    {
+      "id": "page-click-scroll.spec.ts > should scroll into view span element",
+      "method": "Locator.scrollIntoViewIfNeeded",
+      "evidence": "The unchanged assertion observes window.scrollY greater than 9000 after scrolling the below-fold span; native setContent only builds the fixture."
+    },
+    {
+      "id": "page-click-timeout-1.spec.ts > should timeout waiting for button to be enabled",
+      "method": "Page.click",
+      "evidence": "The disabled-button handler remains unset; the rejected action reports its 3000ms deadline, missing enabled state and actual retry attempts."
+    },
+    {
+      "id": "page-click-timeout-2.spec.ts > should timeout waiting for display:none to be gone",
+      "method": "Page.click",
+      "evidence": "The hidden button remains unclickable until the 5000ms deadline, with visible/enabled/stable waiting and missing visibility recorded in the asserted error."
+    },
+    {
+      "id": "page-click-timeout-2.spec.ts > should timeout waiting for visibility:hidden to be gone",
+      "method": "Page.click",
+      "evidence": "The visibility:hidden button times out at the requested 5000ms deadline and reports actual visibility waiting/retries."
+    },
+    {
+      "id": "page-click-timeout-3.spec.ts > should report wrong hit target subtree",
+      "method": "ElementHandle.click",
+      "evidence": "The hit-target error identifies both the intercepting inner div and its blocker subtree, and reports the requested timeout and retries."
+    },
+    {
+      "id": "page-click-timeout-3.spec.ts > should timeout waiting for hit target",
+      "method": "ElementHandle.click",
+      "evidence": "The obscured handled button times out at 5000ms with the actual blocker description, retry actions and 500ms backoff in the error."
+    },
+    {
+      "id": "page-click-timeout-4.spec.ts > should fail to click the button behind a large header after scrolling around",
+      "method": "Page.click",
+      "evidence": "A permanent covering header prevents activation, appears in the error, and more than two distinct real scroll positions are observed while retrying."
+    },
+    {
+      "id": "page-click-timeout-4.spec.ts > should timeout waiting for stable position",
+      "method": "ElementHandle.click",
+      "evidence": "The moving handled button times out at 3000ms with stable-state waiting and retries; the assertion checks the real actionability failure."
+    },
+    {
+      "id": "page-click.spec.ts > should click a button in scrolling container with offset",
+      "method": "Page.click",
+      "evidence": "The requested point in a 2000px button inside a 200px scrollport activates and reports offsets 1900/1910."
+    },
+    {
+      "id": "page-click.spec.ts > should click a partially obscured button",
+      "method": "Page.click",
+      "evidence": "The clipped long button receives the click and changes the fixture result to Clicked."
+    },
+    {
+      "id": "page-click.spec.ts > should click a rotated button",
+      "method": "Page.click",
+      "evidence": "The pinned rotated-button fixture receives the click and changes its result to Clicked. This does not certify all arbitrary transformed quadrilaterals."
+    },
+    {
+      "id": "page-click.spec.ts > should click a very large button with offset",
+      "method": "Page.click",
+      "evidence": "The 2000px button activates and reports requested offsets 1900/1910 after scrolling that point into view."
+    },
+    {
+      "id": "page-click.spec.ts > should click after a right click",
+      "method": "Locator.click",
+      "evidence": "A right click followed by a primary Locator click leaves the target text at Clicked, as checked through the adapter matcher; this certifies the sequence, not a native context-menu UI."
+    },
+    {
+      "id": "page-click.spec.ts > should click an offscreen element when scroll-behavior is smooth",
+      "method": "Page.click",
+      "evidence": "The offscreen button inside a smooth-scrolling container is brought into view and its actual click flag is asserted."
+    },
+    {
+      "id": "page-click.spec.ts > should click disabled div",
+      "method": "Page.click",
+      "evidence": "A disabled attribute on a non-form div does not incorrectly suppress the click; its handler flag becomes true."
+    },
+    {
+      "id": "page-click.spec.ts > should click on a span with an inline element inside",
+      "method": "Page.click",
+      "evidence": "Clicking the span with generated inline content runs its handler and sets CLICKED to 42."
+    },
+    {
+      "id": "page-click.spec.ts > should click on checkbox input and toggle",
+      "method": "Page.click",
+      "evidence": "Two clicks toggle the checkbox true then false; the exact mouse, click, input and change event sequence is asserted for the first click."
+    },
+    {
+      "id": "page-click.spec.ts > should click on checkbox label and toggle",
+      "method": "Page.click",
+      "evidence": "Label clicks toggle the associated input true then false and produce its exact click/input/change sequence through native DOM activation."
+    },
+    {
+      "id": "page-click.spec.ts > should click svg",
+      "method": "Page.click",
+      "evidence": "Clicking the SVG circle runs its handler and sets the asserted value to 42."
+    },
+    {
+      "id": "page-click.spec.ts > should click the aligned 1x1 div",
+      "method": "Page.click",
+      "evidence": "The aligned one-pixel target receives the click and sets its asserted activation flag."
+    },
+    {
+      "id": "page-click.spec.ts > should click the button @smoke",
+      "method": "Page.click",
+      "evidence": "The fixture button handler changes result to Clicked after Page.click; native goto establishes the document only."
+    },
+    {
+      "id": "page-click.spec.ts > should click the button after a cross origin navigation ",
+      "method": "Page.click",
+      "evidence": "After recorded native cross-origin setup, the adapter click runs the current document button handler. No navigation compatibility is claimed."
+    },
+    {
+      "id": "page-click.spec.ts > should click the button after navigation ",
+      "method": "Page.click",
+      "evidence": "After recorded native document replacement for setup, the browser-adapter click runs the new document button handler. This certifies the click, not navigation."
+    },
+    {
+      "id": "page-click.spec.ts > should click the button behind position:absolute header",
+      "method": "Page.click",
+      "evidence": "A target obscured inside a nested scroll container by an absolute header is scrolled and activated; its handler flag is asserted."
+    },
+    {
+      "id": "page-click.spec.ts > should click the button behind sticky header",
+      "method": "Page.click",
+      "evidence": "After initial scroll places the target under a fixed header, the adapter finds an actionable scroll position and the target handler runs."
+    },
+    {
+      "id": "page-click.spec.ts > should click the button when window.innerWidth is corrupted",
+      "method": "Page.click",
+      "evidence": "Overriding window.innerWidth to zero does not corrupt click geometry; the real fixture handler still runs."
+    },
+    {
+      "id": "page-click.spec.ts > should click the button with em border with offset",
+      "method": "Page.click",
+      "evidence": "The handler runs and reports offsetX=20 and offsetY=10 with a 2em border and explicit font size, verifying computed padding-relative coordinates."
+    },
+    {
+      "id": "page-click.spec.ts > should click the button with px border with offset",
+      "method": "Page.click",
+      "evidence": "The handler runs and reports offsetX=20 and offsetY=10 on a button with an 8px border, verifying padding-relative coordinates."
+    },
+    {
+      "id": "page-click.spec.ts > should click the half-aligned 1x1 div",
+      "method": "Page.click",
+      "evidence": "The half-pixel-positioned one-pixel target receives the click and sets its activation flag."
+    },
+    {
+      "id": "page-click.spec.ts > should click the unaligned 1x1 div v1",
+      "method": "Page.click",
+      "evidence": "The one-pixel target at fractional margins 20.23/11.65 receives the click and sets its activation flag."
+    },
+    {
+      "id": "page-click.spec.ts > should click the unaligned 1x1 div v2",
+      "method": "Page.click",
+      "evidence": "The one-pixel target at fractional margins 20.68/11.13 receives the click and sets its activation flag."
+    },
+    {
+      "id": "page-click.spec.ts > should click the unaligned 1x1 div v3",
+      "method": "Page.click",
+      "evidence": "The one-pixel target at fractional margins 20.68/11.52 receives the click and sets its activation flag."
+    },
+    {
+      "id": "page-click.spec.ts > should click the unaligned 1x1 div v4",
+      "method": "Page.click",
+      "evidence": "The one-pixel target at fractional margins 20.15/11.24 receives the click and sets its activation flag."
+    },
+    {
+      "id": "page-click.spec.ts > should click when one of inline box children is outside of viewport",
+      "method": "Page.click",
+      "evidence": "The visible inline fragment is clicked despite an absolutely positioned offscreen child, and its parent activation flag becomes 42."
+    },
+    {
+      "id": "page-click.spec.ts > should click wrapped links",
+      "method": "Page.click",
+      "evidence": "The actual wrapped-link click handler sets __clicked, proving the selected inline fragment receives the click."
+    },
+    {
+      "id": "page-click.spec.ts > should click zero-sized input by label",
+      "method": "Page.click",
+      "evidence": "Clicking the visible wrapping label activates its zero-sized input and sets the input handler flag."
+    },
+    {
+      "id": "page-click.spec.ts > should climb dom for inner label with pointer-events:none",
+      "method": "Page.click",
+      "evidence": "A nested non-hit-testable label resolves through its button and runs the button handler."
+    },
+    {
+      "id": "page-click.spec.ts > should climb up to [role=button]",
+      "method": "Page.click",
+      "evidence": "The nested non-hit-testable target resolves through the role=button ancestor and runs its handler."
+    },
+    {
+      "id": "page-click.spec.ts > should climb up to a [role=link]",
+      "method": "Page.click",
+      "evidence": "A non-hit-testable nested div resolves through the role=link ancestor and runs its handler."
+    },
+    {
+      "id": "page-click.spec.ts > should climb up to a anchor",
+      "method": "Page.click",
+      "evidence": "A non-hit-testable nested div resolves through the anchor and runs its handler. The assertion certifies activation, not navigation waiting."
+    },
+    {
+      "id": "page-click.spec.ts > should dispatch microtasks in order",
+      "method": "Page.click",
+      "evidence": "A MutationObserver triggered by mousedown has run exactly once when mouseup observes it, proving a task checkpoint between events."
+    },
+    {
+      "id": "page-click.spec.ts > should double click the button",
+      "method": "Page.dblclick",
+      "evidence": "Both the double-click flag and ordinary click result are asserted after the browser Page double click; native goto is setup only."
+    },
+    {
+      "id": "page-click.spec.ts > should fail when element detaches after animation",
+      "method": "ElementHandle.click",
+      "evidence": "The handled animating node is removed while waiting; the click rejects with the detached-node error and never sets its handler flag."
+    },
+    {
+      "id": "page-click.spec.ts > should fail when element is animating from outside the viewport with force",
+      "method": "ElementHandle.click",
+      "evidence": "The forced handled-node click reports outside-viewport geometry immediately instead of waiting for animation, with no activation flag."
+    },
+    {
+      "id": "page-click.spec.ts > should fail when obscured and not waiting for hit target",
+      "method": "ElementHandle.click",
+      "evidence": "Force-click on a covered handled button does not invoke that button handler; its result remains Was not clicked, proving dispatch follows the real point target."
+    },
+    {
+      "id": "page-click.spec.ts > should fire contextmenu event on right click",
+      "method": "Page.click",
+      "evidence": "A right-button click runs the target contextmenu handler and changes its text to context menu rather than relying on a primary click."
+    },
+    {
+      "id": "page-click.spec.ts > should not wait with force",
+      "method": "Page.click",
+      "evidence": "A display:none target force-click rejects with the visibility error and leaves the handler result at Was not clicked."
+    },
+    {
+      "id": "page-click.spec.ts > should report nice error when element is detached and force-clicked",
+      "method": "ElementHandle.click",
+      "evidence": "The removed handled button does not activate and force-click reports Element is not attached to the DOM."
+    },
+    {
+      "id": "page-click.spec.ts > should retry when element detaches after animation",
+      "method": "Page.click",
+      "evidence": "The selector click remains pending through two removed/replaced animating buttons, then activates the stable current replacement without earlier activation."
+    },
+    {
+      "id": "page-click.spec.ts > should retry when element is animating from outside the viewport",
+      "method": "ElementHandle.click",
+      "evidence": "The pending handled-node click waits for the outside-viewport animation to settle, then the handler flag becomes true."
+    },
+    {
+      "id": "page-click.spec.ts > should scroll and click the button",
+      "method": "Page.click",
+      "evidence": "Two different offscreen fixture buttons change their own text to clicked after scrolling and browser-adapter activation."
+    },
+    {
+      "id": "page-click.spec.ts > should set PointerEvent.pressure on pointerdown",
+      "method": "Page.click",
+      "evidence": "The document listeners observe mouse pointer pressure 0.5 on pointerdown and 0 on pointerup from the actual click."
+    },
+    {
+      "id": "page-click.spec.ts > should update modifiers correctly",
+      "method": "Page.click",
+      "evidence": "Assertions check temporary Shift, an explicit empty override, restoration of held Shift, and no Shift after key release across successive browser clicks."
+    },
+    {
+      "id": "page-click.spec.ts > should wait for becoming hit target",
+      "method": "Page.click",
+      "evidence": "The pending click stays incomplete while an overlay intercepts it, then completes and runs the handler after the overlay moves away."
+    },
+    {
+      "id": "page-click.spec.ts > should wait for becoming hit target with trial run",
+      "method": "Page.click",
+      "evidence": "The trial stays pending while obscured, completes only once the hit target is reachable, and never changes the handler result from Was not clicked."
+    },
+    {
+      "id": "page-click.spec.ts > should wait for BUTTON to be clickable when it has pointer-events:none",
+      "method": "Page.click",
+      "evidence": "The nested target cannot activate while its button has pointer-events:none, but activates after that property is removed."
+    },
+    {
+      "id": "page-click.spec.ts > should wait for button to be enabled",
+      "method": "Page.click",
+      "evidence": "A nested text target under a disabled button does not activate until its button is enabled; the final handler flag proves successful retargeting."
+    },
+    {
+      "id": "page-click.spec.ts > should wait for input to be enabled",
+      "method": "Page.click",
+      "evidence": "The disabled input click remains incomplete and its handler unset until disabled is removed, then activates."
+    },
+    {
+      "id": "page-click.spec.ts > should wait for LABEL to be clickable when it has pointer-events:none",
+      "method": "Page.click",
+      "evidence": "Repeated observations show no label activation while pointer-events:none; removing it lets the pending click run the handler."
+    },
+    {
+      "id": "page-click.spec.ts > should wait for select to be enabled",
+      "method": "Page.click",
+      "evidence": "The disabled select receives no mousedown handler until enabled; afterward the handler runs and prevents native popup activation."
+    },
+    {
+      "id": "page-click.spec.ts > should wait for stable position",
+      "method": "Page.click",
+      "evidence": "After a margin transition, the click runs at the final asserted pageX=300/pageY=10 and activates the button, proving stable-target waiting."
+    },
+    {
+      "id": "page-click.spec.ts > should waitFor display:none to be gone",
+      "method": "Page.click",
+      "evidence": "Repeated browser round trips observe no activation or completion while hidden; after display:block the same pending click completes and activates."
+    },
+    {
+      "id": "page-click.spec.ts > should waitFor visibility:hidden to be gone",
+      "method": "Page.click",
+      "evidence": "The pending click neither completes nor activates while visibility:hidden, then completes and activates after visibility is restored."
+    },
+    {
+      "id": "page-click.spec.ts > should waitFor visible when already visible",
+      "method": "Page.click",
+      "evidence": "An already visible fixture button activates without waiting for a visibility transition; native goto is setup only."
+    },
+    {
+      "id": "page-click.spec.ts > should waitFor visible when parent is hidden",
+      "method": "Page.click",
+      "evidence": "The click remains pending while the parent is display:none, then completes and activates after the parent becomes visible."
+    },
+    {
+      "id": "page-click.spec.ts > trial run should not click",
+      "method": "Page.click",
+      "evidence": "A successful trial on an actionable button leaves the handler result at Was not clicked."
+    },
+    {
+      "id": "page-click.spec.ts > trial run should not double click",
+      "method": "Page.dblclick",
+      "evidence": "A successful double-click trial leaves both the dblclick flag false and the ordinary click result unchanged."
+    },
+    {
+      "id": "page-click.spec.ts > trial run should work with short timeout",
+      "method": "Page.click",
+      "evidence": "A disabled-button trial rejects with a trial-run action log at its short deadline and never activates the button."
     },
     {
       "id": "page-fill.spec.ts > fill back to back",

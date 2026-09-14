@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["compatibility/**/*.ts"]
+  "include": ["compatibility/**/*.ts", "src/virtual-modules.d.ts"]
 }

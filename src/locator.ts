@@ -4,7 +4,6 @@ import { validateNoWaitAfter } from "./protocolValidation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import type {
   AriaSnapshotOptions,
-  PointerActionOptions,
   LocatorQueryOptions,
   PageImpl,
   SelectOptionValue,
@@ -427,19 +426,13 @@ export class LocatorImpl {
 
   // ── Terminal operations (delegated to Page) ───────────────────
 
-  async click(options?: PointerActionOptions) {
-    rejectUnsupportedOptions("click", options, [
-      "noWaitAfter",
-      "timeout",
-      "position",
-      "trial",
-    ]);
+  async click(options?: Parameters<Locator["click"]>[0]) {
     await this.ownerPage.clickSelector(
       this.selector,
       this.label,
       options?.timeout,
       undefined,
-      options
+      { ...options, strict: true }
     );
   }
 
@@ -497,68 +490,55 @@ export class LocatorImpl {
     );
   }
 
-  async hover(options?: LocatorActionWithNoWaitAfterOptions) {
-    rejectUnsupportedOptions("hover", options, ["noWaitAfter", "timeout"]);
+  async hover(options?: Parameters<Locator["hover"]>[0]) {
     await this.ownerPage.hoverSelector(
       this.selector,
       this.label,
-      options?.timeout
+      options?.timeout,
+      undefined,
+      { ...options, strict: true }
     );
   }
 
-  async check(options?: PointerActionOptions) {
-    rejectUnsupportedOptions("check", options, [
-      "noWaitAfter",
-      "position",
-      "timeout",
-      "trial",
-    ]);
+  async check(options?: Parameters<Locator["check"]>[0]) {
     await this.ownerPage.setCheckedSelector(
       this.selector,
       true,
       this.label,
-      options
+      { ...options, strict: true },
+      undefined,
+      "check"
     );
   }
 
-  async uncheck(options?: PointerActionOptions) {
-    rejectUnsupportedOptions("uncheck", options, [
-      "noWaitAfter",
-      "position",
-      "timeout",
-      "trial",
-    ]);
+  async uncheck(options?: Parameters<Locator["uncheck"]>[0]) {
     await this.ownerPage.setCheckedSelector(
       this.selector,
       false,
       this.label,
-      options
+      { ...options, strict: true },
+      undefined,
+      "uncheck"
     );
   }
 
-  async setChecked(checked: boolean, options?: PointerActionOptions) {
-    rejectUnsupportedOptions("setChecked", options, [
-      "noWaitAfter",
-      "position",
-      "timeout",
-      "trial",
-    ]);
+  async setChecked(
+    checked: boolean,
+    options?: Parameters<Locator["setChecked"]>[1]
+  ) {
     await this.ownerPage.setCheckedSelector(
       this.selector,
       checked,
       this.label,
-      options
+      { ...options, strict: true }
     );
   }
 
-  async dblclick(options?: PointerActionOptions) {
-    rejectUnsupportedOptions("dblclick", options, [
-      "noWaitAfter",
-      "position",
-      "timeout",
-      "trial",
-    ]);
-    await this.ownerPage.dblclickSelector(this.selector, this.label, options);
+  async dblclick(options?: Parameters<Locator["dblclick"]>[0]) {
+    await this.ownerPage.dblclickSelector(this.selector, this.label, {
+      ...options,
+      strict: true,
+    });
   }
 
   async dispatchEvent(
