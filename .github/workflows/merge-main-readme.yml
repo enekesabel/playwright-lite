@@ -39,6 +39,7 @@ jobs:
           fi
           git add -A
       - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm generate:readme
       - run: pnpm exec prettier --write AGENTS.md README.hbs compatibility/api.ts scripts/generate-readme.mjs scripts/generate-readme.test.mjs README.md
       - run: node --test scripts/generate-readme.test.mjs
