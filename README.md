@@ -35,7 +35,13 @@ await page.getByRole("button", { name: "Save" }).click();
 
 ## Installation
 
-GitHub Packages publication and installation instructions are tracked in [#8](https://github.com/enekesabel/playwright-lite/issues/8).
+playwright-lite is currently in alpha.
+
+```sh
+npm add @enekesabel/playwright-lite@alpha
+```
+
+Requires Node.js 20 or newer.
 
 ## Compatibility
 

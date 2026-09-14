@@ -57,6 +57,12 @@ before changing a ledger claim. When support or evidence changes, update the
 ledger and regenerate in the same change. Keep section-specific editing guidance
 in Handlebars comments so it does not appear in the generated README.
 
+## Release process
+
+Follow `docs/RELEASE_PROCESS.md` for releases. Keep maintainer release instructions out of the consumer README.
+
+PR titles must use Conventional Commit syntax. Use squash merge for normal PRs so the title becomes the commit on `main`.
+
 ## Development environment
 
 - Start a persistent Devbox shell and run all project commands inside it.

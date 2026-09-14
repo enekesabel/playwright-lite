@@ -16,6 +16,8 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const temporary = mkdtempSync(resolve(tmpdir(), "playwright-lite-consumer-"));
 const env = { ...process.env, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" };
+const playwrightVersion = process.env.PLAYWRIGHT_VERSION ?? "1.62.1";
+const runtimeCheck = playwrightVersion === "1.62.1";
 let browser;
 try {
   assert.ok(
@@ -48,10 +50,10 @@ try {
         type: "module",
         dependencies: {
           "@enekesabel/playwright-lite": `file:${tarball}`,
-          "@playwright/test": "1.62.1",
+          "@playwright/test": playwrightVersion,
           "@types/node": "20.19.43",
           esbuild: "0.28.1",
-          typescript: "6.0.3",
+          typescript: runtimeCheck ? "6.0.3" : "5.9.3",
         },
       },
       null,
@@ -63,6 +65,7 @@ try {
     [
       "install",
       "--engine-strict",
+      "--strict-peer-deps",
       "--ignore-scripts",
       "--no-audit",
       "--no-fund",
@@ -126,10 +129,18 @@ try {
     declarations,
     /\b(?:AdapterJSHandle|LOCATOR_BRAND|isPlaywrightLiteLocator|resolveLocatorElements)\b/
   );
-  copyFileSync(
-    resolve(root, "tests/consumer.ts"),
-    resolve(temporary, "consumer.ts")
-  );
+
+  if (runtimeCheck) {
+    copyFileSync(
+      resolve(root, "tests/consumer.ts"),
+      resolve(temporary, "consumer.ts")
+    );
+  } else {
+    writeFileSync(
+      resolve(temporary, "consumer.ts"),
+      'import type { Locator, Page } from "@playwright/test";\nimport { createPage, type CreatePageOptions } from "@enekesabel/playwright-lite";\n\nconst options: CreatePageOptions = { testIdAttribute: "data-test" };\nconst page: Page = createPage(options);\nconst locator: Locator = page.getByTestId("name");\nvoid locator;\n'
+    );
+  }
   writeFileSync(
     resolve(temporary, "tsconfig.json"),
     JSON.stringify(
@@ -159,48 +170,52 @@ try {
     ],
     { cwd: temporary, stdio: "inherit" }
   );
-  const { build } = consumerRequire("esbuild");
-  const { chromium } = consumerRequire("@playwright/test");
-  const bundlePath = resolve(temporary, "consumer.js");
-  const result = await build({
-    absWorkingDir: temporary,
-    entryPoints: ["consumer.ts"],
-    outfile: bundlePath,
-    bundle: true,
-    platform: "browser",
-    format: "iife",
-    globalName: "consumer",
-    metafile: true,
-  });
-  assert.ok(
-    Object.keys(result.metafile.inputs).some((path) =>
-      path.includes("node_modules/@enekesabel/playwright-lite/dist/index.mjs")
-    ),
-    "Consumer must import the installed artifact."
-  );
-  for (const output of Object.values(result.metafile.outputs))
-    assert.equal(
-      output.imports.length,
-      0,
-      "Browser bundle must be self-contained."
+
+  if (runtimeCheck) {
+    const { build } = consumerRequire("esbuild");
+    const { chromium } = consumerRequire("@playwright/test");
+    const bundlePath = resolve(temporary, "consumer.js");
+    const result = await build({
+      absWorkingDir: temporary,
+      entryPoints: ["consumer.ts"],
+      outfile: bundlePath,
+      bundle: true,
+      platform: "browser",
+      format: "iife",
+      globalName: "consumer",
+      metafile: true,
+    });
+    assert.ok(
+      Object.keys(result.metafile.inputs).some((path) =>
+        path.includes("node_modules/@enekesabel/playwright-lite/dist/index.mjs")
+      ),
+      "Consumer must import the installed artifact."
     );
-  browser = await chromium.launch({ headless: true });
-  const driver = await browser.newPage();
-  await driver.setContent(
-    '<label>Name<input data-test="name"></label><button>Save</button><output></output><span data-testid="default">Default</span>'
-  );
-  await driver.addScriptTag({ path: bundlePath });
-  const observed = await driver.evaluate(() => window.consumer.runConsumer());
-  assert.deepEqual(observed.exports, ["createPage"]);
-  assert.equal(observed.value, "Ada!");
-  assert.equal(observed.saved, "Ada!");
-  assert.equal(observed.clicks, 1);
-  assert.equal(observed.trustedClick, false);
-  assert.equal(observed.defaultCount, 1);
-  assert.match(observed.snapshot, /button "Save"/);
-  assert.match(observed.locatorSnapshot, /button "Save"/);
+    for (const output of Object.values(result.metafile.outputs))
+      assert.equal(
+        output.imports.length,
+        0,
+        "Browser bundle must be self-contained."
+      );
+    browser = await chromium.launch({ headless: true });
+    const driver = await browser.newPage();
+    await driver.setContent(
+      '<label>Name<input data-test="name"></label><button>Save</button><output></output><span data-testid="default">Default</span>'
+    );
+    await driver.addScriptTag({ path: bundlePath });
+    const observed = await driver.evaluate(() => window.consumer.runConsumer());
+    assert.deepEqual(observed.exports, ["createPage"]);
+    assert.equal(observed.value, "Ada!");
+    assert.equal(observed.saved, "Ada!");
+    assert.equal(observed.clicks, 1);
+    assert.equal(observed.trustedClick, false);
+    assert.equal(observed.defaultCount, 1);
+    assert.match(observed.snapshot, /button "Save"/);
+    assert.match(observed.locatorSnapshot, /button "Save"/);
+  }
+
   console.log(
-    `PASS packed consumer on Node ${process.version}: strict isolated install, minimal exports, declarations, POM actions, keyboard, test IDs, and snapshots without an installed YAML dependency`
+    `PASS packed consumer on Node ${process.version} with Playwright ${playwrightVersion}: strict isolated install and declarations${runtimeCheck ? ", browser bundle and runtime" : ""}`
   );
 } finally {
   await browser?.close();
