@@ -6,6 +6,19 @@ beforeEach(() => {
 });
 
 describe("pointer action compatibility", () => {
+  it("dispatches dblclick only for the primary button", async () => {
+    document.body.innerHTML = "<button>go</button>";
+    const page = createPage();
+    const events: number[] = [];
+    const button = document.querySelector("button")!;
+    button.addEventListener("contextmenu", (event) => event.preventDefault());
+    button.addEventListener("dblclick", (event) => events.push(event.button));
+    await page.dblclick("button", { button: "right" });
+    await page.locator("button").dblclick({ button: "middle" });
+    await (await page.$("button"))!.dblclick();
+    expect(events).toEqual([0]);
+  });
+
   it("normalizes boxed pointer options and rejects fractional click counts", async () => {
     document.body.innerHTML = "<button>go</button>";
     const page = createPage();

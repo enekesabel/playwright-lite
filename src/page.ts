@@ -2628,7 +2628,7 @@ export class PageImpl {
             detail
           );
       });
-      if (detail === 2)
+      if (detail === 2 && button === 0)
         await this.pointerTask(deadline, action, () =>
           this.dispatchMouseEvent(
             this.eventTargetAtPoint(point),
