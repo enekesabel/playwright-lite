@@ -133,7 +133,7 @@ export const pageLedger = {
     "Initiates browser navigation; execution ends on document replacement."
   ),
   goto: partial(
-    "Does not return a `Response`; resolves to `null` only for same-document hash navigation. Relative URLs use `document.baseURI`, not a configured Playwright `baseURL`. Rejects `referer`, `signal`, and `waitUntil: \"networkidle\"`."
+    'Does not return a `Response`; resolves to `null` only for same-document hash navigation. Relative URLs use `document.baseURI`, not a configured Playwright `baseURL`. Rejects `referer`, `signal`, and `waitUntil: "networkidle"`.'
   ),
   hideHighlight: implemented("Clears highlights in the current document."),
   hover: partial(

@@ -44,7 +44,9 @@ test("README links documented APIs, including selector aliases, without inventin
     ["setInputFiles", "class-locator#locator-set-input-files"],
   ]) {
     assert.ok(
-      readme.includes(`[\`${name}\`](https://playwright.dev/docs/api/${target})`),
+      readme.includes(
+        `[\`${name}\`](https://playwright.dev/docs/api/${target})`
+      ),
       target
     );
   }
