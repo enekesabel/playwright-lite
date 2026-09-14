@@ -4,7 +4,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   prepare:
@@ -14,16 +14,30 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          persist-credentials: false
+          ref: ${{ github.head_ref }}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24.12.0
       - run: npm install --global pnpm@11.24.0
       - run: pnpm install --frozen-lockfile
-      - name: Export pinned declarations
-        run: cp node_modules/playwright-core/types/types.d.ts "$RUNNER_TEMP/playwright-types.d.ts"
+      - run: pnpm generate:readme
+      - run: pnpm exec prettier --write compatibility/api.ts scripts/generate-readme.mjs scripts/generate-readme.test.mjs AGENTS.md package.json
+      - name: Commit generated output
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md compatibility/api.ts scripts/generate-readme.mjs scripts/generate-readme.test.mjs AGENTS.md package.json
+          git diff --cached --quiet || git commit -m 'docs: render README from compatibility ledger'
+          git push origin HEAD:docs/generated-readme-compatibility
+      - run: node --test scripts/generate-readme.test.mjs
+      - run: pnpm check:readme
+      - run: pnpm generate:injected && pnpm typecheck
+      - name: Export generated source
+        if: always()
+        run: git archive --format=tar.gz HEAD > "$RUNNER_TEMP/source.tar.gz"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
         with:
-          name: readme-reference
-          path: ${{ runner.temp }}/playwright-types.d.ts
+          name: generated-source
+          path: ${{ runner.temp }}/source.tar.gz
           retention-days: 1

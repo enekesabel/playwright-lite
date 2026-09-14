@@ -27,6 +27,13 @@ Treat newly passing upstream tests as candidates for review. Before promoting ea
 
 Execution tracking is necessary evidence, not proof that an assertion is adequate. The implementing agent performs this review; individual promotions do not require separate user approval. Preserve existing reviewed entries when adding support, and investigate regressions instead of deleting entries to make CI pass.
 
+## Generated README
+
+`README.md` is generated from `README.hbs` and `compatibility/api.ts`. Edit those
+sources, not the output. When API support or its reviewed evidence changes,
+review the ledger classification and run `pnpm generate:readme`. `pnpm check`
+rejects a stale README. Keep runtime-wide boundaries out of partial API notes.
+
 ## Development environment
 
 - Start a persistent Devbox shell and run all project commands inside it.

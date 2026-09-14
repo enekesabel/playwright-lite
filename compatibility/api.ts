@@ -9,16 +9,35 @@ import type {
 export type CompatibilityStatus =
   "implemented" | "planned" | "undecided" | "out-of-scope";
 
-export type CompatibilityEntry = {
-  readonly status: CompatibilityStatus;
-  readonly limitations?: string;
-};
+/**
+ * API compatibility within the README runtime boundaries, not test coverage.
+ * Full means no known method-specific gap; partial requires a consumer-facing
+ * explanation of missing options, return semantics, or behavior. Runtime-wide
+ * constraints do not downgrade APIs. Review pinned signatures, runtime behavior,
+ * and reviewed test evidence before upgrading a claim; a passing test is not
+ * proof of the whole API. Planned and undecided both mean not implemented.
+ */
+export type CompatibilityEntry = { readonly limitations?: string } & (
+  | { readonly status: "implemented"; readonly apiCompatibility: "full" }
+  | {
+      readonly status: "implemented";
+      readonly apiCompatibility: "partial";
+      readonly limitations: string;
+    }
+  | { readonly status: Exclude<CompatibilityStatus, "implemented"> }
+);
 
 type Ledger<T> = Readonly<Record<keyof T, CompatibilityEntry>>;
 
 const implemented = (limitations?: string): CompatibilityEntry => ({
   status: "implemented",
+  apiCompatibility: "full",
   ...(limitations ? { limitations } : {}),
+});
+const partial = (limitations: string): CompatibilityEntry => ({
+  status: "implemented",
+  apiCompatibility: "partial",
+  limitations,
 });
 const planned = (limitations?: string): CompatibilityEntry => ({
   status: "planned",
@@ -37,13 +56,17 @@ const outOfScope = (limitations: string): CompatibilityEntry => ({
  */
 export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),
-  $: implemented("Adapter ElementHandle only."),
-  $$: implemented("Adapter ElementHandle only."),
+  $: partial(
+    "Returns a limited ElementHandle; handle actions and evaluateHandle are not implemented."
+  ),
+  $$: partial(
+    "Returns limited ElementHandles; handle actions and evaluateHandle are not implemented."
+  ),
   $$eval: implemented(
-    "Pinned client-protocol and UtilityScript serialization; caller closures and exposed function arguments are unsupported."
+    "Uses the pinned Playwright by-value argument and result serializers."
   ),
   $eval: implemented(
-    "Pinned client-protocol and UtilityScript serialization; caller closures and exposed function arguments are unsupported."
+    "Uses the pinned Playwright by-value argument and result serializers."
   ),
   addInitScript: undecided(),
   addListener: planned(
@@ -55,11 +78,13 @@ export const pageLedger = {
   ariaSnapshot: implemented("Current document only; no iframe traversal."),
   bringToFront: undecided(),
   cancelPickLocator: undecided(),
-  check: implemented("Accepts timeout, noWaitAfter, position, and trial only."),
+  check: partial(
+    "Requires a single match. Options: timeout, noWaitAfter, position, trial only."
+  ),
   clearConsoleMessages: undecided(),
   clearPageErrors: undecided(),
-  click: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only. Does not wait for navigation."
+  click: partial(
+    "Requires a single match. Options: timeout, noWaitAfter, position, trial only."
   ),
   clock: undecided(),
   close: undecided(),
@@ -67,20 +92,24 @@ export const pageLedger = {
   content: implemented("Serializes the current controlled document."),
   context: undecided(),
   coverage: undecided(),
-  dblclick: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only."
+  dblclick: partial(
+    "Requires a single match. Options: timeout, noWaitAfter, position, trial only."
   ),
-  dispatchEvent: implemented("Accepts timeout and strict only."),
+  dispatchEvent: partial(
+    "Options: timeout and strict only; handle-valued eventInit is not supported."
+  ),
   dragAndDrop: undecided(),
   emulateMedia: undecided(),
-  evaluate: implemented(
-    "Pinned client-protocol and UtilityScript serialization; caller closures and exposed function arguments are unsupported."
-  ),
+  evaluate: partial("The exposeFunctions: true option is not supported."),
   evaluateHandle: undecided(),
   exposeBinding: undecided(),
   exposeFunction: undecided(),
-  fill: implemented("Accepts timeout and noWaitAfter only."),
-  focus: implemented("Accepts timeout only."),
+  fill: partial(
+    "Requires a single match. Options: timeout and noWaitAfter only."
+  ),
+  focus: partial(
+    "Requires a single match. Only the timeout option is supported."
+  ),
   frame: outOfScope("Iframe realms are outside the single-document boundary."),
   frameLocator: outOfScope(
     "Iframe realms are outside the single-document boundary."
@@ -100,11 +129,13 @@ export const pageLedger = {
   goForward: planned(
     "Initiates browser navigation; execution ends on document replacement."
   ),
-  goto: implemented(
-    "Accepts http/https/about/file/data URLs and timeout, commit, domcontentloaded, or load waitUntil; full navigation ends execution."
+  goto: partial(
+    "No Response result. Options: timeout and waitUntil (commit, domcontentloaded, load) only; no referer, signal, or networkidle."
   ),
   hideHighlight: implemented("Clears highlights in the current document."),
-  hover: implemented("Accepts timeout and noWaitAfter only."),
+  hover: partial(
+    "Requires a single match. Options: timeout and noWaitAfter only."
+  ),
   innerHTML: implemented(),
   innerText: implemented(),
   inputValue: implemented(),
@@ -120,7 +151,7 @@ export const pageLedger = {
   ),
   localStorage: implemented("Native current-window Storage only."),
   locator: implemented(),
-  mainFrame: implemented("Returns the current Page facade, not a Frame."),
+  mainFrame: partial("Returns the Page facade, not a Frame."),
   mouse: planned("Synthetic functional input only."),
   off: planned(
     "Only console and pageerror are planned; other events remain undecided."
@@ -139,8 +170,8 @@ export const pageLedger = {
   prependListener: planned(
     "Only console and pageerror are planned; other events remain undecided."
   ),
-  press: implemented(
-    "Accepts timeout and noWaitAfter only. Does not wait for navigation."
+  press: partial(
+    "Requires a single match. Options: timeout and noWaitAfter only; no delay or signal."
   ),
   reload: planned(
     "Initiates browser navigation; execution ends on document replacement."
@@ -160,32 +191,30 @@ export const pageLedger = {
   routeWebSocket: undecided(),
   screencast: undecided(),
   screenshot: undecided(),
-  selectOption: implemented(
-    "Accepts strings, value/label/index objects, arrays, null, timeout, and noWaitAfter only."
+  selectOption: partial(
+    "Requires a single match. No ElementHandle values. Options: timeout and noWaitAfter only."
   ),
   sessionStorage: implemented("Native current-window Storage only."),
-  setChecked: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only."
+  setChecked: partial(
+    "Requires a single match. Options: timeout, noWaitAfter, position, trial only."
   ),
-  setContent: outOfScope(
-    "No single-document runtime implementation; native bridge calls are recorded and cannot certify browser behavior."
-  ),
+  setContent: outOfScope("Document replacement is excluded."),
   setDefaultNavigationTimeout: implemented(),
   setDefaultTimeout: implemented(),
   setExtraHTTPHeaders: undecided(),
-  setInputFiles: implemented(
-    "In-memory payloads with explicit non-empty mimeType, under 50Mb total; accepts timeout, noWaitAfter, and strict. Paths, File, Blob, and directories throw."
+  setInputFiles: partial(
+    "In-memory payloads with a non-empty mimeType only; no paths or directories. Options: timeout, noWaitAfter, strict only."
   ),
-  setViewportSize: outOfScope(
-    "No single-document runtime implementation; native bridge calls are recorded and cannot certify browser behavior."
-  ),
+  setViewportSize: outOfScope("Browser viewport resizing is excluded."),
   tap: planned("Synthetic functional input only."),
   textContent: implemented(),
   title: implemented(),
   touchscreen: planned("Synthetic functional input only."),
-  type: implemented("Accepts timeout, delay, and noWaitAfter only."),
-  uncheck: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only."
+  type: partial(
+    "Requires a single match. Options: timeout, delay, noWaitAfter only."
+  ),
+  uncheck: partial(
+    "Requires a single match. Options: timeout, noWaitAfter, position, trial only."
   ),
   unroute: undecided(),
   unrouteAll: undecided(),
@@ -195,14 +224,16 @@ export const pageLedger = {
   waitForEvent: planned(
     "Only console and pageerror are planned; other events remain undecided."
   ),
-  waitForFunction: implemented(
-    "Serialized predicate source and arguments; the returned handle supports jsonValue and dispose only."
+  waitForFunction: partial(
+    "No signal option. The returned handle supports jsonValue and dispose only."
   ),
   waitForLoadState: undecided(),
   waitForNavigation: undecided(),
   waitForRequest: undecided(),
   waitForResponse: undecided(),
-  waitForSelector: implemented(),
+  waitForSelector: partial(
+    "No signal option. Returns a limited ElementHandle without handle actions or evaluateHandle."
+  ),
   waitForTimeout: implemented(),
   waitForURL: undecided(),
   workers: undecided(),
@@ -218,33 +249,35 @@ export const locatorLedger = {
   ariaSnapshot: implemented("Current document only; no iframe traversal."),
   blur: implemented(),
   boundingBox: implemented(),
-  check: implemented("Accepts timeout, noWaitAfter, position, and trial only."),
-  clear: implemented("Accepts timeout and noWaitAfter only."),
-  click: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only. Does not wait for navigation."
-  ),
+  check: partial("Options: timeout, noWaitAfter, position, trial only."),
+  clear: partial("Options: timeout and noWaitAfter only; no force or signal."),
+  click: partial("Options: timeout, noWaitAfter, position, trial only."),
   contentFrame: outOfScope(
     "Iframe realms are outside the single-document boundary."
   ),
   count: implemented(),
-  dblclick: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only."
-  ),
+  dblclick: partial("Options: timeout, noWaitAfter, position, trial only."),
   describe: implemented(),
-  description: implemented(),
-  dispatchEvent: implemented("Accepts timeout only."),
+  description: partial(
+    "Empty descriptions and descriptions retained through filter() differ from Playwright."
+  ),
+  dispatchEvent: partial(
+    "Only the timeout option is supported; handle-valued eventInit is not supported."
+  ),
   dragTo: undecided(),
   drop: undecided(),
-  elementHandle: implemented("Adapter ElementHandle only."),
-  elementHandles: implemented("Adapter ElementHandle only."),
-  evaluate: implemented(
-    "Pinned client-protocol and UtilityScript serialization; caller closures and exposed function arguments are unsupported."
+  elementHandle: partial(
+    "Returns a limited ElementHandle; handle actions and evaluateHandle are not implemented."
   ),
+  elementHandles: partial(
+    "Returns limited ElementHandles; handle actions and evaluateHandle are not implemented."
+  ),
+  evaluate: partial("The exposeFunctions: true option is not supported."),
   evaluateAll: implemented(
-    "Pinned client-protocol and UtilityScript serialization; caller closures and exposed function arguments are unsupported."
+    "Uses the pinned Playwright by-value argument and result serializers."
   ),
   evaluateHandle: undecided(),
-  fill: implemented("Accepts timeout and noWaitAfter only."),
+  fill: partial("Options: timeout and noWaitAfter only; no force or signal."),
   filter: implemented(),
   first: implemented(),
   focus: implemented(),
@@ -265,7 +298,7 @@ export const locatorLedger = {
   highlight: implemented(
     "Uses the pinned InjectedScript overlay in the current document."
   ),
-  hover: implemented("Accepts timeout and noWaitAfter only."),
+  hover: partial("Options: timeout and noWaitAfter only."),
   innerHTML: implemented(),
   innerText: implemented(),
   inputValue: implemented(),
@@ -281,32 +314,30 @@ export const locatorLedger = {
   nth: implemented(),
   or: implemented(),
   page: implemented("Returns the adapter Page facade."),
-  press: implemented(
-    "Accepts timeout and noWaitAfter only. Does not wait for navigation."
+  press: partial(
+    "Options: timeout and noWaitAfter only; no delay or signal."
   ),
-  pressSequentially: implemented(
-    "Accepts timeout, delay, and noWaitAfter only."
-  ),
+  pressSequentially: partial("The signal option is not supported."),
   screenshot: undecided(),
-  scrollIntoViewIfNeeded: implemented("Accepts timeout only."),
-  selectOption: implemented(
-    "Accepts strings, value/label/index objects, arrays, null, timeout, and noWaitAfter only."
+  scrollIntoViewIfNeeded: partial("The signal option is not supported."),
+  selectOption: partial(
+    "No ElementHandle values. Options: timeout and noWaitAfter only; no force or signal."
   ),
-  selectText: implemented("Accepts timeout only."),
-  setChecked: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only."
+  selectText: partial(
+    "Only the timeout option is supported; no force or signal."
   ),
-  setInputFiles: implemented(
-    "In-memory payloads with explicit non-empty mimeType, under 50Mb total; accepts timeout and noWaitAfter only. Paths, File, Blob, and directories throw."
+  setChecked: partial("Options: timeout, noWaitAfter, position, trial only."),
+  setInputFiles: partial(
+    "In-memory payloads with a non-empty mimeType only; no paths or directories. Options: timeout and noWaitAfter only; no signal."
   ),
   tap: undecided(),
   textContent: implemented(),
-  toString: implemented(),
-  type: implemented("Accepts timeout, delay, and noWaitAfter only."),
-  uncheck: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only."
+  toString: partial(
+    "Uses construction labels rather than Playwright's normalized selector descriptions."
   ),
-  waitFor: implemented(),
+  type: partial("The signal option is not supported."),
+  uncheck: partial("Options: timeout, noWaitAfter, position, trial only."),
+  waitFor: partial("The signal option is not supported."),
   waitForFunction: undecided(),
 } as const satisfies Ledger<Locator>;
 

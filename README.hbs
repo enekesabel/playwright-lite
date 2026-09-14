@@ -1,0 +1,71 @@
+<!-- Generated from README.hbs and compatibility/api.ts. Run pnpm generate:readme. -->
+
+# playwright-lite
+
+Use Playwright's `Page` and `Locator` APIs in the browser document you're already in.
+`playwright-lite` runs inside your application, without launching a browser or connecting to a Playwright server.
+
+```ts
+import { createPage } from "@enekesabel/playwright-lite";
+
+const page = createPage();
+
+await page.getByRole("textbox", { name: "Name" }).fill("Ada");
+await page.getByRole("button", { name: "Save" }).click();
+```
+
+## Runtime boundaries
+
+- **Current document only.** No iframe traversal, `Frame`, or `FrameLocator` support.
+- **Navigation ends execution.** `goto()` can start navigation, but replacing the document destroys the JavaScript context running your script. Automation cannot continue across a full-page navigation or reload.
+- **Synthetic input.** Input events are not browser-trusted. Native keyboard behavior such as cursor movement, deletion, and focus traversal is not simulated.
+- **No browser control.** No browser launch, browser contexts, or browser-level control over network traffic, downloads, or other tabs.
+- **Content Security Policy still applies.** Evaluation callbacks need dynamic JavaScript evaluation to be allowed by the page's policy; the library does not bypass it.
+
+## Use cases
+
+- Automate your own application in the browser you're using.
+- Let an in-app assistant inspect and interact with the page.
+- Build guided onboarding and automation flows.
+- Run the supported parts of existing Playwright scripts inside your application.
+
+## Installation
+
+To install from source, create a tarball in a repository checkout:
+
+```sh
+devbox shell
+pnpm install --frozen-lockfile
+pnpm build
+pnpm pack
+```
+
+Then install it in your application with the matching Playwright type dependency:
+
+```sh
+pnpm add /path/to/enekesabel-playwright-lite-{{version}}.tgz @playwright/test@{{playwrightVersion}}
+```
+
+Installing and bundling requires Node.js 20 or newer. Playwright's Node runtime is not included in the browser bundle.
+
+`createPage()` accepts `testIdAttribute` (default `data-testid`), `actionTimeout` (1,000 ms), and `navigationTimeout` (30,000 ms). Set a timeout to `0` to disable it. Configuration is per page; `playwright.config.ts` is not loaded.
+
+## Compatibility
+
+Targets Playwright **{{playwrightVersion}}**. Statuses describe API compatibility within the runtime boundaries above.
+
+✅ Compatible · ⚠️ Partially compatible · ❌ Not implemented · 🚫 Intentionally excluded
+
+{{#each tables}}
+### {{name}}
+
+| API | Status | Notes |
+| --- | :---: | --- |
+{{#each rows}}
+| `{{name}}` | {{status}} | {{{note}}} |
+{{/each}}
+
+{{/each}}
+## License
+
+MIT for this project. Bundled and copied third-party code retains its own license. See [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) and [LICENSES](LICENSES).

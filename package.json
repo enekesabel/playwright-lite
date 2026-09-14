@@ -33,7 +33,7 @@
   "scripts": {
     "build": "pnpm generate:injected && tsdown",
     "lint": "eslint src --max-warnings 0",
-    "test": "vitest run && node --test scripts/upstream-baseline.test.mjs",
+    "test": "vitest run && node --test scripts/upstream-baseline.test.mjs scripts/generate-readme.test.mjs",
     "test:guards": "pnpm exec playwright test tests/upstream/_adapter-guard.spec.ts tests/upstream/_page-test-fixture.spec.ts tests/upstream/_synchronization-guard.spec.ts tests/upstream/_browser-compat-guard.spec.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.compatibility.json --noEmit",
     "test:e2e": "pnpm run test:guards && node scripts/upstream-baseline.mjs check",
@@ -45,8 +45,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:package": "node scripts/packed-consumer.mjs",
-    "check": "pnpm build && pnpm lint && pnpm typecheck && pnpm upstream:check && pnpm test && pnpm test:evaluation && pnpm test:e2e && pnpm test:package && pnpm format:check",
-    "test:evaluation": "node scripts/evaluation-parity.mjs"
+    "check": "pnpm check:readme && pnpm build && pnpm lint && pnpm typecheck && pnpm upstream:check && pnpm test && pnpm test:evaluation && pnpm test:e2e && pnpm test:package && pnpm format:check",
+    "test:evaluation": "node scripts/evaluation-parity.mjs",
+    "generate:readme": "node scripts/generate-readme.mjs",
+    "check:readme": "node scripts/generate-readme.mjs --check"
   },
   "peerDependencies": {
     "@playwright/test": ">=1.62.1 <1.63.0"
