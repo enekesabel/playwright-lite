@@ -1,0 +1,34 @@
+name: Pointer parity workbench
+on:
+  push:
+    branches: [codex/pointer-action-parity]
+permissions:
+  contents: read
+concurrency:
+  group: pointer-parity-workbench
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: jetify-com/devbox-install-action@8c6a66ed6273138b1915457069de78cb52fe3bd7
+        with:
+          enable-cache: true
+      - name: Inspect pinned source in a persistent Devbox shell
+        run: |
+          devbox run -- bash -euo pipefail <<'SH'
+          mkdir -p "$RUNNER_TEMP/pointer-proof"
+          git rev-parse HEAD > "$RUNNER_TEMP/pointer-proof/head.txt"
+          git archive HEAD > "$RUNNER_TEMP/pointer-proof/repository.tar"
+          curl --fail --location --retry 3 https://codeload.github.com/microsoft/playwright/tar.gz/26a9e470a7b3c7822084b09fb7f13902c5f37b51 -o "$RUNNER_TEMP/pointer-proof/upstream.tgz"
+          SH
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: pointer-proof
+          path: ${{ runner.temp }}/pointer-proof
+          if-no-files-found: error
