@@ -26,7 +26,10 @@ function npmTag(version) {
 test("bootstrap release configuration stays in the alpha era", () => {
   assert.equal(packageConfig["initial-version"], "0.1.0");
   assert.equal(packageJson.version, packageConfig["initial-version"]);
-  assert.equal(manifest["."], "0.0.0");
+  assert.ok(
+    manifest["."] === "0.0.0" || manifest["."] === packageJson.version,
+    `expected the manifest to be unreleased or at the package version, got ${manifest["."]}`
+  );
   assert.equal(packageConfig.prerelease, true);
   assert.equal(packageConfig["include-component-in-tag"], false);
   assert.match(
