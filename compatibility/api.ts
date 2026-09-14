@@ -314,9 +314,7 @@ export const locatorLedger = {
   nth: implemented(),
   or: implemented(),
   page: implemented("Returns the adapter Page facade."),
-  press: partial(
-    "Options: timeout and noWaitAfter only; no delay or signal."
-  ),
+  press: partial("Options: timeout and noWaitAfter only; no delay or signal."),
   pressSequentially: partial("The signal option is not supported."),
   screenshot: undecided(),
   scrollIntoViewIfNeeded: partial("The signal option is not supported."),

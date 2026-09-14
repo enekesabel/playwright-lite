@@ -18,7 +18,9 @@ test("README renders API compatibility without repeating runtime boundaries", as
   assert.match(row("addInitScript"), /\|\s*❌\s*\|\s*\|$/u);
   assert.match(row("frame"), /\|\s*🚫\s*\|.+/u);
   assert.match(row("Symbol.asyncDispose"), /\|\s*❌\s*\|\s*\|$/u);
-  assert.ok(readme.indexOf("## Installation") < readme.indexOf("## Compatibility"));
+  assert.ok(
+    readme.indexOf("## Installation") < readme.indexOf("## Compatibility")
+  );
   assert.ok(readme.indexOf("### Locator") < readme.indexOf("## License"));
   assert.equal(readme, await readFile(new URL("README.md", root), "utf8"));
 });

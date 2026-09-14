@@ -12,22 +12,29 @@ function rowsFor(ledger) {
   return Reflect.ownKeys(ledger)
     .map((key) => {
       const entry = ledger[key];
-      const name = key === Symbol.asyncDispose ? "Symbol.asyncDispose" : String(key);
-      const partial = entry.status === "implemented" && entry.apiCompatibility === "partial";
+      const name =
+        key === Symbol.asyncDispose ? "Symbol.asyncDispose" : String(key);
+      const partial =
+        entry.status === "implemented" && entry.apiCompatibility === "partial";
       const excluded = entry.status === "out-of-scope";
       if ((partial || excluded) && !entry.limitations?.trim())
         throw new Error(`Missing compatibility note for ${name}`);
       return {
         name,
-        status: entry.status === "implemented"
-          ? partial ? "⚠️" : "✅"
-          : excluded ? "🚫" : "❌",
+        status:
+          entry.status === "implemented"
+            ? partial
+              ? "⚠️"
+              : "✅"
+            : excluded
+              ? "🚫"
+              : "❌",
         note: (partial || excluded ? entry.limitations : "")
           .replaceAll("|", "&#124;")
           .replace(/\r?\n/g, "<br>"),
       };
     })
-    .sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
 export async function renderReadme(root = projectRoot) {
@@ -58,13 +65,20 @@ export async function generateReadme(root = projectRoot, check = false) {
       return undefined;
     });
     if (actual !== expected)
-      throw new Error("README.md is stale. Run pnpm generate:readme and commit the result.");
+      throw new Error(
+        "README.md is stale. Run pnpm generate:readme and commit the result."
+      );
   } else {
     await writeFile(output, expected);
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { values } = parseArgs({ options: { check: { type: "boolean", default: false } } });
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  const { values } = parseArgs({
+    options: { check: { type: "boolean", default: false } },
+  });
   await generateReadme(projectRoot, values.check);
 }
