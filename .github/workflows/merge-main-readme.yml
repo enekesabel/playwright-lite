@@ -30,6 +30,7 @@ jobs:
           git fetch origin main
           git merge --no-commit --no-ff origin/main || true
           python .github/reconcile-readme.py "$RUNNER_TEMP/api.ts"
+          git add .prettierignore AGENTS.md compatibility/api.ts
           unresolved=$(git diff --name-only --diff-filter=U)
           if [ -n "$unresolved" ]; then
             echo "Unresolved merge conflicts:"
