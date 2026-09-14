@@ -83,15 +83,11 @@ jobs:
           if-no-files-found: ignore
 
   consumer-node20:
-    name: Packed consumer on Node 20.0.0 / Playwright ${{ matrix.playwright }}
+    name: Packed consumer on Node 20.0.0
     needs: check
     if: ${{ !cancelled() && needs.check.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        playwright: [1.29.1, 1.62.1]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -104,11 +100,15 @@ jobs:
         with:
           name: package
           path: ${{ runner.temp }}/package
-      - if: matrix.playwright == '1.62.1'
-        run: npx --yes playwright@1.62.1 install --with-deps chromium
-      - name: Verify the installed artifact without repository development dependencies
+      - name: Verify package installation and declarations with the lower bound
         env:
-          PLAYWRIGHT_VERSION: ${{ matrix.playwright }}
+          PLAYWRIGHT_VERSION: 1.29.1
+        run: node scripts/packed-consumer.mjs "$RUNNER_TEMP/package/"*.tgz
+      - name: Install Chromium for the runtime verification
+        run: npx --yes playwright@1.62.1 install --with-deps chromium
+      - name: Verify the package and browser runtime with the current Playwright
+        env:
+          PLAYWRIGHT_VERSION: 1.62.1
         run: node scripts/packed-consumer.mjs "$RUNNER_TEMP/package/"*.tgz
 
   publish-npm:

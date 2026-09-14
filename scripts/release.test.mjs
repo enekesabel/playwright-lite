@@ -98,11 +98,38 @@ test("publication is main-only and uses the tested release artifact", () => {
     "${{ needs.release-please.outputs.sha || github.sha }}"
   );
   assert.equal(
-    consumer.steps.find((step) => step.uses?.startsWith("actions/checkout@")).with
-      .ref,
+    consumer.steps.find((step) => step.uses?.startsWith("actions/checkout@"))
+      .with.ref,
     "${{ needs.check.outputs.sha }}"
   );
-  assert.deepEqual(consumer.strategy.matrix.playwright, ["1.29.1", "1.62.1"]);
+  assert.equal(consumer.name, "Packed consumer on Node 20.0.0");
+  assert.equal(consumer.strategy, undefined);
+  assert.equal(
+    consumer.steps.filter((step) =>
+      step.uses?.startsWith("actions/download-artifact@")
+    ).length,
+    1
+  );
+  assert.deepEqual(
+    consumer.steps
+      .filter((step) => step.run?.includes("scripts/packed-consumer.mjs"))
+      .map((step) => [step.env.PLAYWRIGHT_VERSION, step.run]),
+    [
+      [
+        "1.29.1",
+        'node scripts/packed-consumer.mjs "$RUNNER_TEMP/package/"*.tgz',
+      ],
+      [
+        "1.62.1",
+        'node scripts/packed-consumer.mjs "$RUNNER_TEMP/package/"*.tgz',
+      ],
+    ]
+  );
+  const chromiumInstall = consumer.steps.find((step) =>
+    step.run?.includes("playwright@1.62.1 install --with-deps chromium")
+  );
+  assert.ok(chromiumInstall);
+  assert.equal(chromiumInstall.env, undefined);
   assert.equal(publish.steps[1].with.name, "package");
   assert.deepEqual(workflow.permissions, { contents: "read" });
   assert.equal(
