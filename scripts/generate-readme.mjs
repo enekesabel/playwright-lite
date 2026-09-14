@@ -12,15 +12,17 @@ import {
 
 const projectRoot = new URL("../", import.meta.url);
 
-// These inherited members have no individual Playwright documentation page.
-const undocumentedMembers = new Set([
-  "Symbol.asyncDispose",
-  "addListener",
-  "off",
-  "on",
-  "once",
-  "prependListener",
-  "removeListener",
+const specialMemberUrls = new Map([
+  [
+    "Symbol.asyncDispose",
+    "https://playwright.dev/docs/release-notes#version-160",
+  ],
+  ["addListener", "https://playwright.dev/docs/events"],
+  ["off", "https://playwright.dev/docs/events"],
+  ["on", "https://playwright.dev/docs/events"],
+  ["once", "https://playwright.dev/docs/events"],
+  ["prependListener", "https://playwright.dev/docs/events"],
+  ["removeListener", "https://playwright.dev/docs/events"],
 ]);
 const selectorAliases = new Map([
   ["$", "query-selector"],
@@ -48,9 +50,10 @@ function rowsFor(owner, ledger) {
           .toLowerCase();
       return {
         name,
-        url: undocumentedMembers.has(name)
-          ? null
-          : `https://playwright.dev/docs/api/class-${owner}#${owner}-${anchor}`,
+        label: key === Symbol.asyncDispose ? "[Symbol.asyncDispose]()" : name,
+        url:
+          specialMemberUrls.get(name) ??
+          `https://playwright.dev/docs/api/class-${owner}#${owner}-${anchor}`,
         status:
           entry.status === "implemented"
             ? partial

@@ -8,7 +8,11 @@ Use Playwright's `Page` and `Locator` APIs in the browser document you're alread
 ```ts
 import { createPage } from "@enekesabel/playwright-lite";
 
-const page = createPage();
+const page = createPage({
+  testIdAttribute: "data-test",
+  actionTimeout: 5_000,
+  navigationTimeout: 10_000,
+});
 
 await page.getByRole("textbox", { name: "Name" }).fill("Ada");
 await page.getByRole("button", { name: "Save" }).click();
@@ -37,8 +41,6 @@ Do not repeat them in partial API notes or downgrade APIs because of them.
 
 GitHub Packages publication and installation instructions are tracked in [#8](https://github.com/enekesabel/playwright-lite/issues/8).
 
-`createPage()` accepts `testIdAttribute` (default `data-testid`), `actionTimeout` (1,000 ms), and `navigationTimeout` (30,000 ms). Set a timeout to `0` to disable it. Configuration is per page; `playwright.config.ts` is not loaded.
-
 {{!--
 The ledger owns statuses and exact public JavaScript API differences. Notes name
 unsupported options/inputs or contrast return/selection behavior with Playwright;
@@ -57,11 +59,13 @@ Targets Playwright **{{playwrightVersion}}**. Statuses describe API compatibilit
 | API | Status | Notes |
 | --- | :---: | --- |
 {{#each rows}}
-| {{#if url}}[`{{name}}`]({{{url}}}){{else}}`{{name}}`{{/if}} | {{status}} | {{{note}}} |
+| {{#if url}}[`{{label}}`]({{{url}}}){{else}}`{{label}}`{{/if}} | {{status}} | {{{note}}} |
 {{/each}}
 
 {{/each}}
-[^element-handle]: {{{elementHandleLimitations}}}
+### ElementHandle compatibility
+
+{{{elementHandleLimitations}}}
 
 ## License
 

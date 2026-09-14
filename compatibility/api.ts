@@ -60,10 +60,10 @@ export const elementHandleLimitations =
 export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),
   $: partial(
-    "Returned `ElementHandle` methods and options differ; see the exact differences.[^element-handle]"
+    "Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   $$: partial(
-    "Returned `ElementHandle` methods and options differ; see the exact differences.[^element-handle]"
+    "Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   $$eval: implemented(
     "Uses the pinned Playwright by-value argument and result serializers."
@@ -235,7 +235,7 @@ export const pageLedger = {
   waitForRequest: undecided(),
   waitForResponse: undecided(),
   waitForSelector: partial(
-    "The `signal` option is unsupported. Returned `ElementHandle` methods and options differ; see the exact differences.[^element-handle]"
+    "The `signal` option is unsupported. Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   waitForTimeout: implemented(),
   waitForURL: undecided(),
@@ -274,10 +274,10 @@ export const locatorLedger = {
   dragTo: undecided(),
   drop: undecided(),
   elementHandle: partial(
-    "Returned `ElementHandle` methods and options differ; see the exact differences.[^element-handle]"
+    "Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   elementHandles: partial(
-    "Returned `ElementHandle` methods and options differ; see the exact differences.[^element-handle]"
+    "Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   evaluate: partial("Rejects `exposeFunctions: true`."),
   evaluateAll: implemented(

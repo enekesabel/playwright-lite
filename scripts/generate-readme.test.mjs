@@ -21,11 +21,24 @@ test("README renders API compatibility without repeating runtime boundaries", as
   assert.match(row("goBack"), /\|\s*❌\s*\|\s*\|$/u);
   assert.match(row("addInitScript"), /\|\s*❌\s*\|\s*\|$/u);
   assert.match(row("frame"), /\|\s*🚫\s*\|.+/u);
-  assert.match(row("Symbol.asyncDispose"), /\|\s*❌\s*\|\s*\|$/u);
+  assert.match(row("[Symbol.asyncDispose]()"), /\|\s*❌\s*\|\s*\|$/u);
   assert.ok(
     readme.indexOf("## Installation") < readme.indexOf("## Compatibility")
   );
-  assert.ok(readme.indexOf("### Locator") < readme.indexOf("## License"));
+  assert.ok(
+    readme.indexOf("### Locator") <
+      readme.indexOf("### ElementHandle compatibility")
+  );
+  assert.ok(
+    readme.indexOf("### ElementHandle compatibility") <
+      readme.indexOf("## License")
+  );
+  assert.doesNotMatch(readme, /\[\^element-handle\]/);
+  assert.match(
+    readme,
+    /const page = createPage\(\{[\s\S]*testIdAttribute: "data-test"/
+  );
+  assert.doesNotMatch(readme, /`createPage\(\)` accepts/);
   assert.equal(readme, await readFile(new URL("README.md", root), "utf8"));
 });
 
@@ -51,8 +64,24 @@ test("README links documented APIs, including selector aliases, without inventin
     );
   }
   assert.doesNotMatch(readme, /Keep contributor instructions|{{!--/);
-  assert.match(readme, /^\|\s*`off`\s*\|/m);
-  assert.match(readme, /^\|\s*`Symbol\.asyncDispose`\s*\|/m);
+  for (const name of [
+    "addListener",
+    "off",
+    "on",
+    "once",
+    "prependListener",
+    "removeListener",
+  ]) {
+    assert.ok(
+      readme.includes(`[\`${name}\`](https://playwright.dev/docs/events)`),
+      name
+    );
+  }
+  assert.ok(
+    readme.includes(
+      "[\`[Symbol.asyncDispose]()\`](https://playwright.dev/docs/release-notes#version-160)"
+    )
+  );
 });
 
 test("README lists every Page and Locator member once, including symbols", async () => {
@@ -70,7 +99,7 @@ test("README lists every Page and Locator member once, including symbols", async
     );
     const expected = Reflect.ownKeys(ledger)
       .map((key) =>
-        key === Symbol.asyncDispose ? "Symbol.asyncDispose" : String(key)
+        key === Symbol.asyncDispose ? "[Symbol.asyncDispose]()" : String(key)
       )
       .sort();
     assert.deepEqual(names, expected, `${name} members`);
