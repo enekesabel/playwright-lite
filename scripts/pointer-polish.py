@@ -82,3 +82,54 @@ type PointerSignatures = [
 p=Path('AGENTS.md');s=p.read_text().replace('''The unchanged `page-localstorage.spec.ts` and library highlight specs use
 explicitly enabled native `goto` only to establish their test document/origin.''', '''The unchanged storage, library highlight and pointer-action corpus specs use
 explicitly enabled native `goto` only to establish their test document/origin.''').replace('All storage/highlight operations and assertions use the', 'All storage/highlight/pointer operations under review and assertions use the');p.write_text(s)
+
+# Match the pinned protocol primitive normalization for the new options.
+p = Path('src/page.ts');s = p.read_text()
+for method in ['click', 'dblclick', 'hover']:
+    old = f'    assertPointerActionOptions("{method}", options);\n    await this.performPointerAction'
+    assert s.count(old) == 1, method
+    s = s.replace(old, f'    options = assertPointerActionOptions("{method}", options);\n    await this.performPointerAction')
+s = s.replace('    assertPointerActionOptions("setChecked", options);', '    options = assertPointerActionOptions("setChecked", options);')
+a = s.index('function assertPointerActionOptions(');b = s.index('function assertAriaSnapshotOptions(', a)
+part = s[a:b].replace('): void {', '): PointerActionOptions {', 1)
+part = part.replace('  if (!options) return;', '''  if (!options) return {};
+  options = { ...options };
+  // Pinned tBoolean/tFloat/tInt unwrap primitive objects without mutating
+  // the caller's options. Enum values deliberately are not coerced.
+  for (const key of ["trial", "force", "strict"] as const) {
+    const value: unknown = options[key];
+    if (value instanceof Boolean) options[key] = value.valueOf();
+  }
+  for (const key of ["delay", "clickCount"] as const) {
+    const value: unknown = options[key];
+    if (value instanceof Number) options[key] = value.valueOf();
+  }''')
+old = '  if (options.modifiers !== undefined'
+assert old in part
+part = part.replace(old, '''  if (options.clickCount !== undefined && !Number.isInteger(options.clickCount))
+    throw new TypeError(`clickCount: expected integer, got float ${options.clickCount}`);
+  if (options.modifiers !== undefined''')
+assert part.endswith('}\n\n')
+part = part[:-3] + '  return options;\n}\n\n'
+s = s[:a] + part + s[b:]
+p.write_text(s)
+p = Path('src/pointerActions.test.ts');s=p.read_text()
+insert='''  it("normalizes boxed pointer options and rejects fractional click counts", async () => {
+    document.body.innerHTML = "<button>go</button>";
+    const page = createPage();
+    let clicks = 0;
+    document.querySelector("button")!.addEventListener("click", () => clicks++);
+    const options = Object.freeze({
+      clickCount: Object(2), delay: Object(0),
+      force: Object(false), trial: Object(false),
+    });
+    await page.click("button", options);
+    expect(clicks).toBe(2);
+    await expect(page.click("button", { clickCount: 1.5 })).rejects.toThrow("clickCount: expected integer");
+    expect(clicks).toBe(2);
+  });
+
+'''
+assert s.count('describe("pointer action compatibility", () => {') == 1
+s=s.replace('describe("pointer action compatibility", () => {', 'describe("pointer action compatibility", () => {\n'+insert)
+p.write_text(s)
