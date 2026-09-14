@@ -6,6 +6,61 @@ beforeEach(() => {
 });
 
 describe("pointer action compatibility", () => {
+  it.each(["check", "uncheck", "setChecked"] as const)(
+    "reports the invoked checked method: %s",
+    async (method) => {
+      document.body.innerHTML = "<button>go</button>";
+      const page = createPage();
+      const locator = page.locator("button");
+      const handle = (await page.$("button"))!;
+      const calls = [
+        [
+          "page",
+          () =>
+            method === "setChecked"
+              ? page.setChecked("button", true)
+              : page[method]("button"),
+        ],
+        [
+          "locator",
+          () =>
+            method === "setChecked"
+              ? locator.setChecked(true)
+              : locator[method](),
+        ],
+        [
+          "elementHandle",
+          () =>
+            method === "setChecked"
+              ? handle.setChecked(true)
+              : handle[method](),
+        ],
+      ] as const;
+      for (const [kind, call] of calls) {
+        const error = await call().then(
+          () => null,
+          (error: Error) => error
+        );
+        expect(error).toBeInstanceOf(Error);
+        expect(error!.message.startsWith(`${kind}.${method}:`)).toBe(true);
+        expect(error!.message).toContain("Not a checkbox");
+      }
+      document.body.innerHTML = `<input type="checkbox" disabled ${method === "uncheck" ? "checked" : ""}>`;
+      const target = page.locator("input");
+      const pending =
+        method === "setChecked"
+          ? target.setChecked(true, { timeout: 50 })
+          : target[method]({ timeout: 50 });
+      const error = await pending.then(
+        () => null,
+        (error: Error) => error
+      );
+      expect(error).toBeInstanceOf(Error);
+      expect(error!.message.startsWith(`locator.${method}:`)).toBe(true);
+      expect(error!.message).toContain("Timeout 50ms exceeded");
+    }
+  );
+
   it("dispatches dblclick only for the primary button", async () => {
     document.body.innerHTML = "<button>go</button>";
     const page = createPage();

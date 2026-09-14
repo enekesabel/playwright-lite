@@ -501,17 +501,25 @@ export class LocatorImpl {
   }
 
   async check(options?: Parameters<Locator["check"]>[0]) {
-    await this.ownerPage.setCheckedSelector(this.selector, true, this.label, {
-      ...options,
-      strict: true,
-    });
+    await this.ownerPage.setCheckedSelector(
+      this.selector,
+      true,
+      this.label,
+      { ...options, strict: true },
+      undefined,
+      "check"
+    );
   }
 
   async uncheck(options?: Parameters<Locator["uncheck"]>[0]) {
-    await this.ownerPage.setCheckedSelector(this.selector, false, this.label, {
-      ...options,
-      strict: true,
-    });
+    await this.ownerPage.setCheckedSelector(
+      this.selector,
+      false,
+      this.label,
+      { ...options, strict: true },
+      undefined,
+      "uncheck"
+    );
   }
 
   async setChecked(

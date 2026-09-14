@@ -524,7 +524,14 @@ export class PageImpl {
     action: "click" | "dblclick" | "hover",
     options: PointerActionOptions,
     deadline: ActionDeadline,
-    checked?: boolean
+    checked?: boolean,
+    apiMethod:
+      | "click"
+      | "dblclick"
+      | "hover"
+      | "check"
+      | "uncheck"
+      | "setChecked" = action
   ): Promise<void> {
     try {
       while (true) {
@@ -633,7 +640,9 @@ export class PageImpl {
       const method = label.match(
         /^(page|elementHandle)\.(click|dblclick|hover|check|uncheck|setChecked)(?:\(|$)/
       );
-      const prefix = method ? `${method[1]}.${method[2]}` : `locator.${action}`;
+      const prefix = method
+        ? `${method[1]}.${method[2]}`
+        : `locator.${apiMethod}`;
       result.message = `${prefix}: ${result.message.replace(new RegExp(`^${action}: `), "")}`;
       throw result;
     }
@@ -770,7 +779,8 @@ export class PageImpl {
     checked: boolean,
     label: string,
     options: CheckedActionOptions = {},
-    deadline = this.createActionDeadline(options.timeout)
+    deadline = this.createActionDeadline(options.timeout),
+    apiMethod: "check" | "uncheck" | "setChecked" = "setChecked"
   ): Promise<void> {
     options = assertPointerActionOptions("setChecked", options);
     if (typeof checked !== "boolean")
@@ -781,7 +791,8 @@ export class PageImpl {
       "click",
       options,
       deadline,
-      checked
+      checked,
+      apiMethod
     );
   }
 
