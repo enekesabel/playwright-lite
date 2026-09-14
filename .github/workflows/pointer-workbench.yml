@@ -39,11 +39,15 @@ jobs:
           config = json.loads(path.read_text())
           config['include'].append('src/virtual-modules.d.ts')
           path.write_text(json.dumps(config, indent=2) + '\n')
+          assets = ['input/animating-button.html', 'input/scrollable.html', 'input/textarea.html', 'input/checkbox.html', 'input/rotatedButton.html', 'shadow.html', 'offscreenbuttons.html', 'wrappedlink.html', 'counter.html', 'frames/frameset.html', 'frames/frame.html']
+          path = Path('.prettierignore')
+          path.write_text(path.read_text().rstrip() + '\n# Exact pinned upstream pointer fixtures.\n' + ''.join('tests/assets/' + name + '\n' for name in assets))
           PY
           pnpm exec prettier --write AGENTS.md src/page.ts src/locator.ts src/elementHandle.ts src/contract.test.ts src/pointerActions.test.ts compatibility/api.ts compatibility/pointer-signatures.ts tsconfig.compatibility.json tests/upstream/corpus.ts tests/upstream/pageTest.ts tests/upstream/testServer.ts
           pnpm build
           pnpm lint
           pnpm typecheck
+          pnpm test
           python3 scripts/pointer-promote.py
           rm .github/workflows/pointer-workbench.yml scripts/pointer-workbench.py scripts/pointer-runtime.py scripts/pointer-polish.py scripts/pointer-promote.py
           pnpm check
@@ -63,10 +67,13 @@ jobs:
           test "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA"
           python3 - <<'PY'
           import subprocess
-          allowed = {'AGENTS.md', 'src/page.ts', 'src/locator.ts', 'src/elementHandle.ts', 'src/contract.test.ts', 'src/pointerActions.test.ts', 'compatibility/api.ts', 'tsconfig.compatibility.json', 'tests/upstream/corpus.ts', 'tests/upstream/pageTest.ts', 'tests/upstream/testServer.ts', 'tests/upstream/baseline.json', '.github/workflows/pointer-workbench.yml', 'scripts/pointer-workbench.py', 'scripts/pointer-runtime.py', 'scripts/pointer-polish.py', 'scripts/pointer-promote.py'}
+          allowed = {'.prettierignore', 'AGENTS.md', 'src/page.ts', 'src/locator.ts', 'src/elementHandle.ts', 'src/contract.test.ts', 'src/pointerActions.test.ts', 'compatibility/api.ts', 'tsconfig.compatibility.json', 'tests/upstream/corpus.ts', 'tests/upstream/pageTest.ts', 'tests/upstream/testServer.ts', 'tests/upstream/baseline.json', '.github/workflows/pointer-workbench.yml', 'scripts/pointer-workbench.py', 'scripts/pointer-runtime.py', 'scripts/pointer-polish.py', 'scripts/pointer-promote.py'}
           changed = set(subprocess.check_output(['git', 'diff', '--name-only'], text=True).splitlines())
           assert changed <= allowed, changed - allowed
           PY
+          # The connected GitHub app removes this temporary workflow after the
+          # verified source push; the Actions token only commits source files.
+          git restore -- .github/workflows/pointer-workbench.yml
           git add -u
           git add compatibility/pointer-signatures.ts
           git add tests/upstream/page-click.spec.ts tests/upstream/elementhandle-click.spec.ts tests/upstream/page-click-scroll.spec.ts tests/upstream/page-click-timeout-1.spec.ts tests/upstream/page-click-timeout-2.spec.ts tests/upstream/page-click-timeout-3.spec.ts tests/upstream/page-click-timeout-4.spec.ts
