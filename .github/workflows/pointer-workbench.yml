@@ -18,26 +18,35 @@ jobs:
       - uses: jetify-com/devbox-install-action@8c6a66ed6273138b1915457069de78cb52fe3bd7
         with:
           enable-cache: true
-      - name: Exercise pointer corpus inside Devbox
+      - name: Exercise pointer implementation inside Devbox
         run: |
           devbox run -- bash -euo pipefail <<'SH'
           mkdir -p "$RUNNER_TEMP/pointer-proof"
           exec > >(tee "$RUNNER_TEMP/pointer-proof/check.log") 2>&1
           git rev-parse HEAD > "$RUNNER_TEMP/pointer-proof/head.txt"
+          trap 'tar --exclude="./.git" --exclude="./node_modules" --exclude="./.devbox" --exclude="./test-results" --exclude="./playwright-report" -czf "$RUNNER_TEMP/pointer-proof/repository.tgz" .' EXIT
           npm install --prefix "$RUNNER_TEMP/pnpm" pnpm@11.24.0
           export PATH="$RUNNER_TEMP/pnpm/node_modules/.bin:$PATH"
           pnpm install --frozen-lockfile
           pnpm exec playwright install --with-deps chromium
           python3 scripts/pointer-workbench.py
-          pnpm exec prettier --write tests/upstream/corpus.ts tests/upstream/pageTest.ts tests/upstream/testServer.ts
+          python3 scripts/pointer-runtime.py
+          python3 scripts/pointer-polish.py
+          pnpm exec prettier --write src/page.ts src/locator.ts src/elementHandle.ts src/contract.test.ts src/pointerActions.test.ts compatibility/api.ts tests/upstream/corpus.ts tests/upstream/pageTest.ts tests/upstream/testServer.ts
           pnpm build
           set +e
-          PLAYWRIGHT_JSON_OUTPUT_NAME="$RUNNER_TEMP/pointer-proof/report.json" pnpm exec playwright test tests/upstream/page-click.spec.ts tests/upstream/elementhandle-click.spec.ts tests/upstream/page-click-scroll.spec.ts tests/upstream/page-click-timeout-1.spec.ts tests/upstream/page-click-timeout-2.spec.ts tests/upstream/page-click-timeout-3.spec.ts tests/upstream/page-click-timeout-4.spec.ts --workers=4 --timeout=5000 --reporter=list,json
-          result=$?
+          pnpm lint
+          echo "LINT_EXIT=$?"
+          pnpm typecheck
+          echo "TYPECHECK_EXIT=$?"
+          pnpm test
+          echo "TEST_EXIT=$?"
+          pnpm test:guards
+          echo "GUARDS_EXIT=$?"
+          PLAYWRIGHT_JSON_OUTPUT_NAME="$RUNNER_TEMP/pointer-proof/report.json" pnpm exec playwright test tests/upstream/page-click.spec.ts tests/upstream/elementhandle-click.spec.ts tests/upstream/page-click-scroll.spec.ts tests/upstream/page-click-timeout-1.spec.ts tests/upstream/page-click-timeout-2.spec.ts tests/upstream/page-click-timeout-3.spec.ts tests/upstream/page-click-timeout-4.spec.ts --workers=4 --timeout=30000 --reporter=list,json
+          echo "CORPUS_EXIT=$?"
           set -e
-          test "$result" -le 1
           test -s "$RUNNER_TEMP/pointer-proof/report.json"
-          tar --exclude='./.git' --exclude='./node_modules' --exclude='./.devbox' --exclude='./test-results' --exclude='./playwright-report' -czf "$RUNNER_TEMP/pointer-proof/repository.tgz" .
           SH
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
