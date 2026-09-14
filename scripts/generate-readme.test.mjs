@@ -29,6 +29,23 @@ test("README renders API compatibility without repeating runtime boundaries", as
   assert.equal(readme, await readFile(new URL("README.md", root), "utf8"));
 });
 
+test("README links documented APIs, including selector aliases, without inventing anchors", async () => {
+  const readme = await renderReadme(root);
+  for (const [name, target] of [
+    ["click", "class-page#page-click"],
+    ["getByRole", "class-page#page-get-by-role"],
+    ["$", "class-page#page-query-selector"],
+    ["$$", "class-page#page-query-selector-all"],
+    ["$eval", "class-page#page-eval-on-selector"],
+    ["$$eval", "class-page#page-eval-on-selector-all"],
+    ["setInputFiles", "class-locator#locator-set-input-files"],
+  ]) {
+    assert.ok(readme.includes(`[\`${name}\`](https://playwright.dev/docs/api/${target})`), target);
+  }
+  assert.match(readme, /^\|\s*`off`\s*\|/m);
+  assert.match(readme, /^\|\s*`Symbol\.asyncDispose`\s*\|/m);
+});
+
 test("README lists every Page and Locator member once, including symbols", async () => {
   const readme = await renderReadme(root);
   for (const [name, ledger] of [
@@ -39,7 +56,7 @@ test("README lists every Page and Locator member once, including symbols", async
       .split(`### ${name}\n`)[1]
       .split(/\n## /)[0]
       .split(/\n### /)[0];
-    const names = [...section.matchAll(/^\|\s*`([^`]+)`\s*\|/gm)].map(
+    const names = [...section.matchAll(/^\|\s*\[?`([^`]+)`/gm)].map(
       (match) => match[1]
     );
     const expected = Reflect.ownKeys(ledger)
