@@ -20,6 +20,10 @@ jobs:
         with:
           node-version: 24.12.0
       - run: npm install --global pnpm@11.24.0
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - name: Merge main
         run: |
           cp compatibility/api.ts "$RUNNER_TEMP/api.ts"
@@ -35,7 +39,7 @@ jobs:
           git add -A
       - run: pnpm install --frozen-lockfile
       - run: pnpm generate:readme
-      - run: pnpm exec prettier --write .prettierignore AGENTS.md README.hbs compatibility/api.ts scripts/generate-readme.mjs scripts/generate-readme.test.mjs README.md
+      - run: pnpm exec prettier --write AGENTS.md README.hbs compatibility/api.ts scripts/generate-readme.mjs scripts/generate-readme.test.mjs README.md
       - run: node --test scripts/generate-readme.test.mjs
       - run: pnpm check
       - run: git diff --check
@@ -43,7 +47,5 @@ jobs:
         run: |
           git rm .github/workflows/merge-main-readme.yml .github/reconcile-readme.py
           git add -A
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "Merge main into generated README compatibility"
           git push origin HEAD:docs/generated-readme-compatibility
