@@ -8,3 +8,15 @@ playwright-report
 tests/upstream/*.spec.ts
 tests/assets/input/button.html
 tests/assets/input/mouse-helper.js
+# Exact pinned upstream pointer fixtures.
+tests/assets/input/animating-button.html
+tests/assets/input/scrollable.html
+tests/assets/input/textarea.html
+tests/assets/input/checkbox.html
+tests/assets/input/rotatedButton.html
+tests/assets/shadow.html
+tests/assets/offscreenbuttons.html
+tests/assets/wrappedlink.html
+tests/assets/counter.html
+tests/assets/frames/frameset.html
+tests/assets/frames/frame.html

@@ -55,11 +55,13 @@ export const pageLedger = {
   ariaSnapshot: implemented("Current document only; no iframe traversal."),
   bringToFront: undecided(),
   cancelPickLocator: undecided(),
-  check: implemented("Accepts timeout, noWaitAfter, position, and trial only."),
+  check: implemented(
+    "Browser-local pointer events with force, position, scroll, timeout and trial; no trusted input or AbortSignal transport."
+  ),
   clearConsoleMessages: undecided(),
   clearPageErrors: undecided(),
   click: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only. Does not wait for navigation."
+    "Browser-local pointer events, button/clickCount/delay/modifiers, force, position, scroll and trial; no trusted input, AbortSignal transport or navigation waiting."
   ),
   clock: undecided(),
   close: undecided(),
@@ -68,7 +70,7 @@ export const pageLedger = {
   context: undecided(),
   coverage: undecided(),
   dblclick: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only."
+    "Browser-local pointer events with force, position, scroll, timeout and trial; no trusted input or AbortSignal transport."
   ),
   dispatchEvent: implemented("Accepts timeout and strict only."),
   dragAndDrop: undecided(),
@@ -104,7 +106,9 @@ export const pageLedger = {
     "Accepts http/https/about/file/data URLs and timeout, commit, domcontentloaded, or load waitUntil; full navigation ends execution."
   ),
   hideHighlight: implemented("Clears highlights in the current document."),
-  hover: implemented("Accepts timeout and noWaitAfter only."),
+  hover: implemented(
+    "Browser-local pointer events with modifiers, force, position, scroll, timeout and trial; native CSS hover state is not emulated."
+  ),
   innerHTML: implemented(),
   innerText: implemented(),
   inputValue: implemented(),
@@ -165,7 +169,7 @@ export const pageLedger = {
   ),
   sessionStorage: implemented("Native current-window Storage only."),
   setChecked: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only."
+    "Browser-local pointer events with force, position, scroll, timeout and trial; no trusted input or AbortSignal transport."
   ),
   setContent: outOfScope(
     "No single-document runtime implementation; native bridge calls are recorded and cannot certify browser behavior."
@@ -185,7 +189,7 @@ export const pageLedger = {
   touchscreen: planned("Synthetic functional input only."),
   type: implemented("Accepts timeout, delay, and noWaitAfter only."),
   uncheck: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only."
+    "Browser-local pointer events with force, position, scroll, timeout and trial; no trusted input or AbortSignal transport."
   ),
   unroute: undecided(),
   unrouteAll: undecided(),
@@ -218,17 +222,19 @@ export const locatorLedger = {
   ariaSnapshot: implemented("Current document only; no iframe traversal."),
   blur: implemented(),
   boundingBox: implemented(),
-  check: implemented("Accepts timeout, noWaitAfter, position, and trial only."),
+  check: implemented(
+    "Browser-local pointer events with force, position, scroll, timeout and trial; no trusted input or AbortSignal transport."
+  ),
   clear: implemented("Accepts timeout and noWaitAfter only."),
   click: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only. Does not wait for navigation."
+    "Browser-local pointer events, button/clickCount/delay/modifiers, force, position, scroll and trial; no trusted input, AbortSignal transport or navigation waiting."
   ),
   contentFrame: outOfScope(
     "Iframe realms are outside the single-document boundary."
   ),
   count: implemented(),
   dblclick: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only."
+    "Browser-local pointer events with force, position, scroll, timeout and trial; no trusted input or AbortSignal transport."
   ),
   describe: implemented(),
   description: implemented(),
@@ -265,7 +271,9 @@ export const locatorLedger = {
   highlight: implemented(
     "Uses the pinned InjectedScript overlay in the current document."
   ),
-  hover: implemented("Accepts timeout and noWaitAfter only."),
+  hover: implemented(
+    "Browser-local pointer events with modifiers, force, position, scroll, timeout and trial; native CSS hover state is not emulated."
+  ),
   innerHTML: implemented(),
   innerText: implemented(),
   inputValue: implemented(),
@@ -294,7 +302,7 @@ export const locatorLedger = {
   ),
   selectText: implemented("Accepts timeout only."),
   setChecked: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only."
+    "Browser-local pointer events with force, position, scroll, timeout and trial; no trusted input or AbortSignal transport."
   ),
   setInputFiles: implemented(
     "In-memory payloads with explicit non-empty mimeType, under 50Mb total; accepts timeout and noWaitAfter only. Paths, File, Blob, and directories throw."
@@ -304,7 +312,7 @@ export const locatorLedger = {
   toString: implemented(),
   type: implemented("Accepts timeout, delay, and noWaitAfter only."),
   uncheck: implemented(
-    "Accepts timeout, noWaitAfter, position, and trial only."
+    "Browser-local pointer events with force, position, scroll, timeout and trial; no trusted input or AbortSignal transport."
   ),
   waitFor: implemented(),
   waitForFunction: undecided(),

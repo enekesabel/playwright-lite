@@ -6,11 +6,11 @@ Keep copied upstream specs byte-for-byte identical to their pinned source. Chang
 
 ## Upstream fixture setup
 
-The unchanged `page-localstorage.spec.ts` and library highlight specs use
+The unchanged storage, library highlight and pointer-action corpus specs use
 explicitly enabled native `goto` only to establish their test document/origin.
 These calls are recorded as `Page.goto` in native execution evidence. They can
 never certify navigation compatibility. No failed adapter call is retried via
-the native driver. All storage/highlight operations and assertions use the
+the native driver. All storage/highlight/pointer operations under review and assertions use the
 browser adapter. Library highlight tests use the pinned InjectedScript's test
 mode to expose its shadow root; direct runtime tests also verify the production
 closed-root overlay without changing its mode.

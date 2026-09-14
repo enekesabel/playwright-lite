@@ -8,6 +8,20 @@ export const corpus = {
     "locator-highlight.spec.ts": "tests/library/locator-highlight.spec.ts",
   },
   specs: {
+    "page-click.spec.ts":
+      "cc8427762d0fcde613c2f6dcbeb16db027912b72aaf6485363d4a18fd1f98fa0",
+    "elementhandle-click.spec.ts":
+      "e74bc0bc18b3ae38c7be925591c95df8b060607e5383953166dd34c139f7ca72",
+    "page-click-scroll.spec.ts":
+      "3f246c1aabf6c7e15ee7e80938e190c48dc354f7f6ead21d7c3fb8cfa54ef9eb",
+    "page-click-timeout-1.spec.ts":
+      "1904e7211f33279fe0d7a711f014f723c902232ef441103d8426631412207c04",
+    "page-click-timeout-2.spec.ts":
+      "b8e5c51191a008f45bc224c510c99f28de6b1969af37c8de521e9f63b1cbe6f9",
+    "page-click-timeout-3.spec.ts":
+      "aeb71ad7176dd1f22d59e70203d91bc5f3fbe47be9df1b91ea36f5695549dfc5",
+    "page-click-timeout-4.spec.ts":
+      "382199def9caf2b751bb7e2fb3d3d408adf5c9976c049feb7d2433caff83282f",
     "page-localstorage.spec.ts":
       "487a0688882a93286cfcdd203b4dfe14b213e608c8661846f1fd0d6dfd774db1",
     "locator-highlight.spec.ts":

@@ -1,6 +1,7 @@
 import { assertEvaluationOptions, assertMaxArguments } from "./evaluation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import type { PageImpl } from "./page";
+import type { ElementHandle } from "@playwright/test";
 
 type ElementHandleWaitOptions = { timeout?: number };
 type ElementHandleSelectorWaitOptions = ElementHandleWaitOptions & {
@@ -20,6 +21,68 @@ export class AdapterElementHandle {
     private readonly ownerPage: PageImpl,
     private element: Element | undefined
   ) {}
+
+  async click(options?: Parameters<ElementHandle["click"]>[0]): Promise<void> {
+    await this.ownerPage.clickSelector(
+      this.requireElement(),
+      "elementHandle.click",
+      options?.timeout,
+      undefined,
+      options
+    );
+  }
+
+  async dblclick(
+    options?: Parameters<ElementHandle["dblclick"]>[0]
+  ): Promise<void> {
+    await this.ownerPage.dblclickSelector(
+      this.requireElement(),
+      "elementHandle.dblclick",
+      options
+    );
+  }
+
+  async hover(options?: Parameters<ElementHandle["hover"]>[0]): Promise<void> {
+    await this.ownerPage.hoverSelector(
+      this.requireElement(),
+      "elementHandle.hover",
+      options?.timeout,
+      undefined,
+      options
+    );
+  }
+
+  async check(options?: Parameters<ElementHandle["check"]>[0]): Promise<void> {
+    await this.ownerPage.setCheckedSelector(
+      this.requireElement(),
+      true,
+      "elementHandle.check",
+      options
+    );
+  }
+
+  async uncheck(
+    options?: Parameters<ElementHandle["uncheck"]>[0]
+  ): Promise<void> {
+    await this.ownerPage.setCheckedSelector(
+      this.requireElement(),
+      false,
+      "elementHandle.uncheck",
+      options
+    );
+  }
+
+  async setChecked(
+    checked: boolean,
+    options?: Parameters<ElementHandle["setChecked"]>[1]
+  ): Promise<void> {
+    await this.ownerPage.setCheckedSelector(
+      this.requireElement(),
+      checked,
+      "elementHandle.setChecked",
+      options
+    );
+  }
 
   async $(selector: string): Promise<AdapterElementHandle | null> {
     return this.ownerPage.elementHandleFor(

@@ -89,11 +89,18 @@ export const test = base.extend<
       const proxyPage = await createAdapterPage(page, {
         actionTimeout,
         navigationTimeout,
-        // This exact upstream spec tests WebStorage, not navigation.
-        // The bridge records setup navigation separately from browser calls.
-        nativeNavigationForSetup: testInfo.file.endsWith(
-          "/page-localstorage.spec.ts"
-        ),
+        // Native navigation establishes the document only. It is recorded and
+        // cannot certify navigation or replace a failed browser-adapter action.
+        nativeNavigationForSetup: [
+          "page-localstorage.spec.ts",
+          "page-click.spec.ts",
+          "elementhandle-click.spec.ts",
+          "page-click-scroll.spec.ts",
+          "page-click-timeout-1.spec.ts",
+          "page-click-timeout-2.spec.ts",
+          "page-click-timeout-3.spec.ts",
+          "page-click-timeout-4.spec.ts",
+        ].some((name) => testInfo.file.endsWith(`/${name}`)),
       });
       await use(proxyPage);
     } finally {
@@ -138,9 +145,8 @@ export const test = base.extend<
   loopback: "localhost",
 
   // ── Compatibility stubs ───────────────────────────────────────────
-  browserMajorVersion: async ({}, use) => {
-    const version = process.env.PLAYWRIGHT_BROWSER_VERSION ?? "0";
-    await use(parseInt(version, 10));
+  browserMajorVersion: async ({ browser }, use) => {
+    await use(parseInt(browser.version(), 10));
   },
   mode: "default",
   isAndroid: false,
