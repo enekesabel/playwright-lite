@@ -31,12 +31,22 @@ test("README renders API compatibility without repeating runtime boundaries", as
 
 test("README lists every Page and Locator member once, including symbols", async () => {
   const readme = await renderReadme(root);
-  for (const [name, ledger] of [["Page", pageLedger], ["Locator", locatorLedger]]) {
-    const section = readme.split(`### ${name}\n`)[1].split(/\n## /)[0].split(/\n### /)[0];
-    const names = [...section.matchAll(/^\|\s*`([^`]+)`\s*\|/gm)].map((match) => match[1]);
-    const expected = Reflect.ownKeys(ledger).map((key) =>
-      key === Symbol.asyncDispose ? "Symbol.asyncDispose" : String(key)
-    ).sort();
+  for (const [name, ledger] of [
+    ["Page", pageLedger],
+    ["Locator", locatorLedger],
+  ]) {
+    const section = readme
+      .split(`### ${name}\n`)[1]
+      .split(/\n## /)[0]
+      .split(/\n### /)[0];
+    const names = [...section.matchAll(/^\|\s*`([^`]+)`\s*\|/gm)].map(
+      (match) => match[1]
+    );
+    const expected = Reflect.ownKeys(ledger)
+      .map((key) =>
+        key === Symbol.asyncDispose ? "Symbol.asyncDispose" : String(key)
+      )
+      .sort();
     assert.deepEqual(names, expected, `${name} members`);
   }
 });
@@ -58,7 +68,10 @@ test("generation is repeatable and check mode rejects drift without writing", as
   await generateReadme(fixture, true);
 
   const template = new URL("README.hbs", fixture);
-  await writeFile(template, (await readFile(template, "utf8")) + "\nTemplate edit.\n");
+  await writeFile(
+    template,
+    (await readFile(template, "utf8")) + "\nTemplate edit.\n"
+  );
   const metadata = new URL("package.json", fixture);
   const pkg = JSON.parse(await readFile(metadata, "utf8"));
   pkg.devDependencies["@playwright/test"] = "9.8.7";
