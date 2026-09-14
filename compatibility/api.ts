@@ -54,13 +54,16 @@ const outOfScope = (limitations: string): CompatibilityEntry => ({
  * typechecked and consumed directly by test tooling, but is never imported by the
  * browser runtime.
  */
+export const elementHandleLimitations =
+  "Returned `ElementHandle` objects do not implement `check()`, `click()`, `contentFrame()`, `dblclick()`, `dispatchEvent()`, `fill()`, `focus()`, `hover()`, `ownerFrame()`, `press()`, `screenshot()`, `scrollIntoViewIfNeeded()`, `selectOption()`, `selectText()`, `setChecked()`, `setInputFiles()`, `tap()`, `type()`, `uncheck()`, `evaluateHandle()`, `jsonValue()`, `getProperties()`, `getProperty()`, or `[Symbol.asyncDispose]()`. Their `$()` ignores `strict`; `inputValue()` ignores `timeout`; `waitForElementState()` rejects `signal`; `waitForSelector()` rejects `signal` and `strict`; `evaluate()` rejects `exposeFunctions: true`.";
+
 export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),
   $: partial(
-    "Returns a limited ElementHandle; handle actions and evaluateHandle are not implemented."
+    "Returned `ElementHandle` methods and options differ; see the exact differences.[^element-handle]"
   ),
   $$: partial(
-    "Returns limited ElementHandles; handle actions and evaluateHandle are not implemented."
+    "Returned `ElementHandle` methods and options differ; see the exact differences.[^element-handle]"
   ),
   $$eval: implemented(
     "Uses the pinned Playwright by-value argument and result serializers."
@@ -79,12 +82,12 @@ export const pageLedger = {
   bringToFront: undecided(),
   cancelPickLocator: undecided(),
   check: partial(
-    "Requires a single match. Options: timeout, noWaitAfter, position, trial only."
+    "Multiple matches throw instead of selecting the first match. Unsupported options: `force`, `scroll`, `signal`, `strict`."
   ),
   clearConsoleMessages: undecided(),
   clearPageErrors: undecided(),
   click: partial(
-    "Requires a single match. Options: timeout, noWaitAfter, position, trial only."
+    "Multiple matches throw instead of selecting the first match. Unsupported options: `button`, `clickCount`, `delay`, `force`, `modifiers`, `scroll`, `signal`, `strict`."
   ),
   clock: undecided(),
   close: undecided(),
@@ -93,22 +96,22 @@ export const pageLedger = {
   context: undecided(),
   coverage: undecided(),
   dblclick: partial(
-    "Requires a single match. Options: timeout, noWaitAfter, position, trial only."
+    "Multiple matches throw instead of selecting the first match. Unsupported options: `button`, `delay`, `force`, `modifiers`, `scroll`, `signal`, `strict`."
   ),
   dispatchEvent: partial(
-    "Options: timeout and strict only; handle-valued eventInit is not supported."
+    "The `signal` option is unsupported; `JSHandle`/`ElementHandle` values in `eventInit` are not unwrapped."
   ),
   dragAndDrop: undecided(),
   emulateMedia: undecided(),
-  evaluate: partial("The exposeFunctions: true option is not supported."),
+  evaluate: partial("Rejects `exposeFunctions: true`."),
   evaluateHandle: undecided(),
   exposeBinding: undecided(),
   exposeFunction: undecided(),
   fill: partial(
-    "Requires a single match. Options: timeout and noWaitAfter only."
+    "Multiple matches throw instead of selecting the first match. Unsupported options: `force`, `signal`, `strict`."
   ),
   focus: partial(
-    "Requires a single match. Only the timeout option is supported."
+    "Multiple matches throw instead of selecting the first match. Unsupported options: `signal`, `strict`."
   ),
   frame: outOfScope("Iframe realms are outside the single-document boundary."),
   frameLocator: outOfScope(
@@ -130,11 +133,11 @@ export const pageLedger = {
     "Initiates browser navigation; execution ends on document replacement."
   ),
   goto: partial(
-    "No Response result. Options: timeout and waitUntil (commit, domcontentloaded, load) only; no referer, signal, or networkidle."
+    "Does not return a `Response`; resolves to `null` only for same-document hash navigation. Relative URLs use `document.baseURI`, not a configured Playwright `baseURL`. Rejects `referer`, `signal`, and `waitUntil: \"networkidle\"`."
   ),
   hideHighlight: implemented("Clears highlights in the current document."),
   hover: partial(
-    "Requires a single match. Options: timeout and noWaitAfter only."
+    "Multiple matches throw instead of selecting the first match. Unsupported options: `force`, `modifiers`, `position`, `scroll`, `signal`, `strict`, `trial`."
   ),
   innerHTML: implemented(),
   innerText: implemented(),
@@ -151,7 +154,7 @@ export const pageLedger = {
   ),
   localStorage: implemented("Native current-window Storage only."),
   locator: implemented(),
-  mainFrame: partial("Returns the Page facade, not a Frame."),
+  mainFrame: partial("Returns the same `Page` object, not a `Frame`."),
   mouse: planned("Synthetic functional input only."),
   off: planned(
     "Only console and pageerror are planned; other events remain undecided."
@@ -171,7 +174,7 @@ export const pageLedger = {
     "Only console and pageerror are planned; other events remain undecided."
   ),
   press: partial(
-    "Requires a single match. Options: timeout and noWaitAfter only; no delay or signal."
+    "Multiple matches throw instead of selecting the first match. Unsupported options: `delay`, `signal`, `strict`."
   ),
   reload: planned(
     "Initiates browser navigation; execution ends on document replacement."
@@ -192,18 +195,18 @@ export const pageLedger = {
   screencast: undecided(),
   screenshot: undecided(),
   selectOption: partial(
-    "Requires a single match. No ElementHandle values. Options: timeout and noWaitAfter only."
+    "Multiple matches throw instead of selecting the first match. `ElementHandle` option values are unsupported. Unsupported options: `force`, `signal`, `strict`."
   ),
   sessionStorage: implemented("Native current-window Storage only."),
   setChecked: partial(
-    "Requires a single match. Options: timeout, noWaitAfter, position, trial only."
+    "Multiple matches throw instead of selecting the first match. Unsupported options: `force`, `scroll`, `signal`, `strict`."
   ),
   setContent: outOfScope("Document replacement is excluded."),
   setDefaultNavigationTimeout: implemented(),
   setDefaultTimeout: implemented(),
   setExtraHTTPHeaders: undecided(),
   setInputFiles: partial(
-    "In-memory payloads with a non-empty mimeType only; no paths or directories. Options: timeout, noWaitAfter, strict only."
+    "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported. Empty `mimeType` throws instead of inferring a MIME type. The `signal` option is unsupported."
   ),
   setViewportSize: outOfScope("Browser viewport resizing is excluded."),
   tap: planned("Synthetic functional input only."),
@@ -211,10 +214,10 @@ export const pageLedger = {
   title: implemented(),
   touchscreen: planned("Synthetic functional input only."),
   type: partial(
-    "Requires a single match. Options: timeout, delay, noWaitAfter only."
+    "Multiple matches throw instead of selecting the first match. Unsupported options: `signal`, `strict`."
   ),
   uncheck: partial(
-    "Requires a single match. Options: timeout, noWaitAfter, position, trial only."
+    "Multiple matches throw instead of selecting the first match. Unsupported options: `force`, `scroll`, `signal`, `strict`."
   ),
   unroute: undecided(),
   unrouteAll: undecided(),
@@ -225,14 +228,14 @@ export const pageLedger = {
     "Only console and pageerror are planned; other events remain undecided."
   ),
   waitForFunction: partial(
-    "No signal option. The returned handle supports jsonValue and dispose only."
+    "Ignores `signal`. The returned handle implements only `jsonValue()` and `dispose()`, even when the predicate returns a DOM node."
   ),
   waitForLoadState: undecided(),
   waitForNavigation: undecided(),
   waitForRequest: undecided(),
   waitForResponse: undecided(),
   waitForSelector: partial(
-    "No signal option. Returns a limited ElementHandle without handle actions or evaluateHandle."
+    "The `signal` option is unsupported. Returned `ElementHandle` methods and options differ; see the exact differences.[^element-handle]"
   ),
   waitForTimeout: implemented(),
   waitForURL: undecided(),
@@ -249,35 +252,39 @@ export const locatorLedger = {
   ariaSnapshot: implemented("Current document only; no iframe traversal."),
   blur: implemented(),
   boundingBox: implemented(),
-  check: partial("Options: timeout, noWaitAfter, position, trial only."),
-  clear: partial("Options: timeout and noWaitAfter only; no force or signal."),
-  click: partial("Options: timeout, noWaitAfter, position, trial only."),
+  check: partial("Unsupported options: `force`, `scroll`, `signal`."),
+  clear: partial("Unsupported options: `force`, `signal`."),
+  click: partial(
+    "Unsupported options: `button`, `clickCount`, `delay`, `force`, `modifiers`, `scroll`, `signal`, `steps`."
+  ),
   contentFrame: outOfScope(
     "Iframe realms are outside the single-document boundary."
   ),
   count: implemented(),
-  dblclick: partial("Options: timeout, noWaitAfter, position, trial only."),
+  dblclick: partial(
+    "Unsupported options: `button`, `delay`, `force`, `modifiers`, `scroll`, `signal`, `steps`."
+  ),
   describe: implemented(),
   description: partial(
-    "Empty descriptions and descriptions retained through filter() differ from Playwright."
+    "`describe('').description()` returns `''` instead of `null`; `describe('x').filter({}).description()` returns `null` instead of `'x'`."
   ),
   dispatchEvent: partial(
-    "Only the timeout option is supported; handle-valued eventInit is not supported."
+    "The `signal` option is unsupported; `JSHandle`/`ElementHandle` values in `eventInit` are not unwrapped."
   ),
   dragTo: undecided(),
   drop: undecided(),
   elementHandle: partial(
-    "Returns a limited ElementHandle; handle actions and evaluateHandle are not implemented."
+    "Returned `ElementHandle` methods and options differ; see the exact differences.[^element-handle]"
   ),
   elementHandles: partial(
-    "Returns limited ElementHandles; handle actions and evaluateHandle are not implemented."
+    "Returned `ElementHandle` methods and options differ; see the exact differences.[^element-handle]"
   ),
-  evaluate: partial("The exposeFunctions: true option is not supported."),
+  evaluate: partial("Rejects `exposeFunctions: true`."),
   evaluateAll: implemented(
     "Uses the pinned Playwright by-value argument and result serializers."
   ),
   evaluateHandle: undecided(),
-  fill: partial("Options: timeout and noWaitAfter only; no force or signal."),
+  fill: partial("Unsupported options: `force`, `signal`."),
   filter: implemented(),
   first: implemented(),
   focus: implemented(),
@@ -298,7 +305,9 @@ export const locatorLedger = {
   highlight: implemented(
     "Uses the pinned InjectedScript overlay in the current document."
   ),
-  hover: partial("Options: timeout and noWaitAfter only."),
+  hover: partial(
+    "Unsupported options: `force`, `modifiers`, `position`, `scroll`, `signal`, `trial`."
+  ),
   innerHTML: implemented(),
   innerText: implemented(),
   inputValue: implemented(),
@@ -314,28 +323,26 @@ export const locatorLedger = {
   nth: implemented(),
   or: implemented(),
   page: implemented("Returns the adapter Page facade."),
-  press: partial("Options: timeout and noWaitAfter only; no delay or signal."),
-  pressSequentially: partial("The signal option is not supported."),
+  press: partial("Unsupported options: `delay`, `signal`."),
+  pressSequentially: partial("The `signal` option is unsupported."),
   screenshot: undecided(),
-  scrollIntoViewIfNeeded: partial("The signal option is not supported."),
+  scrollIntoViewIfNeeded: partial("The `signal` option is unsupported."),
   selectOption: partial(
-    "No ElementHandle values. Options: timeout and noWaitAfter only; no force or signal."
+    "`ElementHandle` option values are unsupported. Unsupported options: `force`, `signal`."
   ),
-  selectText: partial(
-    "Only the timeout option is supported; no force or signal."
-  ),
-  setChecked: partial("Options: timeout, noWaitAfter, position, trial only."),
+  selectText: partial("Unsupported options: `force`, `signal`."),
+  setChecked: partial("Unsupported options: `force`, `scroll`, `signal`."),
   setInputFiles: partial(
-    "In-memory payloads with a non-empty mimeType only; no paths or directories. Options: timeout and noWaitAfter only; no signal."
+    "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported. Empty `mimeType` throws instead of inferring a MIME type. The `signal` option is unsupported."
   ),
   tap: undecided(),
   textContent: implemented(),
   toString: partial(
-    "Uses construction labels rather than Playwright's normalized selector descriptions."
+    "String representations can omit options: `filter({ hasText: 'x' })` prints `filter(...)`, and `page.getByRole('button', { disabled: true })` omits `disabled`."
   ),
-  type: partial("The signal option is not supported."),
-  uncheck: partial("Options: timeout, noWaitAfter, position, trial only."),
-  waitFor: partial("The signal option is not supported."),
+  type: partial("The `signal` option is unsupported."),
+  uncheck: partial("Unsupported options: `force`, `scroll`, `signal`."),
+  waitFor: partial("The `signal` option is unsupported."),
   waitForFunction: undecided(),
 } as const satisfies Ledger<Locator>;
 

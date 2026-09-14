@@ -34,14 +34,21 @@ test("README links documented APIs, including selector aliases, without inventin
   for (const [name, target] of [
     ["click", "class-page#page-click"],
     ["getByRole", "class-page#page-get-by-role"],
+    ["setExtraHTTPHeaders", "class-page#page-set-extra-http-headers"],
+    ["keyboard", "class-page#page-keyboard"],
+    ["toString", "class-locator#locator-to-string"],
     ["$", "class-page#page-query-selector"],
     ["$$", "class-page#page-query-selector-all"],
     ["$eval", "class-page#page-eval-on-selector"],
     ["$$eval", "class-page#page-eval-on-selector-all"],
     ["setInputFiles", "class-locator#locator-set-input-files"],
   ]) {
-    assert.ok(readme.includes(`[\`${name}\`](https://playwright.dev/docs/api/${target})`), target);
+    assert.ok(
+      readme.includes(`[\`${name}\`](https://playwright.dev/docs/api/${target})`),
+      target
+    );
   }
+  assert.doesNotMatch(readme, /Keep contributor instructions|{{!--/);
   assert.match(readme, /^\|\s*`off`\s*\|/m);
   assert.match(readme, /^\|\s*`Symbol\.asyncDispose`\s*\|/m);
 });

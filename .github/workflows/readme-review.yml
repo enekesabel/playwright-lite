@@ -4,7 +4,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: readme-review-${{ github.ref }}
@@ -12,13 +12,13 @@ concurrency:
 
 jobs:
   readme:
-    if: github.head_ref == 'docs/generated-readme-compatibility'
+    if: github.head_ref == 'docs/generated-readme-compatibility' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24.12.0
@@ -35,6 +35,13 @@ jobs:
       - run: pnpm exec prettier --write AGENTS.md compatibility/api.ts scripts/generate-readme.mjs scripts/generate-readme.test.mjs
       - run: node --test scripts/generate-readme.test.mjs
       - run: pnpm check:readme && pnpm generate:injected && pnpm typecheck
+      - name: Commit verified generated output
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md AGENTS.md compatibility/api.ts scripts/generate-readme.mjs scripts/generate-readme.test.mjs
+          git diff --cached --quiet || git commit -m 'docs: render reviewed API compatibility notes and links'
+          git push origin HEAD:docs/generated-readme-compatibility
       - name: Export validation files
         if: always()
         run: |

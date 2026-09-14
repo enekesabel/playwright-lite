@@ -27,12 +27,34 @@ Treat newly passing upstream tests as candidates for review. Before promoting ea
 
 Execution tracking is necessary evidence, not proof that an assertion is adequate. The implementing agent performs this review; individual promotions do not require separate user approval. Preserve existing reviewed entries when adding support, and investigate regressions instead of deleting entries to make CI pass.
 
-## Generated README
+## Consumer README
 
 `README.md` is generated from `README.hbs` and `compatibility/api.ts`. Edit those
-sources, not the output. When API support or its reviewed evidence changes,
-review the ledger classification and run `pnpm generate:readme`. `pnpm check`
-rejects a stale README. Keep runtime-wide boundaries out of partial API notes.
+sources, not the output, then run `pnpm generate:readme`. `pnpm check` rejects drift.
+
+The README is for consumers. Keep contributor setup, Devbox, CI, implementation
+architecture, and corpus/baseline mechanics out of it. Installation instructions
+must describe a verified distribution path, not an assumed registry release.
+
+Runtime boundaries are constraints of running inside the current document.
+Explain them once in that section; they do not by themselves downgrade an API.
+Compatibility notes describe concrete differences from the pinned Playwright
+public JavaScript API: name missing options or input forms, and contrast changed
+selection behavior or return values with Playwright. Do not call normal
+Playwright behavior a limitation. Avoid undefined terms such as "limited";
+list the exact returned-handle differences once and reference them from rows.
+
+Use Playwright's public JavaScript terminology and this package's public exports.
+Do not document internal types/helpers as consumer API, or borrow type names from
+other language bindings. Use the documented object shape when no public type is
+named. Link documented members to verified official anchors; leave members with
+no individual documentation unlinked rather than inventing links.
+
+Live documentation links are navigation, not compatibility evidence. Review the
+pinned signatures, implementation, unchanged upstream tests, and reviewed evidence
+before changing a ledger claim. When support or evidence changes, update the
+ledger and regenerate in the same change. Keep section-specific editing guidance
+in Handlebars comments so it does not appear in the generated README.
 
 ## Development environment
 

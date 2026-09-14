@@ -4,11 +4,32 @@ import { parseArgs } from "node:util";
 import Handlebars from "handlebars";
 import { format, resolveConfig } from "prettier";
 
-import { pageLedger, locatorLedger } from "../compatibility/api.ts";
+import {
+  pageLedger,
+  locatorLedger,
+  elementHandleLimitations,
+} from "../compatibility/api.ts";
 
 const projectRoot = new URL("../", import.meta.url);
 
-function rowsFor(ledger) {
+// These inherited members have no individual Playwright documentation page.
+const undocumentedMembers = new Set([
+  "Symbol.asyncDispose",
+  "addListener",
+  "off",
+  "on",
+  "once",
+  "prependListener",
+  "removeListener",
+]);
+const selectorAliases = new Map([
+  ["$", "query-selector"],
+  ["$$", "query-selector-all"],
+  ["$eval", "eval-on-selector"],
+  ["$$eval", "eval-on-selector-all"],
+]);
+
+function rowsFor(owner, ledger) {
   return Reflect.ownKeys(ledger)
     .map((key) => {
       const entry = ledger[key];
@@ -19,8 +40,17 @@ function rowsFor(ledger) {
       const excluded = entry.status === "out-of-scope";
       if ((partial || excluded) && !entry.limitations?.trim())
         throw new Error(`Missing compatibility note for ${name}`);
+      const anchor =
+        selectorAliases.get(name) ??
+        name
+          .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
+          .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+          .toLowerCase();
       return {
         name,
+        url: undocumentedMembers.has(name)
+          ? null
+          : `https://playwright.dev/docs/api/class-${owner}#${owner}-${anchor}`,
         status:
           entry.status === "implemented"
             ? partial
@@ -46,11 +76,11 @@ export async function renderReadme(root = projectRoot) {
   ]);
   const pkg = JSON.parse(packageJson);
   const markdown = Handlebars.compile(template, { strict: true })({
-    version: pkg.version,
+    elementHandleLimitations,
     playwrightVersion: pkg.devDependencies["@playwright/test"],
     tables: [
-      { name: "Page", rows: rowsFor(pageLedger) },
-      { name: "Locator", rows: rowsFor(locatorLedger) },
+      { name: "Page", rows: rowsFor("page", pageLedger) },
+      { name: "Locator", rows: rowsFor("locator", locatorLedger) },
     ],
   });
   return format(markdown, { ...options, filepath });
