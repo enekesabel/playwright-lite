@@ -64,7 +64,6 @@ function runPublish(t, { version = "0.2.0", ...overrides } = {}) {
         PATH: `${bin}:${process.env.PATH}`,
         RUNNER_TEMP: root,
         NPM_CALL: calls,
-        NODE_AUTH_TOKEN: "test-only-not-a-real-token",
         RELEASE_VERSION: version,
         ...overrides.env,
       },
@@ -132,6 +131,22 @@ test("publication is main-only and uses the tested release artifact", () => {
   assert.equal(chromiumInstall.env, undefined);
   assert.equal(publish.steps[1].with.name, "package");
   assert.deepEqual(workflow.permissions, { contents: "read" });
+  assert.deepEqual(publish.permissions, {
+    contents: "read",
+    "id-token": "write",
+  });
+  const publishRuntime = publish.steps.find((step) =>
+    step.uses?.startsWith("actions/setup-node@")
+  );
+  assert.equal(publishRuntime.with["node-version"], "24.12.0");
+  assert.equal(
+    publishRuntime.with["registry-url"],
+    "https://registry.npmjs.org"
+  );
+  const publishStep = publish.steps.find((step) => step.id === "publish");
+  assert.equal(publishStep.env.NODE_AUTH_TOKEN, undefined);
+  assert.equal(publishStep.env.NPM_TOKEN, undefined);
+  assert.doesNotMatch(command, /NPM_TOKEN|NODE_AUTH_TOKEN/);
   assert.equal(
     workflow.concurrency["cancel-in-progress"],
     "${{ github.event_name == 'pull_request' }}"
@@ -163,7 +178,6 @@ test("0.x uses alpha and 1.0+ uses latest without rebuilding the tarball", (t) =
 
 test("unsafe publication inputs fail before invoking npm", (t) => {
   for (const options of [
-    { env: { NODE_AUTH_TOKEN: "" } },
     { env: { RELEASE_VERSION: "0.3.0" } },
     { package: { name: "@other/package" } },
     { version: "1.0.0-alpha.1" },
