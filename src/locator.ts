@@ -596,7 +596,7 @@ export class LocatorImpl {
       "noWaitAfter",
       "timeout",
     ]);
-    await this.ownerPage.type(this.selector, text, options, this.label);
+    await this.ownerPage.type(this.selector, text, options, this.label, true);
   }
 
   async pressSequentially(

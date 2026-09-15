@@ -79,7 +79,7 @@ type WaitForSelectorOptions = {
   timeout?: number;
 };
 
-type PageActionOptions = { timeout?: number };
+type PageActionOptions = { strict?: boolean; timeout?: number };
 type PageActionWithNoWaitAfterOptions = PageActionOptions & {
   noWaitAfter?: boolean;
 };
@@ -679,7 +679,8 @@ export class PageImpl {
     value: string,
     label: string,
     timeout?: number,
-    deadline = this.createActionDeadline(timeout)
+    deadline = this.createActionDeadline(timeout),
+    strict = true
   ) {
     const { element } = await this.retryActionability(
       selector,
@@ -687,7 +688,10 @@ export class PageImpl {
       "fill",
       ["visible", "enabled", "editable"],
       false,
-      deadline
+      deadline,
+      undefined,
+      undefined,
+      strict
     );
 
     // Pinned InjectedScript validates input types, normalizes settable values,
@@ -718,13 +722,14 @@ export class PageImpl {
     key: string,
     label: string,
     timeout?: number,
-    deadline = this.createActionDeadline(timeout)
+    deadline = this.createActionDeadline(timeout),
+    strict = true
   ) {
     const element = await this.query(
       selector,
       label,
       { timeout },
-      true,
+      strict,
       (candidate) => candidate,
       deadline
     );
@@ -736,9 +741,10 @@ export class PageImpl {
   async focusSelector(
     selector: string,
     label: string,
-    options?: LocatorQueryOptions
+    options?: LocatorQueryOptions,
+    strict = true
   ): Promise<void> {
-    await this.query(selector, label, options, true, (element) => {
+    await this.query(selector, label, options, strict, (element) => {
       const result = this.actionableInjected.focusNode(element);
       if (result === "error:notconnected")
         throw new Error(`Element is not connected for locator ${label}`);
@@ -801,7 +807,8 @@ export class PageImpl {
     values: string | SelectOptionValue | (string | SelectOptionValue)[] | null,
     label: string,
     timeout?: number,
-    deadline = this.createActionDeadline(timeout)
+    deadline = this.createActionDeadline(timeout),
+    strict = true
   ): Promise<string[]> {
     const normalized =
       values === null ? [] : Array.isArray(values) ? values : [values];
@@ -822,7 +829,10 @@ export class PageImpl {
         "select option",
         ["visible", "enabled"],
         false,
-        deadline
+        deadline,
+        undefined,
+        undefined,
+        strict
       );
       this.assertActionDeadline(deadline, "select option");
       const result = this.actionableInjected.selectOptions(element, options);
@@ -912,15 +922,13 @@ export class PageImpl {
   async setInputFilesSelector(
     selector: string,
     files: InputFiles,
-    options: PageActionWithNoWaitAfterOptions & { strict?: boolean } = {},
+    options: PageActionWithNoWaitAfterOptions = {},
     strict = false
   ): Promise<void> {
     assertPageActionOptions("setInputFiles", options, [
       "noWaitAfter",
       "strict",
     ]);
-    if (options.strict !== undefined && typeof options.strict !== "boolean")
-      throw new TypeError("setInputFiles strict must be a boolean");
     const payloads = inputFilePayloads(files);
     const deadline = this.createActionDeadline(options.timeout);
     await this.query(
@@ -1075,19 +1083,21 @@ export class PageImpl {
     value: string,
     options?: PageActionWithNoWaitAfterOptions
   ): Promise<void> {
-    assertPageActionOptions("fill", options, ["noWaitAfter"]);
+    assertPageActionOptions("fill", options, ["noWaitAfter", "strict"]);
     await this.fillSelector(
       selector,
       value,
       `page.fill(${JSON.stringify(selector)})`,
-      options?.timeout
+      options?.timeout,
+      undefined,
+      options?.strict === true
     );
   }
 
   async setInputFiles(
     selector: string,
     files: InputFiles,
-    options?: PageActionWithNoWaitAfterOptions & { strict?: boolean }
+    options?: PageActionWithNoWaitAfterOptions
   ): Promise<void> {
     await this.setInputFilesSelector(selector, files, options);
   }
@@ -1097,12 +1107,14 @@ export class PageImpl {
     key: string,
     options?: PageActionWithNoWaitAfterOptions
   ): Promise<void> {
-    assertPageActionOptions("press", options, ["noWaitAfter"]);
+    assertPageActionOptions("press", options, ["noWaitAfter", "strict"]);
     await this.pressSelector(
       selector,
       key,
       `page.press(${JSON.stringify(selector)})`,
-      options?.timeout
+      options?.timeout,
+      undefined,
+      options?.strict === true
     );
   }
 
@@ -1110,9 +1122,14 @@ export class PageImpl {
     selector: string,
     text: string,
     options?: PageTypeOptions,
-    label = `page.type(${JSON.stringify(selector)})`
+    label = `page.type(${JSON.stringify(selector)})`,
+    strict = options?.strict === true
   ): Promise<void> {
-    assertPageActionOptions("type", options, ["delay", "noWaitAfter"]);
+    assertPageActionOptions("type", options, [
+      "delay",
+      "noWaitAfter",
+      "strict",
+    ]);
     const deadline = this.createActionDeadline(options?.timeout);
     for (const character of text) {
       if (keyboardLayout.has(character)) {
@@ -1121,10 +1138,17 @@ export class PageImpl {
           character,
           label,
           options?.timeout,
-          deadline
+          deadline,
+          strict
         );
       } else {
-        await this.insertTextSelector(selector, character, label, deadline);
+        await this.insertTextSelector(
+          selector,
+          character,
+          label,
+          deadline,
+          strict
+        );
       }
       if (options?.delay && options.delay > 0)
         await this.waitWithinActionDeadline(options.delay, deadline, "press");
@@ -1132,11 +1156,12 @@ export class PageImpl {
   }
 
   async focus(selector: string, options?: PageActionOptions): Promise<void> {
-    assertPageActionOptions("focus", options);
+    assertPageActionOptions("focus", options, ["strict"]);
     await this.focusSelector(
       selector,
       `page.focus(${JSON.stringify(selector)})`,
-      options
+      { timeout: options?.timeout },
+      options?.strict === true
     );
   }
 
@@ -1155,12 +1180,14 @@ export class PageImpl {
     values: string | SelectOptionValue | (string | SelectOptionValue)[] | null,
     options?: PageActionWithNoWaitAfterOptions
   ): Promise<string[]> {
-    assertPageActionOptions("selectOption", options, ["noWaitAfter"]);
+    assertPageActionOptions("selectOption", options, ["noWaitAfter", "strict"]);
     return this.selectOptionSelector(
       selector,
       values,
       `page.selectOption(${JSON.stringify(selector)})`,
-      options?.timeout
+      options?.timeout,
+      undefined,
+      options?.strict === true
     );
   }
 
@@ -2172,7 +2199,8 @@ export class PageImpl {
     checkHitTarget: boolean,
     deadline: ActionDeadline,
     position?: ActionPoint,
-    pointerOptions?: PointerActionOptions
+    pointerOptions?: PointerActionOptions,
+    strict = pointerOptions?.strict ?? true
   ): Promise<ActionTarget> {
     let lastError: Error | undefined;
     let retry = 0;
@@ -2193,11 +2221,7 @@ export class PageImpl {
     while (true) {
       if (Date.now() >= deadline.expiresAt) throwTimeout();
       try {
-        const element = this.resolvePointerElement(
-          selector,
-          label,
-          pointerOptions?.strict ?? true
-        );
+        const element = this.resolvePointerElement(selector, label, strict);
         if (pointerOptions && !pointerOptions.force)
           log.push(
             `  - waiting for element to be ${states.includes("enabled") ? "visible, enabled and stable" : "visible and stable"}`
@@ -2738,13 +2762,14 @@ export class PageImpl {
     selector: string,
     text: string,
     label: string,
-    deadline: ActionDeadline
+    deadline: ActionDeadline,
+    strict = true
   ) {
     const element = await this.query(
       selector,
       label,
       { timeout: deadline.timeout },
-      true,
+      strict,
       (candidate) => candidate,
       deadline
     );
@@ -3461,16 +3486,20 @@ function assertPageActionOptions(
     validateTimeout(options.timeout, `${method} timeout`);
   if (supported.includes("noWaitAfter"))
     validateNoWaitAfter(method, options.noWaitAfter);
+  if (
+    supported.includes("strict") &&
+    options.strict !== undefined &&
+    typeof options.strict !== "boolean"
+  )
+    throw new TypeError(`${method} strict must be a boolean`);
 }
 
-type PageDispatchEventOptions = PageActionOptions & { strict?: boolean };
+type PageDispatchEventOptions = PageActionOptions;
 
 function assertPageDispatchEventOptions(
   options: PageDispatchEventOptions | undefined
 ): void {
   assertPageActionOptions("dispatchEvent", options, ["strict"]);
-  if (options?.strict !== undefined && typeof options.strict !== "boolean")
-    throw new TypeError("dispatchEvent strict must be a boolean");
 }
 
 function assertPointerActionOptions(
