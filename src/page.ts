@@ -79,11 +79,19 @@ type WaitForSelectorOptions = {
   timeout?: number;
 };
 
-type PageActionOptions = { strict?: boolean; timeout?: number };
+type PageActionOptions = { timeout?: number };
 type PageActionWithNoWaitAfterOptions = PageActionOptions & {
   noWaitAfter?: boolean;
 };
-type PageTypeOptions = PageActionWithNoWaitAfterOptions & { delay?: number };
+type PageStrictActionOptions = PageActionOptions & { strict?: boolean };
+type PageStrictActionWithNoWaitAfterOptions = PageStrictActionOptions &
+  PageActionWithNoWaitAfterOptions;
+type PageTypeOptions = PageStrictActionWithNoWaitAfterOptions & {
+  delay?: number;
+};
+type PageSetInputFilesOptions = PageActionWithNoWaitAfterOptions & {
+  strict?: boolean;
+};
 export type PointerActionOptions = NonNullable<Parameters<Page["click"]>[1]>;
 type HoverActionOptions = NonNullable<Parameters<Page["hover"]>[1]>;
 type DoubleClickActionOptions = NonNullable<Parameters<Page["dblclick"]>[1]>;
@@ -922,13 +930,15 @@ export class PageImpl {
   async setInputFilesSelector(
     selector: string,
     files: InputFiles,
-    options: PageActionWithNoWaitAfterOptions = {},
+    options: PageSetInputFilesOptions = {},
     strict = false
   ): Promise<void> {
     assertPageActionOptions("setInputFiles", options, [
       "noWaitAfter",
       "strict",
     ]);
+    if (options.strict !== undefined && typeof options.strict !== "boolean")
+      throw new TypeError("setInputFiles strict must be a boolean");
     const payloads = inputFilePayloads(files);
     const deadline = this.createActionDeadline(options.timeout);
     await this.query(
@@ -1081,7 +1091,7 @@ export class PageImpl {
   async fill(
     selector: string,
     value: string,
-    options?: PageActionWithNoWaitAfterOptions
+    options?: PageStrictActionWithNoWaitAfterOptions
   ): Promise<void> {
     assertPageActionOptions("fill", options, ["noWaitAfter", "strict"]);
     await this.fillSelector(
@@ -1097,7 +1107,7 @@ export class PageImpl {
   async setInputFiles(
     selector: string,
     files: InputFiles,
-    options?: PageActionWithNoWaitAfterOptions
+    options?: PageSetInputFilesOptions
   ): Promise<void> {
     await this.setInputFilesSelector(selector, files, options);
   }
@@ -1105,7 +1115,7 @@ export class PageImpl {
   async press(
     selector: string,
     key: string,
-    options?: PageActionWithNoWaitAfterOptions
+    options?: PageStrictActionWithNoWaitAfterOptions
   ): Promise<void> {
     assertPageActionOptions("press", options, ["noWaitAfter", "strict"]);
     await this.pressSelector(
@@ -1131,31 +1141,25 @@ export class PageImpl {
       "strict",
     ]);
     const deadline = this.createActionDeadline(options?.timeout);
-    for (const character of text) {
-      if (keyboardLayout.has(character)) {
-        await this.pressSelector(
-          selector,
-          character,
-          label,
-          options?.timeout,
-          deadline,
-          strict
-        );
-      } else {
-        await this.insertTextSelector(
-          selector,
-          character,
-          label,
-          deadline,
-          strict
-        );
-      }
-      if (options?.delay && options.delay > 0)
-        await this.waitWithinActionDeadline(options.delay, deadline, "press");
-    }
+    await this.query(
+      selector,
+      label,
+      { timeout: options?.timeout },
+      strict,
+      (element) => {
+        const result = this.actionableInjected.focusNode(element, true);
+        if (result === "error:notconnected")
+          throw new Error("Element is not connected");
+      },
+      deadline
+    );
+    await this.keyboard.type(text, { delay: options?.delay }, deadline);
   }
 
-  async focus(selector: string, options?: PageActionOptions): Promise<void> {
+  async focus(
+    selector: string,
+    options?: PageStrictActionOptions
+  ): Promise<void> {
     assertPageActionOptions("focus", options, ["strict"]);
     await this.focusSelector(
       selector,
@@ -1178,7 +1182,7 @@ export class PageImpl {
   async selectOption(
     selector: string,
     values: string | SelectOptionValue | (string | SelectOptionValue)[] | null,
-    options?: PageActionWithNoWaitAfterOptions
+    options?: PageStrictActionWithNoWaitAfterOptions
   ): Promise<string[]> {
     assertPageActionOptions("selectOption", options, ["noWaitAfter", "strict"]);
     return this.selectOptionSelector(
@@ -3128,17 +3132,28 @@ class BrowserKeyboard {
     await this.upForTarget(key, deadline);
   }
 
-  async insertText(text: string): Promise<void> {
-    this.page.insertKeyboardText(this.activeTarget(), text);
+  async insertText(text: string, deadline?: ActionDeadline): Promise<void> {
+    this.page.insertKeyboardText(
+      this.activeTarget(),
+      text,
+      "insertText",
+      text,
+      deadline
+    );
   }
 
-  async type(text: string, options: { delay?: number } = {}): Promise<void> {
+  async type(
+    text: string,
+    options: { delay?: number } = {},
+    deadline?: ActionDeadline
+  ): Promise<void> {
     const delay = options.delay || undefined;
     for (const character of text) {
-      if (keyboardLayout.has(character)) await this.press(character, { delay });
+      if (keyboardLayout.has(character))
+        await this.press(character, { delay }, deadline);
       else {
-        if (delay) await this.wait(delay);
-        await this.insertText(character);
+        if (delay) await this.wait(delay, deadline);
+        await this.insertText(character, deadline);
       }
     }
   }
@@ -3494,12 +3509,14 @@ function assertPageActionOptions(
     throw new TypeError(`${method} strict must be a boolean`);
 }
 
-type PageDispatchEventOptions = PageActionOptions;
+type PageDispatchEventOptions = PageActionOptions & { strict?: boolean };
 
 function assertPageDispatchEventOptions(
   options: PageDispatchEventOptions | undefined
 ): void {
   assertPageActionOptions("dispatchEvent", options, ["strict"]);
+  if (options?.strict !== undefined && typeof options.strict !== "boolean")
+    throw new TypeError("dispatchEvent strict must be a boolean");
 }
 
 function assertPointerActionOptions(
