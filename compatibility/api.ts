@@ -103,12 +103,8 @@ export const pageLedger = {
   evaluateHandle: undecided(),
   exposeBinding: undecided(),
   exposeFunction: undecided(),
-  fill: partial(
-    "Multiple matches throw instead of selecting the first match. Unsupported options: `force`, `signal`, `strict`."
-  ),
-  focus: partial(
-    "Multiple matches throw instead of selecting the first match. Unsupported options: `signal`, `strict`."
-  ),
+  fill: partial("Unsupported options: `force`, `signal`."),
+  focus: partial("The `signal` option is unsupported."),
   frame: outOfScope("Iframe realms are outside the single-document boundary."),
   frameLocator: outOfScope(
     "Iframe realms are outside the single-document boundary."
@@ -167,9 +163,7 @@ export const pageLedger = {
   prependListener: planned(
     "Only console and pageerror are planned; other events remain undecided."
   ),
-  press: partial(
-    "Multiple matches throw instead of selecting the first match. Unsupported options: `delay`, `signal`, `strict`."
-  ),
+  press: partial("Unsupported options: `delay`, `signal`."),
   reload: planned(
     "Initiates browser navigation; execution ends on document replacement."
   ),
@@ -189,7 +183,7 @@ export const pageLedger = {
   screencast: undecided(),
   screenshot: undecided(),
   selectOption: partial(
-    "Multiple matches throw instead of selecting the first match. `ElementHandle` option values are unsupported. Unsupported options: `force`, `signal`, `strict`."
+    "`ElementHandle` option values are unsupported. Unsupported options: `force`, `signal`."
   ),
   sessionStorage: implemented("Native current-window Storage only."),
   setChecked: partial("The `signal` option is unsupported."),

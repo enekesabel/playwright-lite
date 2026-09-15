@@ -1,3 +1,4 @@
+import type { Locator, Page } from "@playwright/test";
 import { afterEach, describe, expect, it } from "vitest";
 import { createPage } from "./index";
 
@@ -159,4 +160,220 @@ it("Locator.all captures the length, not the resolved elements", async () => {
   document.querySelector("ul")!.innerHTML = "<li>new</li><li>extra</li>";
   expect(locators).toHaveLength(1);
   expect(await locators[0]!.textContent()).toBe("new");
+});
+
+type StrictOptions = { strict?: boolean; timeout?: number };
+type SelectorActionCase = {
+  name: string;
+  html: string;
+  pageAction: (page: Page, options?: StrictOptions) => Promise<unknown>;
+  locatorAction: (locator: Locator) => Promise<unknown>;
+  values: () => unknown[];
+  changed: unknown[];
+  unchanged: unknown[];
+};
+
+const selectorActions: SelectorActionCase[] = [
+  {
+    name: "fill",
+    html: '<input class="target"><input class="target">',
+    pageAction: (page, options) => page.fill(".target", "value", options),
+    locatorAction: (locator) => locator.fill("value"),
+    values: () =>
+      [...document.querySelectorAll<HTMLInputElement>(".target")].map(
+        (element) => element.value
+      ),
+    changed: ["value", ""],
+    unchanged: ["", ""],
+  },
+  {
+    name: "focus",
+    html: '<input class="target"><input class="target">',
+    pageAction: (page, options) => page.focus(".target", options),
+    locatorAction: (locator) => locator.focus(),
+    values: () =>
+      [...document.querySelectorAll<HTMLInputElement>(".target")].map(
+        (element) => document.activeElement === element
+      ),
+    changed: [true, false],
+    unchanged: [false, false],
+  },
+  {
+    name: "press",
+    html: '<input class="target"><input class="target">',
+    pageAction: (page, options) => page.press(".target", "a", options),
+    locatorAction: (locator) => locator.press("a"),
+    values: () =>
+      [...document.querySelectorAll<HTMLInputElement>(".target")].map(
+        (element) => element.value
+      ),
+    changed: ["a", ""],
+    unchanged: ["", ""],
+  },
+  {
+    name: "type",
+    html: '<input class="target"><input class="target">',
+    pageAction: (page, options) => page.type(".target", "a", options),
+    locatorAction: (locator) => locator.type("a"),
+    values: () =>
+      [...document.querySelectorAll<HTMLInputElement>(".target")].map(
+        (element) => element.value
+      ),
+    changed: ["a", ""],
+    unchanged: ["", ""],
+  },
+  {
+    name: "selectOption",
+    html:
+      '<select class="target"><option value="a">A</option><option value="b">B</option></select>' +
+      '<select class="target"><option value="a">A</option><option value="b">B</option></select>',
+    pageAction: (page, options) => page.selectOption(".target", "b", options),
+    locatorAction: (locator) => locator.selectOption("b"),
+    values: () =>
+      [...document.querySelectorAll<HTMLSelectElement>(".target")].map(
+        (element) => element.value
+      ),
+    changed: ["b", "a"],
+    unchanged: ["a", "a"],
+  },
+];
+
+describe.each(selectorActions)("Page.$name selector matching", (action) => {
+  it.each([undefined, { strict: false }] as const)(
+    "uses the first match with options %j",
+    async (options) => {
+      document.body.innerHTML = action.html;
+      await action.pageAction(createPage(), options);
+      expect(action.values()).toEqual(action.changed);
+    }
+  );
+
+  it("supports strict opt-in without side effects", async () => {
+    document.body.innerHTML = action.html;
+    await expect(
+      action.pageAction(createPage(), { strict: true })
+    ).rejects.toThrow("strict mode violation");
+    expect(action.values()).toEqual(action.unchanged);
+  });
+
+  it("keeps the Locator form strict", async () => {
+    document.body.innerHTML = action.html;
+    const page = createPage();
+    await expect(action.locatorAction(page.locator(".target"))).rejects.toThrow(
+      "strict mode violation"
+    );
+    expect(action.values()).toEqual(action.unchanged);
+  });
+});
+
+it("Page.fill waits on the first match instead of choosing a later actionable match", async () => {
+  document.body.innerHTML =
+    '<input class="target" disabled><input class="target">';
+  const values = () =>
+    [...document.querySelectorAll<HTMLInputElement>(".target")].map(
+      (element) => element.value
+    );
+
+  await expect(
+    createPage().fill(".target", "value", { timeout: 50 })
+  ).rejects.toThrow("Timeout 50ms exceeded");
+  expect(values()).toEqual(["", ""]);
+});
+
+it("Page.selectOption waits on the first match instead of choosing a later actionable match", async () => {
+  document.body.innerHTML =
+    '<select class="target" disabled><option value="a">A</option><option value="b">B</option></select>' +
+    '<select class="target"><option value="a">A</option><option value="b">B</option></select>';
+  const selects = [...document.querySelectorAll<HTMLSelectElement>(".target")];
+  const events: string[] = [];
+  for (const select of selects)
+    for (const name of ["input", "change"])
+      select.addEventListener(name, () => events.push(name));
+
+  await expect(
+    createPage().selectOption(".target", "b", { timeout: 50 })
+  ).rejects.toThrow("Timeout 50ms exceeded");
+  expect(selects.map((select) => select.value)).toEqual(["a", "a"]);
+  expect(events).toEqual([]);
+});
+
+describe.each(["Page", "Locator"] as const)("%s.type empty text", (owner) => {
+  const type = (
+    page: Page,
+    text: string,
+    options?: StrictOptions
+  ): Promise<void> =>
+    owner === "Page"
+      ? page.type(".target", text, options)
+      : page.locator(".target").type(text);
+
+  it("enforces strictness before focus or input", async () => {
+    document.body.innerHTML =
+      '<input class="target" value="first"><input class="target" value="second">';
+    const inputs = [...document.querySelectorAll<HTMLInputElement>(".target")];
+    const events: string[] = [];
+    for (const input of inputs)
+      for (const name of ["focus", "keydown", "input"])
+        input.addEventListener(name, () => events.push(name));
+
+    await expect(
+      type(createPage(), "", owner === "Page" ? { strict: true } : undefined)
+    ).rejects.toThrow("strict mode violation");
+    expect(document.activeElement).toBe(document.body);
+    expect(inputs.map((input) => input.value)).toEqual(["first", "second"]);
+    expect(events).toEqual([]);
+  });
+
+  it("resolves and focuses once before typing", async () => {
+    document.body.innerHTML = '<input class="target"><input id="other">';
+    const target = document.querySelector<HTMLInputElement>(".target")!;
+    const other = document.querySelector<HTMLInputElement>("#other")!;
+    target.addEventListener("input", () => other.focus(), { once: true });
+
+    await type(createPage(), "ab");
+    expect(target.value).toBe("a");
+    expect(other.value).toBe("b");
+    expect(document.activeElement).toBe(other);
+  });
+
+  it("does not retarget a replacement after typing starts", async () => {
+    document.body.innerHTML = '<input class="target">';
+    const target = document.querySelector<HTMLInputElement>(".target")!;
+    let replacement: HTMLInputElement | undefined;
+    target.addEventListener(
+      "input",
+      () => {
+        target.remove();
+        replacement = document.createElement("input");
+        replacement.className = "target";
+        document.body.append(replacement);
+      },
+      { once: true }
+    );
+
+    await type(createPage(), "ab");
+    expect(target.value).toBe("a");
+    expect(replacement?.value).toBe("");
+  });
+});
+
+it("Page.type empty text focuses the first match without keyboard input", async () => {
+  document.body.innerHTML =
+    '<input class="target" value="first"><input class="target" value="second">';
+  const inputs = [...document.querySelectorAll<HTMLInputElement>(".target")];
+  const events: string[] = [];
+  for (const input of inputs)
+    for (const name of ["keydown", "input"])
+      input.addEventListener(name, () => events.push(name));
+
+  await createPage().type(".target", "");
+  expect(document.activeElement).toBe(inputs[0]);
+  expect(inputs.map((input) => input.value)).toEqual(["first", "second"]);
+  expect(events).toEqual([]);
+});
+
+it("Page.type empty text waits for a matching selector", async () => {
+  await expect(
+    createPage().type(".target", "", { timeout: 50 })
+  ).rejects.toThrow("Timeout 50ms exceeded");
 });

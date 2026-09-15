@@ -3,7 +3,7 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 738,
+  "selectedTestCount": 748,
   "reviewed": [
     {
       "id": "elementhandle-click.spec.ts > should double click the button",
@@ -1359,6 +1359,11 @@
       "id": "page-set-input-files.spec.ts > should set from memory",
       "method": "Page.setInputFiles",
       "evidence": "Native setContent installs an input; adapter Page.setInputFiles assigns an in-memory payload. Adapter $eval assertions verify one selected file named test.txt, with no transport failures or native upload calls."
+    },
+    {
+      "id": "page-strict.spec.ts > should fail page.fill in strict mode",
+      "method": "Page.fill",
+      "evidence": "With two matching inputs, Page.fill with strict: true rejects with Playwright strict-mode diagnostics before filling either input."
     },
     {
       "id": "page-wait-for-function.spec.ts > should accept a string",

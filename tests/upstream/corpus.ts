@@ -36,6 +36,8 @@ export const corpus = {
       "2a828962b0beb2587db4de12477135a5c4519a959e3b3b8e425b54210837a9cb",
     "page-fill.spec.ts":
       "85dcabd116d5570ac20119f7a259c7c3e749795652a323f1015320bfbb1f6eb0",
+    "page-strict.spec.ts":
+      "89641befba6dccc84682f667e1ac86ea6e5c92e1d34210bdb579041ffef933ae",
     "locator-list.spec.ts":
       "ce2bbfd6ff208d0278734093abec050082ff6cabd25b51ee8133d4990698aa07",
     "locator-query.spec.ts":
