@@ -3,12 +3,14 @@ from pathlib import Path
 path = Path("tests/upstream/adapter-bridge.ts")
 text = path.read_text()
 
+
 def replace(old: str, new: str) -> None:
     global text
     count = text.count(old)
     if count != 1:
         raise SystemExit(f"expected one match, found {count}: {old[:100]!r}")
     text = text.replace(old, new, 1)
+
 
 replace(
 '''const ELEMENT_HANDLE_REF_PAYLOAD = "__pwLiteElementHandleRef";
@@ -17,6 +19,34 @@ const DEFAULT_TEST_ID_ATTRIBUTE = "data-testid";''',
 const ABORT_SIGNAL_PAYLOAD = "__pwLiteAbortSignal";
 const DEFAULT_TEST_ID_ATTRIBUTE = "data-testid";
 let nextAbortSignalId = 0;''')
+
+replace(
+'''type BridgeEnvelope<Result> =
+  | { kind: "value"; value: Result }
+  | { kind: "adapter-timeout"; message: string };''',
+'''type BridgeEnvelope<Result> =
+  | { kind: "value"; value: Result }
+  | { kind: "adapter-timeout"; message: string }
+  | { kind: "adapter-error"; name: string; message: string };''')
+
+replace(
+'''  if (
+    envelope.kind === "adapter-timeout" &&
+    typeof envelope.message === "string"
+  )
+    throw new playwrightErrors.TimeoutError(envelope.message);
+  return envelope.value;''',
+'''  if (
+    envelope.kind === "adapter-timeout" &&
+    typeof envelope.message === "string"
+  )
+    throw new playwrightErrors.TimeoutError(envelope.message);
+  if (envelope.kind === "adapter-error") {
+    const error = new Error(envelope.message);
+    error.name = envelope.name;
+    throw error;
+  }
+  return envelope.value;''')
 
 replace(
 '''function callbackSource(callback: unknown, operation: string): string {''',
@@ -84,10 +114,11 @@ async function withAbortSignalBridge<Result>(
     signal.removeEventListener("abort", forwardAbort);
     await forwarding;
     void realPage
-      .evaluate(
-        (signalId) => (window as any).__pwLiteAbortSignals?.delete(signalId),
-        id
-      )
+      .evaluate((signalId) => {
+        const host = window as any;
+        host.__pwLiteAbortSignals?.delete(signalId);
+        host.__pwLitePendingAborts?.delete(signalId);
+      }, id)
       .catch(() => undefined);
   }
 }
@@ -140,6 +171,7 @@ replace(
   const host = window as any;
   host.__pwLiteEvidence = { entered: [], failures: [] };
   host.__pwLiteAbortSignals = new Map<string, AbortController>();
+  host.__pwLitePendingAborts = new Map<string, unknown>();
   const abortReason = (value: any) => {
     if (value?.__pwLiteAbortError) {
       const error = new Error(value.message);
@@ -152,7 +184,41 @@ replace(
     const controller = host.__pwLiteAbortSignals.get(id);
     if (controller && !controller.signal.aborted)
       controller.abort(abortReason(reason));
+    else if (!controller)
+      host.__pwLitePendingAborts.set(id, reason);
   };''')
+
+replace(
+'''      if (
+        typeof error === "object" &&
+        error !== null &&
+        (error as Record<symbol, unknown>)[
+          Symbol.for("playwright-lite:TimeoutError")
+        ] === true
+      )
+        return {
+          kind: "adapter-timeout",
+          message: error instanceof Error ? error.message : String(error),
+        };
+      throw error;''',
+'''      if (
+        typeof error === "object" &&
+        error !== null &&
+        (error as Record<symbol, unknown>)[
+          Symbol.for("playwright-lite:TimeoutError")
+        ] === true
+      )
+        return {
+          kind: "adapter-timeout",
+          message: error instanceof Error ? error.message : String(error),
+        };
+      if (error instanceof Error && error.name === "AbortError")
+        return {
+          kind: "adapter-error",
+          name: error.name,
+          message: error.message,
+        };
+      throw error;''')
 
 replace(
 '''    if (Array.isArray(value.__pwLiteBytes))
@@ -165,8 +231,13 @@ replace(
         controller = new AbortController();
         host.__pwLiteAbortSignals.set(value.__pwLiteAbortSignal, controller);
       }
-      if (value.aborted && !controller.signal.aborted)
+      const pending = host.__pwLitePendingAborts.get(value.__pwLiteAbortSignal);
+      if (host.__pwLitePendingAborts.has(value.__pwLiteAbortSignal)) {
+        host.__pwLitePendingAborts.delete(value.__pwLiteAbortSignal);
+        if (!controller.signal.aborted) controller.abort(abortReason(pending));
+      } else if (value.aborted && !controller.signal.aborted) {
         controller.abort(abortReason(value.reason));
+      }
       return controller.signal;
     }''')
 
