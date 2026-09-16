@@ -22,6 +22,7 @@ jobs:
           node-version: 24.12.0
       - run: npm install --global pnpm@11.24.0
       - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
       - name: Relax delegated check signal assertion
         run: |
           python3 - <<'PY'
