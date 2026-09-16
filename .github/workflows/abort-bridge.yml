@@ -1,3 +1,4 @@
+# Temporary verification workflow; remove before PR.
 name: Abort signal bridge
 
 on:
