@@ -38,6 +38,12 @@ export const corpus = {
       "85dcabd116d5570ac20119f7a259c7c3e749795652a323f1015320bfbb1f6eb0",
     "page-strict.spec.ts":
       "89641befba6dccc84682f667e1ac86ea6e5c92e1d34210bdb579041ffef933ae",
+    "page-focus.spec.ts": "",
+    "page-select-option.spec.ts": "",
+    "elementhandle-press.spec.ts": "",
+    "elementhandle-type.spec.ts": "",
+    "elementhandle-scroll-into-view.spec.ts": "",
+    "elementhandle-select-text.spec.ts": "",
     "locator-list.spec.ts":
       "ce2bbfd6ff208d0278734093abec050082ff6cabd25b51ee8133d4990698aa07",
     "locator-query.spec.ts":
