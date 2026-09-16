@@ -37,16 +37,18 @@ jobs:
       - run: pnpm prettier --write src/page.ts src/locator.ts
       - name: Typecheck
         run: pnpm typecheck 2>&1 | tee typecheck.log
+      - name: Unit tests
+        run: pnpm test 2>&1 | tee test.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: common-action-workbench
           path: |
             typecheck.log
+            test.log
             src/page.ts
             src/locator.ts
           if-no-files-found: error
-      - run: pnpm test
       - name: Commit implementation
         run: |
           git config user.name github-actions[bot]
