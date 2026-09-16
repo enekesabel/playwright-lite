@@ -698,12 +698,12 @@ describe("Single-document adapter contract", () => {
   // ── AC4: unsupported options rejection ────────────────────────
 
   describe("unsupported options", () => {
-    it("click rejects unsupported options", async () => {
+    it("click validates the signal option", async () => {
       document.body.innerHTML = "<button>ok</button>";
       const page = createPage();
       await expect(
         page.locator("button").click({ signal: true } as any)
-      ).rejects.toThrow(/unsupported Playwright option.*signal/);
+      ).rejects.toThrow(/click signal must be an AbortSignal/);
     });
 
     it("ignores unsupported options whose values are undefined", async () => {
@@ -718,13 +718,13 @@ describe("Single-document adapter contract", () => {
       expect(clicks).toBe(1);
     });
 
-    it("rejects defined unsupported option values, including false and null", async () => {
+    it("rejects invalid signal values, including false and null", async () => {
       document.body.innerHTML = "<button>ok</button>";
       const page = createPage();
       for (const signal of [false, null]) {
         await expect(
           page.locator("button").click({ signal } as any)
-        ).rejects.toThrow(/unsupported Playwright option.*signal/);
+        ).rejects.toThrow(/click signal must be an AbortSignal/);
       }
     });
 
@@ -736,12 +736,13 @@ describe("Single-document adapter contract", () => {
       ).rejects.toThrow(/unsupported Playwright option.*force/);
     });
 
-    it("press rejects unsupported options", async () => {
+    it("press accepts the delay option", async () => {
       document.body.innerHTML = '<input type="text" />';
       const page = createPage();
-      await expect(
-        page.locator("input").press("a", { delay: 100 } as any)
-      ).rejects.toThrow(/unsupported Playwright option.*delay/);
+      await page.locator("input").press("a", { delay: 1 });
+      expect(document.querySelector<HTMLInputElement>("input")!.value).toBe(
+        "a"
+      );
     });
 
     it("forwards explicit timeout through locator terminal actions", async () => {
@@ -1054,7 +1055,7 @@ describe("Single-document adapter contract", () => {
       expect(activations).toBe(3);
       await expect(
         page.locator("#button").dblclick({ signal: true } as any)
-      ).rejects.toThrow("unsupported Playwright option(s): signal");
+      ).rejects.toThrow("dblclick signal must be an AbortSignal");
       await expect(
         page.locator("#button").dblclick({ trial: "yes" } as any)
       ).rejects.toThrow("trial must be a boolean");
@@ -2427,13 +2428,13 @@ describe("Single-document adapter contract", () => {
       expect(button.scrollIntoView).not.toHaveBeenCalled();
     });
 
-    it("rejects action options whose semantics are not implemented", async () => {
+    it("rejects invalid or unsupported action options", async () => {
       document.body.innerHTML = `<input id=input />`;
       const page = createPage();
 
       await expect(
-        page.locator("#input").check({ signal: new AbortController().signal })
-      ).rejects.toThrow(/unsupported Playwright option/);
+        page.locator("#input").check({ signal: true } as any)
+      ).rejects.toThrow(/check signal must be an AbortSignal/);
       await expect(
         page
           .locator("#input")

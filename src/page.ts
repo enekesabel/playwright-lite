@@ -874,11 +874,20 @@ export class PageImpl {
           `select option: Timeout ${deadline.timeout}ms exceeded. ${lastError.message}`,
           { cause: lastError }
         );
-      await this.waitWithinActionDeadline(
-        Math.min(ACTION_RETRY_DELAY, remaining),
-        deadline,
-        "select option"
-      );
+      try {
+        await this.waitWithinActionDeadline(
+          Math.min(ACTION_RETRY_DELAY, remaining),
+          deadline,
+          "select option"
+        );
+      } catch (error) {
+        if (error instanceof AdapterTimeoutError)
+          throw new AdapterTimeoutError(
+            `select option: Timeout ${deadline.timeout}ms exceeded. ${lastError.message}`,
+            { cause: lastError }
+          );
+        throw error;
+      }
     }
   }
 
@@ -1290,7 +1299,8 @@ export class PageImpl {
       `page.dispatchEvent(${JSON.stringify(selector)})`,
       options?.timeout,
       undefined,
-      options?.strict === true
+      options?.strict === true,
+      options?.signal
     );
   }
 
@@ -2351,11 +2361,16 @@ export class PageImpl {
           if (log.length > 60) log.splice(0, log.length - 60);
         }
         if (remaining <= 0) throw timeoutError();
-        await this.waitWithinActionDeadline(
-          Math.min(delay, remaining),
-          deadline,
-          actionName
-        );
+        try {
+          await this.waitWithinActionDeadline(
+            Math.min(delay, remaining),
+            deadline,
+            actionName
+          );
+        } catch (error) {
+          if (error instanceof AdapterTimeoutError) throw timeoutError();
+          throw error;
+        }
       }
     }
   }

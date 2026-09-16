@@ -437,7 +437,11 @@ export class LocatorImpl {
   }
 
   async fill(value: string, options?: LocatorActionWithNoWaitAfterOptions) {
-    rejectUnsupportedOptions("fill", options, ["noWaitAfter", "timeout"]);
+    rejectUnsupportedOptions("fill", options, [
+      "noWaitAfter",
+      "signal",
+      "timeout",
+    ]);
     await this.ownerPage.fillSelector(
       this.selector,
       value,
@@ -455,6 +459,7 @@ export class LocatorImpl {
   ) {
     rejectUnsupportedOptions("setInputFiles", options, [
       "noWaitAfter",
+      "signal",
       "timeout",
     ]);
     await this.ownerPage.setInputFilesSelector(
@@ -493,7 +498,11 @@ export class LocatorImpl {
   }
 
   async clear(options?: LocatorActionWithNoWaitAfterOptions) {
-    rejectUnsupportedOptions("clear", options, ["noWaitAfter", "timeout"]);
+    rejectUnsupportedOptions("clear", options, [
+      "noWaitAfter",
+      "signal",
+      "timeout",
+    ]);
     await this.ownerPage.fillSelector(
       this.selector,
       "",
@@ -561,13 +570,16 @@ export class LocatorImpl {
     eventInit: object = {},
     options?: LocatorActionOptions
   ) {
-    rejectUnsupportedOptions("dispatchEvent", options, ["timeout"]);
+    rejectUnsupportedOptions("dispatchEvent", options, ["signal", "timeout"]);
     await this.ownerPage.dispatchEventSelector(
       this.selector,
       type,
       eventInit,
       this.label,
-      options?.timeout
+      options?.timeout,
+      undefined,
+      true,
+      options?.signal
     );
   }
 
@@ -577,6 +589,7 @@ export class LocatorImpl {
   ) {
     rejectUnsupportedOptions("selectOption", options, [
       "noWaitAfter",
+      "signal",
       "timeout",
     ]);
     return this.ownerPage.selectOptionSelector(
@@ -591,7 +604,7 @@ export class LocatorImpl {
   }
 
   async selectText(options?: LocatorActionOptions) {
-    rejectUnsupportedOptions("selectText", options, ["timeout"]);
+    rejectUnsupportedOptions("selectText", options, ["signal", "timeout"]);
     await this.ownerPage.selectText(
       this.selector,
       this.label,
@@ -602,7 +615,10 @@ export class LocatorImpl {
   }
 
   async scrollIntoViewIfNeeded(options?: LocatorActionOptions) {
-    rejectUnsupportedOptions("scrollIntoViewIfNeeded", options, ["timeout"]);
+    rejectUnsupportedOptions("scrollIntoViewIfNeeded", options, [
+      "signal",
+      "timeout",
+    ]);
     await this.ownerPage.scrollLocatorIntoView(
       this.selector,
       this.label,
