@@ -234,7 +234,13 @@ replace(
       const pending = host.__pwLitePendingAborts.get(value.__pwLiteAbortSignal);
       if (host.__pwLitePendingAborts.has(value.__pwLiteAbortSignal)) {
         host.__pwLitePendingAborts.delete(value.__pwLiteAbortSignal);
-        if (!controller.signal.aborted) controller.abort(abortReason(pending));
+        if (!controller.signal.aborted) {
+          const reason = abortReason(pending);
+          if (value.aborted) controller.abort(reason);
+          else queueMicrotask(() => {
+            if (!controller.signal.aborted) controller.abort(reason);
+          });
+        }
       } else if (value.aborted && !controller.signal.aborted) {
         controller.abort(abortReason(value.reason));
       }
