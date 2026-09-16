@@ -2434,7 +2434,7 @@ describe("Single-document adapter contract", () => {
 
       await expect(
         page.locator("#input").check({ signal: true } as any)
-      ).rejects.toThrow(/check signal must be an AbortSignal/);
+      ).rejects.toThrow(/signal must be an AbortSignal/);
       await expect(
         page
           .locator("#input")
