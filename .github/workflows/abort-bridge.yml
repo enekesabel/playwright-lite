@@ -36,6 +36,7 @@ jobs:
           path.write_text(text.replace(old, new, 1))
           PY
       - run: pnpm prettier --write src/contract.test.ts
+      - run: pnpm build
       - run: pnpm test
       - name: Commit verified assertion fix
         run: |
