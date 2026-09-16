@@ -22,15 +22,19 @@ jobs:
       - run: npm install --global pnpm@11.24.0
       - run: pnpm install --frozen-lockfile
       - name: Apply workbench
-        run: python3 scripts/common-action-workbench.py 2>&1 | tee workbench.log
+        run: python3 scripts/common-action-workbench.py
+      - run: pnpm prettier --write src/page.ts src/locator.ts
+      - name: Typecheck
+        run: pnpm typecheck 2>&1 | tee typecheck.log
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
-          name: common-action-workbench-log
-          path: workbench.log
+          name: common-action-workbench
+          path: |
+            typecheck.log
+            src/page.ts
+            src/locator.ts
           if-no-files-found: error
-      - run: pnpm prettier --write src/page.ts src/locator.ts
-      - run: pnpm typecheck
       - run: pnpm test
       - name: Commit implementation
         run: |
