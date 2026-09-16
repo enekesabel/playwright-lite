@@ -13,20 +13,46 @@ def replace(path: str, old: str, new: str) -> None:
 locator = "src/locator.ts"
 page = "src/page.ts"
 
-for method in ("fill", "setInputFiles", "clear", "selectOption"):
-    replace(
-        locator,
-        f'rejectUnsupportedOptions("{method}", options, ["noWaitAfter", "timeout"]);',
-        f'rejectUnsupportedOptions("{method}", options, ["noWaitAfter", "signal", "timeout"]);',
-    )
-
+replace(
+    locator,
+    'rejectUnsupportedOptions("fill", options, ["noWaitAfter", "timeout"]);',
+    'rejectUnsupportedOptions("fill", options, ["noWaitAfter", "signal", "timeout"]);',
+)
+replace(
+    locator,
+    '''rejectUnsupportedOptions("setInputFiles", options, [
+      "noWaitAfter",
+      "timeout",
+    ]);''',
+    '''rejectUnsupportedOptions("setInputFiles", options, [
+      "noWaitAfter",
+      "signal",
+      "timeout",
+    ]);''',
+)
+replace(
+    locator,
+    'rejectUnsupportedOptions("clear", options, ["noWaitAfter", "timeout"]);',
+    'rejectUnsupportedOptions("clear", options, ["noWaitAfter", "signal", "timeout"]);',
+)
+replace(
+    locator,
+    '''rejectUnsupportedOptions("selectOption", options, [
+      "noWaitAfter",
+      "timeout",
+    ]);''',
+    '''rejectUnsupportedOptions("selectOption", options, [
+      "noWaitAfter",
+      "signal",
+      "timeout",
+    ]);''',
+)
 for method in ("selectText", "scrollIntoViewIfNeeded"):
     replace(
         locator,
         f'rejectUnsupportedOptions("{method}", options, ["timeout"]);',
         f'rejectUnsupportedOptions("{method}", options, ["signal", "timeout"]);',
     )
-
 replace(
     locator,
     'rejectUnsupportedOptions("dispatchEvent", options, ["timeout"]);',
@@ -50,7 +76,6 @@ replace(
 
   async selectOption(''',
 )
-
 replace(
     page,
     '''      options?.timeout,
