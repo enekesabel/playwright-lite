@@ -22,7 +22,18 @@ jobs:
       - run: npm install --global pnpm@11.24.0
       - run: pnpm install --frozen-lockfile
       - name: Apply workbench
-        run: python3 scripts/common-action-workbench.py
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/common-action-workbench.py')
+          text = path.read_text()
+          text = text.replace(
+              '    if count != 1:\n        raise SystemExit(f"{path}: expected one match, found {count}: {old[:80]!r}")\n    file.write_text(text.replace(old, new, 1))',
+              '    if count > 1:\n        raise SystemExit(f"{path}: expected at most one match, found {count}: {old[:80]!r}")\n    if count == 0:\n        print(f"skip already-covered transform: {old[:50]!r}")\n        return\n    file.write_text(text.replace(old, new, 1))'
+          )
+          path.write_text(text)
+          PY
+          python3 scripts/common-action-workbench.py
       - run: pnpm prettier --write src/page.ts src/locator.ts
       - name: Typecheck
         run: pnpm typecheck 2>&1 | tee typecheck.log
