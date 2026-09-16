@@ -62,7 +62,11 @@ const DEFAULT_QUERY_TIMEOUT = 0;
 const QUERY_RETRY_DELAY = 50;
 
 type ActionPoint = { x: number; y: number };
-type ActionDeadline = { timeout: number; expiresAt: number };
+type ActionDeadline = {
+  timeout: number;
+  expiresAt: number;
+  signal?: AbortSignal;
+};
 type ActionTarget = { element: Element; point: ActionPoint };
 
 export type SelectorQueryOptions = {
@@ -74,12 +78,13 @@ export type SelectorQueryOptions = {
 export type LocatorQueryOptions = Omit<SelectorQueryOptions, "strict">;
 
 type WaitForSelectorOptions = {
+  signal?: AbortSignal;
   state?: "attached" | "detached" | "visible" | "hidden";
   strict?: boolean;
   timeout?: number;
 };
 
-type PageActionOptions = { timeout?: number };
+type PageActionOptions = { signal?: AbortSignal; timeout?: number };
 type PageActionWithNoWaitAfterOptions = PageActionOptions & {
   noWaitAfter?: boolean;
 };
@@ -87,6 +92,9 @@ type PageStrictActionOptions = PageActionOptions & { strict?: boolean };
 type PageStrictActionWithNoWaitAfterOptions = PageStrictActionOptions &
   PageActionWithNoWaitAfterOptions;
 type PageTypeOptions = PageStrictActionWithNoWaitAfterOptions & {
+  delay?: number;
+};
+type PagePressOptions = PageStrictActionWithNoWaitAfterOptions & {
   delay?: number;
 };
 type PageSetInputFilesOptions = PageActionWithNoWaitAfterOptions & {
@@ -542,6 +550,7 @@ export class PageImpl {
       | "setChecked" = action
   ): Promise<void> {
     try {
+      this.attachActionSignal(deadline, options.signal);
       while (true) {
         this.assertActionDeadline(deadline, action);
         try {
@@ -688,8 +697,10 @@ export class PageImpl {
     label: string,
     timeout?: number,
     deadline = this.createActionDeadline(timeout),
-    strict = true
+    strict = true,
+    signal?: AbortSignal
   ) {
+    this.attachActionSignal(deadline, signal);
     const { element } = await this.retryActionability(
       selector,
       label,
@@ -731,19 +742,22 @@ export class PageImpl {
     label: string,
     timeout?: number,
     deadline = this.createActionDeadline(timeout),
-    strict = true
+    strict = true,
+    signal?: AbortSignal,
+    delay?: number
   ) {
+    this.attachActionSignal(deadline, signal);
     const element = await this.query(
       selector,
       label,
-      { timeout },
+      { signal, timeout },
       strict,
       (candidate) => candidate,
       deadline
     );
     this.assertActionDeadline(deadline, "press");
     this.focusElement(element);
-    await this.keyboard.press(key, {}, deadline);
+    await this.keyboard.press(key, { delay }, deadline);
   }
 
   async focusSelector(
@@ -816,8 +830,10 @@ export class PageImpl {
     label: string,
     timeout?: number,
     deadline = this.createActionDeadline(timeout),
-    strict = true
+    strict = true,
+    signal?: AbortSignal
   ): Promise<string[]> {
+    this.attachActionSignal(deadline, signal);
     const normalized =
       values === null ? [] : Array.isArray(values) ? values : [values];
     const options = normalized.map((value) =>
@@ -858,7 +874,11 @@ export class PageImpl {
           `select option: Timeout ${deadline.timeout}ms exceeded. ${lastError.message}`,
           { cause: lastError }
         );
-      await this.wait(Math.min(ACTION_RETRY_DELAY, remaining));
+      await this.waitWithinActionDeadline(
+        Math.min(ACTION_RETRY_DELAY, remaining),
+        deadline,
+        "select option"
+      );
     }
   }
 
@@ -866,8 +886,10 @@ export class PageImpl {
     selector: string,
     label: string,
     timeout?: number,
-    deadline = this.createActionDeadline(timeout)
+    deadline = this.createActionDeadline(timeout),
+    signal?: AbortSignal
   ): Promise<void> {
+    this.attachActionSignal(deadline, signal);
     const { element } = await this.retryActionability(
       selector,
       label,
@@ -886,8 +908,10 @@ export class PageImpl {
     selector: string,
     label: string,
     timeout?: number,
-    deadline = this.createActionDeadline(timeout)
+    deadline = this.createActionDeadline(timeout),
+    signal?: AbortSignal
   ): Promise<void> {
+    this.attachActionSignal(deadline, signal);
     const { element } = await this.retryActionability(
       selector,
       label,
@@ -903,6 +927,7 @@ export class PageImpl {
   async waitForState(
     selector: string,
     options: {
+      signal?: AbortSignal;
       state: "attached" | "detached" | "visible" | "hidden";
       timeout?: number;
     },
@@ -915,6 +940,7 @@ export class PageImpl {
     try {
       await this.waitForSelectorInRoot(this.document, selector, {
         state: options.state,
+        signal: options.signal,
         strict: true,
         timeout: options.timeout,
       });
@@ -941,10 +967,11 @@ export class PageImpl {
       throw new TypeError("setInputFiles strict must be a boolean");
     const payloads = inputFilePayloads(files);
     const deadline = this.createActionDeadline(options.timeout);
+    this.attachActionSignal(deadline, options.signal);
     await this.query(
       selector,
       selector,
-      { timeout: options.timeout },
+      { signal: options.signal, timeout: options.timeout },
       strict || options.strict === true,
       (element) => {
         this.assertActionDeadline(deadline, "setInputFiles");
@@ -1100,7 +1127,8 @@ export class PageImpl {
       `page.fill(${JSON.stringify(selector)})`,
       options?.timeout,
       undefined,
-      options?.strict === true
+      options?.strict === true,
+      options?.signal
     );
   }
 
@@ -1115,16 +1143,22 @@ export class PageImpl {
   async press(
     selector: string,
     key: string,
-    options?: PageStrictActionWithNoWaitAfterOptions
+    options?: PagePressOptions
   ): Promise<void> {
-    assertPageActionOptions("press", options, ["noWaitAfter", "strict"]);
+    assertPageActionOptions("press", options, [
+      "delay",
+      "noWaitAfter",
+      "strict",
+    ]);
     await this.pressSelector(
       selector,
       key,
       `page.press(${JSON.stringify(selector)})`,
       options?.timeout,
       undefined,
-      options?.strict === true
+      options?.strict === true,
+      options?.signal,
+      options?.delay
     );
   }
 
@@ -1141,10 +1175,11 @@ export class PageImpl {
       "strict",
     ]);
     const deadline = this.createActionDeadline(options?.timeout);
+    this.attachActionSignal(deadline, options?.signal);
     await this.query(
       selector,
       label,
-      { timeout: options?.timeout },
+      { signal: options?.signal, timeout: options?.timeout },
       strict,
       (element) => {
         const result = this.actionableInjected.focusNode(element, true);
@@ -1164,7 +1199,7 @@ export class PageImpl {
     await this.focusSelector(
       selector,
       `page.focus(${JSON.stringify(selector)})`,
-      { timeout: options?.timeout },
+      { signal: options?.signal, timeout: options?.timeout },
       options?.strict === true
     );
   }
@@ -1191,7 +1226,8 @@ export class PageImpl {
       `page.selectOption(${JSON.stringify(selector)})`,
       options?.timeout,
       undefined,
-      options?.strict === true
+      options?.strict === true,
+      options?.signal
     );
   }
 
@@ -1265,12 +1301,14 @@ export class PageImpl {
     label: string,
     timeout?: number,
     deadline = this.createActionDeadline(timeout),
-    strict = true
+    strict = true,
+    signal?: AbortSignal
   ): Promise<void> {
+    this.attachActionSignal(deadline, signal);
     await this.query(
       selector,
       label,
-      { timeout },
+      { signal, timeout },
       strict,
       (element) =>
         this.actionableInjected.dispatchEvent(element, type, eventInit),
@@ -1703,10 +1741,19 @@ export class PageImpl {
     };
   }
 
+  private attachActionSignal(
+    deadline: ActionDeadline,
+    signal: AbortSignal | undefined
+  ) {
+    deadline.signal = signal;
+    if (signal?.aborted) throw actionAborted(signal, false);
+  }
+
   private assertActionDeadline(
     deadline: ActionDeadline | undefined,
     actionName: string
   ) {
+    if (deadline?.signal?.aborted) throw actionAborted(deadline.signal, true);
     if (deadline && Date.now() >= deadline.expiresAt)
       throw new AdapterTimeoutError(
         `${actionName}: Timeout ${deadline.timeout}ms exceeded.`
@@ -1725,7 +1772,13 @@ export class PageImpl {
     this.assertActionDeadline(deadline, actionName);
     if (!durationMs || durationMs <= 0) return;
     const remaining = deadline ? deadline.expiresAt - Date.now() : durationMs;
-    await this.wait(Math.min(durationMs, remaining));
+    const completed = await waitForExpectationRetry(
+      this.window,
+      Math.min(durationMs, remaining),
+      deadline?.signal
+    );
+    if (!completed && deadline?.signal)
+      throw actionAborted(deadline.signal, true);
     this.assertActionDeadline(deadline, actionName);
   }
 
@@ -2145,23 +2198,30 @@ export class PageImpl {
     deadline: ActionDeadline | undefined,
     timeoutError: () => Error
   ): Promise<T> {
-    if (!deadline || deadline.expiresAt === Infinity) return operation;
-    if (Date.now() >= deadline.expiresAt) throw timeoutError();
+    this.assertActionDeadline(deadline, "action");
+    if (!deadline) return operation;
 
     let timeoutHandle: number | undefined;
+    let onAbort: (() => void) | undefined;
     try {
       return await new Promise<T>((resolve, reject) => {
         // Pinned stability checks wait for requestAnimationFrame. They only
         // inspect an element, so ending our await cannot cause a late input
         // action; the pinned primitive exposes no cancellation handle.
-        timeoutHandle = this.window.setTimeout(
-          () => reject(timeoutError()),
-          Math.max(0, deadline.expiresAt - Date.now())
-        );
+        if (deadline.expiresAt !== Infinity)
+          timeoutHandle = this.window.setTimeout(
+            () => reject(timeoutError()),
+            Math.max(0, deadline.expiresAt - Date.now())
+          );
+        if (deadline.signal) {
+          onAbort = () => reject(actionAborted(deadline.signal!, true));
+          deadline.signal.addEventListener("abort", onAbort, { once: true });
+        }
         operation.then(resolve, reject);
       });
     } finally {
       if (timeoutHandle !== undefined) this.window.clearTimeout(timeoutHandle);
+      if (onAbort) deadline.signal?.removeEventListener("abort", onAbort);
     }
   }
 
@@ -2291,7 +2351,11 @@ export class PageImpl {
           if (log.length > 60) log.splice(0, log.length - 60);
         }
         if (remaining <= 0) throw timeoutError();
-        await this.wait(Math.min(delay, remaining));
+        await this.waitWithinActionDeadline(
+          Math.min(delay, remaining),
+          deadline,
+          actionName
+        );
       }
     }
   }
@@ -3489,6 +3553,7 @@ function assertPageActionOptions(
   const unsupported = Object.keys(options).filter(
     (key) =>
       options[key] !== undefined &&
+      key !== "signal" &&
       key !== "timeout" &&
       !supported.includes(key)
   );
@@ -3497,6 +3562,8 @@ function assertPageActionOptions(
       `${method}(): unsupported options: ${unsupported.join(", ")}. ` +
         `Unsupported Playwright option(s) are not supported by the single-document adapter.`
     );
+  if (options.signal !== undefined && !(options.signal instanceof AbortSignal))
+    throw new TypeError(`${method} signal must be an AbortSignal`);
   if (options.timeout !== undefined)
     validateTimeout(options.timeout, `${method} timeout`);
   if (supported.includes("noWaitAfter"))
@@ -3524,6 +3591,7 @@ function assertPointerActionOptions(
   options: PointerActionOptions | undefined
 ): PointerActionOptions {
   const supported = [
+    "signal",
     "noWaitAfter",
     "position",
     "trial",
@@ -3639,12 +3707,15 @@ function assertWaitForSelectorOptions(
 ) {
   for (const key of Object.keys(options)) {
     if (
+      key !== "signal" &&
       key !== "state" &&
       key !== "timeout" &&
       !(allowsStrict && key === "strict")
     )
       throw new Error(`Unsupported waitForSelector option: ${key}`);
   }
+  if (options.signal !== undefined && !(options.signal instanceof AbortSignal))
+    throw new TypeError("waitForSelector signal must be an AbortSignal");
   if (!allowsStrict && "strict" in options)
     throw new Error("ElementHandle waitForSelector does not support strict");
   if (
@@ -3703,6 +3774,18 @@ function presentOriginalXPath(error: unknown, selector: string): Error {
     .replaceAll(selector, originalXPath);
   if (rewritten === source.message) return source;
   return new Error(rewritten, { cause: source });
+}
+
+function actionAborted(signal: AbortSignal, inFlight: boolean): Error {
+  const reason = abortReason(signal);
+  const error = new Error(
+    inFlight
+      ? `${reason}\nCall log:\n  - operation was aborted: ${reason}`
+      : "The operation was aborted",
+    { cause: signal.reason }
+  );
+  error.name = "AbortError";
+  return error;
 }
 
 function queryAborted(signal: AbortSignal): Error {

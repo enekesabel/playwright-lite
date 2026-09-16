@@ -51,7 +51,7 @@ export type ByRoleOptions = {
   description?: string | RegExp;
 };
 
-type LocatorActionOptions = { timeout?: number };
+type LocatorActionOptions = { signal?: AbortSignal; timeout?: number };
 type LocatorActionWithNoWaitAfterOptions = LocatorActionOptions & {
   noWaitAfter?: boolean;
 };
@@ -442,7 +442,10 @@ export class LocatorImpl {
       this.selector,
       value,
       this.label,
-      options?.timeout
+      options?.timeout,
+      undefined,
+      true,
+      options?.signal
     );
   }
 
@@ -462,13 +465,22 @@ export class LocatorImpl {
     );
   }
 
-  async press(key: string, options?: LocatorActionWithNoWaitAfterOptions) {
-    rejectUnsupportedOptions("press", options, ["noWaitAfter", "timeout"]);
+  async press(key: string, options?: LocatorTypeOptions) {
+    rejectUnsupportedOptions("press", options, [
+      "delay",
+      "noWaitAfter",
+      "signal",
+      "timeout",
+    ]);
     await this.ownerPage.pressSelector(
       this.selector,
       key,
       this.label,
-      options?.timeout
+      options?.timeout,
+      undefined,
+      true,
+      options?.signal,
+      options?.delay
     );
   }
 
@@ -486,7 +498,10 @@ export class LocatorImpl {
       this.selector,
       "",
       this.label,
-      options?.timeout
+      options?.timeout,
+      undefined,
+      true,
+      options?.signal
     );
   }
 
@@ -568,7 +583,10 @@ export class LocatorImpl {
       this.selector,
       values,
       this.label,
-      options?.timeout
+      options?.timeout,
+      undefined,
+      true,
+      options?.signal
     );
   }
 
@@ -577,7 +595,9 @@ export class LocatorImpl {
     await this.ownerPage.selectText(
       this.selector,
       this.label,
-      options?.timeout
+      options?.timeout,
+      undefined,
+      options?.signal
     );
   }
 
@@ -586,7 +606,9 @@ export class LocatorImpl {
     await this.ownerPage.scrollLocatorIntoView(
       this.selector,
       this.label,
-      options?.timeout
+      options?.timeout,
+      undefined,
+      options?.signal
     );
   }
 
@@ -594,6 +616,7 @@ export class LocatorImpl {
     rejectUnsupportedOptions("type", options, [
       "delay",
       "noWaitAfter",
+      "signal",
       "timeout",
     ]);
     await this.ownerPage.type(this.selector, text, options, this.label, true);
@@ -608,15 +631,20 @@ export class LocatorImpl {
 
   async waitFor(
     options: {
+      signal?: AbortSignal;
       state?: "attached" | "detached" | "visible" | "hidden";
       timeout?: number;
     } = {}
   ) {
     const state = options.state ?? "visible";
-    rejectUnsupportedOptions("waitFor", options, ["state", "timeout"]);
+    rejectUnsupportedOptions("waitFor", options, [
+      "signal",
+      "state",
+      "timeout",
+    ]);
     await this.ownerPage.waitForState(
       this.selector,
-      { state, timeout: options.timeout },
+      { signal: options.signal, state, timeout: options.timeout },
       this.label
     );
   }
@@ -705,6 +733,8 @@ function rejectUnsupportedOptions(
       `${method}(): unsupported Playwright option(s): ${unsupported.join(", ")}.`
     );
   }
+  if (options.signal !== undefined && !(options.signal instanceof AbortSignal))
+    throw new TypeError(`${method} signal must be an AbortSignal`);
   if (supported.includes("noWaitAfter"))
     validateNoWaitAfter(method, options.noWaitAfter);
 }
