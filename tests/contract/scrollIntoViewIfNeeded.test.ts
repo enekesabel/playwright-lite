@@ -13,6 +13,23 @@ describe("Locator.scrollIntoViewIfNeeded", () => {
     expect(scrollport.scrollTop).toBeGreaterThan(0);
   });
 
+  // The pinned scroll fails with `error:notvisible` only for an element the
+  // document does not lay out. A rendered box that cannot be seen is scrolled.
+  it("scrolls elements without a visible box but waits out an unrendered one", async () => {
+    document.body.innerHTML =
+      '<div id=invisible style="visibility:hidden">invisible</div>' +
+      '<div id=empty style="height:0">empty</div>' +
+      '<div id=unrendered style="display:none">unrendered</div>';
+    const page = createPage();
+
+    await page.locator("#invisible").scrollIntoViewIfNeeded();
+    await page.locator("#empty").scrollIntoViewIfNeeded();
+
+    await expect(
+      page.locator("#unrendered").scrollIntoViewIfNeeded({ timeout: 250 })
+    ).rejects.toThrow(/scroll into view: Timeout 250ms exceeded/);
+  });
+
   it("uses the native scrollIntoViewIfNeeded primitive when available", async () => {
     document.body.innerHTML = `<button id=button>Scroll</button>`;
     const page = createPage();

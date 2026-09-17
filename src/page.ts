@@ -762,7 +762,7 @@ export class PageImpl {
   }
 
   async pressSelector(
-    selector: string,
+    selector: string | Element,
     key: string,
     label: string,
     timeout?: number,
@@ -772,14 +772,17 @@ export class PageImpl {
     delay?: number
   ) {
     this.attachActionSignal(deadline, signal);
-    const element = await this.query(
-      selector,
-      label,
-      { signal, timeout },
-      strict,
-      (candidate) => candidate,
-      deadline
-    );
+    const element =
+      typeof selector === "string"
+        ? await this.query(
+            selector,
+            label,
+            { signal, timeout },
+            strict,
+            (candidate) => candidate,
+            deadline
+          )
+        : this.resolvePointerElement(selector, label, strict);
     this.assertActionDeadline(deadline, "press");
     this.focusElement(element);
     await this.keyboard.press(key, { delay }, deadline);
@@ -917,7 +920,7 @@ export class PageImpl {
   }
 
   async selectText(
-    selector: string,
+    selector: string | Element,
     label: string,
     timeout?: number,
     deadline = this.createActionDeadline(timeout),
@@ -939,7 +942,7 @@ export class PageImpl {
   }
 
   async scrollLocatorIntoView(
-    selector: string,
+    selector: string | Element,
     label: string,
     timeout?: number,
     deadline = this.createActionDeadline(timeout),
@@ -952,7 +955,11 @@ export class PageImpl {
       "scroll into view",
       ["stable"],
       false,
-      deadline
+      deadline,
+      undefined,
+      // Pinned dom.ts retries this action with a call log. Default options
+      // select that cadence and log without changing what is scrolled.
+      {}
     );
     this.assertActionDeadline(deadline, "scroll into view");
     this.scrollIntoViewIfNeeded(element);
@@ -2388,10 +2395,13 @@ export class PageImpl {
         if (!pointerOptions?.force)
           await this.ensureActionable(element, states, deadline);
         if (Date.now() >= deadline.expiresAt) throwTimeout();
-        if (
-          actionName !== "scroll into view" &&
-          pointerOptions?.scroll !== "none"
-        ) {
+        if (actionName === "scroll into view") {
+          // Pinned crPage.scrollRectIntoViewIfNeeded reports `error:notvisible`
+          // for a node without a layout object, and the action retries on it.
+          // An unrendered element must not count as scrolled into view.
+          if (!this.hasLayoutBox(element))
+            throw new Error("Element is not visible");
+        } else if (pointerOptions?.scroll !== "none") {
           if (!pointerOptions || position)
             this.scrollIntoView(element, position);
           else if (retry % 4 === 0) this.scrollIntoViewIfNeeded(element);
@@ -2458,6 +2468,19 @@ export class PageImpl {
         }
       }
     }
+  }
+
+  /**
+   * Whether the element is rendered at all. `display: contents` has no box of
+   * its own, so its contents answer for it, exactly as the scroll below does.
+   */
+  private hasLayoutBox(element: Element): boolean {
+    if (element.getClientRects().length > 0) return true;
+    if (this.window.getComputedStyle(element).display !== "contents")
+      return false;
+    const range = this.document.createRange();
+    range.selectNodeContents(element);
+    return range.getClientRects().length > 0;
   }
 
   private scrollIntoView(element: Element, position?: ActionPoint) {

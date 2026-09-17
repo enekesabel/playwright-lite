@@ -33,6 +33,32 @@ export function validateSignal(name: string, value: unknown): void {
   throw new TypeError(`${name} signal must be an AbortSignal`);
 }
 
+/**
+ * Rejects options the adapter does not implement, shared by the `Locator` and
+ * `ElementHandle` forms of a member so both reject the same option with the
+ * same message. Returns the normalized `delay`, unwrapped like the pointer
+ * options.
+ */
+export function rejectUnsupportedOptions(
+  method: string,
+  options: Record<string, unknown> | undefined,
+  supported: string[] = []
+): number | undefined {
+  if (!options) return undefined;
+  const unsupported = Object.keys(options).filter(
+    (key) => options[key] !== undefined && !supported.includes(key)
+  );
+  if (unsupported.length > 0) {
+    throw new Error(
+      `${method}(): unsupported Playwright option(s): ${unsupported.join(", ")}.`
+    );
+  }
+  validateSignal(method, options.signal);
+  if (supported.includes("noWaitAfter"))
+    validateNoWaitAfter(method, options.noWaitAfter);
+  return supported.includes("delay") ? validateDelay(options.delay) : undefined;
+}
+
 export function validateNoWaitAfter(method: string, value: unknown): void {
   // Only click and press retain this field in the pinned protocol. Other
   // actions drop the deprecated no-op option, without validating its value.

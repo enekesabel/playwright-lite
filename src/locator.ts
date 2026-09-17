@@ -1,10 +1,6 @@
 import type { Locator } from "@playwright/test";
 import { assertMaxArguments } from "./evaluation";
-import {
-  validateDelay,
-  validateNoWaitAfter,
-  validateSignal,
-} from "./protocolValidation";
+import { rejectUnsupportedOptions } from "./protocolValidation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import type {
   AriaSnapshotOptions,
@@ -787,27 +783,6 @@ export function resolveLocatorElements(value: unknown): Element[] {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
-
-/** Returns the normalized `delay`, unwrapped like the pointer options. */
-function rejectUnsupportedOptions(
-  method: string,
-  options: Record<string, unknown> | undefined,
-  supported: string[] = []
-): number | undefined {
-  if (!options) return undefined;
-  const unsupported = Object.keys(options).filter(
-    (key) => options[key] !== undefined && !supported.includes(key)
-  );
-  if (unsupported.length > 0) {
-    throw new Error(
-      `${method}(): unsupported Playwright option(s): ${unsupported.join(", ")}.`
-    );
-  }
-  validateSignal(method, options.signal);
-  if (supported.includes("noWaitAfter"))
-    validateNoWaitAfter(method, options.noWaitAfter);
-  return supported.includes("delay") ? validateDelay(options.delay) : undefined;
-}
 
 function cssObjectToString(style: Record<string, string | number>): string {
   return Object.entries(style)

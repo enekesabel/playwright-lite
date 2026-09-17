@@ -91,6 +91,36 @@
       "evidence": "Pressing h into an empty input produces the value h."
     },
     {
+      "id": "elementhandle-scroll-into-view.spec.ts > should scroll display:contents into view",
+      "method": "ElementHandle.scrollIntoViewIfNeeded",
+      "evidence": "The handled display:contents element has no box of its own, yet the asserted container scrollTop lands within 1px of 350, so its contents were really scrolled into view."
+    },
+    {
+      "id": "elementhandle-scroll-into-view.spec.ts > should throw for detached element",
+      "method": "ElementHandle.scrollIntoViewIfNeeded",
+      "evidence": "Scrolling the handled node after it was removed rejects with Element is not attached to the DOM instead of resolving against a replacement node."
+    },
+    {
+      "id": "elementhandle-scroll-into-view.spec.ts > should timeout waiting for visible",
+      "method": "ElementHandle.scrollIntoViewIfNeeded",
+      "evidence": "A display:none handle rejects with the scroll into view timeout, and the asserted message reports element is not visible and retrying scroll into view action rather than resolving silently."
+    },
+    {
+      "id": "elementhandle-scroll-into-view.spec.ts > should wait for display:none to become visible",
+      "method": "ElementHandle.scrollIntoViewIfNeeded",
+      "evidence": "The call is asserted still pending after a full second while the handled element is display:none, and resolves only once the test makes it visible."
+    },
+    {
+      "id": "elementhandle-scroll-into-view.spec.ts > should wait for element to stop moving",
+      "method": "ElementHandle.scrollIntoViewIfNeeded",
+      "evidence": "The call is asserted pending while the handled element animates and resolves only after the animation is removed, so the pinned stability wait runs before the scroll."
+    },
+    {
+      "id": "elementhandle-scroll-into-view.spec.ts > should wait for nested display:none to become visible",
+      "method": "ElementHandle.scrollIntoViewIfNeeded",
+      "evidence": "Same waiting proof through an unrendered ancestor: the call is asserted pending while the parent span is display:none and resolves only after that parent becomes visible."
+    },
+    {
       "id": "elementhandle-type.spec.ts > should not modify selection when focused",
       "method": "Page.type",
       "evidence": "With the input focused and a selection set, type replaces the selected text in place, producing heworldo."

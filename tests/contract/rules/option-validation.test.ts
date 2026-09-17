@@ -92,6 +92,12 @@ describe("option-validation", () => {
       (page) => page.locator("#button").click({ unexpected: true } as any),
       /unsupported Playwright option\(s\): unexpected/,
     ],
+    [
+      "elementHandle.selectText",
+      async (page) =>
+        (await page.$("#input"))!.selectText({ force: true } as any),
+      /selectText\(\): unsupported Playwright option\(s\): force/,
+    ],
   ];
 
   it.each(unsupportedActions)(

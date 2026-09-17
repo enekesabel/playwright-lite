@@ -185,6 +185,29 @@ describe("ElementHandle", () => {
     expect(changes).toBe(3);
   });
 
+  it("presses a key into the fixed element", async () => {
+    document.body.innerHTML = '<input value="hello"><input value="other">';
+    const page = createPage();
+    const handle = (await page.$("input"))!;
+
+    await handle.press("w");
+
+    expect(document.querySelectorAll("input")[0].value).toBe("whello");
+    expect(document.querySelectorAll("input")[1].value).toBe("other");
+  });
+
+  it("selects the text of the fixed element", async () => {
+    document.body.innerHTML = '<input value="hello">';
+    const page = createPage();
+    const handle = (await page.$("input"))!;
+
+    await handle.selectText();
+
+    const input = document.querySelector("input")!;
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(5);
+  });
+
   it.each(["check", "uncheck", "setChecked"] as const)(
     "reports the invoked checked method: %s",
     async (method) => {

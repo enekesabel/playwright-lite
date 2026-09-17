@@ -55,7 +55,7 @@ const outOfScope = (limitations: string): CompatibilityEntry => ({
  * browser runtime.
  */
 export const elementHandleLimitations =
-  "Returned `ElementHandle` objects do not implement `contentFrame()`, `dispatchEvent()`, `fill()`, `focus()`, `ownerFrame()`, `press()`, `screenshot()`, `scrollIntoViewIfNeeded()`, `selectOption()`, `selectText()`, `setInputFiles()`, `tap()`, `type()`, `evaluateHandle()`, `jsonValue()`, `getProperties()`, `getProperty()`, or `[Symbol.asyncDispose]()`. Pointer actions `click()`, `dblclick()`, `hover()`, `check()`, `uncheck()`, and `setChecked()` are implemented, but `signal` is unsupported; `click()` and `dblclick()` also reject `steps`, and `click()` does not wait for navigation. Their `$()` ignores `strict`; `inputValue()` ignores `timeout`; `waitForElementState()` rejects `signal`; `waitForSelector()` rejects `signal` and `strict`; `evaluate()` rejects `exposeFunctions: true`.";
+  "Returned `ElementHandle` objects do not implement `contentFrame()`, `dispatchEvent()`, `fill()`, `focus()`, `ownerFrame()`, `screenshot()`, `selectOption()`, `setInputFiles()`, `tap()`, `type()`, `evaluateHandle()`, `jsonValue()`, `getProperties()`, `getProperty()`, or `[Symbol.asyncDispose]()`. Pointer actions `click()`, `dblclick()`, `hover()`, `check()`, `uncheck()`, and `setChecked()` are implemented, but `signal` is unsupported; `click()` and `dblclick()` also reject `steps`, and `click()` does not wait for navigation. Their `$()` ignores `strict`; `inputValue()` ignores `timeout`; `waitForElementState()` rejects `signal`; `waitForSelector()` rejects `signal` and `strict`; `evaluate()` rejects `exposeFunctions: true`.";
 
 export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),

@@ -1,5 +1,6 @@
 import { assertEvaluationOptions, assertMaxArguments } from "./evaluation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
+import { rejectUnsupportedOptions } from "./protocolValidation";
 import type { PageImpl } from "./page";
 import type { ElementHandle } from "@playwright/test";
 
@@ -81,6 +82,49 @@ export class AdapterElementHandle {
       checked,
       "elementHandle.setChecked",
       options
+    );
+  }
+
+  async press(
+    key: string,
+    options?: Parameters<ElementHandle["press"]>[1]
+  ): Promise<void> {
+    const delay = rejectUnsupportedOptions("press", options, [
+      "delay",
+      "noWaitAfter",
+      "timeout",
+    ]);
+    await this.ownerPage.pressSelector(
+      this.requireElement(),
+      key,
+      "elementHandle.press",
+      options?.timeout,
+      undefined,
+      true,
+      undefined,
+      delay
+    );
+  }
+
+  async selectText(
+    options?: Parameters<ElementHandle["selectText"]>[0]
+  ): Promise<void> {
+    rejectUnsupportedOptions("selectText", options, ["timeout"]);
+    await this.ownerPage.selectText(
+      this.requireElement(),
+      "elementHandle.selectText",
+      options?.timeout
+    );
+  }
+
+  async scrollIntoViewIfNeeded(
+    options?: Parameters<ElementHandle["scrollIntoViewIfNeeded"]>[0]
+  ): Promise<void> {
+    rejectUnsupportedOptions("scrollIntoViewIfNeeded", options, ["timeout"]);
+    await this.ownerPage.scrollLocatorIntoView(
+      this.requireElement(),
+      "elementHandle.scrollIntoViewIfNeeded",
+      options?.timeout
     );
   }
 
