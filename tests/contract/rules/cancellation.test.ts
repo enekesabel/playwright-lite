@@ -70,4 +70,63 @@ describe("cancellation", () => {
       }
     }
   });
+
+  it("aborts every query with a prefixed AbortError", async () => {
+    document.body.innerHTML = "<select id=select><option>one</option></select>";
+    const page = createPage();
+    const locator = () => page.locator("#never");
+    type Options = { signal: AbortSignal; timeout: number };
+    const queries: [string, (options: Options) => Promise<unknown>][] = [
+      ["page.getAttribute", (o) => page.getAttribute("#never", "name", o)],
+      ["page.innerHTML", (o) => page.innerHTML("#never", o)],
+      ["page.innerText", (o) => page.innerText("#never", o)],
+      ["page.inputValue", (o) => page.inputValue("#never", o)],
+      ["page.isChecked", (o) => page.isChecked("#never", o)],
+      ["page.isDisabled", (o) => page.isDisabled("#never", o)],
+      ["page.isEditable", (o) => page.isEditable("#never", o)],
+      ["page.isEnabled", (o) => page.isEnabled("#never", o)],
+      ["page.textContent", (o) => page.textContent("#never", o)],
+      ["locator.ariaSnapshot", (o) => locator().ariaSnapshot(o)],
+      ["locator.blur", (o) => locator().blur(o)],
+      ["locator.boundingBox", (o) => locator().boundingBox(o)],
+      [
+        "locator.evaluate",
+        (o) =>
+          locator().evaluate((element) => element.textContent, undefined, o),
+      ],
+      ["locator.getAttribute", (o) => locator().getAttribute("name", o)],
+      ["locator.innerHTML", (o) => locator().innerHTML(o)],
+      ["locator.innerText", (o) => locator().innerText(o)],
+      ["locator.inputValue", (o) => locator().inputValue(o)],
+      ["locator.isChecked", (o) => locator().isChecked(o)],
+      ["locator.isDisabled", (o) => locator().isDisabled(o)],
+      ["locator.isEditable", (o) => locator().isEditable(o)],
+      ["locator.isEnabled", (o) => locator().isEnabled(o)],
+      ["locator.textContent", (o) => locator().textContent(o)],
+    ];
+
+    for (const [apiName, run] of queries) {
+      for (const inFlight of [false, true]) {
+        const reason = new Error("stop");
+        const controller = new AbortController();
+        if (inFlight) window.setTimeout(() => controller.abort(reason), 10);
+        else controller.abort(reason);
+        const error = await run({
+          signal: controller.signal,
+          timeout: 0,
+        }).then(
+          () => undefined,
+          (error) => error
+        );
+        const context = `${apiName} ${inFlight ? "in-flight" : "pre-aborted"}`;
+        expect(error?.name, context).toBe("AbortError");
+        expect(error.message, context).toMatch(
+          inFlight
+            ? new RegExp(`^${apiName}: stop\\nCall log:`)
+            : `${apiName}: The operation was aborted`
+        );
+        expect(error.cause, context).toBe(reason);
+      }
+    }
+  });
 });

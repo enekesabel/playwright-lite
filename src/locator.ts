@@ -297,28 +297,32 @@ export class LocatorImpl {
     name: string,
     options?: LocatorQueryOptions
   ): Promise<string | null> {
-    return this.ownerPage.locatorGetAttribute(
-      this.selector,
-      this.label,
-      name,
-      options
+    return withAbortPrefix("locator.getAttribute", () =>
+      this.ownerPage.locatorGetAttribute(
+        this.selector,
+        this.label,
+        name,
+        options
+      )
     );
   }
 
   async textContent(options?: LocatorQueryOptions): Promise<string | null> {
-    return this.ownerPage.locatorTextContent(
-      this.selector,
-      this.label,
-      options
+    return withAbortPrefix("locator.textContent", () =>
+      this.ownerPage.locatorTextContent(this.selector, this.label, options)
     );
   }
 
   async innerText(options?: LocatorQueryOptions): Promise<string> {
-    return this.ownerPage.locatorInnerText(this.selector, this.label, options);
+    return withAbortPrefix("locator.innerText", () =>
+      this.ownerPage.locatorInnerText(this.selector, this.label, options)
+    );
   }
 
   async innerHTML(options?: LocatorQueryOptions): Promise<string> {
-    return this.ownerPage.locatorInnerHTML(this.selector, this.label, options);
+    return withAbortPrefix("locator.innerHTML", () =>
+      this.ownerPage.locatorInnerHTML(this.selector, this.label, options)
+    );
   }
 
   async allInnerTexts(): Promise<string[]> {
@@ -330,25 +334,42 @@ export class LocatorImpl {
   }
 
   async inputValue(options?: LocatorQueryOptions): Promise<string> {
-    return this.ownerPage.locatorInputValue(this.selector, this.label, options);
+    return withAbortPrefix("locator.inputValue", () =>
+      this.ownerPage.locatorInputValue(this.selector, this.label, options)
+    );
   }
 
   async isEnabled(options?: LocatorQueryOptions): Promise<boolean> {
-    return this.ownerPage.locatorIsEnabled(this.selector, this.label, options);
+    return withAbortPrefix("locator.isEnabled", () =>
+      this.ownerPage.locatorIsEnabled(this.selector, this.label, options)
+    );
   }
 
   async isDisabled(options?: LocatorQueryOptions): Promise<boolean> {
-    return this.ownerPage.locatorIsDisabled(this.selector, this.label, options);
+    return withAbortPrefix("locator.isDisabled", () =>
+      this.ownerPage.locatorIsDisabled(this.selector, this.label, options)
+    );
   }
 
   async isChecked(options?: LocatorQueryOptions): Promise<boolean> {
-    return this.ownerPage.locatorIsChecked(this.selector, this.label, options);
+    return withAbortPrefix("locator.isChecked", () =>
+      this.ownerPage.locatorIsChecked(this.selector, this.label, options)
+    );
   }
 
   async isEditable(options?: LocatorQueryOptions): Promise<boolean> {
-    return this.ownerPage.locatorIsEditable(this.selector, this.label, options);
+    return withAbortPrefix("locator.isEditable", () =>
+      this.ownerPage.locatorIsEditable(this.selector, this.label, options)
+    );
   }
 
+  /**
+   * Pinned 26a9e47 `locator.isVisible`/`locator.isHidden` do not accept
+   * `signal` — they never wait, so there is nothing to abort. This package's
+   * shared {@link LocatorQueryOptions} type happens to admit `signal`, but no
+   * `withAbortPrefix` wrap is added here: doing so would be new behavior
+   * beyond the pinned public API surface.
+   */
   async isVisible(options?: LocatorQueryOptions): Promise<boolean> {
     return this.ownerPage.locatorIsVisible(this.selector, this.label, options);
   }
@@ -358,10 +379,8 @@ export class LocatorImpl {
   }
 
   async boundingBox(options?: LocatorQueryOptions) {
-    return this.ownerPage.locatorBoundingBox(
-      this.selector,
-      this.label,
-      options
+    return withAbortPrefix("locator.boundingBox", () =>
+      this.ownerPage.locatorBoundingBox(this.selector, this.label, options)
     );
   }
 
@@ -373,10 +392,8 @@ export class LocatorImpl {
    * not add frame traversal or browser-process behavior.
    */
   async ariaSnapshot(options: AriaSnapshotOptions = {}): Promise<string> {
-    return this.ownerPage.locatorAriaSnapshot(
-      this.selector,
-      this.label,
-      options
+    return withAbortPrefix("locator.ariaSnapshot", () =>
+      this.ownerPage.locatorAriaSnapshot(this.selector, this.label, options)
     );
   }
 
@@ -413,12 +430,14 @@ export class LocatorImpl {
     options?: LocatorQueryOptions & EvaluationOptions
   ): Promise<R> {
     assertMaxArguments(arguments.length, 3);
-    return this.ownerPage.locatorEvaluate(
-      this.selector,
-      this.label,
-      pageFunction,
-      arg,
-      options
+    return withAbortPrefix("locator.evaluate", () =>
+      this.ownerPage.locatorEvaluate(
+        this.selector,
+        this.label,
+        pageFunction,
+        arg,
+        options
+      )
     );
   }
 
@@ -505,7 +524,9 @@ export class LocatorImpl {
 
   async blur(options?: LocatorQueryOptions) {
     rejectUnsupportedOptions("blur", options, ["signal", "timeout"]);
-    await this.ownerPage.blurSelector(this.selector, this.label, options);
+    await withAbortPrefix("locator.blur", () =>
+      this.ownerPage.blurSelector(this.selector, this.label, options)
+    );
   }
 
   async clear(options?: LocatorActionWithNoWaitAfterOptions) {

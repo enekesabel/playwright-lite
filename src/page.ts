@@ -308,12 +308,14 @@ export class PageImpl {
     name: string,
     options?: SelectorQueryOptions
   ): Promise<string | null> {
-    return this.query(
-      selector,
-      `page.getAttribute(${JSON.stringify(selector)}, ${JSON.stringify(name)})`,
-      options,
-      false,
-      (element) => element.getAttribute(name)
+    return withAbortPrefix("page.getAttribute", () =>
+      this.query(
+        selector,
+        `page.getAttribute(${JSON.stringify(selector)}, ${JSON.stringify(name)})`,
+        options,
+        false,
+        (element) => element.getAttribute(name)
+      )
     );
   }
 
@@ -321,12 +323,14 @@ export class PageImpl {
     selector: string,
     options?: SelectorQueryOptions
   ): Promise<string | null> {
-    return this.query(
-      selector,
-      `page.textContent(${JSON.stringify(selector)})`,
-      options,
-      false,
-      (element) => element.textContent
+    return withAbortPrefix("page.textContent", () =>
+      this.query(
+        selector,
+        `page.textContent(${JSON.stringify(selector)})`,
+        options,
+        false,
+        (element) => element.textContent
+      )
     );
   }
 
@@ -334,12 +338,14 @@ export class PageImpl {
     selector: string,
     options?: SelectorQueryOptions
   ): Promise<string> {
-    return this.query(
-      selector,
-      `page.inputValue(${JSON.stringify(selector)})`,
-      options,
-      false,
-      (element) => this.inputValueForElement(element)
+    return withAbortPrefix("page.inputValue", () =>
+      this.query(
+        selector,
+        `page.inputValue(${JSON.stringify(selector)})`,
+        options,
+        false,
+        (element) => this.inputValueForElement(element)
+      )
     );
   }
 
@@ -347,21 +353,27 @@ export class PageImpl {
     selector: string,
     options?: SelectorQueryOptions
   ): Promise<boolean> {
-    return this.queryState(selector, "enabled", options, false);
+    return withAbortPrefix("page.isEnabled", () =>
+      this.queryState(selector, "enabled", options, false)
+    );
   }
 
   async isDisabled(
     selector: string,
     options?: SelectorQueryOptions
   ): Promise<boolean> {
-    return this.queryState(selector, "disabled", options, false);
+    return withAbortPrefix("page.isDisabled", () =>
+      this.queryState(selector, "disabled", options, false)
+    );
   }
 
   async isChecked(
     selector: string,
     options?: SelectorQueryOptions
   ): Promise<boolean> {
-    return this.queryState(selector, "checked", options, false);
+    return withAbortPrefix("page.isChecked", () =>
+      this.queryState(selector, "checked", options, false)
+    );
   }
 
   async $(
@@ -1063,16 +1075,18 @@ export class PageImpl {
     selector: string,
     options?: SelectorQueryOptions
   ): Promise<string> {
-    return this.query(
-      selector,
-      `page.innerText(${JSON.stringify(selector)})`,
-      options,
-      false,
-      (element) => {
-        if (element.namespaceURI !== "http://www.w3.org/1999/xhtml")
-          throw new Error("Node is not an HTMLElement");
-        return (element as HTMLElement).innerText;
-      }
+    return withAbortPrefix("page.innerText", () =>
+      this.query(
+        selector,
+        `page.innerText(${JSON.stringify(selector)})`,
+        options,
+        false,
+        (element) => {
+          if (element.namespaceURI !== "http://www.w3.org/1999/xhtml")
+            throw new Error("Node is not an HTMLElement");
+          return (element as HTMLElement).innerText;
+        }
+      )
     );
   }
 
@@ -1080,12 +1094,14 @@ export class PageImpl {
     selector: string,
     options?: SelectorQueryOptions
   ): Promise<string> {
-    return this.query(
-      selector,
-      `page.innerHTML(${JSON.stringify(selector)})`,
-      options,
-      false,
-      (element) => element.innerHTML
+    return withAbortPrefix("page.innerHTML", () =>
+      this.query(
+        selector,
+        `page.innerHTML(${JSON.stringify(selector)})`,
+        options,
+        false,
+        (element) => element.innerHTML
+      )
     );
   }
 
@@ -1093,9 +1109,18 @@ export class PageImpl {
     selector: string,
     options?: SelectorQueryOptions
   ): Promise<boolean> {
-    return this.queryState(selector, "editable", options, false);
+    return withAbortPrefix("page.isEditable", () =>
+      this.queryState(selector, "editable", options, false)
+    );
   }
 
+  /**
+   * Pinned 26a9e47 `page.isVisible`/`page.isHidden` do not accept `signal` —
+   * they never wait, so there is nothing to abort. This package's shared
+   * {@link SelectorQueryOptions} type happens to admit `signal`, but no
+   * `withAbortPrefix` wrap is added here: doing so would be new behavior
+   * beyond the pinned public API surface.
+   */
   async isVisible(
     selector: string,
     options?: SelectorQueryOptions
@@ -1453,18 +1478,20 @@ export class PageImpl {
    * and rendering. There is no frame traversal or protocol transport here.
    */
   async ariaSnapshot(options: AriaSnapshotOptions = {}): Promise<string> {
-    assertAriaSnapshotOptions(options);
-    if (options.signal?.aborted) throw actionAborted(options.signal, false);
-    // Protocol evaluation naturally waits for a parser-blocking resource to
-    // yield. An in-process adapter call does not cross that task boundary.
-    await this.waitForDocumentParser(options);
+    return withAbortPrefix("page.ariaSnapshot", async () => {
+      assertAriaSnapshotOptions(options);
+      if (options.signal?.aborted) throw actionAborted(options.signal, false);
+      // Protocol evaluation naturally waits for a parser-blocking resource to
+      // yield. An in-process adapter call does not cross that task boundary.
+      await this.waitForDocumentParser(options);
 
-    // Pinned `ariaSnapshotForFrame` resolves `body,frameset`, rather than
-    // documentElement, so the document wrapper itself is not rendered.
-    return this.injectedAriaSnapshot(
-      this.document.body ?? this.document.documentElement,
-      options
-    );
+      // Pinned `ariaSnapshotForFrame` resolves `body,frameset`, rather than
+      // documentElement, so the document wrapper itself is not rendered.
+      return this.injectedAriaSnapshot(
+        this.document.body ?? this.document.documentElement,
+        options
+      );
+    });
   }
 
   injectedAriaSnapshot(

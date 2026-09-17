@@ -26,7 +26,9 @@ describe("Locator.getAttribute", () => {
         (error: Error) => error
       );
     expect(preAbortedError?.name).toBe("AbortError");
-    expect(preAbortedError?.message).toBe("The operation was aborted");
+    expect(preAbortedError?.message).toBe(
+      "locator.getAttribute: The operation was aborted"
+    );
     expect(preAbortedError?.cause).toBe("pre-abort");
 
     const controller = new AbortController();
@@ -40,7 +42,7 @@ describe("Locator.getAttribute", () => {
       );
     expect(inFlightError?.name).toBe("AbortError");
     expect(inFlightError?.message).toBe(
-      "test abort\nCall log:\n  - operation was aborted: test abort"
+      "locator.getAttribute: test abort\nCall log:\n  - operation was aborted: test abort"
     );
     expect(inFlightError?.cause).toBe("test abort");
   });

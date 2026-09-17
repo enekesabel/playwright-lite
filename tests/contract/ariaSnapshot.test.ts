@@ -41,7 +41,7 @@ describe("Locator.ariaSnapshot", () => {
       );
     expect(inFlightError?.name).toBe("AbortError");
     expect(inFlightError?.message).toBe(
-      "cancel snapshot\nCall log:\n  - operation was aborted: cancel snapshot"
+      "locator.ariaSnapshot: cancel snapshot\nCall log:\n  - operation was aborted: cancel snapshot"
     );
     expect(inFlightError?.cause).toBe("cancel snapshot");
   });
@@ -69,7 +69,9 @@ describe("Page.ariaSnapshot", () => {
         (error: Error) => error
       );
     expect(preAbortedError?.name).toBe("AbortError");
-    expect(preAbortedError?.message).toBe("The operation was aborted");
+    expect(preAbortedError?.message).toBe(
+      "page.ariaSnapshot: The operation was aborted"
+    );
     expect(preAbortedError?.cause).toBe("stop snapshot");
   });
 });

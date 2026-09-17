@@ -58,7 +58,7 @@ describe("Locator.evaluate", () => {
       );
     expect(inFlightError?.name).toBe("AbortError");
     expect(inFlightError?.message).toBe(
-      "cancel evaluate\nCall log:\n  - operation was aborted: cancel evaluate"
+      "locator.evaluate: cancel evaluate\nCall log:\n  - operation was aborted: cancel evaluate"
     );
     expect(inFlightError?.cause).toBe("cancel evaluate");
   });
