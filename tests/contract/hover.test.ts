@@ -35,13 +35,15 @@ describe("Page.hover", () => {
     document.body.innerHTML = `<button id=button>Click</button>`;
     const page = createPage();
     const button = document.querySelector("#button")!;
-    let hovers = 0;
-    button.addEventListener("mouseover", () => hovers++);
+    const hovers: string[] = [];
+    button.addEventListener("mouseover", (event) =>
+      hovers.push(event.isTrusted ? "native" : "adapter")
+    );
 
     await page.click("#button");
     await page.hover("#button");
 
     // Keyboard focus does not move the pointer or re-enter this button.
-    expect(hovers).toBe(1);
+    expect(hovers).toEqual(["adapter"]);
   });
 });
