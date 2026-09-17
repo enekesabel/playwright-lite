@@ -537,7 +537,8 @@ export class LocatorImpl {
         options?.timeout,
         undefined,
         true,
-        options?.signal
+        options?.signal,
+        "clear"
       )
     );
   }

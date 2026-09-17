@@ -113,6 +113,25 @@ describe("Locator.selectOption", () => {
     }
   });
 
+  // page-select-option.spec.ts's "should not allow null items" covers this
+  // upstream, but its setup navigates away from the fixture document.
+  it("rejects a null entry the way the pinned client does", async () => {
+    document.body.innerHTML = `
+      <select id=select multiple>
+        <option value=one>One</option>
+        <option value=two>Two</option>
+      </select>
+    `;
+    const page = createPage();
+
+    await expect(
+      page.locator("#select").selectOption(["one", null as any, "two"])
+    ).rejects.toThrow("options[1]: expected object, got null");
+    expect(
+      (document.querySelector("#select") as HTMLSelectElement).selectedOptions
+    ).toHaveLength(0);
+  });
+
   it("times out missing select options after the configured wait", async () => {
     document.body.innerHTML = `<select id=select></select>`;
     const page = createPage();

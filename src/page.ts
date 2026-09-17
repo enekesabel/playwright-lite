@@ -13,6 +13,7 @@ import {
 import { AdapterTimeoutError } from "./errors";
 import {
   validateDelay,
+  validateInteger,
   validateNoWaitAfter,
   validateSignal,
   validateString,
@@ -729,8 +730,10 @@ export class PageImpl {
     timeout?: number,
     deadline = this.createActionDeadline(timeout),
     strict = true,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    apiMethod: "fill" | "clear" = "fill"
   ) {
+    value = validateString(value, "value");
     this.attachActionSignal(deadline, signal);
     const { element } = await this.retryActionability(
       selector,
@@ -750,7 +753,12 @@ export class PageImpl {
     // server then uses the browser keyboard. We provide that final local input
     // effect below, without reimplementing InjectedScript's validation.
     this.assertActionDeadline(deadline, "fill");
-    const result = this.actionableInjected.fill(element, value);
+    let result;
+    try {
+      result = this.actionableInjected.fill(element, value);
+    } catch (error) {
+      throw injectedFillError(asError(error), selector, label, apiMethod);
+    }
     if (result === "error:notconnected")
       throw new Error(`Element is not connected for locator ${label}`);
     if (result === "done") return;
@@ -864,12 +872,8 @@ export class PageImpl {
     strict = true,
     signal?: AbortSignal
   ): Promise<string[]> {
+    const options = selectOptionValues(values);
     this.attachActionSignal(deadline, signal);
-    const normalized =
-      values === null ? [] : Array.isArray(values) ? values : [values];
-    const options = normalized.map((value) =>
-      typeof value === "string" ? { valueOrLabel: value } : value
-    );
     let lastError: Error | undefined;
 
     while (true) {
@@ -895,7 +899,7 @@ export class PageImpl {
 
       lastError =
         result === "error:optionnotenabled"
-          ? new Error("Element is not enabled")
+          ? new Error("option being selected is not enabled")
           : result === "error:notconnected"
             ? new Error(`Element is not connected for locator ${label}`)
             : new Error("Options not found");
@@ -3907,8 +3911,71 @@ function isRetryableQueryError(error: unknown): boolean {
   );
 }
 
+/**
+ * Mirrors the pinned client's convertSelectOptionValues, which lets the first
+ * entry decide whether the list is read as plain values/labels, followed by the
+ * FrameSelectOptionParams protocol validation of every entry.
+ */
+function selectOptionValues(
+  values: string | SelectOptionValue | (string | SelectOptionValue)[] | null
+): ({ valueOrLabel: string } | SelectOptionValue)[] {
+  if (values === null) return [];
+  const list = Array.isArray(values) ? values : [values];
+  list.forEach((value, index) => {
+    if (value === null)
+      throw new Error(`options[${index}]: expected object, got null`);
+  });
+  if (typeof list[0] === "string" || list[0] instanceof String)
+    return list.map((value, index) => ({
+      valueOrLabel: validateString(value, `options[${index}].valueOrLabel`),
+    }));
+  return list.map((value, index) =>
+    validateSelectOptionValue(value, `options[${index}]`)
+  );
+}
+
+function validateSelectOptionValue(
+  value: unknown,
+  name: string
+): {
+  valueOrLabel?: string;
+} & SelectOptionValue {
+  if (typeof value !== "object")
+    throw new Error(`${name}: expected object, got ${typeof value}`);
+  const source = value as Record<string, unknown>;
+  const option: { valueOrLabel?: string } & SelectOptionValue = {};
+  for (const key of ["valueOrLabel", "value", "label"] as const)
+    if (source[key] !== undefined)
+      option[key] = validateString(source[key], `${name}.${key}`);
+  if (source.index !== undefined)
+    option.index = validateInteger(source.index, `${name}.index`);
+  return option;
+}
+
 function formatLocator(selector: string): string {
   return `locator('${selector.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}')`;
+}
+
+/**
+ * Pinned Playwright reports an InjectedScript fill rejection through the
+ * calling member and the action's call log, not as the bare injected message:
+ * `page.fill: Error: Element is not an <input>, <textarea> or [contenteditable]
+ * element` followed by `Call log:`. `label` carries the Page form the way
+ * performPointerAction derives its prefix.
+ */
+function injectedFillError(
+  error: Error,
+  selector: string,
+  label: string,
+  apiMethod: "fill" | "clear"
+): Error {
+  const prefix = label.startsWith("page.fill(")
+    ? "page.fill"
+    : `locator.${apiMethod}`;
+  return new Error(
+    `${prefix}: Error: ${error.message}\nCall log:\n  - waiting for ${formatLocator(selector)}\n  - attempting fill action\n    - waiting for element to be visible, enabled and editable`,
+    { cause: error }
+  );
 }
 
 function presentOriginalXPath(error: unknown, selector: string): Error {

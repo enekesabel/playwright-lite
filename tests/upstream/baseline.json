@@ -1311,6 +1311,11 @@
       "evidence": "In the configured Chromium run, filling the contenteditable yields exactly Playwright, not duplicate text; this assertion does not certify beforeinput delivery."
     },
     {
+      "id": "page-fill.spec.ts > should throw nice error without injected script stack when element is not an <input>",
+      "method": "Page.fill",
+      "evidence": "Page.fill routes the InjectedScript rejection through the adapter and reports it as 'page.fill: Error: Element is not an <input>, <textarea> or [contenteditable] element' followed by a Call log, matching the pinned client's api-name prefix and call log."
+    },
+    {
       "id": "page-fill.spec.ts > should throw on incorrect color value",
       "method": "Page.fill",
       "evidence": "The entered fill operation rejects invalid color text as malformed."
@@ -1439,6 +1444,21 @@
       "id": "page-localstorage.spec.ts > storage methods are scoped to the current origin",
       "method": "Page.localStorage.getItem",
       "evidence": "Across three explicitly recorded native setup navigations, the second origin starts empty and returning to the first recovers origin-1 rather than origin-2. Adapter storage calls prove origin scoping, not navigation support."
+    },
+    {
+      "id": "page-select-option.spec.ts > should throw if passed wrong types",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption validates its values with the pinned FrameSelectOptionParams scheme before waiting, so a number, {value:12}, {label:12} and {index:'12'} each reject with the protocol message the assertion names."
+    },
+    {
+      "id": "page-select-option.spec.ts > should wait for optgroup to be enabled",
+      "method": "Locator.selectOption",
+      "evidence": "Locator.selectOption retries an option inside a disabled <optgroup>; the timeout carries the pinned call-log reason 'option being selected is not enabled', and the later select then reports value 'two'."
+    },
+    {
+      "id": "page-select-option.spec.ts > should wait for option to be enabled",
+      "method": "Locator.selectOption",
+      "evidence": "Locator.selectOption retries a disabled <option> until it is hydrated; the timeout it raises first carries the pinned call-log reason 'option being selected is not enabled', and the later select then reports value 'two'."
     },
     {
       "id": "page-select-option.spec.ts > should wait for select to be enabled",
