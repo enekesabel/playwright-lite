@@ -22,6 +22,17 @@ describe("Locator.textContent", () => {
 
     await expect(page.locator("#late").textContent()).resolves.toBe("Late");
   });
+
+  it("waits for a missing query target", async () => {
+    document.body.innerHTML = "";
+    const page = createPage();
+    window.setTimeout(
+      () => (document.body.innerHTML = "<div id=ready>Ready</div>"),
+      25
+    );
+
+    await expect(page.locator("#ready").textContent()).resolves.toBe("Ready");
+  });
 });
 
 describe("Page.textContent", () => {

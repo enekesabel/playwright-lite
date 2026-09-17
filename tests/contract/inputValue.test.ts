@@ -35,4 +35,13 @@ describe("Page.inputValue", () => {
 
     expect(await page.inputValue("#select")).toBe("two");
   });
+
+  it("honors an explicit query timeout for a missing target", async () => {
+    document.body.innerHTML = "";
+    const page = createPage();
+
+    await expect(page.inputValue("#never", { timeout: 25 })).rejects.toThrow(
+      /Timeout 25ms exceeded/
+    );
+  });
 });

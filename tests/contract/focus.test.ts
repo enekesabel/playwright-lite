@@ -29,6 +29,15 @@ describe("Locator.focus", () => {
 });
 
 describe("Page.focus", () => {
+  it("delegates the browser-feasible action without recursive dispatch", async () => {
+    document.body.innerHTML = `<input id=input />`;
+    const page = createPage();
+
+    await page.focus("#input");
+
+    expect(document.activeElement).toBe(document.querySelector("#input"));
+  });
+
   it("reports a real focus failure that races an abort", async () => {
     document.body.innerHTML =
       '<div id="a" tabindex="0"></div><div id="b" tabindex="0"></div>';

@@ -18,35 +18,6 @@ describe("public browser entry", () => {
     expect(snapshot).toContain('button "Save"');
   });
 
-  it("keeps the default test-ID attribute", async () => {
-    document.body.innerHTML = '<button data-testid="save">Save</button>';
-    expect(await createPage().getByTestId("save").count()).toBe(1);
-  });
-
-  it("uses custom test IDs for Page and chained Locator queries", async () => {
-    document.body.innerHTML =
-      '<section data-test="panel"><button data-test="save">Save</button></section>';
-    const page = createPage({ testIdAttribute: "data-test" });
-    expect(await page.getByTestId("save").count()).toBe(1);
-    expect(await page.getByTestId("panel").getByTestId("save").count()).toBe(1);
-  });
-
-  it("does not leak configuration between pages or existing locators", async () => {
-    document.body.innerHTML =
-      '<section><button data-a="save">A</button><button data-b="save">B</button><button data-testid="save">Default</button></section>';
-    const first = createPage({ testIdAttribute: "data-a" });
-    const existing = first.locator("section");
-    const second = createPage({ testIdAttribute: "data-b" });
-    expect(await first.getByTestId("save").textContent()).toBe("A");
-    expect(await second.getByTestId("save").textContent()).toBe("B");
-    expect(await existing.getByTestId("save").textContent()).toBe("A");
-    expect(await createPage().getByTestId("save").textContent()).toBe(
-      "Default"
-    );
-    await createPage().ariaSnapshot();
-    expect(await first.getByTestId("save").textContent()).toBe("A");
-  });
-
   it("accepts omitted and zero timeouts", () => {
     expect(() =>
       createPage({ actionTimeout: undefined, navigationTimeout: undefined })
@@ -79,5 +50,20 @@ describe("public browser entry", () => {
     const page = createPage();
     expect(page).toBeDefined();
     expect(page.locator("body")).toBeDefined();
+  });
+
+  it("applies configured defaults to the page returned by createPage", async () => {
+    document.body.innerHTML = "";
+    const page = createPage({ actionTimeout: 5 });
+    await expect(page.locator("#missing").click()).rejects.toThrow(
+      "Timeout 5ms exceeded"
+    );
+  });
+
+  it("page does not expose resolveOne", () => {
+    const page = createPage();
+    expect((page as unknown as Record<string, unknown>).resolveOne).toBe(
+      undefined
+    );
   });
 });

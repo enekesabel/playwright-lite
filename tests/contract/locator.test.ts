@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { PageImpl } from "../../src/page";
 
 describe("Locator.locator", () => {
   it("Locator.locator accepts LocatorOptions (without visible)", async () => {
@@ -57,5 +58,17 @@ describe("Page.locator", () => {
     const page = createPage();
     const filtered = page.locator("div", { hasText: "hello" });
     expect(await filtered.count()).toBe(1);
+  });
+
+  it("lets :has-text match the HTML root", async () => {
+    document.body.innerHTML = "<span>Find me</span>";
+    const page = createPage() as unknown as PageImpl;
+
+    expect(page.resolveAll(':has-text("find me")')[0]).toBe(
+      document.documentElement
+    );
+    await expect(
+      page.$eval(':has-text("find me")', (element) => element.tagName)
+    ).resolves.toBe("HTML");
   });
 });
