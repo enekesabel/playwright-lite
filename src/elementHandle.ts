@@ -60,7 +60,9 @@ export class AdapterElementHandle {
       this.requireElement(),
       true,
       "elementHandle.check",
-      options
+      options,
+      undefined,
+      "check"
     );
   }
 
@@ -71,7 +73,9 @@ export class AdapterElementHandle {
       this.requireElement(),
       false,
       "elementHandle.uncheck",
-      options
+      options,
+      undefined,
+      "uncheck"
     );
   }
 

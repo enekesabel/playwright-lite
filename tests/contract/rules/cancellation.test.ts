@@ -94,6 +94,11 @@ describe("cancellation", () => {
       ["elementHandle.selectText", (h, o) => h.selectText(o), true],
       ["elementHandle.setInputFiles", (h, o) => h.setInputFiles([], o), false],
       ["elementHandle.type", (h, o) => h.type("x", o), false],
+      [
+        "elementHandle.waitForSelector",
+        (h, o) => h.waitForSelector("#never", o),
+        true,
+      ],
     ];
 
     document.body.innerHTML = '<input id=hidden style="display:none" value=x>';
