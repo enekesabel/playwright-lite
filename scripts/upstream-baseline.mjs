@@ -297,7 +297,7 @@ function runCorpus() {
     cli,
     "test",
     "--reporter=list,json",
-    "--timeout=30000",
+    "--timeout=15000",
     ...specGlobs,
   ];
 
