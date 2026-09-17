@@ -166,13 +166,12 @@ jobs:
             exit 1
           fi
           tarball="${tarballs[0]}"
-          version="$(tar -xOf "$tarball" package/package.json | node -e '
+          tar -xOf "$tarball" package/package.json | node -e '
             const assert = require("node:assert/strict");
             const fs = require("node:fs");
             const pkg = JSON.parse(fs.readFileSync(0, "utf8"));
             assert.equal(pkg.name, "@enekesabel/playwright-lite");
             assert.equal(pkg.version, process.env.RELEASE_VERSION);
             assert.match(pkg.version, /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/);
-            process.stdout.write(pkg.version);
-          ')"
+          '
           npm publish "$tarball" --registry https://registry.npmjs.org --access public --ignore-scripts

@@ -19,7 +19,7 @@ const packageJson = JSON.parse(
 );
 const packageConfig = config.packages["."];
 
-test("bootstrap release configuration stays pre-1.0", () => {
+test("bootstrap release configuration stays consistent", () => {
   assert.equal(packageConfig["initial-version"], "0.1.0");
   assert.ok(
     manifest["."] === "0.0.0" || manifest["."] === packageJson.version,
