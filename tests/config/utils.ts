@@ -89,3 +89,16 @@ export function unshift(snapshot: string): string {
     .map((line) => line.substring(whitespacePrefixLength))
     .join("\n");
 }
+
+/**
+ * Mirrors microsoft/playwright@26a9e470a7b3c7822084b09fb7f13902c5f37b51
+ * tests/config/utils.ts for the unchanged error-message specs.
+ */
+const ansiRegex = new RegExp(
+  "[\\u001B\\u009B][[\\]()#?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)|(?:(?:\\d{0,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))",
+  "g"
+);
+
+export function stripAnsi(str: string): string {
+  return str.replace(ansiRegex, "");
+}

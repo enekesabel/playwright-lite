@@ -3,7 +3,7 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 815,
+  "selectedTestCount": 1911,
   "reviewed": [
     {
       "id": "elementhandle-click.spec.ts > should double click the button",
