@@ -777,81 +777,6 @@ describe("Single-document adapter contract", () => {
       ).rejects.toThrow(/unsupported Playwright option.*force/);
     });
 
-    it("press accepts the delay option", async () => {
-      document.body.innerHTML = '<input type="text" />';
-      const page = createPage();
-      await page.locator("input").press("a", { delay: 1 });
-      expect(document.querySelector<HTMLInputElement>("input")!.value).toBe(
-        "a"
-      );
-    });
-
-    it("releases pressed keys when an abort interrupts the press delay", async () => {
-      document.body.innerHTML = '<input type="text" />';
-      const page = createPage();
-      const input = document.querySelector("input") as HTMLInputElement;
-      const keydowns: {
-        key: string;
-        repeat: boolean;
-        shiftKey: boolean;
-      }[] = [];
-      input.addEventListener("keydown", (event) =>
-        keydowns.push({
-          key: event.key,
-          repeat: event.repeat,
-          shiftKey: event.shiftKey,
-        })
-      );
-      const reason = new Error("stop");
-      const controller = new AbortController();
-      window.setTimeout(() => controller.abort(reason), 50);
-
-      const started = Date.now();
-      const error = await page
-        .locator("input")
-        .press("Shift+a", {
-          delay: 500,
-          signal: controller.signal,
-          timeout: 0,
-        } as any)
-        .then(
-          () => undefined,
-          (error) => error
-        );
-      const elapsed = Date.now() - started;
-
-      expect(error?.name).toBe("AbortError");
-      expect(error.message).toMatch(/^locator\.press: stop\nCall log:/);
-      expect(error.cause).toBe(reason);
-      expect(elapsed).toBeLessThan(300);
-
-      expect(keydowns).toEqual([
-        { key: "Shift", repeat: false, shiftKey: true },
-        { key: "a", repeat: false, shiftKey: true },
-      ]);
-
-      const typed = input.value;
-      await page.locator("input").press("a");
-      expect(keydowns.at(-1)).toEqual({
-        key: "a",
-        repeat: false,
-        shiftKey: false,
-      });
-      expect(input.value).toBe(`${typed}a`);
-
-      await expect(
-        page
-          .locator("input")
-          .press("Shift+a", { delay: 500, timeout: 50 } as any)
-      ).rejects.toThrow("Timeout 50ms exceeded");
-      await page.locator("input").press("a");
-      expect(keydowns.at(-1)).toEqual({
-        key: "a",
-        repeat: false,
-        shiftKey: false,
-      });
-    });
-
     it("rejects a non-numeric press or type delay", async () => {
       document.body.innerHTML = '<input id="input" type="text" />';
       const page = createPage();
@@ -1043,8 +968,9 @@ describe("Single-document adapter contract", () => {
     it("keeps the actionability timeout message when the deadline expires mid-action", async () => {
       document.body.innerHTML = "<button>ok</button>";
       const page = createPage();
-      const button = document.querySelector("button") as HTMLButtonElement &
-        { scrollIntoViewIfNeeded?: () => void };
+      const button = document.querySelector("button") as HTMLButtonElement & {
+        scrollIntoViewIfNeeded?: () => void;
+      };
       // Burn the deadline between the preflight check and the actionability
       // wait that follows the scroll.
       const stall = () => {
@@ -1409,6 +1335,81 @@ describe("Single-document adapter contract", () => {
       expect(
         (document.querySelector("#readonly") as HTMLInputElement).value
       ).toBe("before");
+    });
+
+    it("press accepts the delay option", async () => {
+      document.body.innerHTML = '<input type="text" />';
+      const page = createPage();
+      await page.locator("input").press("a", { delay: 1 });
+      expect(document.querySelector<HTMLInputElement>("input")!.value).toBe(
+        "a"
+      );
+    });
+
+    it("releases pressed keys when an abort interrupts the press delay", async () => {
+      document.body.innerHTML = '<input type="text" />';
+      const page = createPage();
+      const input = document.querySelector("input") as HTMLInputElement;
+      const keydowns: {
+        key: string;
+        repeat: boolean;
+        shiftKey: boolean;
+      }[] = [];
+      input.addEventListener("keydown", (event) =>
+        keydowns.push({
+          key: event.key,
+          repeat: event.repeat,
+          shiftKey: event.shiftKey,
+        })
+      );
+      const reason = new Error("stop");
+      const controller = new AbortController();
+      window.setTimeout(() => controller.abort(reason), 50);
+
+      const started = Date.now();
+      const error = await page
+        .locator("input")
+        .press("Shift+a", {
+          delay: 500,
+          signal: controller.signal,
+          timeout: 0,
+        } as any)
+        .then(
+          () => undefined,
+          (error) => error
+        );
+      const elapsed = Date.now() - started;
+
+      expect(error?.name).toBe("AbortError");
+      expect(error.message).toMatch(/^locator\.press: stop\nCall log:/);
+      expect(error.cause).toBe(reason);
+      expect(elapsed).toBeLessThan(300);
+
+      expect(keydowns).toEqual([
+        { key: "Shift", repeat: false, shiftKey: true },
+        { key: "a", repeat: false, shiftKey: true },
+      ]);
+
+      const typed = input.value;
+      await page.locator("input").press("a");
+      expect(keydowns.at(-1)).toEqual({
+        key: "a",
+        repeat: false,
+        shiftKey: false,
+      });
+      expect(input.value).toBe(`${typed}a`);
+
+      await expect(
+        page
+          .locator("input")
+          .press("Shift+a", { delay: 500, timeout: 50 } as any)
+      ).rejects.toThrow("Timeout 50ms exceeded");
+      await page.locator("input").press("a");
+      expect(keydowns.at(-1)).toEqual({
+        key: "a",
+        repeat: false,
+        shiftKey: false,
+      });
     });
 
     it("presses text, Enter, modifiers, and Space with Playwright-like key details", async () => {
