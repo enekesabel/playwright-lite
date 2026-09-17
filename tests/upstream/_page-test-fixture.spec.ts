@@ -75,6 +75,36 @@ test.describe("pageTest timeout configuration", () => {
 
 });
 
+test.describe("pageTest abort signal transport", () => {
+  test("aborts Page-level calls that carry a signal in the adapter", async ({
+    page,
+  }) => {
+    const dispatched = new AbortController();
+    setTimeout(() => dispatched.abort(new Error("stop dispatch")), 50);
+    const dispatchError = await page
+      .click("#missing", {
+        signal: dispatched.signal,
+        timeout: 0,
+      } as any)
+      .catch((error) => error);
+
+    expect(dispatchError.name).toBe("AbortError");
+    expect(dispatchError.message).toContain("page.click: stop dispatch");
+
+    const waiting = new AbortController();
+    setTimeout(() => waiting.abort(new Error("stop wait")), 50);
+    const waitError = await page
+      .waitForSelector("#missing", {
+        signal: waiting.signal,
+        timeout: 0,
+      } as any)
+      .catch((error) => error);
+
+    expect(waitError.name).toBe("AbortError");
+    expect(waitError.message).toContain("page.waitForSelector: stop wait");
+  });
+});
+
 test.describe("pageTest explicit zero action timeout", () => {
   test.use({ actionTimeout: 0 });
 

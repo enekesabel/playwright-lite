@@ -600,28 +600,29 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       }
 
       if (prop === "$" || prop === "waitForSelector") {
-        return async (selector: string, options?: unknown) => {
-          const id = await evaluateAdapter<string | null>(
+        return async (selector: string, options?: unknown) =>
+          withAbortSignalBridge(
             realPage,
-            ({ method, selector: s, options: o }) => {
-              const host = window as any;
-              return host.__pwLiteInvokeAdapter(async () =>
-                host.__pwLiteStoreElementHandle(
-                  await host.__pwLiteAdapterPage[method](
-                    s,
-                    host.__pwLiteDecodeBridgeValue(o)
-                  )
-                )
+            [selector, options],
+            async ([s, o]) => {
+              const id = await evaluateAdapter<string | null>(
+                realPage,
+                ({ method, selector: encodedSelector, options: encoded }) => {
+                  const host = window as any;
+                  return host.__pwLiteInvokeAdapter(async () =>
+                    host.__pwLiteStoreElementHandle(
+                      await host.__pwLiteAdapterPage[method](
+                        encodedSelector,
+                        host.__pwLiteDecodeBridgeValue(encoded)
+                      )
+                    )
+                  );
+                },
+                { method: prop, selector: s, options: o }
               );
-            },
-            {
-              method: prop,
-              selector,
-              options: encodeBridgeValueForPage(options, realPage),
+              return id ? createElementHandleProxy(realPage, state, id) : null;
             }
           );
-          return id ? createElementHandleProxy(realPage, state, id) : null;
-        };
       }
 
       if (prop === "$$") {
@@ -741,33 +742,31 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       // Both method calls and property accesses go through the adapter
       // so that unsupported members (keyboard, mouse, touchscreen, etc.)
       // are never leaked from the real Playwright driver.
-      return async (...args: unknown[]) => {
-        const result = await evaluateAdapter<{ value: unknown; url: string }>(
-          realPage,
-          ({ member, args: a }) => {
-            const host = window as any;
-            return host.__pwLiteInvokeAdapter(async () => {
-              const p = host.__pwLiteAdapterPage;
-              const v = p[member];
-              const args = host.__pwLiteDecodeBridgeValue(a);
-              let value: unknown;
-              if (typeof v === "function") value = await v.call(p, ...args);
-              else if (a.length === 0 && v !== undefined) value = v;
-              else
-                throw new TypeError(
-                  `__pwLiteAdapterPage.${member} is not a function`
-                );
-              return { value, url: p.url() };
-            });
-          },
-          {
-            member: prop,
-            args: encodeBridgeValueForPage(args, realPage) as any[],
-          }
-        );
-        state.url = result.url;
-        return result.value;
-      };
+      return async (...args: unknown[]) =>
+        withAbortSignalBridge(realPage, args, async (encodedArgs) => {
+          const result = await evaluateAdapter<{ value: unknown; url: string }>(
+            realPage,
+            ({ member, args: a }) => {
+              const host = window as any;
+              return host.__pwLiteInvokeAdapter(async () => {
+                const p = host.__pwLiteAdapterPage;
+                const v = p[member];
+                const args = host.__pwLiteDecodeBridgeValue(a);
+                let value: unknown;
+                if (typeof v === "function") value = await v.call(p, ...args);
+                else if (a.length === 0 && v !== undefined) value = v;
+                else
+                  throw new TypeError(
+                    `__pwLiteAdapterPage.${member} is not a function`
+                  );
+                return { value, url: p.url() };
+              });
+            },
+            { member: prop, args: encodedArgs as any[] }
+          );
+          state.url = result.url;
+          return result.value;
+        });
     },
   }) as Page;
 }
