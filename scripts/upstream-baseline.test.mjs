@@ -292,6 +292,65 @@ describe("parseReport", () => {
     const entries = parseReport(report);
     assert.equal(entries[0].id, "foo.spec.ts > describe block > nested test");
   });
+
+  it("reads observed outcomes of tests the harness expects to fail", () => {
+    // Shape recorded from Playwright 1.62.1 for tests marked by testInfo.fail().
+    const execution = { entered: ["Locator.click"], failures: [] };
+    const knownFailure = (title, testStatus, result) => ({
+      title,
+      file: "tests/upstream/locator-click.spec.ts",
+      tests: [
+        {
+          expectedStatus: "failed",
+          status: testStatus,
+          annotations: [
+            { type: "fail" },
+            {
+              type: "adapter-execution",
+              description: JSON.stringify(execution),
+            },
+          ],
+          results: [result],
+        },
+      ],
+    });
+    const report = {
+      suites: [
+        {
+          title: "locator-click.spec.ts",
+          file: "tests/upstream/locator-click.spec.ts",
+          specs: [
+            knownFailure("now passes", "unexpected", { status: "passed" }),
+            knownFailure("still fails", "expected", {
+              status: "failed",
+              error: { message: "Error: expect(received).toBe(expected)" },
+            }),
+            knownFailure("times out", "unexpected", {
+              status: "timedOut",
+              error: { message: "Test timeout of 15000ms exceeded." },
+            }),
+          ],
+        },
+      ],
+    };
+
+    const entries = parseReport(report);
+
+    assert.deepEqual(
+      entries.map((entry) => [entry.id, entry.status, failurePhase(entry)]),
+      [
+        ["locator-click.spec.ts > now passes", "passed", "passed"],
+        ["locator-click.spec.ts > still fails", "failed", "assertion"],
+        ["locator-click.spec.ts > times out", "timedOut", "timeout"],
+      ]
+    );
+    assert.deepEqual(entries[0].execution, execution);
+    assert.deepEqual(
+      compareBaseline(entries, { reviewed: [] }, ["locator-click.spec.ts"])
+        .newlyPassing,
+      ["locator-click.spec.ts > now passes"]
+    );
+  });
 });
 
 // ── validateReportErrors ─────────────────────────────────────────────

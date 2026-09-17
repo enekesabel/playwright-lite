@@ -1,4 +1,33 @@
-import { expect, test } from "./pageTest";
+import { expect, isKnownFailure, test } from "./pageTest";
+
+test.describe("pageTest known corpus failures", () => {
+  test("expects corpus tests outside the reviewed baseline to fail", () => {
+    expect(
+      isKnownFailure(["page-goto.spec.ts", "an unreviewed upstream test"])
+    ).toBe(true);
+    expect(
+      isKnownFailure([
+        "page-goto.spec.ts",
+        "a describe block",
+        "an unreviewed upstream test",
+      ])
+    ).toBe(true);
+  });
+
+  test("runs reviewed baseline tests as ordinary tests", () => {
+    expect(
+      isKnownFailure([
+        "elementhandle-click.spec.ts",
+        "should double click the button",
+      ])
+    ).toBe(false);
+  });
+
+  test("leaves tests outside the corpus unmarked", () => {
+    expect(isKnownFailure(test.info().titlePath)).toBe(false);
+    expect(test.info().expectedStatus).toBe("passed");
+  });
+});
 
 let originalTestIdAttributeSetter: unknown;
 let forcedAdapterSetupFailureObserved = false;

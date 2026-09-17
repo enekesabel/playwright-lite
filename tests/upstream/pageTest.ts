@@ -13,16 +13,42 @@ import {
   type Page,
   type Frame,
 } from "@playwright/test";
-import { dirname, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
   createAdapterPage,
   installTestIdAttributeSynchronization,
 } from "./adapter-bridge";
+import { specNames } from "./corpus";
 import { TestServer } from "./testServer";
 
 const __fixtureDir = dirname(fileURLToPath(import.meta.url));
+
+// ── Known corpus failures ───────────────────────────────────────────
+
+const corpusFiles = new Set<string>(specNames);
+const reviewedIds = new Set<string>(
+  JSON.parse(
+    readFileSync(resolve(__fixtureDir, "baseline.json"), "utf8")
+  ).reviewed.map((entry: { id: string }) => entry.id)
+);
+
+/**
+ * Corpus tests outside the reviewed baseline are expected to fail. Marking
+ * them keeps Playwright from restarting the worker after each such failure;
+ * the report still records the observed status, so baseline:check can
+ * surface newly passing tests. IDs match scripts/upstream-baseline.mjs.
+ */
+export function isKnownFailure(titlePath: readonly string[]): boolean {
+  const [file = "", ...titles] = titlePath;
+  const filename = basename(file);
+  return (
+    corpusFiles.has(filename) &&
+    !reviewedIds.has([filename, ...titles.filter(Boolean)].join(" > "))
+  );
+}
 
 // ── Fixtures ────────────────────────────────────────────────────────
 
@@ -62,11 +88,26 @@ type AdapterTimeoutFixtures = {
   navigationTimeout: number | undefined;
 };
 
+type KnownFailureFixtures = {
+  knownFailure: void;
+};
+
 export const test = base.extend<
-  ServerFixtures & PlatformFixtures & CompatFixtures & AdapterTimeoutFixtures
+  ServerFixtures &
+    PlatformFixtures &
+    CompatFixtures &
+    AdapterTimeoutFixtures &
+    KnownFailureFixtures
 >({
   actionTimeout: [undefined, { option: true, box: true }],
   navigationTimeout: [undefined, { option: true, box: true }],
+  knownFailure: [
+    async ({}, use, testInfo) => {
+      if (isKnownFailure(testInfo.titlePath)) testInfo.fail();
+      await use();
+    },
+    { auto: true, box: true },
+  ],
   // ── Adapter page ──────────────────────────────────────────────────
   // Wraps the real Playwright page with a proxy that routes all
   // compatibility operations through the in-browser adapter.
