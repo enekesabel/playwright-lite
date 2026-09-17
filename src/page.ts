@@ -381,7 +381,11 @@ export class PageImpl {
     selector: string,
     options: WaitForSelectorOptions = {}
   ): Promise<AdapterElementHandle | null> {
-    return await this.waitForSelectorInRoot(this.document, selector, options);
+    try {
+      return await this.waitForSelectorInRoot(this.document, selector, options);
+    } catch (error) {
+      throw prefixAbortError(error, "page.waitForSelector");
+    }
   }
 
   async waitForSelectorWithinElement(
@@ -746,18 +750,25 @@ export class PageImpl {
     signal?: AbortSignal,
     delay?: number
   ) {
-    this.attachActionSignal(deadline, signal);
-    const element = await this.query(
-      selector,
-      label,
-      { signal, timeout },
-      strict,
-      (candidate) => candidate,
-      deadline
-    );
-    this.assertActionDeadline(deadline, "press");
-    this.focusElement(element);
-    await this.keyboard.press(key, { delay }, deadline);
+    try {
+      this.attachActionSignal(deadline, signal);
+      const element = await this.query(
+        selector,
+        label,
+        { signal, timeout },
+        strict,
+        (candidate) => candidate,
+        deadline
+      );
+      this.assertActionDeadline(deadline, "press");
+      this.focusElement(element);
+      await this.keyboard.press(key, { delay }, deadline);
+    } catch (error) {
+      throw prefixAbortError(
+        error,
+        label.startsWith("page.press(") ? "page.press" : "locator.press"
+      );
+    }
   }
 
   async focusSelector(
@@ -833,61 +844,70 @@ export class PageImpl {
     strict = true,
     signal?: AbortSignal
   ): Promise<string[]> {
-    this.attachActionSignal(deadline, signal);
-    const normalized =
-      values === null ? [] : Array.isArray(values) ? values : [values];
-    const options = normalized.map((value) =>
-      typeof value === "string" ? { valueOrLabel: value } : value
-    );
-    let lastError: Error | undefined;
-
-    while (true) {
-      if (Date.now() >= deadline.expiresAt)
-        throw new AdapterTimeoutError(
-          `select option: Timeout ${deadline.timeout}ms exceeded.${lastError ? ` ${lastError.message}` : ""}`,
-          { cause: lastError }
-        );
-      const { element } = await this.retryActionability(
-        selector,
-        label,
-        "select option",
-        ["visible", "enabled"],
-        false,
-        deadline,
-        undefined,
-        undefined,
-        strict
+    try {
+      this.attachActionSignal(deadline, signal);
+      const normalized =
+        values === null ? [] : Array.isArray(values) ? values : [values];
+      const options = normalized.map((value) =>
+        typeof value === "string" ? { valueOrLabel: value } : value
       );
-      this.assertActionDeadline(deadline, "select option");
-      const result = this.actionableInjected.selectOptions(element, options);
-      if (Array.isArray(result)) return result;
+      let lastError: Error | undefined;
 
-      lastError =
-        result === "error:optionnotenabled"
-          ? new Error("Element is not enabled")
-          : result === "error:notconnected"
-            ? new Error(`Element is not connected for locator ${label}`)
-            : new Error("Options not found");
-      const remaining = deadline.expiresAt - Date.now();
-      if (remaining <= 0)
-        throw new AdapterTimeoutError(
-          `select option: Timeout ${deadline.timeout}ms exceeded. ${lastError.message}`,
-          { cause: lastError }
-        );
-      try {
-        await this.waitWithinActionDeadline(
-          Math.min(ACTION_RETRY_DELAY, remaining),
+      while (true) {
+        if (Date.now() >= deadline.expiresAt)
+          throw new AdapterTimeoutError(
+            `select option: Timeout ${deadline.timeout}ms exceeded.${lastError ? ` ${lastError.message}` : ""}`,
+            { cause: lastError }
+          );
+        const { element } = await this.retryActionability(
+          selector,
+          label,
+          "select option",
+          ["visible", "enabled"],
+          false,
           deadline,
-          "select option"
+          undefined,
+          undefined,
+          strict
         );
-      } catch (error) {
-        if (error instanceof AdapterTimeoutError)
+        this.assertActionDeadline(deadline, "select option");
+        const result = this.actionableInjected.selectOptions(element, options);
+        if (Array.isArray(result)) return result;
+
+        lastError =
+          result === "error:optionnotenabled"
+            ? new Error("Element is not enabled")
+            : result === "error:notconnected"
+              ? new Error(`Element is not connected for locator ${label}`)
+              : new Error("Options not found");
+        const remaining = deadline.expiresAt - Date.now();
+        if (remaining <= 0)
           throw new AdapterTimeoutError(
             `select option: Timeout ${deadline.timeout}ms exceeded. ${lastError.message}`,
             { cause: lastError }
           );
-        throw error;
+        try {
+          await this.waitWithinActionDeadline(
+            Math.min(ACTION_RETRY_DELAY, remaining),
+            deadline,
+            "select option"
+          );
+        } catch (error) {
+          if (error instanceof AdapterTimeoutError)
+            throw new AdapterTimeoutError(
+              `select option: Timeout ${deadline.timeout}ms exceeded. ${lastError.message}`,
+              { cause: lastError }
+            );
+          throw error;
+        }
       }
+    } catch (error) {
+      throw prefixAbortError(
+        error,
+        label.startsWith("page.selectOption(")
+          ? "page.selectOption"
+          : "locator.selectOption"
+      );
     }
   }
 
@@ -954,6 +974,8 @@ export class PageImpl {
         timeout: options.timeout,
       });
     } catch (error) {
+      if (asError(error).name === "AbortError")
+        throw prefixAbortError(error, "locator.waitFor");
       if (!(error instanceof AdapterTimeoutError)) throw error;
       throw new AdapterTimeoutError(
         `locator.waitFor: Timeout ${timeout}ms exceeded.\nCall log:\n  - waiting for ${formatLocator(selector)} to be ${options.state}\n  - Timed out waiting for ${label} to become ${options.state}.`,
@@ -2075,6 +2097,8 @@ export class PageImpl {
       DEFAULT_ACTION_TIMEOUT
     );
     const deadline = timeout === 0 ? Infinity : Date.now() + timeout;
+    const signal = options.signal;
+    if (signal?.aborted) throw actionAborted(signal, false);
 
     while (true) {
       const element =
@@ -2095,7 +2119,9 @@ export class PageImpl {
         throw new AdapterTimeoutError(
           `page.waitForSelector: Timeout ${timeout}ms exceeded.\nCall log:\n  - waiting for ${formatLocator(selector)} to be ${state}`
         );
-      await this.wait(Math.min(QUERY_RETRY_DELAY, deadline - Date.now()));
+      const delay = Math.min(QUERY_RETRY_DELAY, deadline - Date.now());
+      if (!(await waitForExpectationRetry(this.window, delay, signal)))
+        throw actionAborted(signal!, true);
     }
   }
 
@@ -2140,7 +2166,10 @@ export class PageImpl {
       actionDeadline?.timeout ??
       this.resolveTimeout(options?.timeout, DEFAULT_QUERY_TIMEOUT);
     const signal = options?.signal;
-    if (signal?.aborted) throw queryAborted(signal);
+    if (signal?.aborted)
+      throw actionDeadline
+        ? actionAborted(signal, false)
+        : queryAborted(signal);
     const deadline =
       actionDeadline?.expiresAt ??
       (timeout === 0 ? Infinity : Date.now() + timeout);
@@ -2164,7 +2193,9 @@ export class PageImpl {
           );
         const delay = Math.min(QUERY_RETRY_DELAY, remaining);
         if (!(await waitForExpectationRetry(this.window, delay, signal)))
-          throw queryAborted(signal!);
+          throw actionDeadline
+            ? actionAborted(signal!, true)
+            : queryAborted(signal!);
       }
     }
   }
@@ -3801,6 +3832,13 @@ function actionAborted(signal: AbortSignal, inFlight: boolean): Error {
   );
   error.name = "AbortError";
   return error;
+}
+
+function prefixAbortError(error: unknown, apiName: string): unknown {
+  const result = asError(error);
+  if (result.name !== "AbortError") return error;
+  result.message = `${apiName}: ${result.message}`;
+  return result;
 }
 
 function queryAborted(signal: AbortSignal): Error {

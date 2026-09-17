@@ -1922,6 +1922,45 @@ describe("Single-document adapter contract", () => {
       ).rejects.toThrow(/Query was aborted: test abort/);
     });
 
+    it("aborts unbounded selector waits and retried actions", async () => {
+      document.body.innerHTML =
+        "<select id=select><option>one</option></select>";
+      const page = createPage();
+
+      for (const [apiName, run] of [
+        [
+          "page.waitForSelector",
+          (signal: AbortSignal) =>
+            page.waitForSelector("#never", { signal, timeout: 0 }),
+        ],
+        [
+          "locator.waitFor",
+          (signal: AbortSignal) =>
+            page.locator("#never").waitFor({ signal, timeout: 0 }),
+        ],
+        [
+          "locator.press",
+          (signal: AbortSignal) =>
+            page.locator("#never").press("a", { signal, timeout: 0 }),
+        ],
+        [
+          "page.selectOption",
+          (signal: AbortSignal) =>
+            page.selectOption("#select", "missing", { signal, timeout: 0 }),
+        ],
+      ] as const) {
+        const reason = new Error("stop");
+        const controller = new AbortController();
+        window.setTimeout(() => controller.abort(reason), 10);
+        const error = await run(controller.signal).catch((error) => error);
+        expect(error.name, apiName).toBe("AbortError");
+        expect(error.message, apiName).toMatch(
+          new RegExp(`^${apiName}: stop\\nCall log:`)
+        );
+        expect(error.cause, apiName).toBe(reason);
+      }
+    });
+
     it("waits past one second when query timeout is omitted", async () => {
       document.body.innerHTML = "";
       const page = createPage();
