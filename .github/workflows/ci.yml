@@ -67,20 +67,7 @@ jobs:
       # vitest runs Chromium in-process for src/**/*.test.ts; headless shell is enough since
       # everything here runs headless.
       - run: pnpm exec playwright install --only-shell chromium
-      # Same chain as the "check" script minus test:e2e (the corpus), which runs in its own
-      # parallel job so lint/typecheck/unit feedback doesn't wait on it. Keep this in sync with
-      # the "check" script in package.json; local `pnpm check` is unchanged.
-      - name: Run checks (build, lint, typecheck, unit tests, evaluation, package)
-        run: |
-          pnpm check:readme
-          pnpm build
-          pnpm lint
-          pnpm typecheck
-          pnpm upstream:check
-          pnpm test
-          pnpm test:evaluation
-          pnpm test:package
-          pnpm format:check
+      - run: pnpm check
       - name: Pack the verified build
         run: |
           mkdir -p "$RUNNER_TEMP/package"

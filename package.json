@@ -46,7 +46,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:package": "node scripts/packed-consumer.mjs",
-    "check": "pnpm check:readme && pnpm build && pnpm lint && pnpm typecheck && pnpm upstream:check && pnpm test && pnpm test:evaluation && pnpm test:e2e && pnpm test:package && pnpm format:check",
+    "check": "pnpm check:readme && pnpm build && pnpm lint && pnpm typecheck && pnpm upstream:check && pnpm test && pnpm test:evaluation && pnpm test:package && pnpm format:check",
     "test:evaluation": "node scripts/evaluation-parity.mjs",
     "generate:readme": "node scripts/generate-readme.mjs",
     "check:readme": "node scripts/generate-readme.mjs --check"
