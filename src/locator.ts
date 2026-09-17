@@ -1,6 +1,10 @@
 import type { Locator } from "@playwright/test";
 import { assertMaxArguments } from "./evaluation";
-import { validateDelay, validateNoWaitAfter } from "./protocolValidation";
+import {
+  validateDelay,
+  validateNoWaitAfter,
+  validateSignal,
+} from "./protocolValidation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import type {
   AriaSnapshotOptions,
@@ -56,7 +60,8 @@ type LocatorActionOptions = { signal?: AbortSignal; timeout?: number };
 type LocatorActionWithNoWaitAfterOptions = LocatorActionOptions & {
   noWaitAfter?: boolean;
 };
-type LocatorTypeOptions = LocatorActionWithNoWaitAfterOptions & {
+/** Shared by `press`, `type` and `pressSequentially`. */
+type LocatorKeyboardInputOptions = LocatorActionWithNoWaitAfterOptions & {
   delay?: number;
 };
 
@@ -470,8 +475,8 @@ export class LocatorImpl {
     );
   }
 
-  async press(key: string, options?: LocatorTypeOptions) {
-    rejectUnsupportedOptions("press", options, [
+  async press(key: string, options?: LocatorKeyboardInputOptions) {
+    const delay = rejectUnsupportedOptions("press", options, [
       "delay",
       "noWaitAfter",
       "signal",
@@ -486,7 +491,7 @@ export class LocatorImpl {
         undefined,
         true,
         options?.signal,
-        options?.delay
+        delay
       )
     );
   }
@@ -644,20 +649,23 @@ export class LocatorImpl {
     );
   }
 
-  async type(text: string, options: LocatorTypeOptions = {}): Promise<void> {
+  async type(
+    text: string,
+    options: LocatorKeyboardInputOptions = {}
+  ): Promise<void> {
     await withAbortPrefix("locator.type", () => this.typeText(text, options));
   }
 
   async pressSequentially(
     text: string,
-    options: LocatorTypeOptions = {}
+    options: LocatorKeyboardInputOptions = {}
   ): Promise<void> {
     await withAbortPrefix("locator.pressSequentially", () =>
       this.typeText(text, options)
     );
   }
 
-  private async typeText(text: string, options: LocatorTypeOptions) {
+  private async typeText(text: string, options: LocatorKeyboardInputOptions) {
     rejectUnsupportedOptions("type", options, [
       "delay",
       "noWaitAfter",
@@ -765,12 +773,13 @@ export function resolveLocatorElements(value: unknown): Element[] {
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
+/** Returns the normalized `delay`, unwrapped like the pointer options. */
 function rejectUnsupportedOptions(
   method: string,
   options: Record<string, unknown> | undefined,
   supported: string[] = []
-): void {
-  if (!options) return;
+): number | undefined {
+  if (!options) return undefined;
   const unsupported = Object.keys(options).filter(
     (key) => options[key] !== undefined && !supported.includes(key)
   );
@@ -779,11 +788,10 @@ function rejectUnsupportedOptions(
       `${method}(): unsupported Playwright option(s): ${unsupported.join(", ")}.`
     );
   }
-  if (options.signal !== undefined && !(options.signal instanceof AbortSignal))
-    throw new TypeError(`${method} signal must be an AbortSignal`);
+  validateSignal(method, options.signal);
   if (supported.includes("noWaitAfter"))
     validateNoWaitAfter(method, options.noWaitAfter);
-  if (supported.includes("delay")) validateDelay(options.delay);
+  return supported.includes("delay") ? validateDelay(options.delay) : undefined;
 }
 
 function cssObjectToString(style: Record<string, string | number>): string {

@@ -14,6 +14,7 @@ import { AdapterTimeoutError } from "./errors";
 import {
   validateDelay,
   validateNoWaitAfter,
+  validateSignal,
   validateString,
 } from "./protocolValidation";
 import { AdapterElementHandle } from "./elementHandle";
@@ -95,10 +96,8 @@ type PageActionWithNoWaitAfterOptions = PageActionOptions & {
 type PageStrictActionOptions = PageActionOptions & { strict?: boolean };
 type PageStrictActionWithNoWaitAfterOptions = PageStrictActionOptions &
   PageActionWithNoWaitAfterOptions;
-type PageTypeOptions = PageStrictActionWithNoWaitAfterOptions & {
-  delay?: number;
-};
-type PagePressOptions = PageStrictActionWithNoWaitAfterOptions & {
+/** Shared by `press` and `type`, which take the same options. */
+type PageKeyboardInputOptions = PageStrictActionWithNoWaitAfterOptions & {
   delay?: number;
 };
 type PageSetInputFilesOptions = PageActionWithNoWaitAfterOptions & {
@@ -1162,9 +1161,9 @@ export class PageImpl {
   async press(
     selector: string,
     key: string,
-    options?: PagePressOptions
+    options?: PageKeyboardInputOptions
   ): Promise<void> {
-    assertPageActionOptions("press", options, [
+    const delay = assertPageActionOptions("press", options, [
       "delay",
       "noWaitAfter",
       "strict",
@@ -1178,7 +1177,7 @@ export class PageImpl {
         undefined,
         options?.strict === true,
         options?.signal,
-        options?.delay
+        delay
       )
     );
   }
@@ -1186,7 +1185,7 @@ export class PageImpl {
   async type(
     selector: string,
     text: string,
-    options?: PageTypeOptions
+    options?: PageKeyboardInputOptions
   ): Promise<void> {
     await withAbortPrefix("page.type", () =>
       this.typeSelector(
@@ -1202,11 +1201,11 @@ export class PageImpl {
   async typeSelector(
     selector: string,
     text: string,
-    options: PageTypeOptions | undefined,
+    options: PageKeyboardInputOptions | undefined,
     label: string,
     strict: boolean
   ): Promise<void> {
-    assertPageActionOptions("type", options, [
+    const delay = assertPageActionOptions("type", options, [
       "delay",
       "noWaitAfter",
       "strict",
@@ -1225,7 +1224,7 @@ export class PageImpl {
       },
       deadline
     );
-    await this.keyboard.type(text, { delay: options?.delay }, deadline);
+    await this.keyboard.type(text, { delay }, deadline);
   }
 
   async focus(
@@ -3628,12 +3627,13 @@ function validateTimeout(timeout: unknown, name: string): number {
   return timeout;
 }
 
+/** Returns the normalized `delay`, unwrapped like the pointer options. */
 function assertPageActionOptions(
   method: string,
   options: Record<string, unknown> | undefined,
   supported: string[] = []
-): void {
-  if (!options) return;
+): number | undefined {
+  if (!options) return undefined;
   const unsupported = Object.keys(options).filter(
     (key) =>
       options[key] !== undefined &&
@@ -3646,19 +3646,21 @@ function assertPageActionOptions(
       `${method}(): unsupported options: ${unsupported.join(", ")}. ` +
         `Unsupported Playwright option(s) are not supported by the single-document adapter.`
     );
-  if (options.signal !== undefined && !(options.signal instanceof AbortSignal))
-    throw new TypeError(`${method} signal must be an AbortSignal`);
+  validateSignal(method, options.signal);
   if (options.timeout !== undefined)
     validateTimeout(options.timeout, `${method} timeout`);
   if (supported.includes("noWaitAfter"))
     validateNoWaitAfter(method, options.noWaitAfter);
-  if (supported.includes("delay")) validateDelay(options.delay);
+  const delay = supported.includes("delay")
+    ? validateDelay(options.delay)
+    : undefined;
   if (
     supported.includes("strict") &&
     options.strict !== undefined &&
     typeof options.strict !== "boolean"
   )
     throw new TypeError(`${method} strict must be a boolean`);
+  return delay;
 }
 
 type PageDispatchEventOptions = PageActionOptions & { strict?: boolean };
@@ -3757,8 +3759,7 @@ function assertPointerActionOptions(
 
 function assertAriaSnapshotOptions(options: AriaSnapshotOptions) {
   queryTimeout(options.timeout);
-  if (options.signal !== undefined && !(options.signal instanceof AbortSignal))
-    throw new TypeError("ARIA snapshot signal must be an AbortSignal");
+  validateSignal("ARIA snapshot", options.signal);
 }
 
 function assertQueryOptions(
@@ -3774,8 +3775,7 @@ function assertQueryOptions(
     )
       throw new Error(`Unsupported query option: ${key}`);
   }
-  if (options.signal !== undefined && !(options.signal instanceof AbortSignal))
-    throw new TypeError("Query signal must be an AbortSignal");
+  validateSignal("Query", options.signal);
   if (!allowsStrict && "strict" in options)
     throw new Error("Locator query options do not support strict");
 }
@@ -3799,8 +3799,7 @@ function assertWaitForSelectorOptions(
     )
       throw new Error(`Unsupported waitForSelector option: ${key}`);
   }
-  if (options.signal !== undefined && !(options.signal instanceof AbortSignal))
-    throw new TypeError("waitForSelector signal must be an AbortSignal");
+  validateSignal("waitForSelector", options.signal);
   if (!allowsStrict && "strict" in options)
     throw new Error("ElementHandle waitForSelector does not support strict");
   if (
