@@ -1,6 +1,6 @@
 {
   "name": "@enekesabel/playwright-lite",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Playwright-compatible Page and Locator operations in the current browser document",
   "license": "MIT",
   "author": "Ábel Énekes",

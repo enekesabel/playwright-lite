@@ -2924,6 +2924,7 @@ export class PageImpl {
   ) {
     this.assertActionDeadline(deadline, "press");
     if (!isEditableElement(element, this.window)) return;
+    if (this.insertTextAtCaret(element, text, inputType)) return;
     if (isFillableInputWithoutSelection(element, this.window)) {
       element.value += text;
       this.dispatchInputEvent(element, eventData, inputType);
@@ -2932,16 +2933,54 @@ export class PageImpl {
     this.replaceSelectedText(element, text, inputType, eventData);
   }
 
+  /**
+   * Inserts text at the caret the browser itself keeps, dispatching its own
+   * input event. Playwright types through the browser's editing engine; the
+   * pinned in-document input emulation reaches for this editing command for
+   * the same reason (coreBundle `_insertText`). It is the only script
+   * primitive that finds the caret in an input type that exposes no selection
+   * API, and in an editable host inside a shadow root, whose selection the
+   * document reports retargeted to the host.
+   */
+  private insertTextAtCaret(
+    element: Element,
+    text: string,
+    inputType: string
+  ): boolean {
+    // The command only inserts plain text, and only into the focused element,
+    // because it acts on the document's own caret rather than on an argument.
+    if (inputType !== "insertText") return false;
+    if (this.deepActiveElement() !== element) return false;
+    // Inputs that keep no caret of their own, such as date and checkbox, and
+    // hosts the editing engine refuses leave the command's result false.
+    return this.document.execCommand("insertText", false, text);
+  }
+
+  deepActiveElement(): Element {
+    let target = this.document.activeElement ?? this.document.body;
+    while (
+      target.shadowRoot?.mode === "open" &&
+      target.shadowRoot.activeElement
+    )
+      target = target.shadowRoot.activeElement;
+    return target;
+  }
+
   insertKeyboardText(
     element: Element,
     text: string,
     inputType = "insertText",
     eventData: string | null = text,
-    deadline?: ActionDeadline
+    deadline?: ActionDeadline,
+    typedByKey = false
   ) {
     this.assertActionDeadline(deadline, "press");
     if (!isEditableElement(element, this.window)) return;
     if (!this.dispatchBeforeInput(element, eventData, inputType)) return;
+    // Chromium dispatches the legacy TextEvent for the text a key produces,
+    // between beforeinput and input. Text that no key produced, such as
+    // Keyboard.insertText, carries no keypress and no textInput either.
+    if (typedByKey && !this.dispatchTextInput(element, text)) return;
     this.assertActionDeadline(deadline, "press");
     this.insertPressedText(element, text, inputType, eventData, deadline);
   }
@@ -3075,6 +3114,16 @@ export class PageImpl {
         inputType,
       })
     );
+  }
+
+  // Built the way the pinned in-document input emulation builds it
+  // (coreBundle `_dispatchTextInput`): TextEvent has no constructor, so
+  // initTextEvent is the only way to produce the event Chromium dispatches.
+  // Canceling it cancels the insertion, as it does for a real key press.
+  private dispatchTextInput(element: Element, text: string): boolean {
+    const event = this.document.createEvent("TextEvent");
+    event.initTextEvent("textInput", true, true, this.window, text);
+    return element.dispatchEvent(event);
   }
 
   private dispatchInputEvent(
@@ -3442,7 +3491,8 @@ class BrowserKeyboard {
         description.text,
         "insertText",
         description.text,
-        deadline
+        deadline,
+        true
       );
     }
     if (keyPressAllowed && description.key === "Enter") {
@@ -3484,13 +3534,7 @@ class BrowserKeyboard {
   }
 
   private activeTarget(): Element {
-    let target = this.page.document.activeElement ?? this.page.document.body;
-    while (
-      target.shadowRoot?.mode === "open" &&
-      target.shadowRoot.activeElement
-    )
-      target = target.shadowRoot.activeElement;
-    return target;
+    return this.page.deepActiveElement();
   }
 
   private descriptionFor(key: string): KeyboardKeyDescription {
