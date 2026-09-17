@@ -3,7 +3,7 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 748,
+  "selectedTestCount": 815,
   "reviewed": [
     {
       "id": "elementhandle-click.spec.ts > should double click the button",
@@ -69,6 +69,46 @@
       "id": "elementhandle-convenience.spec.ts > isVisible should not throw when the DOM element is not connected",
       "method": "Page.isVisible",
       "evidence": "The unchanged regression test churns the target in requestAnimationFrame and awaits Page.isVisible ten times without rejection. Every Page.isVisible call enters the browser adapter; Page.setContent is setup only."
+    },
+    {
+      "id": "elementhandle-press.spec.ts > should not modify selection when focused",
+      "method": "Page.press",
+      "evidence": "With the input focused and a selection set, press replaces the selected text in place, producing hewo."
+    },
+    {
+      "id": "elementhandle-press.spec.ts > should not select existing value",
+      "method": "Page.press",
+      "evidence": "Pressing into a prefilled input inserts at the caret instead of replacing the value, producing whello."
+    },
+    {
+      "id": "elementhandle-press.spec.ts > should reset selection when not focused",
+      "method": "Page.press",
+      "evidence": "With a stale selection while another element is focused, press focuses the input and inserts at the start, producing whello."
+    },
+    {
+      "id": "elementhandle-press.spec.ts > should work",
+      "method": "Page.press",
+      "evidence": "Pressing h into an empty input produces the value h."
+    },
+    {
+      "id": "elementhandle-type.spec.ts > should not modify selection when focused",
+      "method": "Page.type",
+      "evidence": "With the input focused and a selection set, type replaces the selected text in place, producing heworldo."
+    },
+    {
+      "id": "elementhandle-type.spec.ts > should not select existing value",
+      "method": "Page.type",
+      "evidence": "Typing into a prefilled input inserts at the caret instead of replacing the value, producing worldhello."
+    },
+    {
+      "id": "elementhandle-type.spec.ts > should reset selection when not focused",
+      "method": "Page.type",
+      "evidence": "With a stale selection while another element is focused, type focuses the input and inserts at the start, producing worldhello."
+    },
+    {
+      "id": "elementhandle-type.spec.ts > should work",
+      "method": "Page.type",
+      "evidence": "Typing hello into an empty input produces the value hello."
     },
     {
       "id": "locator-click.spec.ts > should click if the target element is removed in pointerdown event",
@@ -861,6 +901,16 @@
       "evidence": "The moving handled button times out at 3000ms with stable-state waiting and retries; the assertion checks the real actionability failure."
     },
     {
+      "id": "page-click.spec.ts > should abort via already-aborted signal",
+      "method": "Locator.click",
+      "evidence": "An already-aborted signal rejects the click with AbortError and the original Error reason as cause before any pointer input."
+    },
+    {
+      "id": "page-click.spec.ts > should abort via signal",
+      "method": "Locator.click",
+      "evidence": "Aborting with an Error while the click retries a hidden button rejects with AbortError prefixed by locator.click, an aborted call-log entry, and the original reason as cause; the signal reaches the adapter through the browser-side controller."
+    },
+    {
       "id": "page-click.spec.ts > should click a button in scrolling container with offset",
       "method": "Page.click",
       "evidence": "The requested point in a 2000px button inside a 200px scrollport activates and reports offsets 1900/1910."
@@ -1081,6 +1131,16 @@
       "evidence": "The document listeners observe mouse pointer pressure 0.5 on pointerdown and 0 on pointerup from the actual click."
     },
     {
+      "id": "page-click.spec.ts > should throw an Error when aborted in-flight with a string reason",
+      "method": "Locator.click",
+      "evidence": "Aborting an in-flight click with a string reason rejects with an Error named AbortError whose cause is the original string."
+    },
+    {
+      "id": "page-click.spec.ts > should throw an Error when aborted via an already-aborted signal with a string reason",
+      "method": "Locator.click",
+      "evidence": "An already-aborted signal with a string reason rejects the click with an Error named AbortError whose cause is that string."
+    },
+    {
       "id": "page-click.spec.ts > should update modifiers correctly",
       "method": "Page.click",
       "evidence": "Assertions check temporary Shift, an explicit empty override, restoration of held Shift, and no Shift after key release across successive browser clicks."
@@ -1286,6 +1346,21 @@
       "evidence": "The entered fill operation rejects an invalid week representation."
     },
     {
+      "id": "page-focus.spec.ts > clicking checkbox should activate it",
+      "method": "Page.click",
+      "evidence": "Clicking a checkbox leaves it as document.activeElement, proving the click applies native focus; the test calls no focus API."
+    },
+    {
+      "id": "page-focus.spec.ts > keeps focus on element when attempting to focus a non-focusable element",
+      "method": "Locator.focus",
+      "evidence": "After focusing a focusable div by click, focusing a non-focusable sibling keeps activeElement unchanged and emits no extra focus or blur events."
+    },
+    {
+      "id": "page-focus.spec.ts > should work @smoke",
+      "method": "Page.focus",
+      "evidence": "Focusing #d1 moves document.activeElement from BODY to the target div. Native setContent is fixture setup only."
+    },
+    {
       "id": "page-keyboard.spec.ts > pressing Meta should not result in any text insertion on any platform",
       "method": "Keyboard.press",
       "evidence": "The unchanged assertions prove the input value remains hello world before and after adapter Keyboard.press(Meta). Focus, keyboard dispatch and matcher checks all execute through the browser adapter; Page.setContent is setup only."
@@ -1354,6 +1429,16 @@
       "id": "page-localstorage.spec.ts > storage methods are scoped to the current origin",
       "method": "Page.localStorage.getItem",
       "evidence": "Across three explicitly recorded native setup navigations, the second origin starts empty and returning to the first recovers origin-1 rather than origin-2. Adapter storage calls prove origin scoping, not navigation support."
+    },
+    {
+      "id": "page-select-option.spec.ts > should wait for select to be enabled",
+      "method": "Locator.selectOption",
+      "evidence": "selectOption stays pending on a disabled select until hydration enables it, then selects two as confirmed by the page result and toHaveValue."
+    },
+    {
+      "id": "page-select-option.spec.ts > should wait for select to be swapped",
+      "method": "Locator.selectOption",
+      "evidence": "selectOption stays pending while the select is replaced, then selects two on the new element, proving the locator re-resolves instead of holding a stale node."
     },
     {
       "id": "page-set-input-files.spec.ts > should set from memory",
