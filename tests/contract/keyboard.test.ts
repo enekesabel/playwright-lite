@@ -331,6 +331,51 @@ describe("Keyboard", () => {
     expect(events).toEqual(["keydown", "keypress"]);
   });
 
+  it("dispatches textInput between keypress and input when a key types text", async () => {
+    document.body.innerHTML = "<input id=input />";
+    const page = createPage();
+    const input = document.querySelector("#input") as HTMLInputElement;
+    const events: string[] = [];
+    for (const type of ["keydown", "keypress", "textInput", "input", "keyup"])
+      input.addEventListener(type, () => events.push(type));
+    let typed: string | null = null;
+    input.addEventListener("textInput", (event) => {
+      typed = (event as TextEvent).data;
+    });
+
+    input.focus();
+    await page.keyboard.press("f");
+    await page.keyboard.insertText("g");
+
+    expect(input.value).toBe("fg");
+    expect(typed).toBe("f");
+    // insertText carries no keypress, so it carries no textInput either.
+    expect(events).toEqual([
+      "keydown",
+      "keypress",
+      "textInput",
+      "input",
+      "keyup",
+      "input",
+    ]);
+  });
+
+  it("does not type a character whose textInput event is canceled", async () => {
+    document.body.innerHTML = "<input id=input />";
+    const page = createPage();
+    const input = document.querySelector("#input") as HTMLInputElement;
+    const events: string[] = [];
+    for (const type of ["textInput", "input", "keyup"])
+      input.addEventListener(type, () => events.push(type));
+    input.addEventListener("textInput", (event) => event.preventDefault());
+
+    input.focus();
+    await page.keyboard.press("f");
+
+    expect(input.value).toBe("");
+    expect(events).toEqual(["textInput", "keyup"]);
+  });
+
   it("preserves Enter input metadata through textarea insertion", async () => {
     document.body.innerHTML = "<textarea id=textarea></textarea>";
     const page = createPage();

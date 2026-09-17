@@ -91,6 +91,11 @@
       "evidence": "Pressing h into an empty input produces the value h."
     },
     {
+      "id": "elementhandle-press.spec.ts > should work with number input",
+      "method": "Page.press",
+      "evidence": "Pressing 1 on an unfocused input[type=number] holding 2 leaves 12, proving the pressed character lands at the caret of a selection-less control rather than after its value."
+    },
+    {
       "id": "elementhandle-scroll-into-view.spec.ts > should scroll display:contents into view",
       "method": "ElementHandle.scrollIntoViewIfNeeded",
       "evidence": "The handled display:contents element has no box of its own, yet the asserted container scrollTop lands within 1px of 350, so its contents were really scrolled into view."
@@ -139,6 +144,11 @@
       "id": "elementhandle-type.spec.ts > should work",
       "method": "Page.type",
       "evidence": "Typing hello into an empty input produces the value hello."
+    },
+    {
+      "id": "elementhandle-type.spec.ts > should work with number input",
+      "method": "Page.type",
+      "evidence": "Typing 13 into an unfocused input[type=number] holding 2 leaves 132, proving both characters land at the caret of a control that exposes no selection API instead of being appended after the existing value."
     },
     {
       "id": "locator-click.spec.ts > should click if the target element is removed in pointerdown event",
@@ -1341,6 +1351,11 @@
       "evidence": "In the configured Chromium run, filling the contenteditable yields exactly Playwright, not duplicate text; this assertion does not certify beforeinput delivery."
     },
     {
+      "id": "page-fill.spec.ts > should throw nice error without injected script stack when element is not an <input>",
+      "method": "Page.fill",
+      "evidence": "Page.fill routes the InjectedScript rejection through the adapter and reports it as 'page.fill: Error: Element is not an <input>, <textarea> or [contenteditable] element' followed by a Call log, matching the pinned client's api-name prefix and call log."
+    },
+    {
       "id": "page-fill.spec.ts > should throw on incorrect color value",
       "method": "Page.fill",
       "evidence": "The entered fill operation rejects invalid color text as malformed."
@@ -1416,6 +1431,16 @@
       "evidence": "Browser Page.evaluate creates and focuses a textarea; Keyboard.type enters the browser implementation and the final value equals the full requested string. No native calls or transport failures."
     },
     {
+      "id": "page-keyboard.spec.ts > should type repeatedly in contenteditable in shadow dom",
+      "method": "Locator.type",
+      "evidence": "Typing into two contenteditables inside one open shadow root leaves each editor holding its own complete sentence, proving every character reaches the caret of the editor being typed into and none is lost when focus moves between them."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should type repeatedly in contenteditable in shadow dom with nested elements",
+      "method": "Locator.type",
+      "evidence": "Typing into shadow-root contenteditables that already contain a paragraph leaves This is the first box: hello, proving the text is inserted at the caret in front of the existing child rather than appended after it."
+    },
+    {
       "id": "page-keyboard.spec.ts > should type repeatedly in input in shadow dom",
       "method": "Locator.type",
       "evidence": "The unchanged test types two different strings into inputs inside an open shadow root and asserts each resulting inputValue exactly. Locator.type and inputValue execute through the browser adapter; Page.setContent is setup only."
@@ -1469,6 +1494,21 @@
       "id": "page-localstorage.spec.ts > storage methods are scoped to the current origin",
       "method": "Page.localStorage.getItem",
       "evidence": "Across three explicitly recorded native setup navigations, the second origin starts empty and returning to the first recovers origin-1 rather than origin-2. Adapter storage calls prove origin scoping, not navigation support."
+    },
+    {
+      "id": "page-select-option.spec.ts > should throw if passed wrong types",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption validates its values with the pinned FrameSelectOptionParams scheme before waiting, so a number, {value:12}, {label:12} and {index:'12'} each reject with the protocol message the assertion names."
+    },
+    {
+      "id": "page-select-option.spec.ts > should wait for optgroup to be enabled",
+      "method": "Locator.selectOption",
+      "evidence": "Locator.selectOption retries an option inside a disabled <optgroup>; the timeout carries the pinned call-log reason 'option being selected is not enabled', and the later select then reports value 'two'."
+    },
+    {
+      "id": "page-select-option.spec.ts > should wait for option to be enabled",
+      "method": "Locator.selectOption",
+      "evidence": "Locator.selectOption retries a disabled <option> until it is hydrated; the timeout it raises first carries the pinned call-log reason 'option being selected is not enabled', and the later select then reports value 'two'."
     },
     {
       "id": "page-select-option.spec.ts > should wait for select to be enabled",

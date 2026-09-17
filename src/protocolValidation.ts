@@ -9,6 +9,15 @@ export function validateString(value: unknown, name: string): string {
   throw new Error(`${name}: expected string, got ${typeof value}`);
 }
 
+export function validateInteger(value: unknown, name: string): number {
+  const integer = value instanceof Number ? value.valueOf() : value;
+  if (typeof integer !== "number")
+    throw new Error(`${name}: expected integer, got ${typeof value}`);
+  if (!Number.isInteger(integer))
+    throw new Error(`${name}: expected integer, got float ${integer}`);
+  return integer;
+}
+
 /**
  * `delay` is `float?` in the pinned protocol for press, type and the pointer
  * actions. Like the pointer options, a non-finite value is rejected instead of

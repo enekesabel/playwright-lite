@@ -13,6 +13,7 @@ import {
 import { AdapterTimeoutError } from "./errors";
 import {
   validateDelay,
+  validateInteger,
   validateNoWaitAfter,
   validateSignal,
   validateString,
@@ -729,8 +730,10 @@ export class PageImpl {
     timeout?: number,
     deadline = this.createActionDeadline(timeout),
     strict = true,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    apiMethod: "fill" | "clear" = "fill"
   ) {
+    value = validateString(value, "value");
     this.attachActionSignal(deadline, signal);
     const { element } = await this.retryActionability(
       selector,
@@ -750,7 +753,12 @@ export class PageImpl {
     // server then uses the browser keyboard. We provide that final local input
     // effect below, without reimplementing InjectedScript's validation.
     this.assertActionDeadline(deadline, "fill");
-    const result = this.actionableInjected.fill(element, value);
+    let result;
+    try {
+      result = this.actionableInjected.fill(element, value);
+    } catch (error) {
+      throw injectedFillError(asError(error), selector, label, apiMethod);
+    }
     if (result === "error:notconnected")
       throw new Error(`Element is not connected for locator ${label}`);
     if (result === "done") return;
@@ -867,12 +875,8 @@ export class PageImpl {
     strict = true,
     signal?: AbortSignal
   ): Promise<string[]> {
+    const options = selectOptionValues(values);
     this.attachActionSignal(deadline, signal);
-    const normalized =
-      values === null ? [] : Array.isArray(values) ? values : [values];
-    const options = normalized.map((value) =>
-      typeof value === "string" ? { valueOrLabel: value } : value
-    );
     let lastError: Error | undefined;
 
     while (true) {
@@ -898,7 +902,7 @@ export class PageImpl {
 
       lastError =
         result === "error:optionnotenabled"
-          ? new Error("Element is not enabled")
+          ? new Error("option being selected is not enabled")
           : result === "error:notconnected"
             ? new Error(`Element is not connected for locator ${label}`)
             : new Error("Options not found");
@@ -2943,6 +2947,7 @@ export class PageImpl {
   ) {
     this.assertActionDeadline(deadline, "press");
     if (!isEditableElement(element, this.window)) return;
+    if (this.insertTextAtCaret(element, text, inputType)) return;
     if (isFillableInputWithoutSelection(element, this.window)) {
       element.value += text;
       this.dispatchInputEvent(element, eventData, inputType);
@@ -2951,16 +2956,54 @@ export class PageImpl {
     this.replaceSelectedText(element, text, inputType, eventData);
   }
 
+  /**
+   * Inserts text at the caret the browser itself keeps, dispatching its own
+   * input event. Playwright types through the browser's editing engine; the
+   * pinned in-document input emulation reaches for this editing command for
+   * the same reason (coreBundle `_insertText`). It is the only script
+   * primitive that finds the caret in an input type that exposes no selection
+   * API, and in an editable host inside a shadow root, whose selection the
+   * document reports retargeted to the host.
+   */
+  private insertTextAtCaret(
+    element: Element,
+    text: string,
+    inputType: string
+  ): boolean {
+    // The command only inserts plain text, and only into the focused element,
+    // because it acts on the document's own caret rather than on an argument.
+    if (inputType !== "insertText") return false;
+    if (this.deepActiveElement() !== element) return false;
+    // Inputs that keep no caret of their own, such as date and checkbox, and
+    // hosts the editing engine refuses leave the command's result false.
+    return this.document.execCommand("insertText", false, text);
+  }
+
+  deepActiveElement(): Element {
+    let target = this.document.activeElement ?? this.document.body;
+    while (
+      target.shadowRoot?.mode === "open" &&
+      target.shadowRoot.activeElement
+    )
+      target = target.shadowRoot.activeElement;
+    return target;
+  }
+
   insertKeyboardText(
     element: Element,
     text: string,
     inputType = "insertText",
     eventData: string | null = text,
-    deadline?: ActionDeadline
+    deadline?: ActionDeadline,
+    typedByKey = false
   ) {
     this.assertActionDeadline(deadline, "press");
     if (!isEditableElement(element, this.window)) return;
     if (!this.dispatchBeforeInput(element, eventData, inputType)) return;
+    // Chromium dispatches the legacy TextEvent for the text a key produces,
+    // between beforeinput and input. Text that no key produced, such as
+    // Keyboard.insertText, carries no keypress and no textInput either.
+    if (typedByKey && !this.dispatchTextInput(element, text)) return;
     this.assertActionDeadline(deadline, "press");
     this.insertPressedText(element, text, inputType, eventData, deadline);
   }
@@ -3094,6 +3137,16 @@ export class PageImpl {
         inputType,
       })
     );
+  }
+
+  // Built the way the pinned in-document input emulation builds it
+  // (coreBundle `_dispatchTextInput`): TextEvent has no constructor, so
+  // initTextEvent is the only way to produce the event Chromium dispatches.
+  // Canceling it cancels the insertion, as it does for a real key press.
+  private dispatchTextInput(element: Element, text: string): boolean {
+    const event = this.document.createEvent("TextEvent");
+    event.initTextEvent("textInput", true, true, this.window, text);
+    return element.dispatchEvent(event);
   }
 
   private dispatchInputEvent(
@@ -3461,7 +3514,8 @@ class BrowserKeyboard {
         description.text,
         "insertText",
         description.text,
-        deadline
+        deadline,
+        true
       );
     }
     if (keyPressAllowed && description.key === "Enter") {
@@ -3503,13 +3557,7 @@ class BrowserKeyboard {
   }
 
   private activeTarget(): Element {
-    let target = this.page.document.activeElement ?? this.page.document.body;
-    while (
-      target.shadowRoot?.mode === "open" &&
-      target.shadowRoot.activeElement
-    )
-      target = target.shadowRoot.activeElement;
-    return target;
+    return this.page.deepActiveElement();
   }
 
   private descriptionFor(key: string): KeyboardKeyDescription {
@@ -3930,8 +3978,71 @@ function isRetryableQueryError(error: unknown): boolean {
   );
 }
 
+/**
+ * Mirrors the pinned client's convertSelectOptionValues, which lets the first
+ * entry decide whether the list is read as plain values/labels, followed by the
+ * FrameSelectOptionParams protocol validation of every entry.
+ */
+function selectOptionValues(
+  values: string | SelectOptionValue | (string | SelectOptionValue)[] | null
+): ({ valueOrLabel: string } | SelectOptionValue)[] {
+  if (values === null) return [];
+  const list = Array.isArray(values) ? values : [values];
+  list.forEach((value, index) => {
+    if (value === null)
+      throw new Error(`options[${index}]: expected object, got null`);
+  });
+  if (typeof list[0] === "string" || list[0] instanceof String)
+    return list.map((value, index) => ({
+      valueOrLabel: validateString(value, `options[${index}].valueOrLabel`),
+    }));
+  return list.map((value, index) =>
+    validateSelectOptionValue(value, `options[${index}]`)
+  );
+}
+
+function validateSelectOptionValue(
+  value: unknown,
+  name: string
+): {
+  valueOrLabel?: string;
+} & SelectOptionValue {
+  if (typeof value !== "object")
+    throw new Error(`${name}: expected object, got ${typeof value}`);
+  const source = value as Record<string, unknown>;
+  const option: { valueOrLabel?: string } & SelectOptionValue = {};
+  for (const key of ["valueOrLabel", "value", "label"] as const)
+    if (source[key] !== undefined)
+      option[key] = validateString(source[key], `${name}.${key}`);
+  if (source.index !== undefined)
+    option.index = validateInteger(source.index, `${name}.index`);
+  return option;
+}
+
 function formatLocator(selector: string): string {
   return `locator('${selector.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}')`;
+}
+
+/**
+ * Pinned Playwright reports an InjectedScript fill rejection through the
+ * calling member and the action's call log, not as the bare injected message:
+ * `page.fill: Error: Element is not an <input>, <textarea> or [contenteditable]
+ * element` followed by `Call log:`. `label` carries the Page form the way
+ * performPointerAction derives its prefix.
+ */
+function injectedFillError(
+  error: Error,
+  selector: string,
+  label: string,
+  apiMethod: "fill" | "clear"
+): Error {
+  const prefix = label.startsWith("page.fill(")
+    ? "page.fill"
+    : `locator.${apiMethod}`;
+  return new Error(
+    `${prefix}: Error: ${error.message}\nCall log:\n  - waiting for ${formatLocator(selector)}\n  - attempting fill action\n    - waiting for element to be visible, enabled and editable`,
+    { cause: error }
+  );
 }
 
 function presentOriginalXPath(error: unknown, selector: string): Error {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- intentional casts to test runtime validation */
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
@@ -120,6 +121,31 @@ describe("Locator.fill", () => {
     await label.fill("");
     expect(document.querySelector("input")?.value).toBe("");
     expect(document.querySelector("label")?.textContent).toBe("Caption");
+  });
+
+  // page-fill.spec.ts's "should throw nice error without injected script stack
+  // when element is not an <input>" covers the Page form upstream.
+  it("reports an injected rejection under its own member name", async () => {
+    document.body.innerHTML = `<select><option>value1</option></select>`;
+    const page = createPage();
+
+    await expect(page.locator("select").fill("")).rejects.toThrow(
+      "locator.fill: Error: Element is not an <input>, <textarea> or [contenteditable] element\nCall log:"
+    );
+  });
+
+  // page-fill.spec.ts's "should throw if passed a non-string value" covers this
+  // upstream, but its setup navigates away from the fixture document.
+  it("rejects a non-string value like the pinned protocol validation", async () => {
+    document.body.innerHTML = '<input id="input" value="before" />';
+    const page = createPage();
+
+    await expect(page.locator("#input").fill(123 as any)).rejects.toThrow(
+      "value: expected string, got number"
+    );
+    expect((document.querySelector("#input") as HTMLInputElement).value).toBe(
+      "before"
+    );
   });
 
   it("retries disabled actions until the state becomes actionable", async () => {
