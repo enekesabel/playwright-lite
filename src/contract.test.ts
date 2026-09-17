@@ -745,6 +745,72 @@ describe("Single-document adapter contract", () => {
       );
     });
 
+    it("releases pressed keys when an abort interrupts the press delay", async () => {
+      document.body.innerHTML = '<input type="text" />';
+      const page = createPage();
+      const input = document.querySelector("input") as HTMLInputElement;
+      const keydowns: {
+        key: string;
+        repeat: boolean;
+        shiftKey: boolean;
+      }[] = [];
+      input.addEventListener("keydown", (event) =>
+        keydowns.push({
+          key: event.key,
+          repeat: event.repeat,
+          shiftKey: event.shiftKey,
+        })
+      );
+      const reason = new Error("stop");
+      const controller = new AbortController();
+      window.setTimeout(() => controller.abort(reason), 50);
+
+      const started = Date.now();
+      const error = await page
+        .locator("input")
+        .press("Shift+a", {
+          delay: 500,
+          signal: controller.signal,
+          timeout: 0,
+        } as any)
+        .then(
+          () => undefined,
+          (error) => error
+        );
+      const elapsed = Date.now() - started;
+
+      expect(error?.name).toBe("AbortError");
+      expect(error.message).toMatch(/^locator\.press: stop\nCall log:/);
+      expect(error.cause).toBe(reason);
+      expect(elapsed).toBeLessThan(300);
+
+      expect(keydowns).toEqual([
+        { key: "Shift", repeat: false, shiftKey: true },
+        { key: "a", repeat: false, shiftKey: true },
+      ]);
+
+      const typed = input.value;
+      await page.locator("input").press("a");
+      expect(keydowns.at(-1)).toEqual({
+        key: "a",
+        repeat: false,
+        shiftKey: false,
+      });
+      expect(input.value).toBe(`${typed}a`);
+
+      await expect(
+        page
+          .locator("input")
+          .press("Shift+a", { delay: 500, timeout: 50 } as any)
+      ).rejects.toThrow("Timeout 50ms exceeded");
+      await page.locator("input").press("a");
+      expect(keydowns.at(-1)).toEqual({
+        key: "a",
+        repeat: false,
+        shiftKey: false,
+      });
+    });
+
     it("forwards explicit timeout through locator terminal actions", async () => {
       document.body.innerHTML = "";
       const page = createPage();

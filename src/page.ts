@@ -1811,6 +1811,15 @@ export class PageImpl {
     this.assertActionDeadline(deadline, "press");
   }
 
+  // Pinned Keyboard.press/type delay through progress.wait, which races the
+  // timer against the abort. The pointer path already waits that way here.
+  async waitKeyboardDelay(
+    durationMs: number | undefined,
+    deadline: ActionDeadline | undefined
+  ) {
+    await this.waitWithinActionDeadline(durationMs, deadline, "press");
+  }
+
   private async waitWithinActionDeadline(
     durationMs: number | undefined,
     deadline: ActionDeadline | undefined,
@@ -3277,7 +3286,7 @@ class BrowserKeyboard {
       if (keyboardLayout.has(character))
         await this.press(character, { delay }, deadline);
       else {
-        if (delay) await this.wait(delay, deadline);
+        if (delay) await this.page.waitKeyboardDelay(delay, deadline);
         await this.insertText(character, deadline);
       }
     }
@@ -3290,13 +3299,46 @@ class BrowserKeyboard {
   ): Promise<void> {
     const tokens = splitKeyboardShortcut(key);
     const target = tokens.at(-1)!;
-    for (const modifier of tokens.slice(0, -1))
-      await this.down(modifier, deadline);
-    await this.down(target, deadline);
-    if (options.delay) await this.wait(options.delay, deadline);
-    await this.up(target, deadline);
-    for (const modifier of tokens.slice(0, -1).reverse())
-      await this.up(modifier, deadline);
+    const modifiers = tokens.slice(0, -1);
+    // The pinned Keyboard leaves a key down when the progress aborts during
+    // the delay, because the controlled browser owns the real key state.
+    // Here these sets are the only key state, so an interrupted press
+    // releases what it pressed instead of leaking a repeat or a stuck
+    // modifier into later operations. Cleanup dispatches no keyup, keeping
+    // the aborted press's event sequence identical to the pinned one.
+    const held = new Set<string>();
+    try {
+      for (const modifier of modifiers) {
+        held.add(modifier);
+        await this.down(modifier, deadline);
+      }
+      held.add(target);
+      await this.down(target, deadline);
+      if (options.delay)
+        await this.page.waitKeyboardDelay(options.delay, deadline);
+      await this.up(target, deadline);
+      held.delete(target);
+      for (const modifier of modifiers.reverse()) {
+        await this.up(modifier, deadline);
+        held.delete(modifier);
+      }
+    } catch (error) {
+      this.releaseKeys(held);
+      throw error;
+    }
+  }
+
+  private releaseKeys(keys: Iterable<string>): void {
+    for (const key of keys) {
+      const description = keyboardLayout.get(
+        resolveKeyboardKey(key, this.page.window)
+      );
+      if (!description) continue;
+      this.pressedKeys.delete(description.code);
+      this.keydownState.delete(description.code);
+      if (isModifier(description.key))
+        this.pressedModifiers.delete(description.key);
+    }
   }
 
   private async downForTarget(
@@ -3413,19 +3455,6 @@ class BrowserKeyboard {
     )
       return { ...description, text: "" };
     return description;
-  }
-
-  private async wait(delay: number, deadline?: ActionDeadline): Promise<void> {
-    this.page.checkKeyboardActionDeadline(deadline);
-    const remaining = deadline
-      ? Math.max(0, deadline.expiresAt - Date.now())
-      : delay;
-    if (deadline && remaining <= 0)
-      this.page.checkKeyboardActionDeadline(deadline);
-    await new Promise<void>((resolve) =>
-      this.page.window.setTimeout(resolve, Math.min(delay, remaining))
-    );
-    this.page.checkKeyboardActionDeadline(deadline);
   }
 
   private async waitForKeyboardPhase(deadline?: ActionDeadline): Promise<void> {
