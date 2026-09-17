@@ -1361,6 +1361,16 @@
       "evidence": "Focusing #d1 moves document.activeElement from BODY to the target div. Native setContent is fixture setup only."
     },
     {
+      "id": "page-goto.spec.ts > should fail when navigating to bad url",
+      "method": "Page.goto",
+      "evidence": "Page.goto rejects an unresolvable URL with Playwright's Cannot navigate to invalid URL instead of leaking the URL constructor's TypeError, and the document is never asked to navigate."
+    },
+    {
+      "id": "page-goto.spec.ts > should throw if networkidle2 is passed as an option",
+      "method": "Page.goto",
+      "evidence": "Page.goto validates waitUntil before navigating and rejects networkidle2 with Playwright's waitUntil: expected one of (load|domcontentloaded|networkidle|commit)."
+    },
+    {
       "id": "page-keyboard.spec.ts > pressing Meta should not result in any text insertion on any platform",
       "method": "Keyboard.press",
       "evidence": "The unchanged assertions prove the input value remains hello world before and after adapter Keyboard.press(Meta). Focus, keyboard dispatch and matcher checks all execute through the browser adapter; Page.setContent is setup only."
@@ -1444,6 +1454,11 @@
       "id": "page-set-input-files.spec.ts > should set from memory",
       "method": "Page.setInputFiles",
       "evidence": "Native setContent installs an input; adapter Page.setInputFiles assigns an in-memory payload. Adapter $eval assertions verify one selected file named test.txt, with no transport failures or native upload calls."
+    },
+    {
+      "id": "page-strict.spec.ts > should escape tag names",
+      "method": "Locator._expect",
+      "evidence": "The expectation resolves strictly through the pinned InjectedScript, so the rejection is its strict mode violation listing both matches with generated locators, including the escaped q\\:template tag name."
     },
     {
       "id": "page-strict.spec.ts > should fail page.fill in strict mode",

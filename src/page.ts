@@ -486,10 +486,16 @@ export class PageImpl {
     if (!elements.length)
       return missingExpectationAttempt(expression, expectOptions);
 
-    // Pinned Frame._expectInternal resolves non-array assertions strictly.
+    // Pinned Frame._expectInternal resolves non-array assertions strictly, so
+    // `callMatchedElements` lets the InjectedScript build the violation with
+    // its generated locators.
     if (!isArray && elements.length > 1)
-      throw new Error(
-        `strict mode violation: locator ${JSON.stringify(selector)} resolved to ${elements.length} elements`
+      throw presentOriginalXPath(
+        this.injected.strictModeViolationError(
+          this.injected.parseSelector(selector),
+          elements
+        ),
+        selector
       );
 
     const injectedOptions = Object.fromEntries(
@@ -1410,8 +1416,11 @@ export class PageImpl {
       if (!["timeout", "waitUntil"].includes(key) && value !== undefined)
         throw new Error(`Unsupported Playwright option: goto.${key}`);
     }
-    const waitUntil = options.waitUntil ?? "load";
-    if (!["commit", "domcontentloaded", "load"].includes(waitUntil))
+    const waitUntil = verifyLoadState(
+      "waitUntil",
+      options.waitUntil === undefined ? "load" : options.waitUntil
+    );
+    if (waitUntil === "networkidle")
       throw new Error(`Unsupported waitUntil value: ${waitUntil}`);
     const timeout = this.resolveTimeout(
       options.timeout,
@@ -1420,7 +1429,14 @@ export class PageImpl {
     );
     if (typeof url !== "string") throw new Error("goto URL must be a string");
     // Native relative URLs use this document's base, not a Node test config.
-    const target = new URL(url, this.document.baseURI);
+    // An unparseable URL fails navigation the way the browser reports it,
+    // rather than surfacing the URL constructor's own TypeError.
+    let target: URL;
+    try {
+      target = new URL(url, this.document.baseURI);
+    } catch {
+      throw new Error("page.goto: Cannot navigate to invalid URL");
+    }
     if (
       !["http:", "https:", "about:", "file:", "data:"].includes(target.protocol)
     )
@@ -3865,6 +3881,22 @@ function assertElementHandleStateOptions(
   }
   if (options.timeout !== undefined)
     validateTimeout(options.timeout, "waitForElementState timeout");
+}
+
+/**
+ * Pinned 26a9e47 client/frame.ts `verifyLoadState`: accepts the four lifecycle
+ * events, keeps the `networkidle0` alias, and rejects anything else with the
+ * client's wording before the navigation is requested.
+ */
+function verifyLoadState(name: string, waitUntil: string): string {
+  if (waitUntil === "networkidle0") waitUntil = "networkidle";
+  if (
+    !["load", "domcontentloaded", "networkidle", "commit"].includes(waitUntil)
+  )
+    throw new Error(
+      `${name}: expected one of (load|domcontentloaded|networkidle|commit)`
+    );
+  return waitUntil;
 }
 
 function isRetryableQueryError(error: unknown): boolean {
