@@ -309,3 +309,16 @@ describe("Locator.press", () => {
     expect(input.value).toBe("");
   });
 });
+
+describe("Page.press", () => {
+  it("delegates the browser-feasible action without recursive dispatch", async () => {
+    document.body.innerHTML = `<input id=input />`;
+    const page = createPage();
+
+    await page.press("#input", "b");
+
+    expect((document.querySelector("#input") as HTMLInputElement).value).toBe(
+      "b"
+    );
+  });
+});

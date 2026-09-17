@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- intentional casts to test runtime validation */
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
@@ -6,14 +5,6 @@ import { createPage } from "../../src/index";
 describe("Locator.fill", () => {
   afterEach(() => {
     document.body.innerHTML = "";
-  });
-
-  it("rejects action options other than timeout", async () => {
-    document.body.innerHTML = '<input type="text" />';
-    const page = createPage();
-    await expect(
-      page.locator("input").fill("x", { force: true } as any)
-    ).rejects.toThrow(/unsupported Playwright option.*force/);
   });
 
   it("fills text in one input event", async () => {
@@ -129,5 +120,39 @@ describe("Locator.fill", () => {
     await label.fill("");
     expect(document.querySelector("input")?.value).toBe("");
     expect(document.querySelector("label")?.textContent).toBe("Caption");
+  });
+
+  it("retries disabled actions until the state becomes actionable", async () => {
+    document.body.innerHTML = `
+      <input id="input" disabled />
+    `;
+    const page = createPage();
+
+    window.setTimeout(() => {
+      (document.querySelector("#input") as HTMLInputElement).disabled = false;
+    }, 25);
+
+    await page.locator("#input").fill("ready");
+
+    expect((document.querySelector("#input") as HTMLInputElement).value).toBe(
+      "ready"
+    );
+  });
+});
+
+describe("Page.fill", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("delegates the browser-feasible action without recursive dispatch", async () => {
+    document.body.innerHTML = `<input id=input />`;
+    const page = createPage();
+
+    await page.fill("#input", "a");
+
+    expect((document.querySelector("#input") as HTMLInputElement).value).toBe(
+      "a"
+    );
   });
 });

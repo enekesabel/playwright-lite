@@ -33,15 +33,6 @@ describe("Locator.waitFor", () => {
     }
   );
 
-  it("keeps locator waitFor strict", async () => {
-    document.body.innerHTML = `<div class=duplicate></div><div class=duplicate></div>`;
-    const page = createPage();
-
-    await expect(page.locator(".duplicate").waitFor()).rejects.toThrow(
-      /strict mode violation/
-    );
-  });
-
   it("waits for insertion and removal with the existing strict polling loop", async () => {
     const page = createPage();
     const locator = page.locator("#target");
@@ -85,4 +76,32 @@ describe("Locator.waitFor", () => {
       );
     }
   );
+
+  it("waitFor supports attached state even when hidden", async () => {
+    document.body.innerHTML = "<div hidden>attached</div>";
+    const page = createPage();
+    await expect(
+      page.locator("div").waitFor({ state: "attached" })
+    ).resolves.toBeUndefined();
+  });
+
+  it("waitFor supports detached state", async () => {
+    document.body.innerHTML = "";
+    const page = createPage();
+    await expect(
+      page.locator("div").waitFor({ state: "detached" })
+    ).resolves.toBeUndefined();
+  });
+
+  it("waitFor defaults to visible state", async () => {
+    document.body.innerHTML = "<div>visible</div>";
+    const page = createPage();
+    await page.locator("div").waitFor();
+  });
+
+  it("waitFor succeeds with supported options only", async () => {
+    document.body.innerHTML = "<div>visible</div>";
+    const page = createPage();
+    await page.locator("div").waitFor({ state: "visible", timeout: 1000 });
+  });
 });

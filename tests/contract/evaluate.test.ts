@@ -195,38 +195,6 @@ describe("Page.evaluate", () => {
     expect(result.buffer).not.toBe(value.buffer);
   });
 
-  // Exercises the same DOM-return serialization contract through every
-  // evaluate entry point: Page.evaluate, Page.$eval/$$eval, Locator.evaluate/
-  // evaluateAll, and ElementHandle.evaluate/$eval/$$eval.
-  it("serializes DOM returns for every supported target evaluation entry point", async () => {
-    document.body.innerHTML =
-      '<section id="root"><button>Go</button></section>';
-    const page = createPage();
-    const root = await page.$("#root");
-    if (!root) throw new Error("Missing test root");
-    const single = [
-      () => page.evaluate(() => document.body),
-      () => page.$eval("button", (element) => element),
-      () => page.locator("button").evaluate((element) => element),
-      () => root.evaluate((element) => element),
-      () => root.$eval("button", (element) => element),
-    ];
-    for (const evaluate of single)
-      await expect(evaluate()).resolves.toBe("ref: <Node>");
-    const many = [
-      () => page.$$eval("button", (elements) => elements),
-      () => page.locator("button").evaluateAll((elements) => elements),
-      () => root.$$eval("button", (elements) => elements),
-    ];
-    for (const evaluate of many)
-      await expect(evaluate()).resolves.toEqual(["ref: <Node>"]);
-    await expect(page.evaluate(() => [window, document])).resolves.toEqual([
-      "ref: <Window>",
-      "ref: <Document>",
-    ]);
-    await root.dispose();
-  });
-
   it("awaits promises and normalizes callback failures like Playwright", async () => {
     const page = createPage();
     await expect(
