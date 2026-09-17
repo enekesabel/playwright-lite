@@ -1,12 +1,12 @@
 import { assertEvaluationOptions, assertMaxArguments } from "./evaluation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
-import { rejectUnsupportedOptions } from "./protocolValidation";
+import { rejectUnsupportedOptions, validateForce } from "./protocolValidation";
 import type { InputFiles } from "./inputFiles";
 import type { PageImpl, SelectOptionValue } from "./page";
 import { withAbortPrefix } from "./page";
 import type { ElementHandle } from "@playwright/test";
 
-type ElementHandleWaitOptions = { timeout?: number };
+type ElementHandleWaitOptions = { signal?: AbortSignal; timeout?: number };
 type ElementHandleSelectorWaitOptions = ElementHandleWaitOptions & {
   state?: "attached" | "detached" | "visible" | "hidden";
 };
@@ -96,10 +96,12 @@ export class AdapterElementHandle {
     options?: Parameters<ElementHandle["fill"]>[1]
   ): Promise<void> {
     rejectUnsupportedOptions("fill", options, [
+      "force",
       "noWaitAfter",
       "signal",
       "timeout",
     ]);
+    const force = validateForce("fill", options?.force);
     await withAbortPrefix("elementHandle.fill", () =>
       this.ownerPage.fillSelector(
         this.requireElement(),
@@ -108,7 +110,9 @@ export class AdapterElementHandle {
         options?.timeout,
         undefined,
         true,
-        options?.signal
+        options?.signal,
+        "fill",
+        force
       )
     );
   }
@@ -146,10 +150,12 @@ export class AdapterElementHandle {
     options?: Parameters<ElementHandle["selectOption"]>[1]
   ): Promise<string[]> {
     rejectUnsupportedOptions("selectOption", options, [
+      "force",
       "noWaitAfter",
       "signal",
       "timeout",
     ]);
+    const force = validateForce("selectOption", options?.force);
     return withAbortPrefix("elementHandle.selectOption", () =>
       this.ownerPage.selectOptionSelector(
         this.requireElement(),
@@ -158,7 +164,8 @@ export class AdapterElementHandle {
         options?.timeout,
         undefined,
         true,
-        options?.signal
+        options?.signal,
+        force
       )
     );
   }
@@ -219,14 +226,20 @@ export class AdapterElementHandle {
   async selectText(
     options?: Parameters<ElementHandle["selectText"]>[0]
   ): Promise<void> {
-    rejectUnsupportedOptions("selectText", options, ["signal", "timeout"]);
+    rejectUnsupportedOptions("selectText", options, [
+      "force",
+      "signal",
+      "timeout",
+    ]);
+    const force = validateForce("selectText", options?.force);
     await withAbortPrefix("elementHandle.selectText", () =>
       this.ownerPage.selectText(
         this.requireElement(),
         "elementHandle.selectText",
         options?.timeout,
         undefined,
-        options?.signal
+        options?.signal,
+        force
       )
     );
   }
@@ -394,10 +407,8 @@ export class AdapterElementHandle {
       "visible" | "hidden" | "stable" | "enabled" | "disabled" | "editable",
     options: ElementHandleWaitOptions = {}
   ): Promise<void> {
-    await this.ownerPage.waitForElementState(
-      this.requireElement(),
-      state,
-      options
+    await withAbortPrefix("elementHandle.waitForElementState", () =>
+      this.ownerPage.waitForElementState(this.requireElement(), state, options)
     );
   }
 

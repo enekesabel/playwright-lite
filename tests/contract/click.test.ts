@@ -432,6 +432,54 @@ describe("Locator.click", () => {
 
     expect(clicked).toBe(true);
   });
+
+  // Pinned input.ts Mouse.move interpolates `steps` positions between the
+  // pointer's previous location and the action point, the last one landing
+  // exactly on it. A fresh page starts the pointer at the pinned 0,0 origin.
+  it("emits interpolated mousemove positions for steps", async () => {
+    document.body.innerHTML = `
+      <div id="target" style="position:fixed; left:150px; top:280px; width:100px; height:40px">Click me</div>
+    `;
+    const page = createPage();
+    const moves: [number, number][] = [];
+    const record = (event: MouseEvent) =>
+      moves.push([event.clientX, event.clientY]);
+    document.addEventListener("mousemove", record);
+
+    try {
+      // Centerpoint at 150 + 100/2, 280 + 40/2 = 200, 300.
+      await page.locator("#target").click({ steps: 5 });
+    } finally {
+      document.removeEventListener("mousemove", record);
+    }
+
+    expect(moves).toEqual([
+      [40, 60],
+      [80, 120],
+      [120, 180],
+      [160, 240],
+      [200, 300],
+    ]);
+  });
+
+  it("emits one mousemove at the action point without steps", async () => {
+    document.body.innerHTML = `
+      <div id="target" style="position:fixed; left:150px; top:280px; width:100px; height:40px">Click me</div>
+    `;
+    const page = createPage();
+    const moves: [number, number][] = [];
+    const record = (event: MouseEvent) =>
+      moves.push([event.clientX, event.clientY]);
+    document.addEventListener("mousemove", record);
+
+    try {
+      await page.locator("#target").click();
+    } finally {
+      document.removeEventListener("mousemove", record);
+    }
+
+    expect(moves).toEqual([[200, 300]]);
+  });
 });
 
 describe("Page.click", () => {

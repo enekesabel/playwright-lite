@@ -55,7 +55,7 @@ const outOfScope = (limitations: string): CompatibilityEntry => ({
  * browser runtime.
  */
 export const elementHandleLimitations =
-  "Returned `ElementHandle` objects do not implement `contentFrame()`, `ownerFrame()`, `screenshot()`, `tap()`, `evaluateHandle()`, `jsonValue()`, `getProperties()`, `getProperty()`, or `[Symbol.asyncDispose]()`. Their `$()` ignores `strict`; `click()` and `dblclick()` reject `steps`, and `click()` does not wait for navigation; `fill()`, `selectOption()`, and `selectText()` reject `force`; `waitForElementState()` rejects `signal`; `waitForSelector()` rejects `strict`; `evaluate()` rejects `exposeFunctions: true`. The `JSHandle` returned by `waitForFunction()` does not implement `asElement()`, `evaluate()`, `evaluateHandle()`, `getProperties()`, `getProperty()`, or `[Symbol.asyncDispose]()`.";
+  "Returned `ElementHandle` objects do not implement `contentFrame()`, `ownerFrame()`, `screenshot()`, `tap()`, `evaluateHandle()`, `jsonValue()`, `getProperties()`, `getProperty()`, or `[Symbol.asyncDispose]()`. Their `$()` ignores `strict`; `click()` does not wait for navigation; `waitForSelector()` rejects `strict`; `evaluate()` rejects `exposeFunctions: true`. The `JSHandle` returned by `waitForFunction()` does not implement `asElement()`, `evaluate()`, `evaluateHandle()`, `getProperties()`, `getProperty()`, or `[Symbol.asyncDispose]()`.";
 
 export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),
@@ -101,7 +101,7 @@ export const pageLedger = {
   evaluateHandle: undecided(),
   exposeBinding: undecided(),
   exposeFunction: undecided(),
-  fill: partial("The `force` option is unsupported."),
+  fill: implemented(),
   focus: implemented(),
   frame: outOfScope("Iframe realms are outside the single-document boundary."),
   frameLocator: outOfScope(
@@ -180,9 +180,7 @@ export const pageLedger = {
   routeWebSocket: undecided(),
   screencast: undecided(),
   screenshot: undecided(),
-  selectOption: partial(
-    "`ElementHandle` option values are unsupported. The `force` option is unsupported."
-  ),
+  selectOption: partial("`ElementHandle` option values are unsupported."),
   sessionStorage: implemented("Native current-window Storage only."),
   setChecked: implemented(),
   setContent: outOfScope("Document replacement is excluded."),
@@ -208,7 +206,7 @@ export const pageLedger = {
     "Only console and pageerror are planned; other events remain undecided."
   ),
   waitForFunction: partial(
-    "Ignores `signal`. The returned handle implements only `jsonValue()` and `dispose()`, even when the predicate returns a DOM node; see [ElementHandle compatibility](#elementhandle-compatibility)."
+    "The returned handle implements only `jsonValue()` and `dispose()`, even when the predicate returns a DOM node; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   waitForLoadState: undecided(),
   waitForNavigation: undecided(),
@@ -233,15 +231,13 @@ export const locatorLedger = {
   blur: implemented(),
   boundingBox: implemented(),
   check: implemented(),
-  clear: partial("The `force` option is unsupported."),
-  click: partial(
-    "The `steps` option is unsupported. The action does not wait for navigation."
-  ),
+  clear: implemented(),
+  click: partial("The action does not wait for navigation."),
   contentFrame: outOfScope(
     "Iframe realms are outside the single-document boundary."
   ),
   count: implemented(),
-  dblclick: partial("The `steps` option is unsupported."),
+  dblclick: implemented(),
   describe: implemented(),
   description: partial(
     "`describe('').description()` returns `''` instead of `null`; `describe('x').filter({}).description()` returns `null` instead of `'x'`."
@@ -262,7 +258,7 @@ export const locatorLedger = {
     "Uses the pinned Playwright by-value argument and result serializers."
   ),
   evaluateHandle: undecided(),
-  fill: partial("The `force` option is unsupported."),
+  fill: implemented(),
   filter: implemented(),
   first: implemented(),
   focus: implemented(),
@@ -303,10 +299,8 @@ export const locatorLedger = {
   pressSequentially: implemented(),
   screenshot: undecided(),
   scrollIntoViewIfNeeded: implemented(),
-  selectOption: partial(
-    "`ElementHandle` option values are unsupported. The `force` option is unsupported."
-  ),
-  selectText: partial("The `force` option is unsupported."),
+  selectOption: partial("`ElementHandle` option values are unsupported."),
+  selectText: implemented(),
   setChecked: implemented(),
   setInputFiles: partial(
     "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported. Empty `mimeType` throws instead of inferring a MIME type."

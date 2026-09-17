@@ -41,6 +41,21 @@ describe("option-validation", () => {
       (page, options) => page.locator("#input").check(options as any),
       /^check signal must be an AbortSignal/,
     ],
+    [
+      "waitForFunction",
+      (page, options) =>
+        page.waitForFunction(() => true, undefined, options as any),
+      /waitForFunction signal must be an AbortSignal/,
+    ],
+    [
+      "elementHandle.waitForElementState",
+      async (page, options) =>
+        (await page.$("#input"))!.waitForElementState(
+          "visible",
+          options as any
+        ),
+      /waitForElementState signal must be an AbortSignal/,
+    ],
   ];
 
   it.each(signalActions)(
@@ -73,11 +88,6 @@ describe("option-validation", () => {
       /blur\(\): unsupported Playwright option\(s\): force/,
     ],
     [
-      "fill",
-      (page) => page.locator("#input").fill("x", { force: true } as any),
-      /unsupported Playwright option.*force/,
-    ],
-    [
       "pressSequentially",
       (page) =>
         page
@@ -93,8 +103,8 @@ describe("option-validation", () => {
     [
       "elementHandle.selectText",
       async (page) =>
-        (await page.$("#input"))!.selectText({ force: true } as any),
-      /selectText\(\): unsupported Playwright option\(s\): force/,
+        (await page.$("#input"))!.selectText({ unexpected: true } as any),
+      /selectText\(\): unsupported Playwright option\(s\): unexpected/,
     ],
     // The checked actions share one implementation; each still reports the
     // member the consumer called.
@@ -260,6 +270,74 @@ describe("option-validation", () => {
       expect(error.message, apiName).toBe("delay: expected number");
     }
     expect(document.querySelector<HTMLInputElement>("#input")!.value).toBe("");
+  });
+
+  // `force` is `boolean?` in the pinned protocol for every action that takes
+  // it, so a boxed `Boolean` unwraps and anything else is rejected.
+  it("rejects a non-boolean force and unwraps a boxed one", async () => {
+    document.body.innerHTML =
+      '<input id="input" type="date" />' +
+      '<select id="select"><option value="one">One</option></select>';
+    const page = createPage();
+    const input = page.locator("#input");
+    const select = page.locator("#select");
+    const actions: [string, (options: unknown) => Promise<unknown>][] = [
+      ["fill", (o) => page.fill("#input", "2020-01-01", o as any)],
+      ["fill", (o) => input.fill("2020-01-01", o as any)],
+      ["clear", (o) => input.clear(o as any)],
+      ["selectOption", (o) => page.selectOption("#select", "one", o as any)],
+      ["selectOption", (o) => select.selectOption("one", o as any)],
+      ["selectText", (o) => input.selectText(o as any)],
+      [
+        "fill",
+        async (o) => (await page.$("#input"))!.fill("2020-01-01", o as any),
+      ],
+      [
+        "selectOption",
+        async (o) => (await page.$("#select"))!.selectOption("one", o as any),
+      ],
+      [
+        "selectText",
+        async (o) => (await page.$("#input"))!.selectText(o as any),
+      ],
+    ];
+
+    for (const [apiName, run] of actions) {
+      const error = await run({ force: "yes" }).then(
+        () => undefined,
+        (error) => error
+      );
+      expect(error, apiName).toBeInstanceOf(TypeError);
+      expect(error.message, apiName).toBe(`${apiName} force must be a boolean`);
+      await run({ force: Object(true) });
+    }
+  });
+
+  // `steps` is `int?` in the pinned protocol for click and dblclick.
+  it("rejects a non-integer click or dblclick steps", async () => {
+    document.body.innerHTML = '<button id="button">ok</button>';
+    const page = createPage();
+    const button = page.locator("#button");
+    let clicks = 0;
+    document.querySelector("button")!.addEventListener("click", () => clicks++);
+    const actions: [string, (options: unknown) => Promise<unknown>][] = [
+      ["click", (o) => button.click(o as any)],
+      ["dblclick", (o) => button.dblclick(o as any)],
+    ];
+
+    for (const [apiName, run] of actions) {
+      await expect(run({ steps: "5" }), apiName).rejects.toThrow(
+        "steps: expected number"
+      );
+      await expect(run({ steps: 1.5 }), apiName).rejects.toThrow(
+        "steps: expected integer, got float 1.5"
+      );
+    }
+    // Invalid input must fail before dispatching any event.
+    expect(clicks).toBe(0);
+
+    for (const [, run] of actions) await run({ steps: Object(2) });
+    expect(clicks).toBeGreaterThan(0);
   });
 
   describe.each(["Page", "Locator"] as const)("%s.click options", (owner) => {

@@ -33,6 +33,22 @@ export function validateDelay(value: unknown): number | undefined {
 }
 
 /**
+ * `force` is `boolean?` in the pinned protocol for every action that takes it.
+ * Like the pointer options, a boxed `Boolean` is unwrapped so the caller
+ * forwards a primitive instead of an always-truthy object.
+ */
+export function validateForce(
+  method: string,
+  value: unknown
+): boolean | undefined {
+  if (value === undefined) return undefined;
+  const force = value instanceof Boolean ? value.valueOf() : value;
+  if (typeof force !== "boolean")
+    throw new TypeError(`${method} force must be a boolean`);
+  return force;
+}
+
+/**
  * `signal` is a client-side option in the pinned API: it never reaches the
  * protocol, so the adapter checks the value itself. `name` is the API member
  * or option group the message speaks for, such as `click` or `Query`.

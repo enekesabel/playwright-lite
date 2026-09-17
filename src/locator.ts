@@ -1,6 +1,6 @@
 import type { Locator } from "@playwright/test";
 import { assertMaxArguments } from "./evaluation";
-import { rejectUnsupportedOptions } from "./protocolValidation";
+import { rejectUnsupportedOptions, validateForce } from "./protocolValidation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import type {
   AriaSnapshotOptions,
@@ -57,6 +57,12 @@ type LocatorActionOptions = { signal?: AbortSignal; timeout?: number };
 type LocatorActionWithNoWaitAfterOptions = LocatorActionOptions & {
   noWaitAfter?: boolean;
 };
+/** `force` is a protocol option of `fill`, `clear`, `selectOption` and `selectText`. */
+type LocatorForcibleActionOptions = LocatorActionOptions & {
+  force?: boolean;
+};
+type LocatorForcibleActionWithNoWaitAfterOptions =
+  LocatorForcibleActionOptions & LocatorActionWithNoWaitAfterOptions;
 /** Shared by `press`, `type` and `pressSequentially`. */
 type LocatorKeyboardInputOptions = LocatorActionWithNoWaitAfterOptions & {
   delay?: number;
@@ -451,12 +457,17 @@ export class LocatorImpl {
     );
   }
 
-  async fill(value: string, options?: LocatorActionWithNoWaitAfterOptions) {
+  async fill(
+    value: string,
+    options?: LocatorForcibleActionWithNoWaitAfterOptions
+  ) {
     rejectUnsupportedOptions("fill", options, [
+      "force",
       "noWaitAfter",
       "signal",
       "timeout",
     ]);
+    const force = validateForce("fill", options?.force);
     await withAbortPrefix("locator.fill", () =>
       this.ownerPage.fillSelector(
         this.selector,
@@ -465,7 +476,9 @@ export class LocatorImpl {
         options?.timeout,
         undefined,
         true,
-        options?.signal
+        options?.signal,
+        "fill",
+        force
       )
     );
   }
@@ -519,12 +532,14 @@ export class LocatorImpl {
     );
   }
 
-  async clear(options?: LocatorActionWithNoWaitAfterOptions) {
+  async clear(options?: LocatorForcibleActionWithNoWaitAfterOptions) {
     rejectUnsupportedOptions("clear", options, [
+      "force",
       "noWaitAfter",
       "signal",
       "timeout",
     ]);
+    const force = validateForce("clear", options?.force);
     await withAbortPrefix("locator.clear", () =>
       this.ownerPage.fillSelector(
         this.selector,
@@ -534,7 +549,8 @@ export class LocatorImpl {
         undefined,
         true,
         options?.signal,
-        "clear"
+        "clear",
+        force
       )
     );
   }
@@ -612,13 +628,15 @@ export class LocatorImpl {
 
   async selectOption(
     values: string | SelectOptionValue | (string | SelectOptionValue)[] | null,
-    options?: LocatorActionWithNoWaitAfterOptions
+    options?: LocatorForcibleActionWithNoWaitAfterOptions
   ) {
     rejectUnsupportedOptions("selectOption", options, [
+      "force",
       "noWaitAfter",
       "signal",
       "timeout",
     ]);
+    const force = validateForce("selectOption", options?.force);
     return withAbortPrefix("locator.selectOption", () =>
       this.ownerPage.selectOptionSelector(
         this.selector,
@@ -627,20 +645,27 @@ export class LocatorImpl {
         options?.timeout,
         undefined,
         true,
-        options?.signal
+        options?.signal,
+        force
       )
     );
   }
 
-  async selectText(options?: LocatorActionOptions) {
-    rejectUnsupportedOptions("selectText", options, ["signal", "timeout"]);
+  async selectText(options?: LocatorForcibleActionOptions) {
+    rejectUnsupportedOptions("selectText", options, [
+      "force",
+      "signal",
+      "timeout",
+    ]);
+    const force = validateForce("selectText", options?.force);
     await withAbortPrefix("locator.selectText", () =>
       this.ownerPage.selectText(
         this.selector,
         this.label,
         options?.timeout,
         undefined,
-        options?.signal
+        options?.signal,
+        force
       )
     );
   }

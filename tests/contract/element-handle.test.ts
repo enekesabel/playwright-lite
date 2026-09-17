@@ -229,6 +229,46 @@ describe("ElementHandle", () => {
     expect(document.querySelectorAll("input")[1].value).toBe("two");
   });
 
+  // Pinned dom.ts runs `checkElementStates` only when `force` is unset, for the
+  // handle form exactly as for the selector forms. The date input keeps the
+  // assertion on InjectedScript's direct set-value path, which completes
+  // without any keyboard input of its own.
+  it("fills, selects and selects text on a hidden fixed element with force", async () => {
+    document.body.innerHTML =
+      '<input id=date type=date style="display:none">' +
+      '<input id=text value=hello style="display:none">' +
+      '<select id=select style="display:none"><option value=one>One</option></select>';
+    const page = createPage();
+    const date = (await page.$("#date"))!;
+    const text = (await page.$("#text"))!;
+    const select = (await page.$("#select"))!;
+
+    await expect(date.fill("2020-01-01", { timeout: 20 })).rejects.toThrow(
+      /Timeout 20ms exceeded/
+    );
+    await expect(select.selectOption("one", { timeout: 20 })).rejects.toThrow(
+      /Timeout 20ms exceeded/
+    );
+    await expect(text.selectText({ timeout: 20 })).rejects.toThrow(
+      /Timeout 20ms exceeded/
+    );
+
+    await date.fill("2020-01-01", { force: true });
+    await expect(select.selectOption("one", { force: true })).resolves.toEqual([
+      "one",
+    ]);
+    await text.selectText({ force: true });
+
+    expect(document.querySelector<HTMLInputElement>("#date")!.value).toBe(
+      "2020-01-01"
+    );
+    expect(document.querySelector<HTMLSelectElement>("#select")!.value).toBe(
+      "one"
+    );
+    const input = document.querySelector<HTMLInputElement>("#text")!;
+    expect([input.selectionStart, input.selectionEnd]).toEqual([0, 5]);
+  });
+
   it("reports a fill rejection through the handle member", async () => {
     document.body.innerHTML = "<select><option>one</option></select>";
     const page = createPage();
@@ -243,6 +283,23 @@ describe("ElementHandle", () => {
       "elementHandle.fill: Error: Element is not an <input>, <textarea> or [contenteditable] element\n" +
         "Call log:\n  - attempting fill action\n" +
         "    - waiting for element to be visible, enabled and editable"
+    );
+  });
+
+  // Pinned dom.ts logs the state wait only when the action is not forced.
+  it("omits the state wait from a forced fill call log", async () => {
+    document.body.innerHTML = "<select><option>one</option></select>";
+    const page = createPage();
+    const handle = (await page.$("select"))!;
+
+    const error = await handle.fill("x", { force: true }).then(
+      () => null,
+      (error: Error) => error
+    );
+
+    expect(error!.message).toBe(
+      "elementHandle.fill: Error: Element is not an <input>, <textarea> or [contenteditable] element\n" +
+        "Call log:\n  - attempting fill action"
     );
   });
 

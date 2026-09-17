@@ -22,6 +22,10 @@ describe("cancellation", () => {
       ["page.setInputFiles", (o) => page.setInputFiles("#never", [], o)],
       ["page.type", (o) => page.type("#never", "x", o)],
       ["page.uncheck", (o) => page.uncheck("#never", o)],
+      [
+        "page.waitForFunction",
+        (o) => page.waitForFunction("false", undefined, o),
+      ],
       ["page.waitForSelector", (o) => page.waitForSelector("#never", o)],
       ["locator.check", (o) => locator().check(o)],
       ["locator.clear", (o) => locator().clear(o)],
@@ -94,6 +98,11 @@ describe("cancellation", () => {
       ["elementHandle.selectText", (h, o) => h.selectText(o), true],
       ["elementHandle.setInputFiles", (h, o) => h.setInputFiles([], o), false],
       ["elementHandle.type", (h, o) => h.type("x", o), false],
+      [
+        "elementHandle.waitForElementState",
+        (h, o) => h.waitForElementState("visible", o),
+        true,
+      ],
       [
         "elementHandle.waitForSelector",
         (h, o) => h.waitForSelector("#never", o),

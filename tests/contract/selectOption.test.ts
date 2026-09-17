@@ -132,6 +132,27 @@ describe("Locator.selectOption", () => {
     ).toHaveLength(0);
   });
 
+  // Pinned dom.ts `_selectOption` runs `checkElementStates` only when `force`
+  // is unset; InjectedScript.selectOptions itself needs no visible geometry.
+  it("skips the visible and enabled wait with force", async () => {
+    document.body.innerHTML = `
+      <select id=select style="display:none"><option value=one>One</option></select>
+    `;
+    const page = createPage();
+    const select = document.querySelector("#select") as HTMLSelectElement;
+
+    await expect(
+      page.locator("#select").selectOption("one", { timeout: 20 })
+    ).rejects.toThrow(/Timeout 20ms exceeded/);
+    await expect(
+      page.locator("#select").selectOption("one", { force: true })
+    ).resolves.toEqual(["one"]);
+
+    expect(
+      Array.from(select.selectedOptions, (option) => option.value)
+    ).toEqual(["one"]);
+  });
+
   it("times out missing select options after the configured wait", async () => {
     document.body.innerHTML = `<select id=select></select>`;
     const page = createPage();
@@ -149,5 +170,14 @@ describe("Page.selectOption", () => {
     const page = createPage();
 
     await expect(page.selectOption("#select", "one")).resolves.toEqual(["one"]);
+  });
+
+  it("forwards force to the shared select option path", async () => {
+    document.body.innerHTML = `<select id=select style="display:none"><option value=one>One</option></select>`;
+    const page = createPage();
+
+    await expect(
+      page.selectOption("#select", "one", { force: true })
+    ).resolves.toEqual(["one"]);
   });
 });

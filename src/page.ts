@@ -13,6 +13,7 @@ import {
 import { AdapterTimeoutError } from "./errors";
 import {
   validateDelay,
+  validateForce,
   validateInteger,
   validateNoWaitAfter,
   validateSignal,
@@ -105,6 +106,10 @@ type PageActionWithNoWaitAfterOptions = PageActionOptions & {
 type PageStrictActionOptions = PageActionOptions & { strict?: boolean };
 type PageStrictActionWithNoWaitAfterOptions = PageStrictActionOptions &
   PageActionWithNoWaitAfterOptions;
+/** Shared by `fill` and `selectOption`, which take `force` in the protocol. */
+type PageForcibleActionOptions = PageStrictActionWithNoWaitAfterOptions & {
+  force?: boolean;
+};
 /** Shared by `press` and `type`, which take the same options. */
 type PageKeyboardInputOptions = PageStrictActionWithNoWaitAfterOptions & {
   delay?: number;
@@ -112,10 +117,24 @@ type PageKeyboardInputOptions = PageStrictActionWithNoWaitAfterOptions & {
 type PageSetInputFilesOptions = PageActionWithNoWaitAfterOptions & {
   strict?: boolean;
 };
-export type PointerActionOptions = NonNullable<Parameters<Page["click"]>[1]>;
+/**
+ * `steps` is `int?` in the pinned click and dblclick protocol parameters. The
+ * public types declare it on the `Locator` and `ElementHandle` forms only, so
+ * the shared option type carries it for every form of those two members.
+ */
+type SteppedPointerOptions = { steps?: number };
+export type PointerActionOptions = NonNullable<Parameters<Page["click"]>[1]> &
+  SteppedPointerOptions;
 type HoverActionOptions = NonNullable<Parameters<Page["hover"]>[1]>;
-type DoubleClickActionOptions = NonNullable<Parameters<Page["dblclick"]>[1]>;
+type DoubleClickActionOptions = NonNullable<Parameters<Page["dblclick"]>[1]> &
+  SteppedPointerOptions;
 type CheckedActionOptions = NonNullable<Parameters<Page["check"]>[1]>;
+
+type WaitForFunctionOptions = {
+  polling?: number | "raf";
+  signal?: AbortSignal;
+  timeout?: number;
+};
 
 export type AriaSnapshotOptions = {
   boxes?: boolean;
@@ -203,6 +222,8 @@ export class PageImpl {
   private _injected: ReturnType<typeof injectedScriptFor> | undefined;
   private _injectedTestIdAttributeName: string | undefined;
   private pointerTarget: Element | undefined;
+  /** Pinned input.ts Mouse starts at the document origin and tracks its moves. */
+  private pointerPosition: ActionPoint = { x: 0, y: 0 };
   private defaultTimeout: number | undefined;
   private defaultNavigationTimeout: number | undefined;
 
@@ -644,7 +665,12 @@ export class PageImpl {
             if (options.modifiers)
               await this.keyboard.ensureModifiers(options.modifiers, deadline);
             this.assertActionDeadline(deadline, action);
-            await this.movePointer(target.point, deadline, action);
+            await this.movePointer(
+              target.point,
+              deadline,
+              action,
+              options.steps
+            );
             if (!options.trial && action !== "hover")
               await this.dispatchClick(
                 target.element,
@@ -739,7 +765,8 @@ export class PageImpl {
     deadline = this.createActionDeadline(timeout),
     strict = true,
     signal?: AbortSignal,
-    apiMethod: "fill" | "clear" = "fill"
+    apiMethod: "fill" | "clear" = "fill",
+    force = false
   ) {
     value = validateString(value, "value");
     this.attachActionSignal(deadline, signal);
@@ -752,7 +779,8 @@ export class PageImpl {
       deadline,
       undefined,
       undefined,
-      strict
+      strict,
+      force
     );
 
     // Pinned InjectedScript validates input types, normalizes settable values,
@@ -765,7 +793,13 @@ export class PageImpl {
     try {
       result = this.actionableInjected.fill(element, value);
     } catch (error) {
-      throw injectedFillError(asError(error), selector, label, apiMethod);
+      throw injectedFillError(
+        asError(error),
+        selector,
+        label,
+        apiMethod,
+        force
+      );
     }
     if (result === "error:notconnected")
       throw new Error(`Element is not connected for locator ${label}`);
@@ -881,7 +915,8 @@ export class PageImpl {
     timeout?: number,
     deadline = this.createActionDeadline(timeout),
     strict = true,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    force = false
   ): Promise<string[]> {
     const options = selectOptionValues(values);
     this.attachActionSignal(deadline, signal);
@@ -902,7 +937,8 @@ export class PageImpl {
         deadline,
         undefined,
         undefined,
-        strict
+        strict,
+        force
       );
       this.assertActionDeadline(deadline, "select option");
       const result = this.actionableInjected.selectOptions(element, options);
@@ -942,7 +978,8 @@ export class PageImpl {
     label: string,
     timeout?: number,
     deadline = this.createActionDeadline(timeout),
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    force = false
   ): Promise<void> {
     this.attachActionSignal(deadline, signal);
     const { element } = await this.retryActionability(
@@ -951,7 +988,11 @@ export class PageImpl {
       "select text",
       ["visible"],
       false,
-      deadline
+      deadline,
+      undefined,
+      undefined,
+      undefined,
+      force
     );
     this.assertActionDeadline(deadline, "select text");
     const result = this.actionableInjected.selectText(element);
@@ -1193,9 +1234,14 @@ export class PageImpl {
   async fill(
     selector: string,
     value: string,
-    options?: PageStrictActionWithNoWaitAfterOptions
+    options?: PageForcibleActionOptions
   ): Promise<void> {
-    assertPageActionOptions("fill", options, ["noWaitAfter", "strict"]);
+    assertPageActionOptions("fill", options, [
+      "force",
+      "noWaitAfter",
+      "strict",
+    ]);
+    const force = validateForce("fill", options?.force);
     await withAbortPrefix("page.fill", () =>
       this.fillSelector(
         selector,
@@ -1204,7 +1250,9 @@ export class PageImpl {
         options?.timeout,
         undefined,
         options?.strict === true,
-        options?.signal
+        options?.signal,
+        "fill",
+        force
       )
     );
   }
@@ -1316,9 +1364,14 @@ export class PageImpl {
   async selectOption(
     selector: string,
     values: string | SelectOptionValue | (string | SelectOptionValue)[] | null,
-    options?: PageStrictActionWithNoWaitAfterOptions
+    options?: PageForcibleActionOptions
   ): Promise<string[]> {
-    assertPageActionOptions("selectOption", options, ["noWaitAfter", "strict"]);
+    assertPageActionOptions("selectOption", options, [
+      "force",
+      "noWaitAfter",
+      "strict",
+    ]);
+    const force = validateForce("selectOption", options?.force);
     return withAbortPrefix("page.selectOption", () =>
       this.selectOptionSelector(
         selector,
@@ -1327,7 +1380,8 @@ export class PageImpl {
         options?.timeout,
         undefined,
         options?.strict === true,
-        options?.signal
+        options?.signal,
+        force
       )
     );
   }
@@ -1679,7 +1733,7 @@ export class PageImpl {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     pageFunction: string | ((...a: any[]) => any),
     arg?: unknown,
-    options?: { polling?: number | "raf"; timeout?: number }
+    options?: WaitForFunctionOptions
   ): Promise<AdapterJSHandle> {
     return this._waitForFunctionExpression(
       typeof pageFunction === "function" ? pageFunction : String(pageFunction),
@@ -1706,9 +1760,11 @@ export class PageImpl {
     pageFunction: string | ((...a: any[]) => any),
     isFunction: boolean,
     arg?: unknown,
-    options?: { polling?: number | "raf"; timeout?: number }
+    options?: WaitForFunctionOptions
   ): Promise<AdapterJSHandle> {
     const timeout = this.resolveTimeout(options?.timeout, 30_000);
+    validateSignal("waitForFunction", options?.signal);
+    const signal = options?.signal;
     const predicate = this.evaluation.predicate(pageFunction, isFunction, arg);
     const polling = options?.polling ?? "raf";
 
@@ -1718,78 +1774,98 @@ export class PageImpl {
     if (typeof polling === "number" && polling <= 0)
       throw new Error("Cannot poll with non-positive interval: " + polling);
 
-    return new Promise<AdapterJSHandle>((resolve, reject) => {
-      let aborted = false;
-      let timeoutId: number | undefined;
-      let pollTimerId: number | undefined;
-      let rafId: number | undefined;
+    return withAbortPrefix(
+      "page.waitForFunction",
+      () =>
+        new Promise<AdapterJSHandle>((resolve, reject) => {
+          let aborted = false;
+          let timeoutId: number | undefined;
+          let pollTimerId: number | undefined;
+          let rafId: number | undefined;
 
-      // Independent timeout timer — rejects even if predicate never settles.
-      if (timeout > 0) {
-        timeoutId = this.window.setTimeout(() => {
-          cleanup();
-          reject(
-            new AdapterTimeoutError(
-              `page.waitForFunction: Timeout ${timeout}ms exceeded.`
-            )
-          );
-        }, timeout);
-      }
-
-      const cleanup = () => {
-        aborted = true;
-        if (timeoutId !== undefined) this.window.clearTimeout(timeoutId);
-        if (pollTimerId !== undefined) this.window.clearTimeout(pollTimerId);
-        if (rafId !== undefined) this.window.cancelAnimationFrame(rafId);
-      };
-
-      const check = () => {
-        if (aborted) return;
-        try {
-          const result = predicate();
-          if (
-            result &&
-            typeof (result as Promise<unknown>)?.then === "function"
-          ) {
-            (result as Promise<unknown>).then(
-              (v) => {
-                if (aborted) return;
-                if (v) {
-                  cleanup();
-                  resolve(new AdapterJSHandle(v, this.evaluation));
-                } else {
-                  scheduleNext();
-                }
-              },
-              (e) => {
-                if (aborted) return;
-                cleanup();
-                reject(e);
-              }
-            );
+          if (signal?.aborted) {
+            reject(actionAborted(signal, false));
             return;
           }
-          if (result) {
+
+          // Independent timeout timer — rejects even if predicate never settles.
+          if (timeout > 0) {
+            timeoutId = this.window.setTimeout(() => {
+              cleanup();
+              reject(
+                new AdapterTimeoutError(
+                  `page.waitForFunction: Timeout ${timeout}ms exceeded.`
+                )
+              );
+            }, timeout);
+          }
+
+          const cleanup = () => {
+            aborted = true;
+            signal?.removeEventListener("abort", onAbort);
+            if (timeoutId !== undefined) this.window.clearTimeout(timeoutId);
+            if (pollTimerId !== undefined)
+              this.window.clearTimeout(pollTimerId);
+            if (rafId !== undefined) this.window.cancelAnimationFrame(rafId);
+          };
+
+          // `signal` never reaches the pinned protocol; it cancels the wait the
+          // same way the action paths cancel theirs.
+          const onAbort = () => {
             cleanup();
-            resolve(new AdapterJSHandle(result, this.evaluation));
-            return;
-          }
-        } catch (e) {
-          cleanup();
-          reject(e);
-          return;
-        }
-        scheduleNext();
-      };
+            reject(actionAborted(signal!, true));
+          };
+          signal?.addEventListener("abort", onAbort, { once: true });
 
-      const scheduleNext = () => {
-        if (aborted) return;
-        if (polling === "raf") rafId = this.window.requestAnimationFrame(check);
-        else pollTimerId = this.window.setTimeout(check, polling as number);
-      };
+          const check = () => {
+            if (aborted) return;
+            try {
+              const result = predicate();
+              if (
+                result &&
+                typeof (result as Promise<unknown>)?.then === "function"
+              ) {
+                (result as Promise<unknown>).then(
+                  (v) => {
+                    if (aborted) return;
+                    if (v) {
+                      cleanup();
+                      resolve(new AdapterJSHandle(v, this.evaluation));
+                    } else {
+                      scheduleNext();
+                    }
+                  },
+                  (e) => {
+                    if (aborted) return;
+                    cleanup();
+                    reject(e);
+                  }
+                );
+                return;
+              }
+              if (result) {
+                cleanup();
+                resolve(new AdapterJSHandle(result, this.evaluation));
+                return;
+              }
+            } catch (e) {
+              cleanup();
+              reject(e);
+              return;
+            }
+            scheduleNext();
+          };
 
-      check();
-    });
+          const scheduleNext = () => {
+            if (aborted) return;
+            if (polling === "raf")
+              rafId = this.window.requestAnimationFrame(check);
+            else pollTimerId = this.window.setTimeout(check, polling as number);
+          };
+
+          check();
+        })
+    );
   }
 
   // ── Locator creation ────────────────────────────────────────────
@@ -2151,10 +2227,11 @@ export class PageImpl {
     element: Element,
     state:
       "visible" | "hidden" | "stable" | "enabled" | "disabled" | "editable",
-    options: { timeout?: number } = {}
+    options: { signal?: AbortSignal; timeout?: number } = {}
   ): Promise<void> {
     assertElementHandleStateOptions(state, options);
     const deadline = this.createActionDeadline(options.timeout);
+    this.attachActionSignal(deadline, options.signal);
     const timeoutError = () =>
       new AdapterTimeoutError(
         `elementHandle.waitForElementState: Timeout ${deadline.timeout}ms exceeded.`
@@ -2401,7 +2478,9 @@ export class PageImpl {
     deadline: ActionDeadline,
     position?: ActionPoint,
     pointerOptions?: PointerActionOptions,
-    strict = pointerOptions?.strict ?? true
+    strict = pointerOptions?.strict ?? true,
+    // Pinned dom.ts skips the state checks of every action that takes `force`.
+    force = pointerOptions?.force ?? false
   ): Promise<ActionTarget> {
     let lastError: Error | undefined;
     let retry = 0;
@@ -2423,12 +2502,11 @@ export class PageImpl {
       if (Date.now() >= deadline.expiresAt) throwTimeout();
       try {
         const element = this.resolvePointerElement(selector, label, strict);
-        if (pointerOptions && !pointerOptions.force)
+        if (pointerOptions && !force)
           log.push(
             `  - waiting for element to be ${states.includes("enabled") ? "visible, enabled and stable" : "visible and stable"}`
           );
-        if (!pointerOptions?.force)
-          await this.ensureActionable(element, states, deadline);
+        if (!force) await this.ensureActionable(element, states, deadline);
         if (Date.now() >= deadline.expiresAt) throwTimeout();
         if (actionName === "scroll into view") {
           // Pinned crPage.scrollRectIntoViewIfNeeded reports `error:notvisible`
@@ -2448,14 +2526,9 @@ export class PageImpl {
             });
         }
         // Scrolling can change visibility or expose a covering element.
-        if (!pointerOptions?.force)
-          await this.ensureActionable(element, states, deadline);
+        if (!force) await this.ensureActionable(element, states, deadline);
         const point = checkHitTarget
-          ? this.ensureReceivesEvents(
-              element,
-              position,
-              !!pointerOptions?.force
-            )
+          ? this.ensureReceivesEvents(element, position, force)
           : actionPoint(element, position, this.window);
         if (Date.now() >= deadline.expiresAt) throwTimeout();
         return { element, point };
@@ -2466,7 +2539,7 @@ export class PageImpl {
           });
         if (
           !isRetryableActionError(error) ||
-          (pointerOptions?.force &&
+          (force &&
             !asError(error).message.startsWith("No elements found for locator"))
         )
           throw error;
@@ -2672,7 +2745,31 @@ export class PageImpl {
     );
   }
 
+  /**
+   * Mirrors pinned input.ts Mouse.move: `steps` interpolated positions between
+   * the pointer's previous location and `point`, the last landing exactly on
+   * it. `steps` defaults to 1, a single move to the destination.
+   */
   private async movePointer(
+    point: ActionPoint,
+    deadline: ActionDeadline,
+    action: string,
+    steps = 1
+  ) {
+    const from = this.pointerPosition;
+    this.pointerPosition = point;
+    for (let step = 1; step <= steps; step++)
+      await this.movePointerTo(
+        {
+          x: from.x + (point.x - from.x) * (step / steps),
+          y: from.y + (point.y - from.y) * (step / steps),
+        },
+        deadline,
+        action
+      );
+  }
+
+  private async movePointerTo(
     point: ActionPoint,
     deadline: ActionDeadline,
     action: string
@@ -3826,7 +3923,7 @@ function assertPointerActionOptions(
     "strict",
   ];
   if (method === "click" || method === "dblclick")
-    supported.push("button", "delay", "modifiers");
+    supported.push("button", "delay", "modifiers", "steps");
   if (method === "click") supported.push("clickCount");
   if (method === "hover") supported.push("modifiers");
   if (!options) return {};
@@ -3837,7 +3934,7 @@ function assertPointerActionOptions(
     const value: unknown = options[key];
     if (value instanceof Boolean) options[key] = value.valueOf();
   }
-  for (const key of ["delay", "clickCount"] as const) {
+  for (const key of ["delay", "clickCount", "steps"] as const) {
     const value: unknown = options[key];
     if (value instanceof Number) options[key] = value.valueOf();
   }
@@ -3865,16 +3962,17 @@ function assertPointerActionOptions(
     !["auto", "none"].includes(options.scroll)
   )
     throw new TypeError("scroll: expected one of (auto|none)");
-  for (const key of ["delay", "clickCount"] as const)
+  for (const key of ["delay", "clickCount", "steps"] as const)
     if (
       options[key] !== undefined &&
       (typeof options[key] !== "number" || !Number.isFinite(options[key]))
     )
       throw new TypeError(`${key}: expected number`);
-  if (options.clickCount !== undefined && !Number.isInteger(options.clickCount))
-    throw new TypeError(
-      `clickCount: expected integer, got float ${options.clickCount}`
-    );
+  for (const key of ["clickCount", "steps"] as const)
+    if (options[key] !== undefined && !Number.isInteger(options[key]))
+      throw new TypeError(
+        `${key}: expected integer, got float ${options[key]}`
+      );
   if (
     options.modifiers !== undefined &&
     (!Array.isArray(options.modifiers) ||
@@ -3948,7 +4046,7 @@ function assertWaitForSelectorOptions(
 
 function assertElementHandleStateOptions(
   state: string,
-  options: { timeout?: number }
+  options: { signal?: unknown; timeout?: number }
 ) {
   if (
     ![
@@ -3962,9 +4060,10 @@ function assertElementHandleStateOptions(
   )
     throw new Error(`Unsupported element state: ${state}`);
   for (const key of Object.keys(options)) {
-    if (key !== "timeout")
+    if (key !== "signal" && key !== "timeout")
       throw new Error(`Unsupported waitForElementState option: ${key}`);
   }
+  validateSignal("waitForElementState", options.signal);
   if (options.timeout !== undefined)
     validateTimeout(options.timeout, "waitForElementState timeout");
 }
@@ -4058,7 +4157,8 @@ function injectedFillError(
   error: Error,
   selector: string | Element,
   label: string,
-  apiMethod: "fill" | "clear"
+  apiMethod: "fill" | "clear",
+  force: boolean
 ): Error {
   const prefix = label.startsWith("page.fill(")
     ? "page.fill"
@@ -4070,7 +4170,11 @@ function injectedFillError(
       ? `\n  - waiting for ${formatLocator(selector)}`
       : "";
   return new Error(
-    `${prefix}: Error: ${error.message}\nCall log:${waitingFor}\n  - attempting fill action\n    - waiting for element to be visible, enabled and editable`,
+    `${prefix}: Error: ${error.message}\nCall log:${waitingFor}\n  - attempting fill action` +
+      // Pinned dom.ts logs the state wait only when the action is not forced.
+      (force
+        ? ""
+        : "\n    - waiting for element to be visible, enabled and editable"),
     { cause: error }
   );
 }

@@ -73,4 +73,28 @@ describe("Locator.dblclick", () => {
     ).rejects.toThrow("position must have finite x and y numbers");
     expect(activations).toBe(2);
   });
+
+  // Pinned input.ts Mouse.click forwards `steps` to Mouse.move for dblclick
+  // exactly as it does for click.
+  it("emits interpolated mousemove positions for steps", async () => {
+    document.body.innerHTML = `
+      <div id="target" style="position:fixed; left:150px; top:280px; width:100px; height:40px">Click me</div>
+    `;
+    const page = createPage();
+    const moves: [number, number][] = [];
+    const record = (event: MouseEvent) =>
+      moves.push([event.clientX, event.clientY]);
+    document.addEventListener("mousemove", record);
+
+    try {
+      await page.locator("#target").dblclick({ steps: 2 });
+    } finally {
+      document.removeEventListener("mousemove", record);
+    }
+
+    expect(moves).toEqual([
+      [100, 150],
+      [200, 300],
+    ]);
+  });
 });

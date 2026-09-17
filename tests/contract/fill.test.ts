@@ -148,6 +148,58 @@ describe("Locator.fill", () => {
     );
   });
 
+  // Pinned dom.ts `_fill` runs `checkElementStates` only when `force` is
+  // unset. The date input keeps the assertion on InjectedScript's direct
+  // set-value path, which completes without any keyboard input of its own.
+  it("skips the visible, enabled and editable wait with force", async () => {
+    document.body.innerHTML = `
+      <input id="hidden" type="date" style="display:none" />
+      <input id="disabled" type="date" disabled />
+      <input id="readonly" type="date" readonly />
+    `;
+    const page = createPage();
+
+    for (const id of ["#hidden", "#disabled", "#readonly"]) {
+      await expect(
+        page.locator(id).fill("2020-01-01", { timeout: 20 }),
+        id
+      ).rejects.toThrow(/Timeout 20ms exceeded/);
+      await page.locator(id).fill("2020-01-01", { force: true });
+      expect(document.querySelector<HTMLInputElement>(id)!.value, id).toBe(
+        "2020-01-01"
+      );
+    }
+  });
+
+  // Pinned `force` skips only the state wait: InjectedScript still decides
+  // whether the element can be filled at all.
+  it("keeps the InjectedScript input-type check under force", async () => {
+    document.body.innerHTML = `
+      <input id="checkbox" type="checkbox" style="display:none" />
+      <select id="select" style="display:none"><option>one</option></select>
+    `;
+    const page = createPage();
+
+    await expect(
+      page.locator("#checkbox").fill("x", { force: true })
+    ).rejects.toThrow('Input of type "checkbox" cannot be filled');
+    const error = await page
+      .locator("#select")
+      .fill("x", { force: true })
+      .then(
+        () => undefined,
+        (error: Error) => error
+      );
+    expect(error?.message).toContain(
+      "locator.fill: Error: Element is not an <input>, <textarea> or [contenteditable] element"
+    );
+    // Pinned dom.ts logs the state wait only when the action is not forced.
+    expect(error?.message).toContain("- attempting fill action");
+    expect(error?.message).not.toContain(
+      "waiting for element to be visible, enabled and editable"
+    );
+  });
+
   it("retries disabled actions until the state becomes actionable", async () => {
     document.body.innerHTML = `
       <input id="input" disabled />
@@ -179,6 +231,17 @@ describe("Page.fill", () => {
 
     expect((document.querySelector("#input") as HTMLInputElement).value).toBe(
       "a"
+    );
+  });
+
+  it("forwards force to the shared fill path", async () => {
+    document.body.innerHTML = '<input id=input type=date style="display:none">';
+    const page = createPage();
+
+    await page.fill("#input", "2020-01-01", { force: true });
+
+    expect((document.querySelector("#input") as HTMLInputElement).value).toBe(
+      "2020-01-01"
     );
   });
 });
