@@ -8,6 +8,7 @@ import type {
   PageImpl,
   SelectOptionValue,
 } from "./page";
+import { withAbortPrefix } from "./page";
 import { AdapterElementHandle } from "./elementHandle";
 import type { InputFiles } from "./inputFiles";
 import {
@@ -442,14 +443,16 @@ export class LocatorImpl {
       "signal",
       "timeout",
     ]);
-    await this.ownerPage.fillSelector(
-      this.selector,
-      value,
-      this.label,
-      options?.timeout,
-      undefined,
-      true,
-      options?.signal
+    await withAbortPrefix("locator.fill", () =>
+      this.ownerPage.fillSelector(
+        this.selector,
+        value,
+        this.label,
+        options?.timeout,
+        undefined,
+        true,
+        options?.signal
+      )
     );
   }
 
@@ -462,11 +465,8 @@ export class LocatorImpl {
       "signal",
       "timeout",
     ]);
-    await this.ownerPage.setInputFilesSelector(
-      this.selector,
-      files,
-      options,
-      true
+    await withAbortPrefix("locator.setInputFiles", () =>
+      this.ownerPage.setInputFilesSelector(this.selector, files, options, true)
     );
   }
 
@@ -477,20 +477,24 @@ export class LocatorImpl {
       "signal",
       "timeout",
     ]);
-    await this.ownerPage.pressSelector(
-      this.selector,
-      key,
-      this.label,
-      options?.timeout,
-      undefined,
-      true,
-      options?.signal,
-      options?.delay
+    await withAbortPrefix("locator.press", () =>
+      this.ownerPage.pressSelector(
+        this.selector,
+        key,
+        this.label,
+        options?.timeout,
+        undefined,
+        true,
+        options?.signal,
+        options?.delay
+      )
     );
   }
 
   async focus(options?: LocatorQueryOptions) {
-    await this.ownerPage.focusSelector(this.selector, this.label, options);
+    await withAbortPrefix("locator.focus", () =>
+      this.ownerPage.focusSelector(this.selector, this.label, options)
+    );
   }
 
   async blur(options?: LocatorQueryOptions) {
@@ -503,14 +507,16 @@ export class LocatorImpl {
       "signal",
       "timeout",
     ]);
-    await this.ownerPage.fillSelector(
-      this.selector,
-      "",
-      this.label,
-      options?.timeout,
-      undefined,
-      true,
-      options?.signal
+    await withAbortPrefix("locator.clear", () =>
+      this.ownerPage.fillSelector(
+        this.selector,
+        "",
+        this.label,
+        options?.timeout,
+        undefined,
+        true,
+        options?.signal
+      )
     );
   }
 
@@ -571,15 +577,17 @@ export class LocatorImpl {
     options?: LocatorActionOptions
   ) {
     rejectUnsupportedOptions("dispatchEvent", options, ["signal", "timeout"]);
-    await this.ownerPage.dispatchEventSelector(
-      this.selector,
-      type,
-      eventInit,
-      this.label,
-      options?.timeout,
-      undefined,
-      true,
-      options?.signal
+    await withAbortPrefix("locator.dispatchEvent", () =>
+      this.ownerPage.dispatchEventSelector(
+        this.selector,
+        type,
+        eventInit,
+        this.label,
+        options?.timeout,
+        undefined,
+        true,
+        options?.signal
+      )
     );
   }
 
@@ -592,25 +600,29 @@ export class LocatorImpl {
       "signal",
       "timeout",
     ]);
-    return this.ownerPage.selectOptionSelector(
-      this.selector,
-      values,
-      this.label,
-      options?.timeout,
-      undefined,
-      true,
-      options?.signal
+    return withAbortPrefix("locator.selectOption", () =>
+      this.ownerPage.selectOptionSelector(
+        this.selector,
+        values,
+        this.label,
+        options?.timeout,
+        undefined,
+        true,
+        options?.signal
+      )
     );
   }
 
   async selectText(options?: LocatorActionOptions) {
     rejectUnsupportedOptions("selectText", options, ["signal", "timeout"]);
-    await this.ownerPage.selectText(
-      this.selector,
-      this.label,
-      options?.timeout,
-      undefined,
-      options?.signal
+    await withAbortPrefix("locator.selectText", () =>
+      this.ownerPage.selectText(
+        this.selector,
+        this.label,
+        options?.timeout,
+        undefined,
+        options?.signal
+      )
     );
   }
 
@@ -619,30 +631,44 @@ export class LocatorImpl {
       "signal",
       "timeout",
     ]);
-    await this.ownerPage.scrollLocatorIntoView(
-      this.selector,
-      this.label,
-      options?.timeout,
-      undefined,
-      options?.signal
+    await withAbortPrefix("locator.scrollIntoViewIfNeeded", () =>
+      this.ownerPage.scrollLocatorIntoView(
+        this.selector,
+        this.label,
+        options?.timeout,
+        undefined,
+        options?.signal
+      )
     );
   }
 
   async type(text: string, options: LocatorTypeOptions = {}): Promise<void> {
-    rejectUnsupportedOptions("type", options, [
-      "delay",
-      "noWaitAfter",
-      "signal",
-      "timeout",
-    ]);
-    await this.ownerPage.type(this.selector, text, options, this.label, true);
+    await withAbortPrefix("locator.type", () => this.typeText(text, options));
   }
 
   async pressSequentially(
     text: string,
     options: LocatorTypeOptions = {}
   ): Promise<void> {
-    await this.type(text, options);
+    await withAbortPrefix("locator.pressSequentially", () =>
+      this.typeText(text, options)
+    );
+  }
+
+  private async typeText(text: string, options: LocatorTypeOptions) {
+    rejectUnsupportedOptions("type", options, [
+      "delay",
+      "noWaitAfter",
+      "signal",
+      "timeout",
+    ]);
+    await this.ownerPage.typeSelector(
+      this.selector,
+      text,
+      options,
+      this.label,
+      true
+    );
   }
 
   async waitFor(
@@ -658,10 +684,12 @@ export class LocatorImpl {
       "state",
       "timeout",
     ]);
-    await this.ownerPage.waitForState(
-      this.selector,
-      { signal: options.signal, state, timeout: options.timeout },
-      this.label
+    await withAbortPrefix("locator.waitFor", () =>
+      this.ownerPage.waitForState(
+        this.selector,
+        { signal: options.signal, state, timeout: options.timeout },
+        this.label
+      )
     );
   }
 }

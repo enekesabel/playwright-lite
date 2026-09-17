@@ -381,11 +381,9 @@ export class PageImpl {
     selector: string,
     options: WaitForSelectorOptions = {}
   ): Promise<AdapterElementHandle | null> {
-    try {
-      return await this.waitForSelectorInRoot(this.document, selector, options);
-    } catch (error) {
-      throw prefixAbortError(error, "page.waitForSelector");
-    }
+    return await withAbortPrefix("page.waitForSelector", () =>
+      this.waitForSelectorInRoot(this.document, selector, options)
+    );
   }
 
   async waitForSelectorWithinElement(
@@ -750,25 +748,18 @@ export class PageImpl {
     signal?: AbortSignal,
     delay?: number
   ) {
-    try {
-      this.attachActionSignal(deadline, signal);
-      const element = await this.query(
-        selector,
-        label,
-        { signal, timeout },
-        strict,
-        (candidate) => candidate,
-        deadline
-      );
-      this.assertActionDeadline(deadline, "press");
-      this.focusElement(element);
-      await this.keyboard.press(key, { delay }, deadline);
-    } catch (error) {
-      throw prefixAbortError(
-        error,
-        label.startsWith("page.press(") ? "page.press" : "locator.press"
-      );
-    }
+    this.attachActionSignal(deadline, signal);
+    const element = await this.query(
+      selector,
+      label,
+      { signal, timeout },
+      strict,
+      (candidate) => candidate,
+      deadline
+    );
+    this.assertActionDeadline(deadline, "press");
+    this.focusElement(element);
+    await this.keyboard.press(key, { delay }, deadline);
   }
 
   async focusSelector(
@@ -777,11 +768,18 @@ export class PageImpl {
     options?: LocatorQueryOptions,
     strict = true
   ): Promise<void> {
-    await this.query(selector, label, options, strict, (element) => {
-      const result = this.actionableInjected.focusNode(element);
-      if (result === "error:notconnected")
-        throw new Error(`Element is not connected for locator ${label}`);
-    });
+    const signal = options?.signal;
+    if (signal?.aborted) throw actionAborted(signal, false);
+    try {
+      await this.query(selector, label, options, strict, (element) => {
+        const result = this.actionableInjected.focusNode(element);
+        if (result === "error:notconnected")
+          throw new Error(`Element is not connected for locator ${label}`);
+      });
+    } catch (error) {
+      if (signal?.aborted) throw actionAborted(signal, true);
+      throw error;
+    }
   }
 
   async blurSelector(
@@ -844,70 +842,61 @@ export class PageImpl {
     strict = true,
     signal?: AbortSignal
   ): Promise<string[]> {
-    try {
-      this.attachActionSignal(deadline, signal);
-      const normalized =
-        values === null ? [] : Array.isArray(values) ? values : [values];
-      const options = normalized.map((value) =>
-        typeof value === "string" ? { valueOrLabel: value } : value
-      );
-      let lastError: Error | undefined;
+    this.attachActionSignal(deadline, signal);
+    const normalized =
+      values === null ? [] : Array.isArray(values) ? values : [values];
+    const options = normalized.map((value) =>
+      typeof value === "string" ? { valueOrLabel: value } : value
+    );
+    let lastError: Error | undefined;
 
-      while (true) {
-        if (Date.now() >= deadline.expiresAt)
-          throw new AdapterTimeoutError(
-            `select option: Timeout ${deadline.timeout}ms exceeded.${lastError ? ` ${lastError.message}` : ""}`,
-            { cause: lastError }
-          );
-        const { element } = await this.retryActionability(
-          selector,
-          label,
-          "select option",
-          ["visible", "enabled"],
-          false,
-          deadline,
-          undefined,
-          undefined,
-          strict
+    while (true) {
+      if (Date.now() >= deadline.expiresAt)
+        throw new AdapterTimeoutError(
+          `select option: Timeout ${deadline.timeout}ms exceeded.${lastError ? ` ${lastError.message}` : ""}`,
+          { cause: lastError }
         );
-        this.assertActionDeadline(deadline, "select option");
-        const result = this.actionableInjected.selectOptions(element, options);
-        if (Array.isArray(result)) return result;
+      const { element } = await this.retryActionability(
+        selector,
+        label,
+        "select option",
+        ["visible", "enabled"],
+        false,
+        deadline,
+        undefined,
+        undefined,
+        strict
+      );
+      this.assertActionDeadline(deadline, "select option");
+      const result = this.actionableInjected.selectOptions(element, options);
+      if (Array.isArray(result)) return result;
 
-        lastError =
-          result === "error:optionnotenabled"
-            ? new Error("Element is not enabled")
-            : result === "error:notconnected"
-              ? new Error(`Element is not connected for locator ${label}`)
-              : new Error("Options not found");
-        const remaining = deadline.expiresAt - Date.now();
-        if (remaining <= 0)
+      lastError =
+        result === "error:optionnotenabled"
+          ? new Error("Element is not enabled")
+          : result === "error:notconnected"
+            ? new Error(`Element is not connected for locator ${label}`)
+            : new Error("Options not found");
+      const remaining = deadline.expiresAt - Date.now();
+      if (remaining <= 0)
+        throw new AdapterTimeoutError(
+          `select option: Timeout ${deadline.timeout}ms exceeded. ${lastError.message}`,
+          { cause: lastError }
+        );
+      try {
+        await this.waitWithinActionDeadline(
+          Math.min(ACTION_RETRY_DELAY, remaining),
+          deadline,
+          "select option"
+        );
+      } catch (error) {
+        if (error instanceof AdapterTimeoutError)
           throw new AdapterTimeoutError(
             `select option: Timeout ${deadline.timeout}ms exceeded. ${lastError.message}`,
             { cause: lastError }
           );
-        try {
-          await this.waitWithinActionDeadline(
-            Math.min(ACTION_RETRY_DELAY, remaining),
-            deadline,
-            "select option"
-          );
-        } catch (error) {
-          if (error instanceof AdapterTimeoutError)
-            throw new AdapterTimeoutError(
-              `select option: Timeout ${deadline.timeout}ms exceeded. ${lastError.message}`,
-              { cause: lastError }
-            );
-          throw error;
-        }
+        throw error;
       }
-    } catch (error) {
-      throw prefixAbortError(
-        error,
-        label.startsWith("page.selectOption(")
-          ? "page.selectOption"
-          : "locator.selectOption"
-      );
     }
   }
 
@@ -974,8 +963,6 @@ export class PageImpl {
         timeout: options.timeout,
       });
     } catch (error) {
-      if (asError(error).name === "AbortError")
-        throw prefixAbortError(error, "locator.waitFor");
       if (!(error instanceof AdapterTimeoutError)) throw error;
       throw new AdapterTimeoutError(
         `locator.waitFor: Timeout ${timeout}ms exceeded.\nCall log:\n  - waiting for ${formatLocator(selector)} to be ${options.state}\n  - Timed out waiting for ${label} to become ${options.state}.`,
@@ -1152,14 +1139,16 @@ export class PageImpl {
     options?: PageStrictActionWithNoWaitAfterOptions
   ): Promise<void> {
     assertPageActionOptions("fill", options, ["noWaitAfter", "strict"]);
-    await this.fillSelector(
-      selector,
-      value,
-      `page.fill(${JSON.stringify(selector)})`,
-      options?.timeout,
-      undefined,
-      options?.strict === true,
-      options?.signal
+    await withAbortPrefix("page.fill", () =>
+      this.fillSelector(
+        selector,
+        value,
+        `page.fill(${JSON.stringify(selector)})`,
+        options?.timeout,
+        undefined,
+        options?.strict === true,
+        options?.signal
+      )
     );
   }
 
@@ -1168,7 +1157,9 @@ export class PageImpl {
     files: InputFiles,
     options?: PageSetInputFilesOptions
   ): Promise<void> {
-    await this.setInputFilesSelector(selector, files, options);
+    await withAbortPrefix("page.setInputFiles", () =>
+      this.setInputFilesSelector(selector, files, options)
+    );
   }
 
   async press(
@@ -1181,24 +1172,42 @@ export class PageImpl {
       "noWaitAfter",
       "strict",
     ]);
-    await this.pressSelector(
-      selector,
-      key,
-      `page.press(${JSON.stringify(selector)})`,
-      options?.timeout,
-      undefined,
-      options?.strict === true,
-      options?.signal,
-      options?.delay
+    await withAbortPrefix("page.press", () =>
+      this.pressSelector(
+        selector,
+        key,
+        `page.press(${JSON.stringify(selector)})`,
+        options?.timeout,
+        undefined,
+        options?.strict === true,
+        options?.signal,
+        options?.delay
+      )
     );
   }
 
   async type(
     selector: string,
     text: string,
-    options?: PageTypeOptions,
-    label = `page.type(${JSON.stringify(selector)})`,
-    strict = options?.strict === true
+    options?: PageTypeOptions
+  ): Promise<void> {
+    await withAbortPrefix("page.type", () =>
+      this.typeSelector(
+        selector,
+        text,
+        options,
+        `page.type(${JSON.stringify(selector)})`,
+        options?.strict === true
+      )
+    );
+  }
+
+  async typeSelector(
+    selector: string,
+    text: string,
+    options: PageTypeOptions | undefined,
+    label: string,
+    strict: boolean
   ): Promise<void> {
     assertPageActionOptions("type", options, [
       "delay",
@@ -1227,11 +1236,13 @@ export class PageImpl {
     options?: PageStrictActionOptions
   ): Promise<void> {
     assertPageActionOptions("focus", options, ["strict"]);
-    await this.focusSelector(
-      selector,
-      `page.focus(${JSON.stringify(selector)})`,
-      { signal: options?.signal, timeout: options?.timeout },
-      options?.strict === true
+    await withAbortPrefix("page.focus", () =>
+      this.focusSelector(
+        selector,
+        `page.focus(${JSON.stringify(selector)})`,
+        { signal: options?.signal, timeout: options?.timeout },
+        options?.strict === true
+      )
     );
   }
 
@@ -1251,14 +1262,16 @@ export class PageImpl {
     options?: PageStrictActionWithNoWaitAfterOptions
   ): Promise<string[]> {
     assertPageActionOptions("selectOption", options, ["noWaitAfter", "strict"]);
-    return this.selectOptionSelector(
-      selector,
-      values,
-      `page.selectOption(${JSON.stringify(selector)})`,
-      options?.timeout,
-      undefined,
-      options?.strict === true,
-      options?.signal
+    return withAbortPrefix("page.selectOption", () =>
+      this.selectOptionSelector(
+        selector,
+        values,
+        `page.selectOption(${JSON.stringify(selector)})`,
+        options?.timeout,
+        undefined,
+        options?.strict === true,
+        options?.signal
+      )
     );
   }
 
@@ -1314,15 +1327,17 @@ export class PageImpl {
     options?: PageDispatchEventOptions
   ): Promise<void> {
     assertPageDispatchEventOptions(options);
-    await this.dispatchEventSelector(
-      selector,
-      type,
-      eventInit,
-      `page.dispatchEvent(${JSON.stringify(selector)})`,
-      options?.timeout,
-      undefined,
-      options?.strict === true,
-      options?.signal
+    await withAbortPrefix("page.dispatchEvent", () =>
+      this.dispatchEventSelector(
+        selector,
+        type,
+        eventInit,
+        `page.dispatchEvent(${JSON.stringify(selector)})`,
+        options?.timeout,
+        undefined,
+        options?.strict === true,
+        options?.signal
+      )
     );
   }
 
@@ -3832,6 +3847,17 @@ function actionAborted(signal: AbortSignal, inFlight: boolean): Error {
   );
   error.name = "AbortError";
   return error;
+}
+
+export async function withAbortPrefix<T>(
+  apiName: string,
+  run: () => Promise<T>
+): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    throw prefixAbortError(error, apiName);
+  }
 }
 
 function prefixAbortError(error: unknown, apiName: string): unknown {
