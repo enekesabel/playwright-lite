@@ -97,6 +97,16 @@ describe("ElementHandle", () => {
     }
   });
 
+  it("reports its own waitForSelector timeout", async () => {
+    document.body.innerHTML = '<section id="root"></section>';
+    const page = createPage();
+    const root = (await page.$("#root"))!;
+
+    await expect(
+      root.waitForSelector("#missing", { timeout: 25 })
+    ).rejects.toThrow("elementHandle.waitForSelector: Timeout 25ms exceeded.");
+  });
+
   it("resolves Locator.elementHandle strictly as an attached fixed element", async () => {
     document.body.innerHTML = "<p>first</p><p>second</p>";
     const page = createPage();

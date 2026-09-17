@@ -90,6 +90,11 @@ describe("cancellation", () => {
         (h, o) => h.scrollIntoViewIfNeeded(o),
         true,
       ],
+      [
+        "elementHandle.waitForSelector",
+        (h, o) => h.waitForSelector("#never", o),
+        true,
+      ],
     ];
 
     document.body.innerHTML = '<input id=hidden style="display:none" value=x>';

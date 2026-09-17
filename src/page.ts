@@ -415,7 +415,15 @@ export class PageImpl {
     selector: string,
     options: Omit<WaitForSelectorOptions, "strict"> = {}
   ): Promise<AdapterElementHandle | null> {
-    return await this.waitForSelectorInRoot(root, selector, options, false);
+    return await withAbortPrefix("elementHandle.waitForSelector", () =>
+      this.waitForSelectorInRoot(
+        root,
+        selector,
+        options,
+        "elementHandle.waitForSelector",
+        false
+      )
+    );
   }
 
   /**
@@ -852,7 +860,7 @@ export class PageImpl {
     deadline = this.createActionDeadline(options.timeout),
     apiMethod: "check" | "uncheck" | "setChecked" = "setChecked"
   ): Promise<void> {
-    options = assertPointerActionOptions("setChecked", options);
+    options = assertPointerActionOptions(apiMethod, options);
     if (typeof checked !== "boolean")
       throw new TypeError("checked must be a boolean");
     await this.performPointerAction(
@@ -1327,7 +1335,9 @@ export class PageImpl {
       selector,
       true,
       `page.check(${JSON.stringify(selector)})`,
-      { ...options, strict: options?.strict ?? false }
+      { ...options, strict: options?.strict ?? false },
+      undefined,
+      "check"
     );
   }
 
@@ -1339,7 +1349,9 @@ export class PageImpl {
       selector,
       false,
       `page.uncheck(${JSON.stringify(selector)})`,
-      { ...options, strict: options?.strict ?? false }
+      { ...options, strict: options?.strict ?? false },
+      undefined,
+      "uncheck"
     );
   }
 
@@ -2169,6 +2181,7 @@ export class PageImpl {
     root: Document | Element,
     selector: string,
     options: WaitForSelectorOptions,
+    apiName = "page.waitForSelector",
     allowsStrict = true
   ): Promise<AdapterElementHandle | null> {
     assertWaitForSelectorOptions(options, allowsStrict);
@@ -2198,7 +2211,7 @@ export class PageImpl {
 
       if (Date.now() >= deadline)
         throw new AdapterTimeoutError(
-          `page.waitForSelector: Timeout ${timeout}ms exceeded.\nCall log:\n  - waiting for ${formatLocator(selector)} to be ${state}`
+          `${apiName}: Timeout ${timeout}ms exceeded.\nCall log:\n  - waiting for ${formatLocator(selector)} to be ${state}`
         );
       const delay = Math.min(QUERY_RETRY_DELAY, deadline - Date.now());
       if (!(await waitForExpectationRetry(this.window, delay, signal)))

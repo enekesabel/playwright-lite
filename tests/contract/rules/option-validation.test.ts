@@ -16,8 +16,6 @@ const targets =
   '<input id="input" type="text" />';
 
 describe("option-validation", () => {
-  // `check` reports through the shared setChecked path, so it carries its own
-  // expected prefix.
   const signalActions: [
     string,
     (page: Page, options: unknown) => Promise<unknown>,
@@ -41,7 +39,7 @@ describe("option-validation", () => {
     [
       "check",
       (page, options) => page.locator("#input").check(options as any),
-      /signal must be an AbortSignal/,
+      /^check signal must be an AbortSignal/,
     ],
   ];
 
@@ -97,6 +95,30 @@ describe("option-validation", () => {
       async (page) =>
         (await page.$("#input"))!.selectText({ force: true } as any),
       /selectText\(\): unsupported Playwright option\(s\): force/,
+    ],
+    // The checked actions share one implementation; each still reports the
+    // member the consumer called.
+    [
+      "elementHandle.check",
+      async (page) =>
+        (await page.$("#input"))!.check({ unexpected: true } as any),
+      /^check\(\): unsupported Playwright option\(s\): unexpected/,
+    ],
+    [
+      "elementHandle.uncheck",
+      async (page) =>
+        (await page.$("#input"))!.uncheck({ unexpected: true } as any),
+      /^uncheck\(\): unsupported Playwright option\(s\): unexpected/,
+    ],
+    [
+      "page.check",
+      (page) => page.check("#input", { unexpected: true } as any),
+      /^check\(\): unsupported Playwright option\(s\): unexpected/,
+    ],
+    [
+      "locator.uncheck",
+      (page) => page.locator("#input").uncheck({ unexpected: true } as any),
+      /^uncheck\(\): unsupported Playwright option\(s\): unexpected/,
     ],
   ];
 
