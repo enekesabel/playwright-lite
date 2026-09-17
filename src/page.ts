@@ -1110,7 +1110,7 @@ export class PageImpl {
   ): Promise<boolean> {
     assertQueryOptions(options, true);
     this.resolveTimeout(options?.timeout, DEFAULT_QUERY_TIMEOUT);
-    if (options?.signal?.aborted) throw queryAborted(options.signal);
+    if (options?.signal?.aborted) throw actionAborted(options.signal, false);
 
     const element = options?.strict
       ? this.resolveLocatorElement(selector, true)
@@ -1462,7 +1462,7 @@ export class PageImpl {
    */
   async ariaSnapshot(options: AriaSnapshotOptions = {}): Promise<string> {
     assertAriaSnapshotOptions(options);
-    if (options.signal?.aborted) throw queryAborted(options.signal);
+    if (options.signal?.aborted) throw actionAborted(options.signal, false);
     // Protocol evaluation naturally waits for a parser-blocking resource to
     // yield. An in-process adapter call does not cross that task boundary.
     await this.waitForDocumentParser(options);
@@ -1500,7 +1500,7 @@ export class PageImpl {
         else resolve();
       };
       const ready = () => settle();
-      const aborted = () => settle(queryAborted(options.signal!));
+      const aborted = () => settle(actionAborted(options.signal!, true));
 
       this.window.addEventListener("DOMContentLoaded", ready, { once: true });
       options.signal?.addEventListener("abort", aborted, { once: true });
@@ -1961,7 +1961,7 @@ export class PageImpl {
   ): boolean {
     assertQueryOptions(options, false);
     this.resolveTimeout(options?.timeout, DEFAULT_QUERY_TIMEOUT);
-    if (options?.signal?.aborted) throw queryAborted(options.signal);
+    if (options?.signal?.aborted) throw actionAborted(options.signal, false);
 
     const element = this.resolveLocatorElement(selector, true);
     if (!element) return false;
@@ -1984,7 +1984,7 @@ export class PageImpl {
     options: AriaSnapshotOptions = {}
   ): Promise<string> {
     assertAriaSnapshotOptions(options);
-    if (options.signal?.aborted) throw queryAborted(options.signal);
+    if (options.signal?.aborted) throw actionAborted(options.signal, false);
 
     // The pinned server only auto-waits for the default locator snapshot.
     // AI-mode snapshots retain their immediate single-document behavior.
@@ -2194,10 +2194,7 @@ export class PageImpl {
       actionDeadline?.timeout ??
       this.resolveTimeout(options?.timeout, DEFAULT_QUERY_TIMEOUT);
     const signal = options?.signal;
-    if (signal?.aborted)
-      throw actionDeadline
-        ? actionAborted(signal, false)
-        : queryAborted(signal);
+    if (signal?.aborted) throw actionAborted(signal, false);
     const deadline =
       actionDeadline?.expiresAt ??
       (timeout === 0 ? Infinity : Date.now() + timeout);
@@ -2221,9 +2218,7 @@ export class PageImpl {
           );
         const delay = Math.min(QUERY_RETRY_DELAY, remaining);
         if (!(await waitForExpectationRetry(this.window, delay, signal)))
-          throw actionDeadline
-            ? actionAborted(signal!, true)
-            : queryAborted(signal!);
+          throw actionAborted(signal!, true);
       }
     }
   }
@@ -3899,10 +3894,6 @@ function prefixAbortError(error: unknown, apiName: string): unknown {
   if (result.name !== "AbortError") return error;
   result.message = `${apiName}: ${result.message}`;
   return result;
-}
-
-function queryAborted(signal: AbortSignal): Error {
-  return new Error(`Query was aborted: ${abortReason(signal)}`);
 }
 
 function unknownKey(value: string): never {

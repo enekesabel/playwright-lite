@@ -41,9 +41,15 @@ describe("Single-document adapter contract", () => {
       const aborted = new AbortController();
       aborted.abort("stop snapshot");
 
-      await expect(
-        (page as any).ariaSnapshot({ signal: aborted.signal })
-      ).rejects.toThrow("Query was aborted: stop snapshot");
+      const preAbortedError = await (page as any)
+        .ariaSnapshot({ signal: aborted.signal })
+        .then(
+          () => undefined,
+          (error: Error) => error
+        );
+      expect(preAbortedError?.name).toBe("AbortError");
+      expect(preAbortedError?.message).toBe("The operation was aborted");
+      expect(preAbortedError?.cause).toBe("stop snapshot");
 
       document.body.innerHTML = "";
       window.setTimeout(
@@ -56,11 +62,18 @@ describe("Single-document adapter contract", () => {
 
       const cancelled = new AbortController();
       window.setTimeout(() => cancelled.abort("cancel snapshot"), 10);
-      await expect(
-        (page as any)
-          .locator("#missing")
-          .ariaSnapshot({ timeout: 100, signal: cancelled.signal })
-      ).rejects.toThrow("Query was aborted: cancel snapshot");
+      const inFlightError = await (page as any)
+        .locator("#missing")
+        .ariaSnapshot({ timeout: 100, signal: cancelled.signal })
+        .then(
+          () => undefined,
+          (error: Error) => error
+        );
+      expect(inFlightError?.name).toBe("AbortError");
+      expect(inFlightError?.message).toBe(
+        "cancel snapshot\nCall log:\n  - operation was aborted: cancel snapshot"
+      );
+      expect(inFlightError?.cause).toBe("cancel snapshot");
     });
   });
 
@@ -129,14 +142,21 @@ describe("Single-document adapter contract", () => {
 
       const cancelled = new AbortController();
       window.setTimeout(() => cancelled.abort("cancel evaluate"), 10);
-      await expect(
-        page
-          .locator("#missing")
-          .evaluate((element) => element.textContent, undefined, {
-            timeout: 100,
-            signal: cancelled.signal,
-          })
-      ).rejects.toThrow("Query was aborted: cancel evaluate");
+      const inFlightError = await page
+        .locator("#missing")
+        .evaluate((element) => element.textContent, undefined, {
+          timeout: 100,
+          signal: cancelled.signal,
+        })
+        .then(
+          () => undefined,
+          (error: Error) => error
+        );
+      expect(inFlightError?.name).toBe("AbortError");
+      expect(inFlightError?.message).toBe(
+        "cancel evaluate\nCall log:\n  - operation was aborted: cancel evaluate"
+      );
+      expect(inFlightError?.cause).toBe("cancel evaluate");
     });
   });
 
@@ -2006,14 +2026,33 @@ describe("Single-document adapter contract", () => {
         /Timeout 25ms exceeded/
       );
 
+      const preAborted = new AbortController();
+      preAborted.abort("pre-abort");
+      const preAbortedError = await page
+        .locator("#aborted")
+        .getAttribute("name", { signal: preAborted.signal, timeout: 100 })
+        .then(
+          () => undefined,
+          (error: Error) => error
+        );
+      expect(preAbortedError?.name).toBe("AbortError");
+      expect(preAbortedError?.message).toBe("The operation was aborted");
+      expect(preAbortedError?.cause).toBe("pre-abort");
+
       const controller = new AbortController();
       window.setTimeout(() => controller.abort("test abort"), 10);
-      await expect(
-        page.locator("#aborted").getAttribute("name", {
-          signal: controller.signal,
-          timeout: 100,
-        })
-      ).rejects.toThrow(/Query was aborted: test abort/);
+      const inFlightError = await page
+        .locator("#aborted")
+        .getAttribute("name", { signal: controller.signal, timeout: 100 })
+        .then(
+          () => undefined,
+          (error: Error) => error
+        );
+      expect(inFlightError?.name).toBe("AbortError");
+      expect(inFlightError?.message).toBe(
+        "test abort\nCall log:\n  - operation was aborted: test abort"
+      );
+      expect(inFlightError?.cause).toBe("test abort");
     });
 
     it("aborts every action with a prefixed AbortError", async () => {
