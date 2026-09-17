@@ -55,7 +55,7 @@ const outOfScope = (limitations: string): CompatibilityEntry => ({
  * browser runtime.
  */
 export const elementHandleLimitations =
-  "Returned `ElementHandle` objects do not implement `contentFrame()`, `dispatchEvent()`, `fill()`, `focus()`, `ownerFrame()`, `screenshot()`, `selectOption()`, `setInputFiles()`, `tap()`, `type()`, `evaluateHandle()`, `jsonValue()`, `getProperties()`, `getProperty()`, or `[Symbol.asyncDispose]()`. Pointer actions `click()`, `dblclick()`, `hover()`, `check()`, `uncheck()`, and `setChecked()` are implemented, but `signal` is unsupported; `click()` and `dblclick()` also reject `steps`, and `click()` does not wait for navigation. Their `$()` ignores `strict`; `inputValue()` ignores `timeout`; `waitForElementState()` rejects `signal`; `waitForSelector()` rejects `signal` and `strict`; `evaluate()` rejects `exposeFunctions: true`.";
+  "Returned `ElementHandle` objects do not implement `contentFrame()`, `dispatchEvent()`, `fill()`, `focus()`, `ownerFrame()`, `screenshot()`, `selectOption()`, `setInputFiles()`, `tap()`, `type()`, `evaluateHandle()`, `jsonValue()`, `getProperties()`, `getProperty()`, or `[Symbol.asyncDispose]()`. Their `$()` ignores `strict`; `click()` and `dblclick()` reject `steps`, and `click()` does not wait for navigation; `selectText()` rejects `force`; `waitForElementState()` rejects `signal`; `waitForSelector()` rejects `strict`; `evaluate()` rejects `exposeFunctions: true`. The `JSHandle` returned by `waitForFunction()` does not implement `asElement()`, `evaluate()`, `evaluateHandle()`, `getProperties()`, `getProperty()`, or `[Symbol.asyncDispose]()`.";
 
 export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),
@@ -208,7 +208,7 @@ export const pageLedger = {
     "Only console and pageerror are planned; other events remain undecided."
   ),
   waitForFunction: partial(
-    "Ignores `signal`. The returned handle implements only `jsonValue()` and `dispose()`, even when the predicate returns a DOM node."
+    "Ignores `signal`. The returned handle implements only `jsonValue()` and `dispose()`, even when the predicate returns a DOM node; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   waitForLoadState: undecided(),
   waitForNavigation: undecided(),
