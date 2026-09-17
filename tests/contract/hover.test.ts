@@ -32,7 +32,10 @@ describe("Locator.hover", () => {
 
 describe("Page.hover", () => {
   it("delegates without re-entering a target the pointer already hovers", async () => {
-    document.body.innerHTML = `<button id=button>Click</button>`;
+    document.body.innerHTML = `
+      <button id=button>Click</button>
+      <input id=input />
+    `;
     const page = createPage();
     const button = document.querySelector("#button")!;
     let hovers = 0;
@@ -43,6 +46,10 @@ describe("Page.hover", () => {
     });
 
     await page.click("#button");
+    await page.fill("#input", "a");
+    await page.press("#input", "b");
+    await page.type("#input", "cd");
+    await page.focus("#input");
     await page.hover("#button");
 
     // Keyboard focus does not move the pointer or re-enter this button.
