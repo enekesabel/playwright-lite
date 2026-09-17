@@ -21,7 +21,7 @@ import {
   createAdapterPage,
   installTestIdAttributeSynchronization,
 } from "./adapter-bridge";
-import { specNames } from "./corpus";
+import { specNames, stableTestId } from "./corpus";
 import { TestServer } from "./testServer";
 
 const __fixtureDir = dirname(fileURLToPath(import.meta.url));
@@ -37,16 +37,16 @@ const reviewedIds = new Set<string>(
 
 /**
  * Corpus tests outside the reviewed baseline are expected to fail. Marking
- * them keeps Playwright from restarting the worker after each such failure;
- * the report still records the observed status, so baseline:check can
- * surface newly passing tests. IDs match scripts/upstream-baseline.mjs.
+ * them keeps Playwright from restarting the worker after an ordinary failure
+ * (a timeout still counts as unexpected and restarts it). The report still
+ * records the observed status, so baseline:check can surface newly passing
+ * tests.
  */
 export function isKnownFailure(titlePath: readonly string[]): boolean {
   const [file = "", ...titles] = titlePath;
-  const filename = basename(file);
   return (
-    corpusFiles.has(filename) &&
-    !reviewedIds.has([filename, ...titles.filter(Boolean)].join(" > "))
+    corpusFiles.has(basename(file)) &&
+    !reviewedIds.has(stableTestId(file, titles))
   );
 }
 

@@ -12,7 +12,7 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { corpus, specNames } from "../tests/upstream/corpus.ts";
+import { corpus, specNames, stableTestId } from "../tests/upstream/corpus.ts";
 import { statusFor } from "../compatibility/api.ts";
 import { verifyIntegrity } from "./upstream-specs.mjs";
 
@@ -37,8 +37,6 @@ export function parseReport(report) {
       walkSuite(child, [...titlePath, child.title]);
     }
     for (const spec of suite.specs ?? []) {
-      const fullTitle = [...titlePath, spec.title].filter(Boolean).join(" > ");
-
       for (const test of spec.tests ?? []) {
         const result = test.results?.[0];
         if (!result) continue;
@@ -47,7 +45,7 @@ export function parseReport(report) {
         const filename = file.split("/").pop() ?? file;
 
         entries.push({
-          id: `${filename} > ${fullTitle}`,
+          id: stableTestId(file, [...titlePath, spec.title]),
           status: result.status,
           file: filename,
           error: result.error?.message ?? result.errors?.[0]?.message ?? null,
