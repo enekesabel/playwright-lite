@@ -35,10 +35,10 @@ await page.getByRole("button", { name: "Save" }).click();
 
 ## Installation
 
-playwright-lite is currently in alpha.
+playwright-lite is pre-1.0; APIs may change.
 
 ```sh
-npm add @enekesabel/playwright-lite@alpha
+npm add @enekesabel/playwright-lite
 ```
 
 Requires Node.js 20 or newer.

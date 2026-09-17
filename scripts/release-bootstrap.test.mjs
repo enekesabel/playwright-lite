@@ -19,11 +19,7 @@ const packageJson = JSON.parse(
 );
 const packageConfig = config.packages["."];
 
-function npmTag(version) {
-  return version.startsWith("0.") ? "alpha" : "latest";
-}
-
-test("bootstrap release configuration stays in the alpha era", () => {
+test("bootstrap release configuration stays consistent", () => {
   assert.equal(packageConfig["initial-version"], "0.1.0");
   assert.ok(
     manifest["."] === "0.0.0" || manifest["."] === packageJson.version,
@@ -35,6 +31,4 @@ test("bootstrap release configuration stays in the alpha era", () => {
     packageJson.version,
     /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/
   );
-  assert.equal(npmTag(packageJson.version), "alpha");
-  assert.equal(npmTag("1.0.0"), "latest");
 });
