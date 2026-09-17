@@ -57,6 +57,20 @@ before changing a ledger claim. When support or evidence changes, update the
 ledger and regenerate in the same change. Keep section-specific editing guidance
 in Handlebars comments so it does not appear in the generated README.
 
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as GitHub issues in `enekesabel/playwright-lite`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default triage label vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repository uses a single-context domain-doc layout. See `docs/agents/domain.md`.
+
 ## Release process
 
 Follow `docs/RELEASE_PROCESS.md` for releases. Keep maintainer release instructions out of the consumer README.
