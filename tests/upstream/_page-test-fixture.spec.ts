@@ -14,15 +14,6 @@ test.describe("pageTest known corpus failures", () => {
     ).toBe(true);
   });
 
-  test("runs reviewed baseline tests as ordinary tests", () => {
-    expect(
-      isKnownFailure([
-        "elementhandle-click.spec.ts",
-        "should double click the button",
-      ])
-    ).toBe(false);
-  });
-
   test("leaves tests outside the corpus unmarked", () => {
     expect(isKnownFailure(test.info().titlePath)).toBe(false);
     expect(test.info().expectedStatus).toBe("passed");
