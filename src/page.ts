@@ -82,6 +82,11 @@ export type SelectorQueryOptions = {
 
 export type LocatorQueryOptions = Omit<SelectorQueryOptions, "strict">;
 
+/** Visibility reads are one-shot: no `signal`, and `timeout` is ignored. */
+export type VisibilityOptions = { strict?: boolean; timeout?: number };
+
+export type LocatorVisibilityOptions = Omit<VisibilityOptions, "strict">;
+
 type WaitForSelectorOptions = {
   signal?: AbortSignal;
   state?: "attached" | "detached" | "visible" | "hidden";
@@ -1114,33 +1119,34 @@ export class PageImpl {
     );
   }
 
-  /**
-   * Pinned 26a9e47 `page.isVisible`/`page.isHidden` do not accept `signal` —
-   * they never wait, so there is nothing to abort. This package's shared
-   * {@link SelectorQueryOptions} type happens to admit `signal`, but no
-   * `withAbortPrefix` wrap is added here: doing so would be new behavior
-   * beyond the pinned public API surface.
-   */
   async isVisible(
     selector: string,
-    options?: SelectorQueryOptions
+    options?: VisibilityOptions
   ): Promise<boolean> {
-    assertQueryOptions(options, true);
-    this.resolveTimeout(options?.timeout, DEFAULT_QUERY_TIMEOUT);
-    if (options?.signal?.aborted) throw actionAborted(options.signal, false);
+    return this.selectorIsVisible("isVisible", selector, options);
+  }
+
+  async isHidden(
+    selector: string,
+    options?: VisibilityOptions
+  ): Promise<boolean> {
+    return !this.selectorIsVisible("isHidden", selector, options);
+  }
+
+  private selectorIsVisible(
+    method: string,
+    selector: string,
+    options: VisibilityOptions | undefined
+  ): boolean {
+    assertQueryOptions(options, ["strict", "timeout"]);
+    if (options?.strict !== undefined && typeof options.strict !== "boolean")
+      throw new TypeError(`${method} strict must be a boolean`);
 
     const element = options?.strict
       ? this.resolveLocatorElement(selector, true)
       : this.resolveAll(selector)[0];
     if (!element) return false;
     return this.elementState(element, "visible").matches;
-  }
-
-  async isHidden(
-    selector: string,
-    options?: SelectorQueryOptions
-  ): Promise<boolean> {
-    return !(await this.isVisible(selector, options));
   }
 
   async click(selector: string, options?: PointerActionOptions): Promise<void> {
@@ -1976,11 +1982,9 @@ export class PageImpl {
   locatorIsVisible(
     selector: string,
     label: string,
-    options?: LocatorQueryOptions
+    options?: LocatorVisibilityOptions
   ): boolean {
-    assertQueryOptions(options, false);
-    this.resolveTimeout(options?.timeout, DEFAULT_QUERY_TIMEOUT);
-    if (options?.signal?.aborted) throw actionAborted(options.signal, false);
+    assertQueryOptions(options, ["timeout"]);
 
     const element = this.resolveLocatorElement(selector, true);
     if (!element) return false;
@@ -2208,7 +2212,10 @@ export class PageImpl {
     evaluate: (element: Element) => T | Promise<T>,
     actionDeadline?: ActionDeadline
   ): Promise<T> {
-    assertQueryOptions(options, !strict);
+    assertQueryOptions(
+      options,
+      strict ? ["signal", "timeout"] : ["signal", "strict", "timeout"]
+    );
     const timeout =
       actionDeadline?.timeout ??
       this.resolveTimeout(options?.timeout, DEFAULT_QUERY_TIMEOUT);
@@ -3790,21 +3797,17 @@ function assertAriaSnapshotOptions(options: AriaSnapshotOptions) {
 }
 
 function assertQueryOptions(
-  options: SelectorQueryOptions | LocatorQueryOptions | undefined,
-  allowsStrict: boolean
+  options: SelectorQueryOptions | undefined,
+  allowed: readonly (keyof SelectorQueryOptions)[]
 ) {
   if (!options) return;
   for (const key of Object.keys(options)) {
-    if (
-      key !== "signal" &&
-      key !== "timeout" &&
-      !(allowsStrict && key === "strict")
-    )
+    // An undefined signal reads as absent, also where signal is unsupported.
+    if (key === "signal" && options.signal === undefined) continue;
+    if (!(allowed as readonly string[]).includes(key))
       throw new Error(`Unsupported query option: ${key}`);
   }
   validateSignal("Query", options.signal);
-  if (!allowsStrict && "strict" in options)
-    throw new Error("Locator query options do not support strict");
 }
 
 function assertDollarOptions(options: Pick<SelectorQueryOptions, "strict">) {

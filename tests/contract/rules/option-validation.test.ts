@@ -102,6 +102,100 @@ describe("option-validation", () => {
     }
   );
 
+  // The visibility reads are one-shot: the pinned API declares no `signal`,
+  // ignores `timeout`, and (on Page) validates a boolean `strict`.
+  const visibilityReads: [
+    string,
+    (page: Page, options: unknown) => Promise<boolean>,
+    boolean,
+  ][] = [
+    ["page.isVisible", (page, o) => page.isVisible("#button", o as any), true],
+    ["page.isHidden", (page, o) => page.isHidden("#button", o as any), false],
+    [
+      "locator.isVisible",
+      (page, o) => page.locator("#button").isVisible(o as any),
+      true,
+    ],
+    [
+      "locator.isHidden",
+      (page, o) => page.locator("#button").isHidden(o as any),
+      false,
+    ],
+  ];
+
+  it.each(visibilityReads)(
+    "%s rejects a defined signal as unsupported",
+    async (apiName, run) => {
+      document.body.innerHTML = targets;
+      const page = createPage();
+      const aborted = new AbortController();
+      aborted.abort(new Error("stop"));
+      for (const signal of [aborted.signal, new AbortController().signal]) {
+        const error = await run(page, { signal }).then(
+          () => undefined,
+          (error) => error
+        );
+        const context = `${apiName} aborted=${signal.aborted}`;
+        expect(error?.name, context).not.toBe("AbortError");
+        expect(error?.message, context).toBe(
+          "Unsupported query option: signal"
+        );
+      }
+    }
+  );
+
+  it.each(visibilityReads)(
+    "%s treats an undefined signal as absent",
+    async (_apiName, run, visible) => {
+      document.body.innerHTML = targets;
+      await expect(run(createPage(), { signal: undefined })).resolves.toBe(
+        visible
+      );
+    }
+  );
+
+  it.each(visibilityReads)(
+    "%s accepts and ignores any timeout",
+    async (apiName, run, visible) => {
+      document.body.innerHTML = targets;
+      const page = createPage();
+      for (const timeout of [-1, NaN, "soon", 1e12])
+        await expect(
+          run(page, { timeout }),
+          `${apiName} ${timeout}`
+        ).resolves.toBe(visible);
+    }
+  );
+
+  it.each(visibilityReads.filter(([apiName]) => apiName.startsWith("page.")))(
+    "%s rejects a non-boolean strict",
+    async (apiName, run, visible) => {
+      document.body.innerHTML = targets;
+      const page = createPage();
+      const member = apiName.slice("page.".length);
+      for (const strict of ["yes", 1, null]) {
+        const error = await run(page, { strict }).then(
+          () => undefined,
+          (error) => error
+        );
+        expect(error, `${apiName} ${strict}`).toBeInstanceOf(TypeError);
+        expect(error.message, `${apiName} ${strict}`).toBe(
+          `${member} strict must be a boolean`
+        );
+      }
+      await expect(run(page, { strict: true })).resolves.toBe(visible);
+    }
+  );
+
+  it.each(
+    visibilityReads.filter(([apiName]) => apiName.startsWith("locator."))
+  )("%s rejects strict", async (_apiName, run) => {
+    document.body.innerHTML = targets;
+    await expect(run(createPage(), { strict: true })).rejects.toThrow(
+      "Unsupported query option: strict"
+    );
+  });
+
   it("ignores unsupported options whose values are undefined", async () => {
     document.body.innerHTML = "<button>ok</button>";
     const page = createPage();

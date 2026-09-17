@@ -9,6 +9,7 @@ import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import type {
   AriaSnapshotOptions,
   LocatorQueryOptions,
+  LocatorVisibilityOptions,
   PageImpl,
   SelectOptionValue,
 } from "./page";
@@ -363,18 +364,11 @@ export class LocatorImpl {
     );
   }
 
-  /**
-   * Pinned 26a9e47 `locator.isVisible`/`locator.isHidden` do not accept
-   * `signal` — they never wait, so there is nothing to abort. This package's
-   * shared {@link LocatorQueryOptions} type happens to admit `signal`, but no
-   * `withAbortPrefix` wrap is added here: doing so would be new behavior
-   * beyond the pinned public API surface.
-   */
-  async isVisible(options?: LocatorQueryOptions): Promise<boolean> {
+  async isVisible(options?: LocatorVisibilityOptions): Promise<boolean> {
     return this.ownerPage.locatorIsVisible(this.selector, this.label, options);
   }
 
-  async isHidden(options?: LocatorQueryOptions): Promise<boolean> {
+  async isHidden(options?: LocatorVisibilityOptions): Promise<boolean> {
     return !this.ownerPage.locatorIsVisible(this.selector, this.label, options);
   }
 
