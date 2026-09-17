@@ -7,6 +7,7 @@ import {
   validateReportErrors,
   reviewedPromotion,
   failurePhase,
+  sabotageVerdict,
 } from "./upstream-baseline.mjs";
 
 // ── parseReport ─────────────────────────────────────────────────────
@@ -209,6 +210,48 @@ describe("reviewed promotion", () => {
       )
     );
   });
+  describe("sabotage rerun", () => {
+    const id = "locator-click.spec.ts > should click";
+    it("refuses a test that still passes without the reviewed method", () => {
+      assert.throws(
+        () =>
+          sabotageVerdict(
+            [
+              {
+                id,
+                status: "passed",
+                execution: { entered: [], failures: [] },
+              },
+            ],
+            id,
+            "Locator.click"
+          ),
+        /still passes.*Locator\.click/s
+      );
+    });
+    it("refuses when the rerun skipped the test", () => {
+      assert.throws(
+        () => sabotageVerdict([{ id, status: "skipped" }], id, "Locator.click"),
+        /skipped/
+      );
+    });
+    it("refuses when the rerun did not run the test", () => {
+      assert.throws(
+        () => sabotageVerdict([], id, "Locator.click"),
+        /did not run/
+      );
+    });
+    it("accepts a test that fails once the method is sabotaged", () => {
+      assert.doesNotThrow(() =>
+        sabotageVerdict(
+          [{ id, status: "failed", error: "Locator.click is sabotaged" }],
+          id,
+          "Locator.click"
+        )
+      );
+    });
+  });
+
   it("records the reviewed assertion", () => {
     assert.deepEqual(
       reviewedPromotion(

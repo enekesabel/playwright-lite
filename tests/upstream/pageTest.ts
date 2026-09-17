@@ -93,15 +93,24 @@ type KnownFailureFixtures = {
   knownFailure: void;
 };
 
+// Adapter method the promotion rerun withholds from the browser adapter. Its
+// value comes from the configuration that rerun generates and runs with; no
+// other run supplies it.
+type SabotageFixtures = {
+  sabotagedMethod: string | undefined;
+};
+
 export const test = base.extend<
   ServerFixtures &
     PlatformFixtures &
     CompatFixtures &
     AdapterTimeoutFixtures &
-    KnownFailureFixtures
+    KnownFailureFixtures &
+    SabotageFixtures
 >({
   actionTimeout: [undefined, { option: true, box: true }],
   navigationTimeout: [undefined, { option: true, box: true }],
+  sabotagedMethod: [undefined, { option: true, box: true }],
   knownFailure: [
     async ({}, use, testInfo) => {
       if (isKnownFailure(testInfo.titlePath)) testInfo.fail();
@@ -113,7 +122,7 @@ export const test = base.extend<
   // Wraps the real Playwright page with a proxy that routes all
   // compatibility operations through the in-browser adapter.
   page: async (
-    { page, playwright, actionTimeout, navigationTimeout },
+    { page, playwright, actionTimeout, navigationTimeout, sabotagedMethod },
     use,
     testInfo
   ) => {
@@ -131,6 +140,7 @@ export const test = base.extend<
       const proxyPage = await createAdapterPage(page, {
         actionTimeout,
         navigationTimeout,
+        sabotagedMethod,
         // Native navigation establishes the document only. It is recorded and
         // cannot certify navigation or replace a failed browser-adapter action.
         nativeNavigationForSetup: [

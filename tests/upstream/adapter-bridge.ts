@@ -36,9 +36,13 @@ type AdapterPageState = {
 type AdapterTimeoutDefaults = {
   actionTimeout?: number;
   navigationTimeout?: number;
-  // Fixture-only settings. Neither is a production createPage option.
+  // Fixture-only settings. None is a production createPage option.
   nativeNavigationForSetup?: boolean;
   underTest?: boolean;
+  // Recorded adapter method name (`Page.fill`, `Locator._expect`, …) whose
+  // in-browser dispatch throws instead of executing, so a promotion rerun can
+  // show that the test actually depends on it.
+  sabotagedMethod?: string;
 };
 
 const nativeLocatorReferences = new WeakMap<Page, Map<string, Locator>>();
@@ -495,7 +499,9 @@ export async function createAdapterPage(
           });
         }`
       : "") +
-    `\n(${initializeAdapterBridge.toString()})();`;
+    `\n(${initializeAdapterBridge.toString()})(${JSON.stringify(
+      timeoutDefaults.sabotagedMethod ?? null
+    )});`;
 
   // Single init script: on every navigation, inject the adapter bundle
   // and create the adapter page from the current window.
@@ -1306,7 +1312,7 @@ function serializableQueryOptions(options: unknown) {
   return serializable;
 }
 
-function initializeAdapterBridge() {
+function initializeAdapterBridge(sabotagedMethod: string | null) {
   const host = window as any;
   host.__pwLiteEvidence = { entered: [], failures: [] };
   host.__pwLiteAbortSignals = new Map<string, AbortController>();
@@ -1455,7 +1461,15 @@ function initializeAdapterBridge() {
             ? "waitForFunction"
             : name;
       object[name] = function (...args: unknown[]) {
-        host.__pwLiteEvidence.entered.push(`${kind}.${publicName}`);
+        const recordedName = `${kind}.${publicName}`;
+        host.__pwLiteEvidence.entered.push(recordedName);
+        // Every adapter call the evidence records routes through here, so this
+        // is the one place a promotion rerun can withhold a method from the
+        // test that claims to prove it.
+        if (recordedName === sabotagedMethod)
+          throw new Error(
+            `__pwLiteSabotagedMethod: ${recordedName} was withheld for promotion review.`
+          );
         const result = original.apply(this, args);
         if (
           result &&

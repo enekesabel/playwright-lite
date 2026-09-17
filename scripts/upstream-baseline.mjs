@@ -6,7 +6,13 @@
  *   check   verify corpus integrity → run tests → gate against baseline
  *   promote <test-id> <method> <evidence>  rerun corpus and promote a reviewed test
  */
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
@@ -20,6 +26,14 @@ import { verifyIntegrity } from "./upstream-specs.mjs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = resolve(__dirname, "..");
 const REPORT_PATH = resolve(PKG_ROOT, "test-results/report.json");
+// The sabotage rerun gets its own directory: a Playwright run clears the output
+// directory it writes to, and the corpus report and diagnostics of this
+// promotion must survive the rerun. Its generated config sits beside that
+// output directory rather than inside it, for the same reason.
+const SABOTAGE_DIR = resolve(PKG_ROOT, "test-results/sabotage");
+const SABOTAGE_OUTPUT_DIR = resolve(SABOTAGE_DIR, "output");
+const SABOTAGE_CONFIG_PATH = resolve(SABOTAGE_DIR, "playwright.config.ts");
+const SABOTAGE_REPORT_PATH = resolve(SABOTAGE_DIR, "report.json");
 const BASELINE_PATH = resolve(PKG_ROOT, "tests/upstream/baseline.json");
 
 // ── Report parsing ──────────────────────────────────────────────────
@@ -211,6 +225,30 @@ export function reviewedPromotion(entries, id, method, evidence) {
   return { id, method, evidence: evidence.trim() };
 }
 
+/**
+ * Verdict of the sabotage rerun: the same test re-run with the reviewed
+ * method's in-browser dispatch throwing instead of executing. A test that
+ * still passes is vacuous about that method, whatever the recorded evidence
+ * says.
+ *
+ * @param {Array} entries  Parsed entries of the sabotaged rerun.
+ */
+export function sabotageVerdict(entries, id, method) {
+  const entry = entries.find((entry) => entry.id === id);
+  if (!entry)
+    throw new Error(
+      `The rerun with ${method} sabotaged did not run ${id}; promotion needs that observation.`
+    );
+  if (entry.status === "skipped")
+    throw new Error(
+      `The rerun with ${method} sabotaged skipped ${id}, so it observed nothing.`
+    );
+  if (entry.status === "passed")
+    throw new Error(
+      `${id} still passes with ${method} sabotaged, so it does not prove ${method}.`
+    );
+}
+
 // ── Clustering ──────────────────────────────────────────────────────
 
 // Diagnostic categories describe the observed failure, not whether a call
@@ -281,24 +319,21 @@ function resolvePlaywrightCli() {
 }
 
 /**
- * Run the corpus.  Tolerates Playwright's ordinary test-failure exit
- * (code 1) but fails on spawn errors, signals, missing/malformed
- * reports, and incomplete corpus.
+ * Run selected specs and require a JSON report.  Tolerates Playwright's
+ * ordinary test-failure exit (code 1) but fails on spawn errors, signals
+ * and missing reports.  Returns the Playwright exit code.
  */
-function runCorpus() {
-  const specGlobs = specNames.map((s) => `tests/upstream/${s}`);
-  const cli = resolvePlaywrightCli();
-
-  // Delete old report so we can detect generation failure.
-  if (existsSync(REPORT_PATH)) unlinkSync(REPORT_PATH);
-
+function runPlaywright(selectionArgs, reportPath) {
   const args = [
-    cli,
+    resolvePlaywrightCli(),
     "test",
     "--reporter=list,json",
     "--timeout=15000",
-    ...specGlobs,
+    ...selectionArgs,
   ];
+
+  // Delete old report so we can detect generation failure.
+  if (existsSync(reportPath)) unlinkSync(reportPath);
 
   let exitCode;
   try {
@@ -307,7 +342,7 @@ function runCorpus() {
       stdio: "inherit",
       env: {
         ...process.env,
-        PLAYWRIGHT_JSON_OUTPUT_NAME: REPORT_PATH,
+        PLAYWRIGHT_JSON_OUTPUT_NAME: reportPath,
       },
     });
     exitCode = 0;
@@ -330,12 +365,24 @@ function runCorpus() {
   }
 
   // Validate report was created
-  if (!existsSync(REPORT_PATH)) {
+  if (!existsSync(reportPath)) {
     console.error(
-      `ERROR: Report not generated at ${REPORT_PATH} (exit code ${exitCode}).`
+      `ERROR: Report not generated at ${reportPath} (exit code ${exitCode}).`
     );
     process.exit(2);
   }
+
+  return exitCode;
+}
+
+/**
+ * Run the corpus and validate that the report covers it completely.
+ */
+function runCorpus() {
+  const exitCode = runPlaywright(
+    specNames.map((s) => `tests/upstream/${s}`),
+    REPORT_PATH
+  );
 
   const report = loadAndValidateReport(REPORT_PATH, 2);
   writeFileSync(
@@ -351,6 +398,59 @@ function runCorpus() {
     `Corpus: ${report.specCount} specs, ${report.testCount} tests (Playwright exit ${exitCode})`
   );
   return report.entries;
+}
+
+/**
+ * Write the configuration the sabotage rerun runs with: the package
+ * configuration, with the withheld method as a literal in its `use` block.
+ * Workers re-evaluate this file, so the method never travels through the
+ * environment, where a spec could set it.
+ */
+function writeSabotageConfig(method) {
+  mkdirSync(SABOTAGE_DIR, { recursive: true });
+  writeFileSync(
+    SABOTAGE_CONFIG_PATH,
+    [
+      "// Generated by scripts/upstream-baseline.mjs for one promotion rerun.",
+      `import config from ${JSON.stringify(resolve(PKG_ROOT, "playwright.config.ts"))};`,
+      "",
+      "export default {",
+      "  ...config,",
+      // testDir and outputDir resolve against this file's directory.
+      `  testDir: ${JSON.stringify(resolve(PKG_ROOT, "tests/upstream"))},`,
+      `  outputDir: ${JSON.stringify(SABOTAGE_OUTPUT_DIR)},`,
+      `  use: { ...config.use, sabotagedMethod: ${JSON.stringify(method)} },`,
+      "};",
+    ].join("\n") + "\n"
+  );
+}
+
+/**
+ * Rerun a single corpus test with the reviewed method sabotaged: the fixture
+ * makes the in-browser adapter dispatch for that method throw instead of
+ * executing it.
+ */
+function runSabotaged(id, method) {
+  const [file, ...titles] = id.split(" > ");
+  console.log(`\nRerunning ${id} with ${method} sabotaged…`);
+  writeSabotageConfig(method);
+  runPlaywright(
+    [
+      `--config=${SABOTAGE_CONFIG_PATH}`,
+      resolve(PKG_ROOT, `tests/upstream/${file}`),
+      "--grep",
+      titles.join(" ").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    ],
+    SABOTAGE_REPORT_PATH
+  );
+  const raw = JSON.parse(readFileSync(SABOTAGE_REPORT_PATH, "utf8"));
+  const reportErrors = validateReportErrors(raw);
+  if (reportErrors.length > 0) {
+    console.error("ERROR: Sabotage rerun report contains runner errors:");
+    for (const e of reportErrors) console.error(`  ${e}`);
+    process.exit(2);
+  }
+  return parseReport(raw);
 }
 
 // ── Commands ────────────────────────────────────────────────────────
@@ -411,6 +511,8 @@ function doUpdate(entries) {
     throw new Error(
       "Resolve existing baseline regressions before promoting tests."
     );
+  for (const { id, method } of promotions)
+    sabotageVerdict(runSabotaged(id, method), id, method);
   const reviewed = [
     ...previous.reviewed.filter(
       (entry) => !promotions.some((p) => p.id === entry.id)

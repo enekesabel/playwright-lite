@@ -14,7 +14,14 @@ import {
   expect,
 } from "@playwright/test";
 import { createAdapterPage } from "./adapter-bridge";
+import { test as corpusTest } from "./pageTest";
 import { TestServer } from "./testServer";
+
+// The promotion rerun withholds its method through the generated configuration
+// it runs with, which carries the name as a literal. No part of the harness
+// reads it from the environment, so a spec may assign anything here and the
+// test below still drives the corpus fixture through a working click.
+process.env.PW_LITE_SABOTAGE_METHOD = "Locator.click";
 
 type AdapterTimeoutFixtures = {
   actionTimeout: number | undefined;
@@ -132,6 +139,35 @@ test("execution evidence records browser method entry and swallowed dispatch fai
   expect(execution.entered).toContain("Locator.count");
   expect(execution.entered).not.toContain("Page.reload");
   expect((page as any).__pwLiteTransportFailures.length).toBeGreaterThan(0);
+});
+
+corpusTest(
+  "a spec setting the promotion switch does not sabotage the corpus fixture",
+  async ({ page }) => {
+    await page.setContent(
+      '<button onclick="window.clicked = true">hello</button>'
+    );
+    await page.locator("button").click();
+    expect(await page.evaluate(() => (window as any).clicked)).toBe(true);
+  }
+);
+
+// Only the promotion rerun sets this option; every other test here shows the
+// unsabotaged default, where each recorded method executes normally.
+test("a sabotaged method throws where it is recorded and leaves the rest working", async ({
+  page,
+}) => {
+  const sabotaged = await createAdapterPage(page, {
+    sabotagedMethod: "Locator.click",
+  });
+  await page.setContent(
+    '<button onclick="window.clicked = true">hello</button>'
+  );
+  await expect(sabotaged.locator("button").click()).rejects.toThrow(
+    "Locator.click was withheld"
+  );
+  expect(await page.evaluate(() => (window as any).clicked)).toBe(undefined);
+  expect(await sabotaged.locator("button").textContent()).toBe("hello");
 });
 
 test("explicit out-of-scope Page methods use native operations without adapter evidence", async ({

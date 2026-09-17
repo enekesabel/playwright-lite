@@ -15,6 +15,18 @@ browser adapter. Library highlight tests use the pinned InjectedScript's test
 mode to expose its shadow root; direct runtime tests also verify the production
 closed-root overlay without changing its mode.
 
+## Harness trust
+
+The bridge (`tests/upstream/adapter-bridge.ts`) and the fixture
+(`tests/upstream/pageTest.ts`) are transport only: they serialize arguments,
+route them into the browser adapter and reconstruct what comes back. They never
+compute a result themselves, branch on spec or test names, or catch an error and
+substitute a value.
+
+A harness change is accepted on tests that fail with an adapter error instead of
+a bridge error, not on tests turning green: the remaining failure must come from
+the adapter under test. A harness pull request promotes nothing.
+
 ## Baseline promotion
 
 Treat newly passing upstream tests as candidates for review. Before promoting each test:
@@ -23,7 +35,8 @@ Treat newly passing upstream tests as candidates for review. Before promoting ea
 2. Identify the Page or Locator method under test and the assertion that checks its behavior.
 3. Confirm the intended method executed and the result was not produced by a transport error, unsupported dispatch, swallowed setup failure, or an unrelated assertion. A test without a meaningful assertion remains diagnostic.
 4. Record the exact test ID, method, and a concise explanation of what the assertion proves in the existing baseline through the promotion command.
-5. Run the package compatibility checks and inspect the baseline diff. Review each new entry as part of the PR; ordinary test runs must never promote entries automatically.
+5. The promotion command reruns each candidate alone with that method sabotaged: its in-browser adapter dispatch throws instead of executing. A test that still passes proves nothing about the method and is refused. The rerun passes the method as a fixture option in a configuration it generates for that run alone; no environment variable is involved, so the switch is off in every ordinary run and no spec can set it.
+6. Run the package compatibility checks and inspect the baseline diff. Review each new entry as part of the PR; ordinary test runs must never promote entries automatically.
 
 Execution tracking is necessary evidence, not proof that an assertion is adequate. The implementing agent performs this review; individual promotions do not require separate user approval. Preserve existing reviewed entries when adding support, and investigate regressions instead of deleting entries to make CI pass.
 
