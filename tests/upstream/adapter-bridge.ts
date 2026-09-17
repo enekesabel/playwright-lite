@@ -284,7 +284,9 @@ async function withAbortSignalBridge<Result>(
       encodeBridgeValueForPage(encodedArgs, realPage) as unknown[]
     );
   } catch (error) {
-    if (signal.aborted && error instanceof Error)
+    // Restore identity only for an adapter AbortError that already carried
+    // this reason in the browser; never fabricate a cause for other failures.
+    if (error instanceof Error && abortErrorsCarryingTheirReason.has(error))
       Object.defineProperty(error, "cause", {
         configurable: true,
         value: signal.reason,
@@ -314,7 +316,19 @@ function callbackSource(callback: unknown, operation: string): string {
 type BridgeEnvelope<Result> =
   | { kind: "value"; value: Result }
   | { kind: "adapter-timeout"; message: string }
-  | { kind: "adapter-error"; name: string; message: string };
+  | {
+      kind: "adapter-error";
+      name: string;
+      message: string;
+      causeMatchedAbortReason?: boolean;
+    };
+
+/**
+ * Adapter errors whose browser-side `cause` was the abort reason the adapter
+ * was given. Only those may have the reason's object identity restored on the
+ * Node side, because identity cannot survive the evaluation boundary.
+ */
+const abortErrorsCarryingTheirReason = new WeakSet<Error>();
 
 const testIdAttributeSynchronizers = new WeakMap<Page, () => Promise<void>>();
 
@@ -392,6 +406,8 @@ function unwrapBridgeEnvelope<Result>(
   if (envelope.kind === "adapter-error") {
     const error = new Error(envelope.message);
     error.name = envelope.name;
+    if (envelope.causeMatchedAbortReason)
+      abortErrorsCarryingTheirReason.add(error);
     throw error;
   }
   return envelope.value;
@@ -609,13 +625,15 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
                 realPage,
                 ({ method, selector: encodedSelector, options: encoded }) => {
                   const host = window as any;
-                  return host.__pwLiteInvokeAdapter(async () =>
-                    host.__pwLiteStoreElementHandle(
-                      await host.__pwLiteAdapterPage[method](
-                        encodedSelector,
-                        host.__pwLiteDecodeBridgeValue(encoded)
-                      )
-                    )
+                  return host.__pwLiteInvokeAdapter(
+                    async () =>
+                      host.__pwLiteStoreElementHandle(
+                        await host.__pwLiteAdapterPage[method](
+                          encodedSelector,
+                          host.__pwLiteDecodeBridgeValue(encoded)
+                        )
+                      ),
+                    encoded
                   );
                 },
                 { method: prop, selector: s, options: o }
@@ -760,7 +778,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
                     `__pwLiteAdapterPage.${member} is not a function`
                   );
                 return { value, url: p.url() };
-              });
+              }, a);
             },
             { member: prop, args: encodedArgs as any[] }
           );
@@ -1258,7 +1276,7 @@ function createLocatorProxy(
               return host.__pwLiteInvokeAdapter(() => {
                 const current: any = host.__pwLiteReplayAdapterChain(c);
                 return current[method](...host.__pwLiteDecodeBridgeValue(a));
-              });
+              }, a);
             },
             {
               chain: encodeBridgeValueForPage(chain, realPage),
@@ -1307,7 +1325,19 @@ function initializeAdapterBridge() {
       controller.abort(abortReason(reason));
     else if (!controller) host.__pwLitePendingAborts.set(id, reason);
   };
-  host.__pwLiteInvokeAdapter = async function invoke(operation: () => any) {
+  // The encoded options carry the bridged signal id, so an AbortError can be
+  // compared against the very controller the adapter was given.
+  const bridgedSignalId = (encodedArgs: any) => {
+    const options = Array.isArray(encodedArgs)
+      ? encodedArgs[encodedArgs.length - 1]
+      : encodedArgs;
+    const id = options?.signal?.__pwLiteAbortSignal;
+    return typeof id === "string" ? id : undefined;
+  };
+  host.__pwLiteInvokeAdapter = async function invoke(
+    operation: () => any,
+    encodedArgs?: any
+  ) {
     try {
       return { kind: "value", value: await operation() };
     } catch (error) {
@@ -1325,12 +1355,24 @@ function initializeAdapterBridge() {
           kind: "adapter-timeout",
           message: error instanceof Error ? error.message : String(error),
         };
-      if (error instanceof Error && error.name === "AbortError")
+      if (error instanceof Error && error.name === "AbortError") {
+        // `cause` cannot cross the evaluation boundary by identity. Report
+        // here, in the browser, whether the adapter's own error already
+        // carried the abort reason it was given; only then may the Node side
+        // restore that object's identity.
+        const controller = host.__pwLiteAbortSignals.get(
+          bridgedSignalId(encodedArgs)
+        );
         return {
           kind: "adapter-error",
           name: error.name,
           message: error.message,
+          causeMatchedAbortReason:
+            !!controller &&
+            controller.signal.aborted &&
+            error.cause === controller.signal.reason,
         };
+      }
       throw error;
     }
   };
@@ -1350,6 +1392,14 @@ function initializeAdapterBridge() {
         host.__pwLitePendingAborts.delete(value.__pwLiteAbortSignal);
         if (!controller.signal.aborted) {
           const reason = abortReason(pending);
+          // `value.aborted` is the Node-side state at the moment the API call
+          // was made, which is what decides in-flight versus already-aborted
+          // upstream: a signal aborted after the call was issued cancels a
+          // call the server has already received. The forwarded abort can win
+          // the race to the browser, so re-time it to that ordering instead of
+          // letting transport scheduling turn an in-flight abort into an
+          // already-aborted one. The adapter still has to observe the abort
+          // and produce the error itself.
           if (value.aborted) controller.abort(reason);
           else
             queueMicrotask(() => {

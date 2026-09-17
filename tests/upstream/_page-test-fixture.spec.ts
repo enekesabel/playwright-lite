@@ -103,6 +103,35 @@ test.describe("pageTest abort signal transport", () => {
     expect(waitError.name).toBe("AbortError");
     expect(waitError.message).toContain("page.waitForSelector: stop wait");
   });
+
+  test("restores the abort reason only for adapter aborts", async ({
+    page,
+  }) => {
+    await page.setContent(`<button>click me</button>`);
+    const controller = new AbortController();
+    const reason = new Error("already aborted");
+    controller.abort(reason);
+
+    // Option validation runs before the adapter inspects the signal, so this
+    // failure is not an abort even though the signal is already aborted.
+    const validationError = await page
+      .click("button", {
+        signal: controller.signal,
+        clickCount: 1.5,
+      } as any)
+      .catch((error) => error);
+
+    expect(validationError.name).not.toBe("AbortError");
+    expect(validationError.message).toContain("clickCount");
+    expect(validationError.cause).toBeUndefined();
+
+    const abortError = await page
+      .click("button", { signal: controller.signal } as any)
+      .catch((error) => error);
+
+    expect(abortError.name).toBe("AbortError");
+    expect(abortError.cause).toBe(reason);
+  });
 });
 
 test.describe("pageTest explicit zero action timeout", () => {

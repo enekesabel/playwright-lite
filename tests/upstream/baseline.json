@@ -903,12 +903,12 @@
     {
       "id": "page-click.spec.ts > should abort via already-aborted signal",
       "method": "Locator.click",
-      "evidence": "An already-aborted signal rejects the click with AbortError and the original Error reason as cause before any pointer input."
+      "evidence": "An already-aborted signal rejects the click with AbortError before any pointer input; the adapter's own cause was the Error reason it received, and the fixture restores that object's identity across the evaluation boundary."
     },
     {
       "id": "page-click.spec.ts > should abort via signal",
       "method": "Locator.click",
-      "evidence": "Aborting with an Error while the click retries a hidden button rejects with AbortError prefixed by locator.click, an aborted call-log entry, and the original reason as cause; the signal reaches the adapter through the browser-side controller."
+      "evidence": "Aborting with an Error while the click retries a hidden button rejects with AbortError prefixed by locator.click and an aborted call-log entry; the adapter's own cause was the abort reason it received, and the fixture restores that object's identity across the evaluation boundary."
     },
     {
       "id": "page-click.spec.ts > should click a button in scrolling container with offset",
@@ -1133,12 +1133,12 @@
     {
       "id": "page-click.spec.ts > should throw an Error when aborted in-flight with a string reason",
       "method": "Locator.click",
-      "evidence": "Aborting an in-flight click with a string reason rejects with an Error named AbortError whose cause is the original string."
+      "evidence": "Aborting an in-flight click with a string reason rejects with an Error named AbortError; the adapter's own cause was the string reason it received, and the fixture restores it across the evaluation boundary."
     },
     {
       "id": "page-click.spec.ts > should throw an Error when aborted via an already-aborted signal with a string reason",
       "method": "Locator.click",
-      "evidence": "An already-aborted signal with a string reason rejects the click with an Error named AbortError whose cause is that string."
+      "evidence": "An already-aborted signal with a string reason rejects the click with an Error named AbortError; the adapter's own cause was that string reason, and the fixture restores it across the evaluation boundary."
     },
     {
       "id": "page-click.spec.ts > should update modifiers correctly",
@@ -1348,12 +1348,12 @@
     {
       "id": "page-focus.spec.ts > clicking checkbox should activate it",
       "method": "Page.click",
-      "evidence": "Clicking a checkbox leaves it as document.activeElement, proving the click applies native focus; the test calls no focus API."
+      "evidence": "Clicking a checkbox makes document.activeElement an INPUT, proving the click applies native focus; the test asserts only that node name, not which input is focused, and calls no focus API."
     },
     {
       "id": "page-focus.spec.ts > keeps focus on element when attempting to focus a non-focusable element",
       "method": "Locator.focus",
-      "evidence": "After focusing a focusable div by click, focusing a non-focusable sibling keeps activeElement unchanged and emits no extra focus or blur events."
+      "evidence": "Locator.click focuses a tabindex div as setup, then Locator.focus on a non-focusable sibling leaves document.activeElement on that div and adds no focus or blur event."
     },
     {
       "id": "page-focus.spec.ts > should work @smoke",
