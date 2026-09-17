@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/enekesabel/playwright-lite/compare/v0.2.0...v0.2.1) (2026-09-17)
+
+
+### Bug Fixes
+
+* keep upstream:sync from rewriting corpus.ts beyond the spec hashes ([ffbfb46](https://github.com/enekesabel/playwright-lite/commit/ffbfb46c9264ccc9748bb0710a7094f5d94d9cd8))
+* report goto and strict-mode errors like Playwright ([#68](https://github.com/enekesabel/playwright-lite/issues/68)) ([f7c5e57](https://github.com/enekesabel/playwright-lite/commit/f7c5e57274533043b8eb19536a270572e9e36804)), closes [#53](https://github.com/enekesabel/playwright-lite/issues/53)
+
 ## [0.2.0](https://github.com/enekesabel/playwright-lite/compare/v0.1.0...v0.2.0) (2026-09-17)
 
 
