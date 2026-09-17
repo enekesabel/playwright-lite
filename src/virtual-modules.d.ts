@@ -45,6 +45,10 @@ declare module "virtual:playwright-lite-injected" {
       strict?: boolean
     ): Element | undefined;
     querySelectorAll(selector: ParsedSelector, root: Node): Element[];
+    strictModeViolationError(
+      selector: ParsedSelector,
+      matches: Element[]
+    ): Error;
     setInputFiles(
       node: Node,
       payloads: { name: string; mimeType: string; buffer: string }[]
