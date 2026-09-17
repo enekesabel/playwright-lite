@@ -7,7 +7,7 @@ Release Please reads Conventional Commits on `main` and keeps one release PR up 
 3. Merge the release PR when the version is correct.
 4. The `release-please` job creates the Git tag and GitHub Release. CI tests that commit, then the `publish-npm` job publishes the tested tarball.
 
-Versions below 1.0 publish under npm's `alpha` tag. Version 1.0.0 and later publish under `latest`.
+Every release publishes under npm's `latest` tag.
 
 ## Failed publication
 

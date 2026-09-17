@@ -154,13 +154,8 @@ test("publication is main-only and uses the tested release artifact", () => {
   );
 });
 
-test("0.x uses alpha and 1.0+ uses latest without rebuilding the tarball", (t) => {
-  for (const [version, tag] of [
-    ["0.1.0", "alpha"],
-    ["0.9.12", "alpha"],
-    ["1.0.0", "latest"],
-    ["12.3.4", "latest"],
-  ]) {
+test("every version publishes under latest without rebuilding the tarball", (t) => {
+  for (const version of ["0.1.0", "0.9.12", "1.0.0", "12.3.4"]) {
     const result = runPublish(t, { version });
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(result.args, [
@@ -170,8 +165,6 @@ test("0.x uses alpha and 1.0+ uses latest without rebuilding the tarball", (t) =
       "https://registry.npmjs.org",
       "--access",
       "public",
-      "--tag",
-      tag,
       "--ignore-scripts",
     ]);
   }
