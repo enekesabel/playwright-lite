@@ -15,12 +15,18 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-describe("Locator.setInputFiles", () => {
+describe.each(["Page", "Locator"] as const)("%s.setInputFiles", (owner) => {
+  function upload() {
+    const page = createPage();
+    return owner === "Page"
+      ? page.setInputFiles.bind(page, "#target")
+      : page.locator("#target").setInputFiles.bind(page.locator("#target"));
+  }
+
   it("assigns exact payload bytes and metadata through InjectedScript", async () => {
     document.body.innerHTML = '<input id="target" type="file">';
-    const page = createPage();
     const bytes = new Uint8Array([99, 0, 128, 255, 42, 99]).subarray(1, 5);
-    await page.locator("#target").setInputFiles(payload("binary.txt", bytes));
+    await upload()(payload("binary.txt", bytes));
     const files = document.querySelector<HTMLInputElement>("input")!.files!;
     expect(files.length).toBe(1);
     expect(files[0]!.name).toBe("binary.txt");
@@ -30,14 +36,11 @@ describe("Locator.setInputFiles", () => {
 
   it("replaces multiple files, emits events on each call, and clears with []", async () => {
     document.body.innerHTML = '<input id="target" type="file" multiple>';
-    const page = createPage();
     const input = document.querySelector<HTMLInputElement>("input")!;
     const events: string[] = [];
     input.addEventListener("input", () => events.push("input"));
     input.addEventListener("change", () => events.push("change"));
-    const setFiles = page
-      .locator("#target")
-      .setInputFiles.bind(page.locator("#target"));
+    const setFiles = upload();
     await setFiles([payload("a.txt"), payload("b.txt")]);
     expect(Array.from(input.files!, (file) => file.name)).toEqual([
       "a.txt",
@@ -60,18 +63,14 @@ describe("Locator.setInputFiles", () => {
   it("retargets labels and does not require enabled or visible input", async () => {
     document.body.innerHTML =
       '<label id="target" for="file">Upload</label><input id="file" type="file" disabled hidden>';
-    const page = createPage();
-    await page.locator("#target").setInputFiles(payload());
+    await upload()(payload());
     expect(
       await document.querySelector<HTMLInputElement>("input")!.files![0]!.text()
     ).toBe("contents");
   });
 
   it("waits for a late input and applies timeout", async () => {
-    const page = createPage();
-    const setFiles = page
-      .locator("#target")
-      .setInputFiles.bind(page.locator("#target"));
+    const setFiles = upload();
     await expect(setFiles(payload(), { timeout: 30 })).rejects.toThrow(
       "Timeout 30ms exceeded"
     );
@@ -85,10 +84,7 @@ describe("Locator.setInputFiles", () => {
 
   it("rejects paths and browser-only values without changing an existing selection", async () => {
     document.body.innerHTML = '<input id="target" type="file">';
-    const page = createPage();
-    const setFiles = page
-      .locator("#target")
-      .setInputFiles.bind(page.locator("#target"));
+    const setFiles = upload();
     await setFiles(payload());
     for (const files of [
       "file.txt",
@@ -108,10 +104,7 @@ describe("Locator.setInputFiles", () => {
   });
 
   it("validates input type, multiplicity, and directory restrictions", async () => {
-    const page = createPage();
-    const setFiles = page
-      .locator("#target")
-      .setInputFiles.bind(page.locator("#target"));
+    const setFiles = upload();
     document.body.innerHTML = '<div id="target"></div>';
     await expect(setFiles(payload())).rejects.toThrow(
       "Node is not an HTMLInputElement"
@@ -129,7 +122,9 @@ describe("Locator.setInputFiles", () => {
       "[webkitdirectory] input requires passing a path to a directory"
     );
   });
+});
 
+describe("Locator.setInputFiles", () => {
   it("preserves the upstream input/change shadow DOM event contract", async () => {
     document.body.innerHTML = '<div id="host"></div>';
     const host = document.querySelector("#host")!;
