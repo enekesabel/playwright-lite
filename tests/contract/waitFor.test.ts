@@ -104,4 +104,13 @@ describe("Locator.waitFor", () => {
     const page = createPage();
     await page.locator("div").waitFor({ state: "visible", timeout: 1000 });
   });
+
+  it("keeps locator waitFor strict", async () => {
+    document.body.innerHTML = `<div class=duplicate></div><div class=duplicate></div>`;
+    const page = createPage();
+
+    await expect(page.locator(".duplicate").waitFor()).rejects.toThrow(
+      /strict mode violation/
+    );
+  });
 });

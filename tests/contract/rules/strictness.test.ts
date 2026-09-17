@@ -134,28 +134,6 @@ describe("strictness", () => {
     });
   });
 
-  it("uses Page first-match semantics unless strict for queries", async () => {
-    document.body.innerHTML = "<div id=first></div><div id=second></div>";
-    const page = createPage();
-
-    await expect(page.getAttribute("div", "id")).resolves.toBe("first");
-    await expect(
-      page.getAttribute("div", "id", { strict: true })
-    ).rejects.toThrow(/strict mode violation/);
-    await expect(page.locator("div").getAttribute("id")).rejects.toThrow(
-      /strict mode violation/
-    );
-  });
-
-  it("keeps locator waitFor strict", async () => {
-    document.body.innerHTML = `<div class=duplicate></div><div class=duplicate></div>`;
-    const page = createPage();
-
-    await expect(page.locator(".duplicate").waitFor()).rejects.toThrow(
-      /strict mode violation/
-    );
-  });
-
   const firstMatchWaits: {
     apiName: string;
     html: string;

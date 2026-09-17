@@ -55,4 +55,17 @@ describe("Page.getAttribute", () => {
 
     expect(await page.getAttribute("#text", "missing")).toBeNull();
   });
+
+  it("uses Page first-match semantics unless strict and Locator strictness always", async () => {
+    document.body.innerHTML = "<div id=first></div><div id=second></div>";
+    const page = createPage();
+
+    await expect(page.getAttribute("div", "id")).resolves.toBe("first");
+    await expect(
+      page.getAttribute("div", "id", { strict: true })
+    ).rejects.toThrow(/strict mode violation/);
+    await expect(page.locator("div").getAttribute("id")).rejects.toThrow(
+      /strict mode violation/
+    );
+  });
 });
