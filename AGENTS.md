@@ -27,6 +27,36 @@ Treat newly passing upstream tests as candidates for review. Before promoting ea
 
 Execution tracking is necessary evidence, not proof that an assertion is adequate. The implementing agent performs this review; individual promotions do not require separate user approval. Preserve existing reviewed entries when adding support, and investigate regressions instead of deleting entries to make CI pass.
 
+## Contract tests
+
+Contract tests are the package's own tests. They drive the public API in a
+browser and live under `tests/contract/`. They cover adapter-specific behaviour
+(unsupported-option rejection, the single-document boundary, this package's
+error messages, packaging) and Playwright behaviour the corpus cannot reach. A
+behaviour already proven by a reviewed baseline entry needs no contract test.
+
+Place a test by the member whose behaviour it asserts:
+
+- A `Page` or `Locator` member is tested in `tests/contract/<member>.test.ts`,
+  named exactly like the member (`click.test.ts`, `waitForSelector.test.ts`).
+  Inside, `describe("Locator.<member>")` holds the shared behaviour and
+  `describe("Page.<member>")` holds only what differs on Page. Placement must be
+  mechanical, and the two forms share one implementation.
+- Every other owner gets one file: `keyboard.test.ts`, `element-handle.test.ts`,
+  `js-handle.test.ts`, `expect.test.ts`, `package.test.ts`.
+- A rule asserted across two or more members goes in
+  `tests/contract/rules/<rule>.test.ts`, written once as a case table of
+  `[apiName, run]`. The rule files are `cancellation`, `timeouts`,
+  `option-validation`, `strictness`, `serialization`.
+- Using other members as setup does not make a test cross-API; it stays with the
+  member it asserts. Multi-API scenarios are the corpus's job.
+
+Do not test internal modules directly. Exception: an internal module with real
+logic of its own and a stable interface keeps a test next to its source.
+
+New tests follow this layout. `src/*.test.ts` is legacy and is being migrated.
+Don't add to it.
+
 ## Consumer README
 
 `README.md` is generated from `docs/readme-template.hbs` and

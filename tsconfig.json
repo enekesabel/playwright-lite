@@ -9,5 +9,5 @@
     "paths": { "@enekesabel/playwright-lite": ["./src/index.ts"] },
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/contract/**/*.ts"]
 }
