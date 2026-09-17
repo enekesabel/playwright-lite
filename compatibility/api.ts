@@ -81,21 +81,19 @@ export const pageLedger = {
   ariaSnapshot: implemented("Current document only; no iframe traversal."),
   bringToFront: undecided(),
   cancelPickLocator: undecided(),
-  check: partial("The `signal` option is unsupported."),
+  check: implemented(),
   clearConsoleMessages: undecided(),
   clearPageErrors: undecided(),
-  click: partial(
-    "The `signal` option is unsupported. The action does not wait for navigation."
-  ),
+  click: partial("The action does not wait for navigation."),
   clock: undecided(),
   close: undecided(),
   consoleMessages: undecided(),
   content: implemented("Serializes the current controlled document."),
   context: undecided(),
   coverage: undecided(),
-  dblclick: partial("The `signal` option is unsupported."),
+  dblclick: implemented(),
   dispatchEvent: partial(
-    "The `signal` option is unsupported; `JSHandle`/`ElementHandle` values in `eventInit` are not unwrapped."
+    "`JSHandle`/`ElementHandle` values in `eventInit` are not unwrapped."
   ),
   dragAndDrop: undecided(),
   emulateMedia: undecided(),
@@ -103,8 +101,8 @@ export const pageLedger = {
   evaluateHandle: undecided(),
   exposeBinding: undecided(),
   exposeFunction: undecided(),
-  fill: partial("Unsupported options: `force`, `signal`."),
-  focus: partial("The `signal` option is unsupported."),
+  fill: partial("The `force` option is unsupported."),
+  focus: implemented(),
   frame: outOfScope("Iframe realms are outside the single-document boundary."),
   frameLocator: outOfScope(
     "Iframe realms are outside the single-document boundary."
@@ -128,7 +126,7 @@ export const pageLedger = {
     'Does not return a `Response`; resolves to `null` only for same-document hash navigation. Relative URLs use `document.baseURI`, not a configured Playwright `baseURL`. Rejects `referer`, `signal`, and `waitUntil: "networkidle"`.'
   ),
   hideHighlight: implemented("Clears highlights in the current document."),
-  hover: partial("The `signal` option is unsupported."),
+  hover: implemented(),
   innerHTML: implemented(),
   innerText: implemented(),
   inputValue: implemented(),
@@ -163,7 +161,7 @@ export const pageLedger = {
   prependListener: planned(
     "Only console and pageerror are planned; other events remain undecided."
   ),
-  press: partial("Unsupported options: `delay`, `signal`."),
+  press: implemented(),
   reload: planned(
     "Initiates browser navigation; execution ends on document replacement."
   ),
@@ -183,24 +181,24 @@ export const pageLedger = {
   screencast: undecided(),
   screenshot: undecided(),
   selectOption: partial(
-    "`ElementHandle` option values are unsupported. Unsupported options: `force`, `signal`."
+    "`ElementHandle` option values are unsupported. The `force` option is unsupported."
   ),
   sessionStorage: implemented("Native current-window Storage only."),
-  setChecked: partial("The `signal` option is unsupported."),
+  setChecked: implemented(),
   setContent: outOfScope("Document replacement is excluded."),
   setDefaultNavigationTimeout: implemented(),
   setDefaultTimeout: implemented(),
   setExtraHTTPHeaders: undecided(),
   setInputFiles: partial(
-    "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported. Empty `mimeType` throws instead of inferring a MIME type. The `signal` option is unsupported."
+    "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported. Empty `mimeType` throws instead of inferring a MIME type."
   ),
   setViewportSize: outOfScope("Browser viewport resizing is excluded."),
   tap: planned("Synthetic functional input only."),
   textContent: implemented(),
   title: implemented(),
   touchscreen: planned("Synthetic functional input only."),
-  type: partial("The `signal` option is unsupported."),
-  uncheck: partial("The `signal` option is unsupported."),
+  type: implemented(),
+  uncheck: implemented(),
   unroute: undecided(),
   unrouteAll: undecided(),
   url: implemented(),
@@ -217,7 +215,7 @@ export const pageLedger = {
   waitForRequest: undecided(),
   waitForResponse: undecided(),
   waitForSelector: partial(
-    "The `signal` option is unsupported. Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
+    "Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   waitForTimeout: implemented(),
   waitForURL: undecided(),
@@ -234,22 +232,22 @@ export const locatorLedger = {
   ariaSnapshot: implemented("Current document only; no iframe traversal."),
   blur: implemented(),
   boundingBox: implemented(),
-  check: partial("The `signal` option is unsupported."),
-  clear: partial("Unsupported options: `force`, `signal`."),
+  check: implemented(),
+  clear: partial("The `force` option is unsupported."),
   click: partial(
-    "Unsupported options: `signal`, `steps`. The action does not wait for navigation."
+    "The `steps` option is unsupported. The action does not wait for navigation."
   ),
   contentFrame: outOfScope(
     "Iframe realms are outside the single-document boundary."
   ),
   count: implemented(),
-  dblclick: partial("Unsupported options: `signal`, `steps`."),
+  dblclick: partial("The `steps` option is unsupported."),
   describe: implemented(),
   description: partial(
     "`describe('').description()` returns `''` instead of `null`; `describe('x').filter({}).description()` returns `null` instead of `'x'`."
   ),
   dispatchEvent: partial(
-    "The `signal` option is unsupported; `JSHandle`/`ElementHandle` values in `eventInit` are not unwrapped."
+    "`JSHandle`/`ElementHandle` values in `eventInit` are not unwrapped."
   ),
   dragTo: undecided(),
   drop: undecided(),
@@ -264,7 +262,7 @@ export const locatorLedger = {
     "Uses the pinned Playwright by-value argument and result serializers."
   ),
   evaluateHandle: undecided(),
-  fill: partial("Unsupported options: `force`, `signal`."),
+  fill: partial("The `force` option is unsupported."),
   filter: implemented(),
   first: implemented(),
   focus: implemented(),
@@ -285,7 +283,7 @@ export const locatorLedger = {
   highlight: implemented(
     "Uses the pinned InjectedScript overlay in the current document."
   ),
-  hover: partial("The `signal` option is unsupported."),
+  hover: implemented(),
   innerHTML: implemented(),
   innerText: implemented(),
   inputValue: implemented(),
@@ -301,26 +299,26 @@ export const locatorLedger = {
   nth: implemented(),
   or: implemented(),
   page: implemented("Returns the adapter Page facade."),
-  press: partial("Unsupported options: `delay`, `signal`."),
-  pressSequentially: partial("The `signal` option is unsupported."),
+  press: implemented(),
+  pressSequentially: implemented(),
   screenshot: undecided(),
-  scrollIntoViewIfNeeded: partial("The `signal` option is unsupported."),
+  scrollIntoViewIfNeeded: implemented(),
   selectOption: partial(
-    "`ElementHandle` option values are unsupported. Unsupported options: `force`, `signal`."
+    "`ElementHandle` option values are unsupported. The `force` option is unsupported."
   ),
-  selectText: partial("Unsupported options: `force`, `signal`."),
-  setChecked: partial("The `signal` option is unsupported."),
+  selectText: partial("The `force` option is unsupported."),
+  setChecked: implemented(),
   setInputFiles: partial(
-    "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported. Empty `mimeType` throws instead of inferring a MIME type. The `signal` option is unsupported."
+    "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported. Empty `mimeType` throws instead of inferring a MIME type."
   ),
   tap: undecided(),
   textContent: implemented(),
   toString: partial(
     "String representations can omit options: `filter({ hasText: 'x' })` prints `filter(...)`, and `page.getByRole('button', { disabled: true })` omits `disabled`."
   ),
-  type: partial("The `signal` option is unsupported."),
-  uncheck: partial("The `signal` option is unsupported."),
-  waitFor: partial("The `signal` option is unsupported."),
+  type: implemented(),
+  uncheck: implemented(),
+  waitFor: implemented(),
   waitForFunction: undecided(),
 } as const satisfies Ledger<Locator>;
 
