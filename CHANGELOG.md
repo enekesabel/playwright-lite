@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0](https://github.com/enekesabel/playwright-lite/compare/v0.1.0...v0.2.0) (2026-09-17)
+
+
+### Features
+
+* expand common action parity ([#16](https://github.com/enekesabel/playwright-lite/issues/16)) ([6917319](https://github.com/enekesabel/playwright-lite/commit/6917319cf1ed06e813b701c8c30d838c7e068db6))
+* match Playwright selector action strictness semantics ([3abd4a7](https://github.com/enekesabel/playwright-lite/commit/3abd4a7ab72235b978e5cb426a5ea5c0ba9bb457))
+
+
+### Bug Fixes
+
+* match the pinned options of isVisible and isHidden ([e72a553](https://github.com/enekesabel/playwright-lite/commit/e72a5537233f7ec0dccaf7938172f43e0c066ffb))
+* prefix query-abort errors with their API name ([a8f1821](https://github.com/enekesabel/playwright-lite/commit/a8f1821f4a78d6b93f5cd27b3474bb98301f7ca9))
+
 ## 0.1.0 (2026-09-14)
 
 
