@@ -54,9 +54,6 @@ Place a test by the member whose behaviour it asserts:
 Do not test internal modules directly. Exception: an internal module with real
 logic of its own and a stable interface keeps a test next to its source.
 
-New tests follow this layout. `src/*.test.ts` is legacy and is being migrated.
-Don't add to it.
-
 ## Consumer README
 
 `README.md` is generated from `docs/readme-template.hbs` and
