@@ -66,7 +66,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # vitest runs Chromium in-process for src/**/*.test.ts; headless shell is enough since
       # everything here runs headless.
-      - run: pnpm exec playwright install --with-deps --only-shell chromium
+      - run: pnpm exec playwright install --only-shell chromium
       # Same chain as the "check" script minus test:e2e (the corpus), which runs in its own
       # parallel job so lint/typecheck/unit feedback doesn't wait on it. Keep this in sync with
       # the "check" script in package.json; local `pnpm check` is unchanged.
@@ -109,7 +109,7 @@ jobs:
           node-version: 24.12.0
       - run: npm install --global pnpm@11.24.0
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps --only-shell chromium
+      - run: pnpm exec playwright install --only-shell chromium
       # The corpus harness loads dist/index.mjs.
       - run: pnpm build
       - run: pnpm test:e2e
