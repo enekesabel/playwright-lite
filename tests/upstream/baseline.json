@@ -91,6 +91,11 @@
       "evidence": "Pressing h into an empty input produces the value h."
     },
     {
+      "id": "elementhandle-press.spec.ts > should work with number input",
+      "method": "Page.press",
+      "evidence": "Pressing 1 on an unfocused input[type=number] holding 2 leaves 12, proving the pressed character lands at the caret of a selection-less control rather than after its value."
+    },
+    {
       "id": "elementhandle-type.spec.ts > should not modify selection when focused",
       "method": "Page.type",
       "evidence": "With the input focused and a selection set, type replaces the selected text in place, producing heworldo."
@@ -109,6 +114,11 @@
       "id": "elementhandle-type.spec.ts > should work",
       "method": "Page.type",
       "evidence": "Typing hello into an empty input produces the value hello."
+    },
+    {
+      "id": "elementhandle-type.spec.ts > should work with number input",
+      "method": "Page.type",
+      "evidence": "Typing 13 into an unfocused input[type=number] holding 2 leaves 132, proving both characters land at the caret of a control that exposes no selection API instead of being appended after the existing value."
     },
     {
       "id": "locator-click.spec.ts > should click if the target element is removed in pointerdown event",
@@ -1374,6 +1384,16 @@
       "id": "page-keyboard.spec.ts > should type into a textarea @smoke",
       "method": "Keyboard.type",
       "evidence": "Browser Page.evaluate creates and focuses a textarea; Keyboard.type enters the browser implementation and the final value equals the full requested string. No native calls or transport failures."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should type repeatedly in contenteditable in shadow dom",
+      "method": "Locator.type",
+      "evidence": "Typing into two contenteditables inside one open shadow root leaves each editor holding its own complete sentence, proving every character reaches the caret of the editor being typed into and none is lost when focus moves between them."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should type repeatedly in contenteditable in shadow dom with nested elements",
+      "method": "Locator.type",
+      "evidence": "Typing into shadow-root contenteditables that already contain a paragraph leaves This is the first box: hello, proving the text is inserted at the caret in front of the existing child rather than appended after it."
     },
     {
       "id": "page-keyboard.spec.ts > should type repeatedly in input in shadow dom",
