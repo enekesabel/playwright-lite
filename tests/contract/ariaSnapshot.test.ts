@@ -74,4 +74,28 @@ describe("Page.ariaSnapshot", () => {
     );
     expect(preAbortedError?.cause).toBe("stop snapshot");
   });
+
+  it("aborts while waiting for the document parser", async () => {
+    const page = createPage();
+    const reason = new Error("stop");
+    const controller = new AbortController();
+    Object.defineProperty(document, "readyState", {
+      configurable: true,
+      get: () => "loading",
+    });
+    try {
+      window.setTimeout(() => controller.abort(reason), 10);
+      const error = await (page as any)
+        .ariaSnapshot({ signal: controller.signal, timeout: 0 })
+        .then(
+          () => undefined,
+          (error: Error) => error
+        );
+      expect(error?.name).toBe("AbortError");
+      expect(error?.message).toMatch(/^page\.ariaSnapshot: stop\nCall log:/);
+      expect(error?.cause).toBe(reason);
+    } finally {
+      delete (document as any).readyState;
+    }
+  });
 });
