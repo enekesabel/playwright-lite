@@ -5,103 +5,105 @@ export const corpus = {
     basePath: "tests/page",
   },
   sourcePaths: {
-    "locator-highlight.spec.ts": "tests/library/locator-highlight.spec.ts",
-  },
+  "locator-highlight.spec.ts": "tests/library/locator-highlight.spec.ts"
+},
   specs: {
-    "page-click.spec.ts":
-      "cc8427762d0fcde613c2f6dcbeb16db027912b72aaf6485363d4a18fd1f98fa0",
-    "elementhandle-click.spec.ts":
-      "e74bc0bc18b3ae38c7be925591c95df8b060607e5383953166dd34c139f7ca72",
-    "page-click-scroll.spec.ts":
-      "3f246c1aabf6c7e15ee7e80938e190c48dc354f7f6ead21d7c3fb8cfa54ef9eb",
-    "page-click-timeout-1.spec.ts":
-      "1904e7211f33279fe0d7a711f014f723c902232ef441103d8426631412207c04",
-    "page-click-timeout-2.spec.ts":
-      "b8e5c51191a008f45bc224c510c99f28de6b1969af37c8de521e9f63b1cbe6f9",
-    "page-click-timeout-3.spec.ts":
-      "aeb71ad7176dd1f22d59e70203d91bc5f3fbe47be9df1b91ea36f5695549dfc5",
-    "page-click-timeout-4.spec.ts":
-      "382199def9caf2b751bb7e2fb3d3d408adf5c9976c049feb7d2433caff83282f",
-    "page-localstorage.spec.ts":
-      "487a0688882a93286cfcdd203b4dfe14b213e608c8661846f1fd0d6dfd774db1",
-    "locator-highlight.spec.ts":
-      "ef24b6ad481d73ce66958129d7e0f5c8ffc53ba8e8fb33069e0e5484284d6e16",
-    "elementhandle-convenience.spec.ts":
-      "de695b8a38bbb63f34422aa844a67354fd569895aea67e848423c06c5bdc499a",
-    "page-keyboard.spec.ts":
-      "5b848c208876e406712354841b59d4dc306e8e4e390efa2c4b31037576751c3f",
-    "page-set-input-files.spec.ts":
-      "d43d4b256d5b076695f87a9036a41bd3d0042e3a1eb2e934c77347b9b7f7e46c",
-    "page-check.spec.ts":
-      "2a828962b0beb2587db4de12477135a5c4519a959e3b3b8e425b54210837a9cb",
-    "page-fill.spec.ts":
-      "85dcabd116d5570ac20119f7a259c7c3e749795652a323f1015320bfbb1f6eb0",
-    "page-strict.spec.ts":
-      "89641befba6dccc84682f667e1ac86ea6e5c92e1d34210bdb579041ffef933ae",
-    "page-focus.spec.ts":
-      "35643f7786c7565d73ebdbe637b8c79d2b32aedab119208d1fccffd6e5916a04",
-    "page-select-option.spec.ts":
-      "75a4c9cd718f195617567d095cf68dc118f293905d2fc213148f4f3d9a289d4c",
-    "elementhandle-press.spec.ts":
-      "bc8d704854754bcbf82be56d4f977d226c70fb67151414223a8c1f6b7be121f6",
-    "elementhandle-type.spec.ts":
-      "9012bef5ff67625d636c163c5bf17c551aef7cc7270b0b9ef3d2f395e50fd820",
-    "elementhandle-scroll-into-view.spec.ts":
-      "d7fe05764345295859d64dfb9f1b3152f63c591530176eabd6acd3fba420347a",
-    "elementhandle-select-text.spec.ts":
-      "e7fdf05f1b1ec50c5063a82df2deaa9407e5e439504e68758a98c9ea8a6f7e7a",
-    "locator-list.spec.ts":
-      "ce2bbfd6ff208d0278734093abec050082ff6cabd25b51ee8133d4990698aa07",
-    "locator-query.spec.ts":
-      "4097164e0e3115ad1cb8a89539347f89c50093ff717ff400d5cf28f9fb9e86ef",
-    "locator-convenience.spec.ts":
-      "9c63a184b0eb678bb5bf794ee8509802aa278545f2eb67d33f17bc8cd04f2e9f",
-    "locator-is-visible.spec.ts":
-      "85e6879544afd2e1344bc81bf49ec081ca8cad25f7f620d8896926d9344b259d",
-    "locator-click.spec.ts":
-      "05d41f4c279d1cc82b16c300e42f1114037938cb8f5598b5d4c8e4f5997f7480",
-    "locator-misc-1.spec.ts":
-      "c7130315548471dd1a1fa2c137f36819fda747f0f5f55a14ad995cda2a47bd1b",
-    "locator-misc-2.spec.ts":
-      "cac40edeec9911fa8508a3e55c0f4ee4b321218abeef93f0ea132bcbdfd48d39",
-    "locator-frame.spec.ts":
-      "ef56f353b078373734319255d15569aba3d5406300e564e71e86ebf754122ee6",
-    "selectors-get-by.spec.ts":
-      "ac43a77cd46eedad0b9831188a919439e4f77517dc0ca025677bfc552e10ca4b",
-    "selectors-text.spec.ts":
-      "95b8673a75ca0f6f4172d653663a1f3cd9c62e03c8c799195359e526250e099d",
-    "selectors-misc.spec.ts":
-      "335b0ef2303c1c2a22dc8b3cdb4a2892eaa33695d686214d26b8e8c2c4777f48",
-    "selectors-frame.spec.ts":
-      "645ffc101c4e4d0334c60874808e0495338bf5932a30900992bcf02c4bca15dc",
-    "retarget.spec.ts":
-      "3dce9587f62e8fdcd0e17f957c6cfaba7e72b4d0bb175f0b99147ea3a35298c8",
-    "page-aria-snapshot.spec.ts":
-      "06c07f70d181d19664d043111ecdfe89f6f8f8168d6fae0fda1161b74ed4f8d6",
-    "page-aria-snapshot-ai.spec.ts":
-      "ce02685117c5bdceb67637deb238875f4e83835ef170da330c2ca17ba85ad073",
-    "page-basic.spec.ts":
-      "e9773aacf91a00c79c838cd8c8c9cf3edb05355c5ba035cbeb05a2db29fd931c",
-    "page-filechooser.spec.ts":
-      "631962849f23aaff9527dc213a5cc3458ba64358bd8444c8b56ff6dac0b23329",
-    "page-goto.spec.ts":
-      "ed2a8347e94db7da93db3bb95fbbef61e63835cb33e4c470b818343cf03cb945",
-    "page-wait-for-function.spec.ts":
-      "6dc7c837a47c599511f22727a358d00f3b0aee5139ccdbd3d44af795bca248d5",
-    "page-wait-for-request.spec.ts":
-      "28c7e55bfbb9a3c66f9bf7170713ac74168ae69da9e85528aae53d3c197118e4",
-    "page-wait-for-response.spec.ts":
-      "d5a39df993cfb6257a2e535bcd58197ccc68535e8d782e5dff82c6f04dc69ee6",
+    "page-click.spec.ts": "cc8427762d0fcde613c2f6dcbeb16db027912b72aaf6485363d4a18fd1f98fa0",
+    "elementhandle-click.spec.ts": "e74bc0bc18b3ae38c7be925591c95df8b060607e5383953166dd34c139f7ca72",
+    "page-click-scroll.spec.ts": "3f246c1aabf6c7e15ee7e80938e190c48dc354f7f6ead21d7c3fb8cfa54ef9eb",
+    "page-click-timeout-1.spec.ts": "1904e7211f33279fe0d7a711f014f723c902232ef441103d8426631412207c04",
+    "page-click-timeout-2.spec.ts": "b8e5c51191a008f45bc224c510c99f28de6b1969af37c8de521e9f63b1cbe6f9",
+    "page-click-timeout-3.spec.ts": "aeb71ad7176dd1f22d59e70203d91bc5f3fbe47be9df1b91ea36f5695549dfc5",
+    "page-click-timeout-4.spec.ts": "382199def9caf2b751bb7e2fb3d3d408adf5c9976c049feb7d2433caff83282f",
+    "page-localstorage.spec.ts": "487a0688882a93286cfcdd203b4dfe14b213e608c8661846f1fd0d6dfd774db1",
+    "locator-highlight.spec.ts": "ef24b6ad481d73ce66958129d7e0f5c8ffc53ba8e8fb33069e0e5484284d6e16",
+    "elementhandle-convenience.spec.ts": "de695b8a38bbb63f34422aa844a67354fd569895aea67e848423c06c5bdc499a",
+    "page-keyboard.spec.ts": "5b848c208876e406712354841b59d4dc306e8e4e390efa2c4b31037576751c3f",
+    "page-set-input-files.spec.ts": "d43d4b256d5b076695f87a9036a41bd3d0042e3a1eb2e934c77347b9b7f7e46c",
+    "page-check.spec.ts": "2a828962b0beb2587db4de12477135a5c4519a959e3b3b8e425b54210837a9cb",
+    "page-fill.spec.ts": "85dcabd116d5570ac20119f7a259c7c3e749795652a323f1015320bfbb1f6eb0",
+    "page-strict.spec.ts": "89641befba6dccc84682f667e1ac86ea6e5c92e1d34210bdb579041ffef933ae",
+    "page-focus.spec.ts": "35643f7786c7565d73ebdbe637b8c79d2b32aedab119208d1fccffd6e5916a04",
+    "page-select-option.spec.ts": "75a4c9cd718f195617567d095cf68dc118f293905d2fc213148f4f3d9a289d4c",
+    "elementhandle-press.spec.ts": "bc8d704854754bcbf82be56d4f977d226c70fb67151414223a8c1f6b7be121f6",
+    "elementhandle-type.spec.ts": "9012bef5ff67625d636c163c5bf17c551aef7cc7270b0b9ef3d2f395e50fd820",
+    "elementhandle-scroll-into-view.spec.ts": "d7fe05764345295859d64dfb9f1b3152f63c591530176eabd6acd3fba420347a",
+    "elementhandle-select-text.spec.ts": "e7fdf05f1b1ec50c5063a82df2deaa9407e5e439504e68758a98c9ea8a6f7e7a",
+    "locator-list.spec.ts": "ce2bbfd6ff208d0278734093abec050082ff6cabd25b51ee8133d4990698aa07",
+    "locator-query.spec.ts": "4097164e0e3115ad1cb8a89539347f89c50093ff717ff400d5cf28f9fb9e86ef",
+    "locator-convenience.spec.ts": "9c63a184b0eb678bb5bf794ee8509802aa278545f2eb67d33f17bc8cd04f2e9f",
+    "locator-is-visible.spec.ts": "85e6879544afd2e1344bc81bf49ec081ca8cad25f7f620d8896926d9344b259d",
+    "locator-click.spec.ts": "05d41f4c279d1cc82b16c300e42f1114037938cb8f5598b5d4c8e4f5997f7480",
+    "locator-misc-1.spec.ts": "c7130315548471dd1a1fa2c137f36819fda747f0f5f55a14ad995cda2a47bd1b",
+    "locator-misc-2.spec.ts": "cac40edeec9911fa8508a3e55c0f4ee4b321218abeef93f0ea132bcbdfd48d39",
+    "locator-frame.spec.ts": "ef56f353b078373734319255d15569aba3d5406300e564e71e86ebf754122ee6",
+    "selectors-get-by.spec.ts": "ac43a77cd46eedad0b9831188a919439e4f77517dc0ca025677bfc552e10ca4b",
+    "selectors-text.spec.ts": "95b8673a75ca0f6f4172d653663a1f3cd9c62e03c8c799195359e526250e099d",
+    "selectors-misc.spec.ts": "335b0ef2303c1c2a22dc8b3cdb4a2892eaa33695d686214d26b8e8c2c4777f48",
+    "selectors-frame.spec.ts": "645ffc101c4e4d0334c60874808e0495338bf5932a30900992bcf02c4bca15dc",
+    "retarget.spec.ts": "3dce9587f62e8fdcd0e17f957c6cfaba7e72b4d0bb175f0b99147ea3a35298c8",
+    "page-aria-snapshot.spec.ts": "06c07f70d181d19664d043111ecdfe89f6f8f8168d6fae0fda1161b74ed4f8d6",
+    "page-aria-snapshot-ai.spec.ts": "ce02685117c5bdceb67637deb238875f4e83835ef170da330c2ca17ba85ad073",
+    "page-basic.spec.ts": "e9773aacf91a00c79c838cd8c8c9cf3edb05355c5ba035cbeb05a2db29fd931c",
+    "page-filechooser.spec.ts": "631962849f23aaff9527dc213a5cc3458ba64358bd8444c8b56ff6dac0b23329",
+    "page-goto.spec.ts": "ed2a8347e94db7da93db3bb95fbbef61e63835cb33e4c470b818343cf03cb945",
+    "page-wait-for-function.spec.ts": "6dc7c837a47c599511f22727a358d00f3b0aee5139ccdbd3d44af795bca248d5",
+    "page-wait-for-request.spec.ts": "28c7e55bfbb9a3c66f9bf7170713ac74168ae69da9e85528aae53d3c197118e4",
+    "page-wait-for-response.spec.ts": "d5a39df993cfb6257a2e535bcd58197ccc68535e8d782e5dff82c6f04dc69ee6",
+    "elementhandle-bounding-box.spec.ts": "2e2adce9a4637e58b06d7de2c7bda1ee05d108be94d058f52bdfb43f1410bfec",
+    "elementhandle-eval-on-selector.spec.ts": "89040624e2fe7f7012f4b7ffc0e812294da6e40d054af2532ad42318e749e7d1",
+    "elementhandle-misc.spec.ts": "97e6f737ebe87b46ddd160ab39e445f70a57c3ce6ed6ac91862bbaf50919676b",
+    "elementhandle-query-selector.spec.ts": "5157e9d8d18932413966d624e4938abc644ea670b2681fc0be799303b6f1a683",
+    "elementhandle-wait-for-element-state.spec.ts": "33032143989d8394aa314d43d50a0ff62f02b438c93e089b4e54304191c1d687",
+    "eval-on-selector-all.spec.ts": "a8e52ce058ff4f0a0b48e72f1fb5c3c78c8fd4db4375ef6d1e01e9caa44ecc91",
+    "eval-on-selector.spec.ts": "5d1e550c51893bdba3af4de3331b6a81d9de3bc7fe829d35a43d84c2238162c4",
+    "expect-boolean.spec.ts": "6b712824d9deee68616e8617634e5ca6554f2b1d9a88eeb20731422f098da715",
+    "expect-builtins.spec.ts": "150bac8fe5b50c95ffa7f0ed27db40330497544c0ed945a12322229a8139dc40",
+    "expect-matcher-result.spec.ts": "fb98baf7e91019d441a486bd1434f3f57d3d217273784197823cacd091a46e5e",
+    "expect-misc.spec.ts": "fea39da8e314d011df02f5865574fded704cf30f882e65d29c3eac02a2901693",
+    "expect-timeout.spec.ts": "ce99276a1060f8d934d4cd28a920c695d331be851d9d7a807f79ecb2d677f28c",
+    "expect-to-have-accessible.spec.ts": "09d8f064da53ccc5ac73a1c9c29cf9e2bddd37952341113c5c949efe186d7d7e",
+    "expect-to-have-text.spec.ts": "ab627d75435776582b19de28dffdfa9d37c793f6789493adc8267aa5c7e70077",
+    "expect-to-have-value.spec.ts": "6bd30addf5488dfc3613fcd49192e0f43c0a875b9a5c23c939f8004842554576",
+    "expect-with-snapshot.spec.ts": "37418b5bed1efd92e293e4da63bba57d99499025f98d08a7b395e8eb6f7333a9",
+    "jshandle-as-element.spec.ts": "51bf128741fbcca63bfdf6aed632646f3afe979e9408ffbc713a7d00f3ea714a",
+    "jshandle-evaluate.spec.ts": "00cfaa1f000b8b47408511334fce8537ec9488c68f1dec8ed07ef9555c392e12",
+    "jshandle-json-value.spec.ts": "2198a73db9b48877f23bc1bb8e60ef5c724ff4d06516394078a5658cd961eae6",
+    "jshandle-properties.spec.ts": "21ea66147b077e80c672ae7f600f0ece40d385c88c1235620d0634fd5405a80b",
+    "jshandle-to-string.spec.ts": "72bb3785ef5ab86143352bad94acffe726ab800a2d0a864b67088675bcd60493",
+    "locator-element-handle.spec.ts": "346138c6b499a22327bc6aaf27bb3621b5a6071cd54ef1018cf4b11cf186fef6",
+    "locator-evaluate.spec.ts": "350fbb548abe44e4b3e1d6db37d4a8af4a246e1306416843b4b1ce29c775baeb",
+    "locator-wait-for-function.spec.ts": "a9867b485d5db606ead982aa45a8332920b1aab0edd09630de9ff431b52869dc",
+    "matchers.misc.spec.ts": "8a10c737459db5ba72e1f23b58fe1e1c40937912249f65d5bdf2379dc52fb8dc",
+    "page-add-locator-handler.spec.ts": "457eca90fe4afdcbc822789f31a1d982c5f454de11ba9a1e945eec93c50e6230",
+    "page-add-script-tag.spec.ts": "091b4b20f1d691ae6d4d1375d1aa5a0a5e3702726fa2d2b81e5ffff7f4555478",
+    "page-add-style-tag.spec.ts": "0c1adbaa91526ddbdae473e96620489dff1046f4763b63474802aa97432d3b4c",
+    "page-autowaiting-basic.spec.ts": "b651112b58a0445ce58902cb50c8fc3e56a3da2cd8fb803d048a7433cefc0004",
+    "page-autowaiting-no-hang.spec.ts": "88f1bca63bb3176a9325cb3dcd7a95a45f019c6246455334cbbc65e3380c4cb4",
+    "page-click-react.spec.ts": "cae1e437c1cb068a3f8b85c3ef1711347305888024236f1d9fe906cdf693087d",
+    "page-dispatchevent.spec.ts": "0af6f0562a67f391939881030426b6c0c4c0b4d77ba7d88bd64160b75231e36e",
+    "page-drag.spec.ts": "88844b26c797347f52ea2dc4182e6d17d82ed8c3824206313ee0da1993318f84",
+    "page-drop.spec.ts": "4caaf0ca124274275cdf596e50867dc786117f2ee896457a76478f597ee21482",
+    "page-evaluate-callback.spec.ts": "abc26876f9e66d5e9eb1fb37ca01366ac04c3749e1a3ebd1d14a0ade651807f1",
+    "page-evaluate-handle.spec.ts": "a23e75ded3e5b4d743408fe57abc78f2ca3d60fa6f9d14ce987b26a196f034be",
+    "page-evaluate-no-stall.spec.ts": "1ff4fad28308e9bb80806657af0abf0a5ea7394cc7144fc29ad7c1ecbc5bc47f",
+    "page-evaluate.spec.ts": "9c5205662c26db88b4c957ca0acedd1db562e0de81001010276163f6a54f580e",
+    "page-history.spec.ts": "87cfccad95e233b9e3d1d371b4fb3f3a2f7a5d2d5f8d99b2c47682b8807c34b9",
+    "page-mouse.spec.ts": "97ff850da742f739498dc3242cd39352148f27dae91b0d38dda5bb6670bc1a38",
+    "page-wait-for-load-state.spec.ts": "445be93d9b9c4dc5121e6b8a1f6c3fa959a6b6e8faed590ce2fd75e94f9228c3",
+    "page-wait-for-selector-1.spec.ts": "f449d8619753aac3224a34e800bb9122e81755f10a1be48eaecf8f9df496394e",
+    "page-wait-for-selector-2.spec.ts": "47d01298a3062137452c59783bc281e070d77cc83fc05b14041044969c7ae515",
+    "page-wait-for-url.spec.ts": "3a2e5c43e0f03c23338a2af5a8f27592ee31a93d706dc6945bccfd0736ebbfdd",
+    "queryselector.spec.ts": "5e25bfb861ece37ba6a266c212b59c3b0667c96dd71964a222db80a5c813810c",
+    "selectors-css.spec.ts": "f0a096c63febc7b2486dc15d3c26aca4f24f2beaa4f5ad1dc96b6eb5a1ba68f5",
+    "selectors-register.spec.ts": "0df0841e7b8eba633f614a86b4516073c9fd0166a2264414677c653ac2516c25",
+    "selectors-role.spec.ts": "0f70926d5138b54a205e54ee0bff0a2de1aac09010f51d0f6ddac4508826fe04",
+    "to-match-aria-snapshot.spec.ts": "3f942bef99d75710159af91c264ed8e7b24994e40c4f483f6b9f1829c7076467",
+    "wheel.spec.ts": "e998d21d5d4dd4ae1049904939c27a074148f9ea95bcb5179a50e7b14785ab99",
   },
 } as const;
 
 export type UpstreamSpecName = keyof typeof corpus.specs;
-
-/** Stable corpus test ID: "specFilename > title path". */
-export function stableTestId(file: string, titles: readonly string[]): string {
-  const filename = file.split("/").pop() ?? file;
-  return [filename, ...titles.filter(Boolean)].join(" > ");
-}
 
 export const specNames: readonly UpstreamSpecName[] = Object.keys(
   corpus.specs
