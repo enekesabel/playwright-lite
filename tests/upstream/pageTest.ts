@@ -21,7 +21,8 @@ import {
   createAdapterPage,
   installTestIdAttributeSynchronization,
 } from "./adapter-bridge";
-import { specNames, stableTestId } from "./corpus";
+import { specNames } from "./corpus";
+import { stableTestId } from "./stableTestId";
 import { TestServer } from "./testServer";
 
 const __fixtureDir = dirname(fileURLToPath(import.meta.url));

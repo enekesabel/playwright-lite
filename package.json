@@ -34,7 +34,7 @@
   "scripts": {
     "build": "pnpm generate:injected && tsdown",
     "lint": "eslint src tests/contract --max-warnings 0",
-    "test": "vitest run && node --test scripts/upstream-baseline.test.mjs scripts/generate-readme.test.mjs scripts/release.test.mjs scripts/release-bootstrap.test.mjs",
+    "test": "vitest run && node --test scripts/upstream-baseline.test.mjs scripts/upstream-specs.test.mjs scripts/generate-readme.test.mjs scripts/release.test.mjs scripts/release-bootstrap.test.mjs",
     "test:guards": "pnpm exec playwright test tests/upstream/_adapter-guard.spec.ts tests/upstream/_page-test-fixture.spec.ts tests/upstream/_synchronization-guard.spec.ts tests/upstream/_browser-compat-guard.spec.ts",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.compatibility.json --noEmit",
     "test:e2e": "pnpm run test:guards && node scripts/upstream-baseline.mjs check",

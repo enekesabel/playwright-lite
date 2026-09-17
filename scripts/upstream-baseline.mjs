@@ -12,7 +12,8 @@ import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { corpus, specNames, stableTestId } from "../tests/upstream/corpus.ts";
+import { corpus, specNames } from "../tests/upstream/corpus.ts";
+import { stableTestId } from "../tests/upstream/stableTestId.ts";
 import { statusFor } from "../compatibility/api.ts";
 import { verifyIntegrity } from "./upstream-specs.mjs";
 
