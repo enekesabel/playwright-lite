@@ -85,6 +85,7 @@ test("publication is main-only and uses the tested release artifact", () => {
   assert.deepEqual(publish.needs, [
     "release-please",
     "check",
+    "corpus",
     "consumer-node20",
   ]);
   assert.equal(
