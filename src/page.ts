@@ -83,9 +83,12 @@ export type SelectorQueryOptions = {
 export type LocatorQueryOptions = Omit<SelectorQueryOptions, "strict">;
 
 /** Visibility reads are one-shot: no `signal`, and `timeout` is ignored. */
-export type VisibilityOptions = { strict?: boolean; timeout?: number };
+export type SelectorVisibilityOptions = { strict?: boolean; timeout?: number };
 
-export type LocatorVisibilityOptions = Omit<VisibilityOptions, "strict">;
+export type LocatorVisibilityOptions = Omit<
+  SelectorVisibilityOptions,
+  "strict"
+>;
 
 type WaitForSelectorOptions = {
   signal?: AbortSignal;
@@ -1121,14 +1124,14 @@ export class PageImpl {
 
   async isVisible(
     selector: string,
-    options?: VisibilityOptions
+    options?: SelectorVisibilityOptions
   ): Promise<boolean> {
     return this.selectorIsVisible("isVisible", selector, options);
   }
 
   async isHidden(
     selector: string,
-    options?: VisibilityOptions
+    options?: SelectorVisibilityOptions
   ): Promise<boolean> {
     return !this.selectorIsVisible("isHidden", selector, options);
   }
@@ -1136,7 +1139,7 @@ export class PageImpl {
   private selectorIsVisible(
     method: string,
     selector: string,
-    options: VisibilityOptions | undefined
+    options: SelectorVisibilityOptions | undefined
   ): boolean {
     assertQueryOptions(options, ["strict", "timeout"]);
     if (options?.strict !== undefined && typeof options.strict !== "boolean")

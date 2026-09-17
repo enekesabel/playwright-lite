@@ -23,4 +23,13 @@ describe("Page.isHidden", () => {
 
     await expect(page.isHidden("#missing")).resolves.toBe(true);
   });
+
+  it("reports a strict-mode violation", async () => {
+    document.body.innerHTML = "<div>First</div><div>Second</div>";
+    const page = createPage();
+
+    await expect(page.isHidden("div", { strict: true })).rejects.toThrow(
+      "strict mode violation"
+    );
+  });
 });
