@@ -492,12 +492,14 @@ export class LocatorImpl {
   }
 
   async focus(options?: LocatorQueryOptions) {
+    rejectUnsupportedOptions("focus", options, ["signal", "timeout"]);
     await withAbortPrefix("locator.focus", () =>
       this.ownerPage.focusSelector(this.selector, this.label, options)
     );
   }
 
   async blur(options?: LocatorQueryOptions) {
+    rejectUnsupportedOptions("blur", options, ["signal", "timeout"]);
     await this.ownerPage.blurSelector(this.selector, this.label, options);
   }
 

@@ -748,6 +748,27 @@ describe("Single-document adapter contract", () => {
       }
     });
 
+    it("validates focus and blur options like the sibling actions", async () => {
+      document.body.innerHTML = '<div id="d" tabindex="0">d</div>';
+      const page = createPage();
+      const locator = page.locator("#d");
+      const actions: [string, (options: unknown) => Promise<void>][] = [
+        ["focus", (options) => locator.focus(options as any)],
+        ["blur", (options) => locator.blur(options as any)],
+      ];
+
+      for (const [method, run] of actions) {
+        await expect(run({ signal: true }), method).rejects.toThrow(
+          new RegExp(`${method} signal must be an AbortSignal`)
+        );
+        await expect(run({ force: true }), method).rejects.toThrow(
+          new RegExp(
+            `${method}\\(\\): unsupported Playwright option\\(s\\): force`
+          )
+        );
+      }
+    });
+
     it("rejects action options other than timeout", async () => {
       document.body.innerHTML = '<input type="text" />';
       const page = createPage();
@@ -1017,6 +1038,34 @@ describe("Single-document adapter contract", () => {
         /Timeout 1000ms exceeded.*not enabled/
       );
       expect(events).toEqual([]);
+    });
+
+    it("keeps the actionability timeout message when the deadline expires mid-action", async () => {
+      document.body.innerHTML = "<button>ok</button>";
+      const page = createPage();
+      const button = document.querySelector("button") as HTMLButtonElement &
+        { scrollIntoViewIfNeeded?: () => void };
+      // Burn the deadline between the preflight check and the actionability
+      // wait that follows the scroll.
+      const stall = () => {
+        const end = Date.now() + 400;
+        while (Date.now() < end);
+      };
+      button.scrollIntoViewIfNeeded = stall;
+      button.scrollIntoView = stall;
+
+      const error = await page
+        .locator("button")
+        .click({ timeout: 200 })
+        .then(
+          () => undefined,
+          (error: Error) => error
+        );
+
+      expect(error?.message).not.toContain("action: Timeout");
+      expect(error?.message).toMatch(
+        /^locator\.click: Timeout 200ms exceeded\./
+      );
     });
 
     it("dispatches an ordered pointer/mouse prefix before one native click", async () => {
@@ -2124,6 +2173,35 @@ describe("Single-document adapter contract", () => {
           );
           expect(error.cause, context).toBe(reason);
         }
+      }
+    });
+
+    it("reports a real focus failure that races an abort", async () => {
+      document.body.innerHTML =
+        '<div id="a" tabindex="0"></div><div id="b" tabindex="0"></div>';
+      const page = createPage();
+      const controller = new AbortController();
+      const resolveAll = document.querySelectorAll.bind(document);
+      // Abort while the element is being resolved, so the strict violation and
+      // the aborted signal reach the focus path in the same turn.
+      document.querySelectorAll = ((selector: string) => {
+        controller.abort(new Error("stop"));
+        return resolveAll(selector);
+      }) as typeof document.querySelectorAll;
+
+      try {
+        const error = await page
+          .focus("div", { signal: controller.signal, strict: true, timeout: 0 })
+          .then(
+            () => undefined,
+            (error: Error) => error
+          );
+
+        expect(controller.signal.aborted).toBe(true);
+        expect(error?.name).not.toBe("AbortError");
+        expect(error?.message).toMatch(/strict mode violation/);
+      } finally {
+        delete (document as Partial<Document>).querySelectorAll;
       }
     });
 

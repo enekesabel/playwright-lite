@@ -772,18 +772,11 @@ export class PageImpl {
     options?: LocatorQueryOptions,
     strict = true
   ): Promise<void> {
-    const signal = options?.signal;
-    if (signal?.aborted) throw actionAborted(signal, false);
-    try {
-      await this.query(selector, label, options, strict, (element) => {
-        const result = this.actionableInjected.focusNode(element);
-        if (result === "error:notconnected")
-          throw new Error(`Element is not connected for locator ${label}`);
-      });
-    } catch (error) {
-      if (signal?.aborted) throw actionAborted(signal, true);
-      throw error;
-    }
+    await this.query(selector, label, options, strict, (element) => {
+      const result = this.actionableInjected.focusNode(element);
+      if (result === "error:notconnected")
+        throw new Error(`Element is not connected for locator ${label}`);
+    });
   }
 
   async blurSelector(
@@ -2262,7 +2255,9 @@ export class PageImpl {
     deadline: ActionDeadline | undefined,
     timeoutError: () => Error
   ): Promise<T> {
-    this.assertActionDeadline(deadline, "action");
+    if (deadline?.signal?.aborted) throw actionAborted(deadline.signal, true);
+    // An expired deadline is the caller's timeout, described by the caller.
+    if (deadline && Date.now() >= deadline.expiresAt) throw timeoutError();
     if (!deadline) return operation;
 
     let timeoutHandle: number | undefined;
