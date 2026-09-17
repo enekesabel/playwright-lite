@@ -108,3 +108,9 @@ export type UpstreamSpecName = keyof typeof corpus.specs;
 export const specNames: readonly UpstreamSpecName[] = Object.keys(
   corpus.specs
 ) as UpstreamSpecName[];
+
+/** Stable corpus test ID: "specFilename > title path". */
+export function stableTestId(file: string, titles: readonly string[]): string {
+  const filename = file.split("/").pop() ?? file;
+  return [filename, ...titles.filter(Boolean)].join(" > ");
+}

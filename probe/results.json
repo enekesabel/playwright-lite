@@ -1,1 +1,5482 @@
-[]
+[
+ {
+  "id": "elementhandle-bounding-box.spec.ts > should work",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "elementhandle-bounding-box.spec.ts > should handle nested frames",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "elementhandle-bounding-box.spec.ts > should get frame box",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-bounding-box.spec.ts > should handle scroll offset and click",
+  "status": "failed",
+  "error": "TypeError: page.mouse.click is not a function"
+ },
+ {
+  "id": "elementhandle-bounding-box.spec.ts > should return null for invisible elements",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-bounding-box.spec.ts > should get bounding box of element inside a cross-origin iframe",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "elementhandle-bounding-box.spec.ts > should force a layout",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-bounding-box.spec.ts > should work with SVG nodes",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-bounding-box.spec.ts > should work when inline box child is outside of viewport",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-eval-on-selector.spec.ts > should work",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-eval-on-selector.spec.ts > should retrieve content from subtree",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-eval-on-selector.spec.ts > should throw in case of missing selector",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "elementhandle-eval-on-selector.spec.ts > should work for all",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-eval-on-selector.spec.ts > should retrieve content from subtree for all",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-eval-on-selector.spec.ts > should not throw in case of missing selector for all",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-misc.spec.ts > should hover",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "elementhandle-misc.spec.ts > should hover when Node is removed",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "elementhandle-misc.spec.ts > should fill input",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "elementhandle-misc.spec.ts > should fill input when Node is removed",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "elementhandle-misc.spec.ts > should check the box",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-misc.spec.ts > should check the box using setChecked",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-misc.spec.ts > should uncheck the box",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-misc.spec.ts > should select single option",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "elementhandle-misc.spec.ts > should focus a button",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "elementhandle-misc.spec.ts > should allow disposing twice",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-query-selector.spec.ts > should query existing element",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "elementhandle-query-selector.spec.ts > should return null for non-existing element",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-query-selector.spec.ts > should work for adopted elements",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "elementhandle-query-selector.spec.ts > should query existing elements",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-query-selector.spec.ts > should return empty array for non-existing elements",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-query-selector.spec.ts > xpath should query existing element",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "elementhandle-query-selector.spec.ts > xpath should return null for non-existing element",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-wait-for-element-state.spec.ts > should wait for visible",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-wait-for-element-state.spec.ts > should wait for already visible",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-wait-for-element-state.spec.ts > should timeout waiting for visible",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-wait-for-element-state.spec.ts > should throw waiting for visible when detached",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "elementhandle-wait-for-element-state.spec.ts > should wait for hidden",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-wait-for-element-state.spec.ts > should wait for already hidden",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-wait-for-element-state.spec.ts > should wait for hidden when detached",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-wait-for-element-state.spec.ts > should throw waiting for enabled when detached",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "elementhandle-wait-for-element-state.spec.ts > should wait for aria enabled button",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-wait-for-element-state.spec.ts > should wait for button with an aria-disabled parent",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "elementhandle-wait-for-element-state.spec.ts > should wait for stable position",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "elementhandle-wait-for-element-state.spec.ts > should wait for editable input",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector-all.spec.ts > should work with css selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector-all.spec.ts > should work with text selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector-all.spec.ts > should work with xpath selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector-all.spec.ts > should auto-detect css selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector-all.spec.ts > should support >> syntax",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector-all.spec.ts > should support * capture",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector-all.spec.ts > should support * capture when multiple paths match",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector-all.spec.ts > should return complex values",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector-all.spec.ts > should work with bogus Array.from",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should work with css selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should work with id selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should work with data-test selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should work with data-testid selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should work with data-test-id selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should work with text selector in quotes",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should work with xpath selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should work with text selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should auto-detect css selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should auto-detect css selector with attributes",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should auto-detect nested selectors",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should accept arguments",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should accept ElementHandles as arguments",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should throw error if no element is found",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should support >> syntax",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should support >> syntax with different engines",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should support spaces with >> syntax",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should not stop at first failure with >> syntax",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should support * capture",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should throw on multiple * captures",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should throw on malformed * capture",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should work with spaces in css attributes",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should work with quotes in css attributes",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should work with spaces in css attributes when missing",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should work with quotes in css attributes when missing",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "eval-on-selector.spec.ts > should return complex values",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEmpty input",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > not.toBeEmpty",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEmpty div",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeDisabled with value",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked with value",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeHidden with value",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > not.toBeDisabled div",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeFocused",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeFocused with shadow elements",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > should print unknown engine error",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > should print selector syntax error",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > default",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > with checked:true",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > with checked:false",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > with indeterminate:true",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > with indeterminate:true and checked",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > fail",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > with not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > with not and checked:false",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > fail with not",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > fail with checked:false",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > fail with indeterminate: true",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > fail missing",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > with role",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > friendly log",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > with impossible timeout",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeChecked > with impossible timeout .not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEditable > default",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEditable > with not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEditable > with editable:true",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEditable > with editable:false",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEditable > with not and editable:false",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEditable > throws",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEnabled > default",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEnabled > with enabled:true",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEnabled > with enabled:false",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEnabled > failed",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEnabled > eventually",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEnabled > eventually with not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEnabled > with not and enabled:false",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeEnabled > toBeDisabled",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > default",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > with not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > with visible:true",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > with visible:false",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > with not and visible:false",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > eventually",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > eventually with not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > fail",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > fail with not",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > with impossible timeout",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > with impossible timeout .not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > with frameLocator",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > with frameLocator 2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeVisible > over navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeHidden > default",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeHidden > when nothing matches",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeHidden > with not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeHidden > eventually with not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeHidden > eventually",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeHidden > fail",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeHidden > fail with not",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeHidden > fail with not when nothing matching",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeHidden > with impossible timeout .not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeHidden > with impossible timeout",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeOK",
+  "status": "failed",
+  "error": "TypeError: page.request.get is not a function"
+ },
+ {
+  "id": "expect-boolean.spec.ts > not.toBeOK",
+  "status": "failed",
+  "error": "TypeError: page.request.get is not a function"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeOK fail with invalid argument",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeOK fail with promise",
+  "status": "failed",
+  "error": "TypeError: page.request.get is not a function"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeOK should print response with text content type when fails > text content type",
+  "status": "failed",
+  "error": "TypeError: page.request.get is not a function"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeOK should print response with text content type when fails > no content type",
+  "status": "failed",
+  "error": "TypeError: page.request.get is not a function"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeOK should print response with text content type when fails > image content type",
+  "status": "failed",
+  "error": "TypeError: page.request.get is not a function"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > default",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > with hidden element",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > with not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > with attached:true",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > with attached:false",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > with not and attached:false",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > eventually",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > eventually with not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > fail",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > fail with not",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > with impossible timeout",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > with impossible timeout .not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > with frameLocator",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-boolean.spec.ts > toBeAttached > over navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > does not throw",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for: 1 and 2 #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for: true and false #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for: {} and {} #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for: {\"a\":1} and {\"a\":1} #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for: {\"a\":1} and {\"a\":5} #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for: {\"b\":2} and {\"b\":2} #5",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for: \"2020-02-20T00:00:00.000Z\" and \"2020-02-20T00:00:00.000Z\" #6",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for: {} and {} #7",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for: [\"abc\"] and [\"cde\"] #8",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for: [] and [] #9",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for: null and undefined #10",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for: 0 and 0 #11",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for 'false' with '.not'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for '1' with '.not'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for '\"a\"' with '.not'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for 'undefined' with '.not'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for 'null' with '.not'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for '{}' with '.not'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > fails for '[]' with '.not'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > does not crash on circular references",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBe() > matcherResult property contains matcher name, expected and actual values",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toStrictEqual() > does not ignore keys with undefined values",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toStrictEqual() > does not ignore keys with undefined values inside an array",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toStrictEqual() > passes when comparing same type",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toStrictEqual() > does not pass for different types",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toStrictEqual() > passes for matching buffers",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toStrictEqual() > does not pass when ArrayBuffers are not equal",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #5",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #6",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #7",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #8",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #9",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #10",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #11",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #12",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #13",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #14",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #15",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: false} expect().toEqual() #16",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #5",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #6",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #7",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #8",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #9",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #10",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #11",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #12",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #13",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #14",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #15",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #16",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > {pass: true} expect().toEqual() #17",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > assertion error matcherResult property contains matcher name, expected and actual values",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > symbol based keys in arrays are processed correctly",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > non-enumerable members should be skipped during equal",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > objectContaining sample can be used multiple times",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > cyclic object equality > properties with the same circularity are equal",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toEqual() > cyclic object equality > properties with different circularity are not equal",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeInstanceOf() > passing instanceof #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeInstanceOf() > passing instanceof #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeInstanceOf() > passing instanceof #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeInstanceOf() > passing instanceof #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeInstanceOf() > passing instanceof #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeInstanceOf() > failing instanceof #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeInstanceOf() > failing instanceof #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeInstanceOf() > failing instanceof #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeInstanceOf() > failing instanceof #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeInstanceOf() > throws if constructor is not a function",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > '[object Object]' is truthy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > '' is truthy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > 'true' is truthy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > '1' is truthy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > 'a' is truthy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > '0.5' is truthy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > '[object Map]' is truthy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > '() => {}' is truthy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > 'Infinity' is truthy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > 'false' is falsy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > 'null' is falsy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > 'NaN' is falsy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > '0' is falsy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > '' is falsy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeTruthy(), .toBeFalsy() > 'undefined' is falsy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeNaN() > {pass: true}",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeNaN() > throws",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeNull() > fails for '[object Object]'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeNull() > fails for ''",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeNull() > fails for 'true'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeNull() > fails for '1'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeNull() > fails for 'a'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeNull() > fails for '0.5'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeNull() > fails for '[object Map]'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeNull() > fails for '() => {}'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeNull() > fails for 'Infinity'",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeNull() > fails for null with .not",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeNull() > pass for null",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeDefined(), .toBeUndefined() > '[object Object]' is defined",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeDefined(), .toBeUndefined() > '' is defined",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeDefined(), .toBeUndefined() > 'true' is defined",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeDefined(), .toBeUndefined() > '1' is defined",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeDefined(), .toBeUndefined() > 'a' is defined",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeDefined(), .toBeUndefined() > '0.5' is defined",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeDefined(), .toBeUndefined() > '[object Map]' is defined",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeDefined(), .toBeUndefined() > '() => {}' is defined",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeDefined(), .toBeUndefined() > 'Infinity' is defined",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeDefined(), .toBeUndefined() > undefined is undefined",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeGreaterThan(), .toBeLessThan(), .toBeGreaterThanOrEqual(), .toBeLessThanOrEqual() > comparing 1 and 2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeGreaterThan(), .toBeLessThan(), .toBeGreaterThanOrEqual(), .toBeLessThanOrEqual() > comparing -Infinity and Infinity",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeGreaterThan(), .toBeLessThan(), .toBeGreaterThanOrEqual(), .toBeLessThanOrEqual() > comparing 5e-324 and 1.7976931348623157e+308",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeGreaterThan(), .toBeLessThan(), .toBeGreaterThanOrEqual(), .toBeLessThanOrEqual() > comparing 0.1 and 0.2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeGreaterThan(), .toBeLessThan(), .toBeGreaterThanOrEqual(), .toBeLessThanOrEqual() > can compare BigInt to Numbers",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeGreaterThan(), .toBeLessThan(), .toBeGreaterThanOrEqual(), .toBeLessThanOrEqual() > equal numbers: [1, 1]",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeGreaterThan(), .toBeLessThan(), .toBeGreaterThanOrEqual(), .toBeLessThanOrEqual() > equal numbers: [5e-324, 5e-324]",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeGreaterThan(), .toBeLessThan(), .toBeGreaterThanOrEqual(), .toBeLessThanOrEqual() > equal numbers: [Infinity, Infinity]",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeGreaterThan(), .toBeLessThan(), .toBeGreaterThanOrEqual(), .toBeLessThanOrEqual() > equal numbers: [-Infinity, -Infinity]",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > iterable",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > contains #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > contains #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > contains #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > contains #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > contains #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > contains #5",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > contains #6",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > contains #7",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > does not contain #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > does not contain #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > does not contain #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > does not contain #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > error cases",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > contains a value equal #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > contains a value equal #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > contains a value equal #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > contains a value equal #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > contains a value equal #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toContain(), .toContainEqual() > error cases for toContainEqual",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: true} expect(0).toBeCloseTo(0)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: true} expect(0).toBeCloseTo(0.001)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: true} expect(1.23).toBeCloseTo(1.229)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: true} expect(1.23).toBeCloseTo(1.226)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: true} expect(1.23).toBeCloseTo(1.234)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: true} expect(Infinity).toBeCloseTo(Infinity)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: true} expect(-Infinity).toBeCloseTo(-Infinity)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: false} expect(0).toBeCloseTo(0.01)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: false} expect(1).toBeCloseTo(1.23)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: false} expect(Infinity).toBeCloseTo(-Infinity)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: false} expect(Infinity).toBeCloseTo(1.23)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: false} expect(-Infinity).toBeCloseTo(-1.23)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: true} expect(0).toBeCloseTo(0.1, 0)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: true} expect(0).toBeCloseTo(0.0001, 3)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: true} expect(0).toBeCloseTo(0.000004, 5)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toBeCloseTo > {pass: true} expect(2.0000002).toBeCloseTo(2, 5)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > {pass: true} expect(foo).toMatch(foo)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > {pass: true} expect(Foo bar).toMatch(/^foo/i)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws: [bar, foo]",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws: [bar, /foo/]",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws if non String actual value passed #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws if non String actual value passed #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws if non String actual value passed #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws if non String actual value passed #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws if non String actual value passed #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws if non String actual value passed #5",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws if non String actual value passed #6",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws if non String/RegExp expected value passed #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws if non String/RegExp expected value passed #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws if non String/RegExp expected value passed #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws if non String/RegExp expected value passed #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws if non String/RegExp expected value passed #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > throws if non String/RegExp expected value passed #5",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > escapes strings properly",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatch() > does not maintain RegExp state between calls",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveLength > {pass: true} toHaveLength(2) #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveLength > {pass: true} toHaveLength(0) #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveLength > {pass: true} toHaveLength(2) #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveLength > {pass: true} toHaveLength(3) #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveLength > {pass: true} toHaveLength(0) #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveLength > {pass: true} toHaveLength(0) #5",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveLength > {pass: false} toHaveLength(3) #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveLength > {pass: false} toHaveLength(1) #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveLength > {pass: false} toHaveLength(99) #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveLength > {pass: false} toHaveLength(66) #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveLength > {pass: false} toHaveLength(1) #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveLength > error cases",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty with value #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty with value #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty with value #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty with value #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty with value #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty with value #5",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty with value #6",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty with value #7",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty with value #8",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty with value #9",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: false} toHaveProperty with value #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: false} toHaveProperty with value #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: false} toHaveProperty with value #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: false} toHaveProperty with value #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: false} toHaveProperty with value #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: false} toHaveProperty with value #5",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: false} toHaveProperty with value #6",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty without value #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty without value #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty without value #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty without value #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: true} toHaveProperty without value #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: false} toHaveProperty without value #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: false} toHaveProperty without value #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {pass: false} toHaveProperty without value #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {error} toHaveProperty #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {error} toHaveProperty #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {error} toHaveProperty #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {error} toHaveProperty #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toHaveProperty() > {error} toHaveProperty #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: true} toMatchObject #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: true} toMatchObject #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: true} toMatchObject #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: true} toMatchObject #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: true} toMatchObject #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: true} toMatchObject #5",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: true} toMatchObject #6",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: true} toMatchObject #7",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: true} toMatchObject #8",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: true} toMatchObject #9",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: true} toMatchObject #10",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: true} toMatchObject #11",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: false} toMatchObject #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: false} toMatchObject #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: false} toMatchObject #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: false} toMatchObject #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: false} toMatchObject #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: false} toMatchObject #5",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > {pass: false} toMatchObject #6",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > throws toMatchObject #0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > throws toMatchObject #1",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > throws toMatchObject #2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > throws toMatchObject #3",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > throws toMatchObject #4",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > throws toMatchObject #5",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > throws toMatchObject #6",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toMatchObject() > does not match properties up in the prototype chain",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toThrow() > to throw or not to throw",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toThrow() > substring passes",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toThrow() > substring fails when did not throw",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toThrow() > substring fails when message did not match",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toThrow() > regexp passes",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toThrow() > regexp fails when did not throw",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toThrow() > error class passes",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toThrow() > object with message passes",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toThrow() > properly escapes strings when matching against errors",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > .toThrow() > error message and cause properties",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > Any matches primitives",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > Any throws when called with empty constructor",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > Anything matches any type",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > Anything does not match null and undefined",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > ArrayContaining matches",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > ArrayContaining does not match",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > ObjectContaining matches",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > ObjectContaining does not match",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > ObjectContaining throws for non-objects",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > StringContaining matches string against string",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > StringMatching matches string against regexp",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > StringMatching matches string against string",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > closeTo matches",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > closeTo does not match",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > closeTo with precision",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > closeTo throws if expected is not number",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > arrayOf matches",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-builtins.spec.ts > asymmetric matchers > arrayOf does not match",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-matcher-result.spec.ts > toMatchText-based assertions should have matcher result",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-matcher-result.spec.ts > toBeTruthy-based assertions should have matcher result",
+  "status": "failed",
+  "error": "Error: expect(received).toEqual(expected) // deep equality"
+ },
+ {
+  "id": "expect-matcher-result.spec.ts > toEqual-based assertions should have matcher result",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-matcher-result.spec.ts > toBeChecked({ checked }) should have expected",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-matcher-result.spec.ts > toHaveScreenshot should populate matcherResult",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveCount should not produce logs twice",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveText should not produce logs twice",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveText that does not match should not produce logs twice",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > strict mode violation error format",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > invalid selector error format",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > should report expect error details when page closes during expect",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.close is not a function"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveCount > toHaveCount pass",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveCount > pass zero",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveCount > eventually pass zero",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveCount > eventually pass non-zero",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveCount > eventually pass not non-zero",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveCount > fail zero",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveCount > fail zero 2",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > pass",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support handles, frames, or non-plain object arguments."
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > fail",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > pass string",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > fail string",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > pass number",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > fail number",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > pass boolean",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > fail boolean",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > pass boolean 2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > fail boolean 2",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > pass undefined",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > pass null",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > pass nested",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support handles, frames, or non-plain object arguments."
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveJSProperty > fail nested",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveClass > pass",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveClass > pass with SVGs",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveClass > fail",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveClass > pass with array",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveClass > fail with array",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toContainClass > pass",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toContainClass > pass with SVGs",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toContainClass > fail",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toContainClass > pass with array",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toContainClass > fail with array",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveTitle > pass",
+  "status": "failed",
+  "error": "Error: toHaveTitle can be only used with Page object, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveTitle > fail",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveURL > pass",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveURL > fail string",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveURL > fail with invalid argument",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveURL > fail with positive predicate",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveURL > fail with negative predicate",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveURL > resolve predicate on initial call",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveURL > resolve predicate after retries",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveURL > support ignoreCase",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveURL > support URLPattern",
+  "status": "skipped",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveAttribute > pass",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveAttribute > should not match missing attribute",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveAttribute > should match boolean attribute",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveAttribute > should match attribute without value",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveAttribute > should support boolean attribute with options",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveAttribute > support ignoreCase",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveCSS > pass",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveCSS > should support pseudo element",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveCSS > custom css properties",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toHaveId > pass",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toBeInViewport > should work",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toBeInViewport > should respect ratio option",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-misc.spec.ts > toBeInViewport > should have good stack",
+  "status": "failed",
+  "error": "Error: expect(received).toBe(expected) // Object.is equality"
+ },
+ {
+  "id": "expect-misc.spec.ts > toBeInViewport > should report intersection even if fully covered by other element",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-timeout.spec.ts > should print element not found",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-timeout.spec.ts > should print timed out error message when value does not match",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-timeout.spec.ts > should print timed out error message with impossible timeout",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-timeout.spec.ts > should print timed out error message when value does not match with impossible timeout",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-timeout.spec.ts > should have timeout error name",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-timeout.spec.ts > should not throw when navigating during one-shot check",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "expect-timeout.spec.ts > should not throw when navigating during first locator handler check",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "expect-timeout.spec.ts > should timeout during first locator handler check",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "expect-timeout.spec.ts > should not miss element that appears between retries before the deadline",
+  "status": "failed",
+  "error": "Error: page.evaluate: Error: TypeError: window.builtins.setTimeout is not a function"
+ },
+ {
+  "id": "expect-timeout.spec.ts > should fail like a timeout when the signal is aborted mid-assertion",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-timeout.spec.ts > should fail like a timeout when toHaveText is aborted mid-assertion",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-timeout.spec.ts > should fail like a timeout when toHaveCount is aborted mid-assertion",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-timeout.spec.ts > should fail like a timeout when toMatchAriaSnapshot is aborted mid-assertion",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-timeout.spec.ts > should fail like a timeout when toHaveURL is aborted mid-assertion",
+  "status": "failed",
+  "error": "TypeError: Cannot read properties of undefined (reading 'baseURL')"
+ },
+ {
+  "id": "expect-timeout.spec.ts > should fail the assertion when the signal is already aborted",
+  "status": "failed",
+  "error": "Error: expect(received).toBe(expected) // Object.is equality"
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleName",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleDescription",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage should handle multiple aria-errormessage references",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > should show error message when validity is false and aria-invalid is true",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > should show error message when validity is true and aria-invalid is true",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > should show error message when validity is false and aria-invalid is false",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > should not show error message when validity is true and aria-invalid is false",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > should show error message for all roles",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > toHaveRole",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage should handle aria-invalid attribute > evaluated in false > no aria-invalid attribute",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage should handle aria-invalid attribute > evaluated in false > aria-invalid=\"false\"",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage should handle aria-invalid attribute > evaluated in false > aria-invalid=\"\" (empty string)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage should handle aria-invalid attribute > evaluated in true > aria-invalid=\"true\"",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage should handle aria-invalid attribute > evaluated in true > aria-invalid=\"foo\" (unrecognized value)",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with regex > pass",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with regex > fail",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toContainText with regex > pass",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toContainText with regex > fail",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toContainText with string > pass",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toContainText with string > fail",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with text > pass",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with text > pass contain",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with text > fail",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with text > pass eventually",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with text > with userInnerText",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with text > in shadow dom",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with text > fail with impossible timeout",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with text > do not show \"element(s) not found\" when the real failure is a string mismatch",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > not.toHaveText > pass",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > not.toHaveText > fail",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > not.toHaveText > should work when selector does not match",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with array > pass",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with array > pass lazy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with array > pass empty",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with array > pass not empty",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with array > pass on empty",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with array > fail on not+empty",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with array > pass eventually empty",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with array > fail",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toHaveText with array > fail on repeating array matchers",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toContainText with array > pass",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-text.spec.ts > toContainText with array > fail",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-value.spec.ts > should work",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-value.spec.ts > should work with label",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-value.spec.ts > should work with regex",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-value.spec.ts > should support failure",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > works with text",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > follows labels",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > exact match with text failure",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > works with regex",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > fails when items not selected",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > fails when multiple not specified",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > fails when not a select element",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > containment matchers print full element subtree > toHaveText failure includes full element subtree",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > containment matchers print full element subtree > toContainText failure includes full element subtree",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > property matchers print only the element line > toBeChecked failure prints just the input",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > property matchers print only the element line > toHaveAttribute failure clips descendant subtree",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > property matchers print only the element line > toHaveRole failure prints just the element line",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > property matchers print only the element line > toHaveValue failure prints the input element",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > property matchers print only the element line > toHaveCSS failure prints the element line",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > hidden or missing elements print full page snapshot > toBeVisible on hidden element prints full page snapshot",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > hidden or missing elements print full page snapshot > toBeVisible on missing element prints full page snapshot",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > hidden or missing elements print full page snapshot > toHaveText on missing element prints full page snapshot",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > hidden or missing elements print full page snapshot > toHaveTitle failure prints full page snapshot",
+  "status": "failed",
+  "error": "TypeError: Cannot read properties of undefined (reading 'ariaSnapshot')"
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > matchers that should not include an aria snapshot > toHaveCount failure has no aria snapshot",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > matchers that should not include an aria snapshot > toHaveText with array has no aria snapshot",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "expect-with-snapshot.spec.ts > matchers that should not include an aria snapshot > toMatchAriaSnapshot failure has no extra aria snapshot",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "jshandle-as-element.spec.ts > should work @smoke",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-as-element.spec.ts > should return null for non-elements",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-as-element.spec.ts > should return ElementHandle for TextNodes",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-as-element.spec.ts > should work with nullified Node",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-evaluate.spec.ts > should work with function @smoke",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-evaluate.spec.ts > should work with expression",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-json-value.spec.ts > should work @smoke",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-json-value.spec.ts > should work with dates",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-json-value.spec.ts > should handle circular objects",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.evaluateHandle is not a function"
+ },
+ {
+  "id": "jshandle-properties.spec.ts > should work @smoke",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-properties.spec.ts > should work with undefined, null, and empty",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-properties.spec.ts > should work with unserializable values",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-properties.spec.ts > getProperties should work",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-properties.spec.ts > getProperties should return empty map for non-objects",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-properties.spec.ts > getProperties should return even non-own properties",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-properties.spec.ts > getProperties should work with elements",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-to-string.spec.ts > should work for primitives",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-to-string.spec.ts > should work for complicated objects",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-to-string.spec.ts > should beautifully render sparse arrays",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-to-string.spec.ts > should work for promises",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "jshandle-to-string.spec.ts > should work with different subtypes @smoke",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.evaluateHandle is not a function"
+ },
+ {
+  "id": "jshandle-to-string.spec.ts > should work with previewable subtypes",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.evaluateHandle is not a function"
+ },
+ {
+  "id": "locator-element-handle.spec.ts > should query existing element @smoke",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "locator-element-handle.spec.ts > should query existing elements",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "locator-element-handle.spec.ts > should return empty array for non-existing elements",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "locator-element-handle.spec.ts > xpath should query existing element",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "locator-element-handle.spec.ts > xpath should return null for non-existing element",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "locator-evaluate.spec.ts > should work @smoke",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "locator-evaluate.spec.ts > should retrieve content from subtree",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "locator-evaluate.spec.ts > should work for all",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "locator-evaluate.spec.ts > should retrieve content from subtree for all",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "locator-evaluate.spec.ts > should not throw in case of missing selector for all",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "locator-wait-for-function.spec.ts > should wait for an attribute to appear",
+  "status": "failed",
+  "error": "Error: page.evaluate: Error: TypeError: window.builtins.setTimeout is not a function"
+ },
+ {
+  "id": "locator-wait-for-function.spec.ts > should return immediately when already truthy",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "locator-wait-for-function.spec.ts > should accept ElementHandle arguments",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "locator-wait-for-function.spec.ts > should accept string expression",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: current[method] is not a function"
+ },
+ {
+  "id": "locator-wait-for-function.spec.ts > should resolve a promise returned by the predicate",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "locator-wait-for-function.spec.ts > should wait for element to appear and survive rerender",
+  "status": "failed",
+  "error": "Error: page.evaluate: Error: TypeError: window.builtins.setTimeout is not a function"
+ },
+ {
+  "id": "locator-wait-for-function.spec.ts > should throw when predicate throws",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "locator-wait-for-function.spec.ts > should throw on strict mode violation",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "locator-wait-for-function.spec.ts > should abort via signal",
+  "status": "failed",
+  "error": "Error: expect(received).toBe(expected) // Object.is equality"
+ },
+ {
+  "id": "locator-wait-for-function.spec.ts > should abort via already-aborted signal",
+  "status": "failed",
+  "error": "Error: expect(received).toBe(expected) // Object.is equality"
+ },
+ {
+  "id": "matchers.misc.spec.ts > should outlive frame navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "matchers.misc.spec.ts > should print no-locator-resolved error when locator matcher did not resolve to any element",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should work",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should work with a custom check",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should work with locator.hover()",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should not work with force:true",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should throw when handler times out",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should work with toBeVisible",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should work with locator.waitFor",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should work with toHaveScreenshot",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should work when owner frame detaches",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should work with times: option",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should wait for hidden by default",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should wait for hidden by default 2",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should work with noWaitAfter",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-locator-handler.spec.ts > should removeLocatorHandler",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-script-tag.spec.ts > should throw an error if no options are provided",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "page-add-script-tag.spec.ts > should work with a url",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-script-tag.spec.ts > should work with a url and type=module",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-script-tag.spec.ts > should work with a path and type=module",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-script-tag.spec.ts > should work with a content and type=module",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-script-tag.spec.ts > should throw an error if loading from url fail",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-script-tag.spec.ts > should work with a path",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-script-tag.spec.ts > should include sourceURL when path is provided",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-script-tag.spec.ts > should work with content",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-script-tag.spec.ts > should throw when added with content to the CSP page",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-script-tag.spec.ts > should throw when added with URL to the CSP page",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-script-tag.spec.ts > should throw a nice error when the request fails",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-style-tag.spec.ts > should throw an error if no options are provided",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "page-add-style-tag.spec.ts > should work with a url @smoke",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-style-tag.spec.ts > should throw an error if loading from url fail",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-style-tag.spec.ts > should work with a path",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-style-tag.spec.ts > should include sourceURL when path is provided",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-style-tag.spec.ts > should work with content",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-style-tag.spec.ts > should throw when added with content to the CSP page",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-add-style-tag.spec.ts > should throw when added with URL to the CSP page",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-autowaiting-basic.spec.ts > should await navigation when clicking anchor",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.waitForEvent is not a function"
+ },
+ {
+  "id": "page-autowaiting-basic.spec.ts > should not stall on JS navigation link",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-autowaiting-basic.spec.ts > should await cross-process navigation when clicking anchor",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.waitForEvent is not a function"
+ },
+ {
+  "id": "page-autowaiting-basic.spec.ts > should await form-get on click",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.waitForEvent is not a function"
+ },
+ {
+  "id": "page-autowaiting-basic.spec.ts > should await form-post on click",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.waitForEvent is not a function"
+ },
+ {
+  "id": "page-autowaiting-basic.spec.ts > should work with noWaitAfter: true",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-autowaiting-basic.spec.ts > should work with dblclick without noWaitAfter when navigation is stalled",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-autowaiting-basic.spec.ts > should work with waitForLoadState(load)",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.waitForEvent is not a function"
+ },
+ {
+  "id": "page-autowaiting-basic.spec.ts > should work with goto following click",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation"
+ },
+ {
+  "id": "page-autowaiting-basic.spec.ts > should report navigation in the log when clicking anchor",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "page-autowaiting-basic.spec.ts > should report and collapse log in action",
+  "status": "failed",
+  "error": "Error: expect(received).toMatch(expected)"
+ },
+ {
+  "id": "page-autowaiting-basic.spec.ts > should report and collapse log in expect",
+  "status": "failed",
+  "error": "Error: expect(received).toMatch(expected)"
+ },
+ {
+  "id": "page-autowaiting-no-hang.spec.ts > clicking on links which do not commit navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-autowaiting-no-hang.spec.ts > calling window.stop async",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-autowaiting-no-hang.spec.ts > calling window.stop sync",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-autowaiting-no-hang.spec.ts > assigning location to about:blank",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-autowaiting-no-hang.spec.ts > assigning location to about:blank after non-about:blank",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-autowaiting-no-hang.spec.ts > calling window.open and window.close",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-autowaiting-no-hang.spec.ts > opening a popup",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-autowaiting-no-hang.spec.ts > clicking in the middle of navigation that aborts",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-autowaiting-no-hang.spec.ts > clicking in the middle of navigation that commits",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-autowaiting-no-hang.spec.ts > clicking a link intercepted by the Navigation API same-document",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-autowaiting-no-hang.spec.ts > goBack in the middle of navigation that commits",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-click-react.spec.ts > should timeout when click opens alert",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.waitForEvent is not a function"
+ },
+ {
+  "id": "page-click-react.spec.ts > should not retarget when element changes on hover",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-click-react.spec.ts > should not retarget when element is recycled on hover",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch click event @smoke",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch click event properties",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch click svg",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch click on a span with an inline element inside",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch click after navigation ",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch click after a cross origin navigation ",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should not fail when element is blocked on hover",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch click when node is added in shadow dom",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should be atomic",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch drag drop events",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch drag drop events via ElementHandles",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch click event via ElementHandles",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch wheel event",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch device orientation event",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch absolute device orientation event",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should dispatch device motion event",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-dispatchevent.spec.ts > should throw if argument is from different frame",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-drag.spec.ts > should work if not doing a drag",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-drag.spec.ts > should report event.buttons",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-drag.spec.ts > should handle custom dataTransfer",
+  "status": "failed",
+  "error": "TypeError: page.mouse.down is not a function"
+ },
+ {
+  "id": "page-drag.spec.ts > what happens when dragging element is destroyed",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: current[method] is not a function"
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should work @smoke",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should send the right events",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should not send dragover on the first mousemove",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should work inside iframe",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should cancel on escape",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should respect the drop effect",
+  "status": "failed",
+  "error": "TypeError: page.mouse.down is not a function"
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should work if the drag is canceled",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should work if the drag event is captured but not canceled",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should be able to drag the mouse in a frame",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should work if a frame is stalled",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should work with the helper method",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should dragAndDrop with tweened mouse movement",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should dragTo with tweened mouse movement",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should allow specifying the position",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > should work with locators",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > iframe > should drag into an iframe",
+  "status": "skipped",
+  "error": null
+ },
+ {
+  "id": "page-drag.spec.ts > Drag and drop > iframe > should drag out of an iframe",
+  "status": "skipped",
+  "error": null
+ },
+ {
+  "id": "page-drop.spec.ts > should drop a file payload",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: current[method] is not a function"
+ },
+ {
+  "id": "page-drop.spec.ts > should drop multiple file payloads",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: current[method] is not a function"
+ },
+ {
+  "id": "page-drop.spec.ts > should drop a file by local path",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: current[method] is not a function"
+ },
+ {
+  "id": "page-drop.spec.ts > should drop clipboard-like data",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: current[method] is not a function"
+ },
+ {
+  "id": "page-drop.spec.ts > should drop files and data together",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: current[method] is not a function"
+ },
+ {
+  "id": "page-drop.spec.ts > should throw when target does not accept drop",
+  "status": "failed",
+  "error": "Error: expect(received).rejects.toThrow(expected)"
+ },
+ {
+  "id": "page-drop.spec.ts > should throw when neither files nor data provided",
+  "status": "failed",
+  "error": "Error: expect(received).rejects.toThrow(expected)"
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should throw without the exposeFunctions option",
+  "status": "failed",
+  "error": "Error: expect(received).rejects.toThrow(expected)"
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should call a function passed as an argument",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should accept a function as the whole argument",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should pass arguments to the callback",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should return the callback result to the page",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should support handle as a callback result",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should support nested handles in the callback result",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should await an async callback result",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should propagate callback errors to the page",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should work with a fire-and-forget setTimeout callback",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should support multiple callbacks",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should work with evaluateHandle",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should work in a child frame",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should work with jsHandle.evaluate",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should work with locator.evaluate",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should return the callback result with locator.evaluate",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should propagate callback errors with locator.evaluate",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should work with locator.evaluateHandle",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should work with locator.evaluate inside an iframe",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should survive a navigation and keep working",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should not register the callback on the global object",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-callback.spec.ts > should scope the page-side callback to the execution context",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-handle.spec.ts > should work",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-handle.spec.ts > should accept object handle as an argument",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-handle.spec.ts > should accept object handle to primitive types",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-handle.spec.ts > should accept nested handle",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-handle.spec.ts > should accept nested window handle",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-handle.spec.ts > should accept multiple nested handles",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-handle.spec.ts > should accept same handle multiple times",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-handle.spec.ts > should accept same nested object multiple times",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate-handle.spec.ts > should accept object handle to unserializable value",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-handle.spec.ts > should pass configurable args",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate-handle.spec.ts > should work with primitives",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate-no-stall.spec.ts > should work",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate-no-stall.spec.ts > should throw while pending navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate-no-stall.spec.ts > should throw when no main execution context",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work @smoke",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should transfer NaN",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should transfer -0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should transfer Infinity",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should transfer -Infinity",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should roundtrip unserializable values",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should roundtrip promise to value",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should roundtrip promise to unserializable values",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should transfer arrays",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should transfer arrays as arrays, not objects",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should transfer typed arrays",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support handles, frames, or non-plain object arguments."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should transfer bigint",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should transfer maps as empty objects",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support handles, frames, or non-plain object arguments."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should modify global environment",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should evaluate in the page context",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should return undefined for objects with symbols",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with function shorthands",
+  "status": "failed",
+  "error": "Error: page.evaluate: SyntaxError: Unexpected token '{'"
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with unicode chars",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with large strings",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with large unicode strings",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should throw when evaluation triggers reload",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should await promise",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work right after framenavigated",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work right after a cross-origin navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work from-inside an exposed function",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should reject promise with exception",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should support thrown strings as error messages",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should support thrown numbers as error messages",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should return complex objects",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should return NaN",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should return -0",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should return Infinity",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should return -Infinity",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with overwritten Promise",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should throw when passed more than one parameter",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "page-evaluate.spec.ts > should accept \"undefined\" as one of multiple parameters",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should properly serialize undefined arguments",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should properly serialize undefined fields",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should return undefined properties",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should properly serialize null arguments",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should properly serialize null fields",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should properly serialize PerformanceMeasure object",
+  "status": "failed",
+  "error": "Error: page.evaluate: Error: TypeError: Cannot read properties of undefined (reading 'mark')"
+ },
+ {
+  "id": "page-evaluate.spec.ts > should properly serialize window.performance object",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should return undefined for non-serializable objects",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should throw for too deep reference chain",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should throw for too deep reference chain 2",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should throw usable message for unserializable shallow function",
+  "status": "failed",
+  "error": "Error: expect(received).rejects.toThrow(expected)"
+ },
+ {
+  "id": "page-evaluate.spec.ts > should throw usable message for unserializable object one deep function",
+  "status": "failed",
+  "error": "Error: expect(received).rejects.toThrow(expected)"
+ },
+ {
+  "id": "page-evaluate.spec.ts > should throw usable message for unserializable object nested function",
+  "status": "failed",
+  "error": "Error: expect(received).rejects.toThrow(expected)"
+ },
+ {
+  "id": "page-evaluate.spec.ts > should throw usable message for unserializable array nested function",
+  "status": "failed",
+  "error": "Error: expect(received).rejects.toThrow(expected)"
+ },
+ {
+  "id": "page-evaluate.spec.ts > should alias Window, Document and Node",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work for circular object",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should be able to throw a tricky error",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should accept a string",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should accept a string with semi colons",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should accept a string with comments",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should accept element handle as an argument",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should throw if underlying element was disposed",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "page-evaluate.spec.ts > should simulate a user gesture",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should throw a nice error after a navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.waitForNavigation is not a function"
+ },
+ {
+  "id": "page-evaluate.spec.ts > should not throw an error when evaluation does a navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should not throw an error when evaluation does a synchronous navigation and returns an object",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should not throw an error when evaluation does a synchronous navigation and returns undefined",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should transfer 100Mb of data from page to node.js",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should throw error with detailed information on exception inside promise ",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work even when JSON is set to null",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should await promise from popup",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with new Function() and CSP",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with non-strict expressions",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should respect use strict expression",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should not leak utility script",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should not leak handles",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with CSP",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should evaluate exception with a function on the stack",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should evaluate exception",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should pass exception argument",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support handles, frames, or non-plain object arguments."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should evaluate date",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should roundtrip date",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support handles, frames, or non-plain object arguments."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should roundtrip regex",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should jsonValue() date",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should evaluate url",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should roundtrip url",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support handles, frames, or non-plain object arguments."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should jsonValue() url",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should not use toJSON when evaluating",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should not use Array.prototype.toJSON when evaluating",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should not add a toJSON property to newly created Arrays after evaluation",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should not use toJSON in jsonValue",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should ignore buggy toJSON",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should not expose the injected script export",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should throw when frame is detached",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with overridden Object.defineProperty",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with busted Array.prototype.map/push",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with overridden globalThis.Window/Document/Node",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with overridden URL/Date/RegExp",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with Array.from/map",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should work with a using declaration",
+  "status": "skipped",
+  "error": null
+ },
+ {
+  "id": "page-evaluate.spec.ts > should ignore dangerous object keys",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support handles, frames, or non-plain object arguments."
+ },
+ {
+  "id": "page-evaluate.spec.ts > promise collected",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.requestGC is not a function"
+ },
+ {
+  "id": "page-history.spec.ts > page.goBack should work @smoke",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.goBack is not a function"
+ },
+ {
+  "id": "page-history.spec.ts > page.goBack should work with HistoryAPI",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-history.spec.ts > page.goBack should work for file urls",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-history.spec.ts > goBack/goForward should work with bfcache-able pages",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-history.spec.ts > page.reload should work",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-history.spec.ts > page.reload should work with data url",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "page-history.spec.ts > page.reload during renderer-initiated navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-history.spec.ts > page.reload should not resolve with same-document navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-history.spec.ts > page.reload should work with same origin redirect",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-history.spec.ts > page.reload should work with cross-origin redirect",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-history.spec.ts > page.reload should work on a page with a hash",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-history.spec.ts > page.reload should work on a page with a hash at the end",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-history.spec.ts > page.goBack during renderer-initiated navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-history.spec.ts > page.goForward during renderer-initiated navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-history.spec.ts > regression test for issue 20791",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-history.spec.ts > should reload proper page",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-mouse.spec.ts > should click the document @smoke",
+  "status": "failed",
+  "error": "TypeError: page.mouse.click is not a function"
+ },
+ {
+  "id": "page-mouse.spec.ts > should dblclick the div",
+  "status": "failed",
+  "error": "TypeError: page.mouse.dblclick is not a function"
+ },
+ {
+  "id": "page-mouse.spec.ts > down and up should generate click",
+  "status": "failed",
+  "error": "TypeError: page.mouse.move is not a function"
+ },
+ {
+  "id": "page-mouse.spec.ts > should pointerdown the div with a custom button",
+  "status": "failed",
+  "error": "TypeError: page.mouse.click is not a function"
+ },
+ {
+  "id": "page-mouse.spec.ts > should report correct buttons property",
+  "status": "failed",
+  "error": "TypeError: page.mouse.move is not a function"
+ },
+ {
+  "id": "page-mouse.spec.ts > should report correct pointerType property",
+  "status": "failed",
+  "error": "TypeError: page.mouse.move is not a function"
+ },
+ {
+  "id": "page-mouse.spec.ts > should select the text with mouse",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-mouse.spec.ts > should trigger hover state",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-mouse.spec.ts > should trigger hover state on disabled button",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-mouse.spec.ts > should trigger hover state with removed window.Node",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-mouse.spec.ts > should set modifier keys on click",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-mouse.spec.ts > should tween mouse movement",
+  "status": "failed",
+  "error": "TypeError: page.mouse.move is not a function"
+ },
+ {
+  "id": "page-mouse.spec.ts > should always round down",
+  "status": "failed",
+  "error": "TypeError: page.mouse.click is not a function"
+ },
+ {
+  "id": "page-mouse.spec.ts > should not crash on mouse drag with any button",
+  "status": "failed",
+  "error": "TypeError: page.mouse.move is not a function"
+ },
+ {
+  "id": "page-mouse.spec.ts > should dispatch mouse move after context menu was opened",
+  "status": "failed",
+  "error": "TypeError: page.mouse.move is not a function"
+ },
+ {
+  "id": "page-mouse.spec.ts > should track hover across iframe boundaries",
+  "status": "failed",
+  "error": "TypeError: page.mouse.move is not a function"
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should pick up ongoing navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should respect timeout",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should resolve immediately if loaded",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should throw for bad state",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should resolve immediately if load state matches",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should work with pages that have loaded before being connected to",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should wait for load state of empty url popup",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.waitForEvent is not a function"
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should wait for load state of about:blank popup ",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.waitForEvent is not a function"
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should wait for load state of about:blank popup with noopener ",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.waitForEvent is not a function"
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should wait for load state of popup with network url ",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should wait for load state of popup with network url and noopener ",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should work with clicking target=_blank",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should wait for load state of newPage",
+  "status": "failed",
+  "error": "TypeError: page.context(...).waitForEvent is not a function"
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should resolve after popup load",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should work for frame",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should work with javascript: iframe",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should work with broken data-url iframe",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-load-state.spec.ts > should work with broken blob-url iframe",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > should throw on waitFor",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > should tolerate waitFor=visible",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > should immediately resolve promise if node exists",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > elementHandle.waitForSelector should immediately resolve if node exists",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > elementHandle.waitForSelector should wait",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > elementHandle.waitForSelector should timeout",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > elementHandle.waitForSelector should throw on navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > should work with removed MutationObserver",
+  "status": "failed",
+  "error": "Error: page.evaluate: ReferenceError: MutationObserver is not defined"
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > should resolve promise when node is added",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > should report logs while waiting for visible",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > should report logs while waiting for hidden",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > should report logs when the selector resolves to multiple elements",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > should resolve promise when node is added in shadow dom",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > should work when node is added through innerHTML",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > page.waitForSelector is shortcut for main frame",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > should run in specified frame",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-wait-for-selector-1.spec.ts > should throw when frame is detached",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should survive cross-process navigation",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should wait for visible",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should not consider visible when zero-sized",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should wait for visible recursively",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should consider outside of viewport visible",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > hidden should wait for hidden",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > hidden should wait for display: none",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > hidden should wait for removal",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should return null if waiting to hide non-existing element",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should respect timeout",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should have an error message specifically for awaiting an element to be hidden",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should respond to node attribute mutation",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should return the element handle",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should have correct stack trace for timeout",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should throw for unknown state option",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should throw for visibility option",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should throw for true state option",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should throw for false state option",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should support >> selector syntax",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should wait for detached if already detached",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should wait for detached",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should support some fancy xpath",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should respect timeout xpath",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should run in specified frame xpath",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should throw when frame is detached xpath",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should return the element handle xpath",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should allow you to select an element with single slash xpath",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should correctly handle hidden shadow host",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should work when navigating before node adoption",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should fail when navigating while on handle",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should fail if element handle was detached while waiting",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should succeed if element handle was detached while waiting for hidden",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-selector-2.spec.ts > should succeed if element handle was detached while waiting for detached",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "page-wait-for-url.spec.ts > should work",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-url.spec.ts > should respect timeout",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-url.spec.ts > should work with both domcontentloaded and load",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.waitForURL is not a function"
+ },
+ {
+  "id": "page-wait-for-url.spec.ts > should work with commit",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.waitForURL is not a function"
+ },
+ {
+  "id": "page-wait-for-url.spec.ts > should work with commit and about:blank",
+  "status": "failed",
+  "error": "Error: page.evaluate: TypeError: __pwLiteAdapterPage.waitForURL is not a function"
+ },
+ {
+  "id": "page-wait-for-url.spec.ts > should work with clicking on anchor links",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-url.spec.ts > should work with history.pushState()",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-url.spec.ts > should work with history.replaceState()",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-url.spec.ts > should work with DOM history.back()/history.forward()",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-url.spec.ts > should work with url match for same document navigations",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "page-wait-for-url.spec.ts > should work on frame",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "queryselector.spec.ts > should throw for non-string selector",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "queryselector.spec.ts > should query existing element with css selector @smoke",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > should query existing element with text selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > should query existing element with xpath selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > should return null for non-existing element",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > should auto-detect xpath selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > should auto-detect xpath selector with starting parenthesis",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > should auto-detect xpath selector starting with ..",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > should auto-detect text selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > should auto-detect css selector",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > should support >> syntax",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > should query existing elements",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > should return empty array if nothing is found",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "queryselector.spec.ts > xpath should query existing element",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > xpath should return empty array for non-existing element",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > xpath should return multiple elements",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "queryselector.spec.ts > $$ should work with bogus Array.from",
+  "status": "failed",
+  "error": "TypeError: The upstream adapter bridge does not support nested function arguments or event callbacks."
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with large DOM @smoke",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should work for open shadow roots",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with > combinator and spaces",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with comma separated list",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "selectors-css.spec.ts > should keep dom order with comma separated list",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should return multiple captures for the same node",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should return multiple captures when going up the hierarchy",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with comma separated list in various positions",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with comma inside text",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with attribute selectors",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should not match root after >>",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with numerical id",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with wrong-case id",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with *",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with :nth-child",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with :nth-child(of) notation with nested functions",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with :not",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with ~",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with +",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with spaces in :nth-child and :not",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with :is",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with :has",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with :scope",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "selectors-css.spec.ts > should work with :scope and class",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should absolutize relative selectors",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > css on the handle should be relative",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-css.spec.ts > should use light DOM structure for child combinator with slotted content",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-register.spec.ts > textContent should be atomic",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "selectors-register.spec.ts > innerText should be atomic",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "selectors-register.spec.ts > innerHTML should be atomic",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "selectors-register.spec.ts > getAttribute should be atomic",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "selectors-register.spec.ts > isVisible should be atomic",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "selectors-register.spec.ts > should take java-style string",
+  "status": "timedOut",
+  "error": "Test timeout of 30000ms exceeded."
+ },
+ {
+  "id": "selectors-role.spec.ts > should detect roles",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > should support selected",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > should support checked",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > should support pressed",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > should support expanded",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > should support disabled",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > should inherit disabled from the ancestor",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > should support disabled fieldset",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > should support level",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > should filter hidden, unless explicitly asked for",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > should support name",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > should support option name with html whitespace",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > errors",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > hidden with shadow dom slots",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > should support output accessible name",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "selectors-role.spec.ts > should not match scope by default",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should match page",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should match page complex",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should match page with not",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should fail page with timeout",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should match",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should match in list",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should match list with accessible name",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should match deep item",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should match complex",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should match regex",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should allow text nodes",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > details visibility",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > checked attribute",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > disabled attribute",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > expanded attribute",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > level attribute",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > pressed attribute",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > selected attribute",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > integration test",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > integration test 2",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > expected formatter",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should unpack escaped names",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should report error in YAML",
+  "status": "failed",
+  "error": "Error: expect(received).toBe(expected) // Object.is equality"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should report error in YAML keys",
+  "status": "failed",
+  "error": "Error: expect(received).toBe(expected) // Object.is equality"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > call log should contain actual snapshot",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should parse attributes",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should not unshift actual template text",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should not match what is not matched",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should match url",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should detect unexpected children: equal",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should detect unexpected children: deep-equal",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > should allow restoring contain mode inside deep-equal",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > top-level deep-equal",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > generated snapshot includes text children when name is longer than text",
+  "status": "passed",
+  "error": null
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > treat bad regex as a string",
+  "status": "failed",
+  "error": "Error: expect(received).toContain(expected) // indexOf"
+ },
+ {
+  "id": "to-match-aria-snapshot.spec.ts > invalid attribute",
+  "status": "failed",
+  "error": "Error: toMatchAriaSnapshot can be only used with Page or Locator objects, was called with  <ref *1> _Page {"
+ },
+ {
+  "id": "wheel.spec.ts > should dispatch wheel events @smoke",
+  "status": "failed",
+  "error": "TypeError: page.mouse.move is not a function"
+ },
+ {
+  "id": "wheel.spec.ts > should dispatch wheel events after popup was opened @smoke",
+  "status": "failed",
+  "error": "TypeError: page.mouse.move is not a function"
+ },
+ {
+  "id": "wheel.spec.ts > should dispatch wheel event on svg element",
+  "status": "failed",
+  "error": "TypeError: page.mouse.move is not a function"
+ },
+ {
+  "id": "wheel.spec.ts > should scroll when nobody is listening",
+  "status": "failed",
+  "error": "Error: page.evaluate: Execution context was destroyed, most likely because of a navigation."
+ },
+ {
+  "id": "wheel.spec.ts > should set the modifiers",
+  "status": "failed",
+  "error": "TypeError: page.mouse.move is not a function"
+ },
+ {
+  "id": "wheel.spec.ts > should scroll horizontally",
+  "status": "failed",
+  "error": "TypeError: page.mouse.move is not a function"
+ },
+ {
+  "id": "wheel.spec.ts > should work when the event is canceled",
+  "status": "failed",
+  "error": "TypeError: page.mouse.move is not a function"
+ }
+]

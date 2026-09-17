@@ -72,6 +72,8 @@ type CompatFixtures = {
   isAndroid: boolean;
   isElectron: boolean;
   isBidi: boolean;
+  electronMajorVersion: number;
+  nodeVersion: { major: number; minor: number; patch: number };
   isHeadlessShell: boolean;
   isFrozenWebkit: boolean;
   headless: boolean;
@@ -193,6 +195,11 @@ export const test = base.extend<
   isAndroid: false,
   isElectron: false,
   isBidi: false,
+  electronMajorVersion: 0,
+  nodeVersion: async ({}, use) => {
+    const [major, minor, patch] = process.versions.node.split('.').map(Number);
+    await use({ major, minor, patch });
+  },
   isHeadlessShell: false,
   isFrozenWebkit: false,
   headless: true,
