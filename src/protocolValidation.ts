@@ -9,6 +9,18 @@ export function validateString(value: unknown, name: string): string {
   throw new Error(`${name}: expected string, got ${typeof value}`);
 }
 
+/**
+ * `delay` is `float?` in the pinned protocol for press, type and the pointer
+ * actions. Like the pointer options, a non-finite value is rejected instead of
+ * reaching the input path as NaN.
+ */
+export function validateDelay(value: unknown): void {
+  if (value === undefined) return;
+  const delay = value instanceof Number ? value.valueOf() : value;
+  if (typeof delay !== "number" || !Number.isFinite(delay))
+    throw new TypeError("delay: expected number");
+}
+
 export function validateNoWaitAfter(method: string, value: unknown): void {
   // Only click and press retain this field in the pinned protocol. Other
   // actions drop the deprecated no-op option, without validating its value.

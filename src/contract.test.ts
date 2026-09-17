@@ -811,6 +811,34 @@ describe("Single-document adapter contract", () => {
       });
     });
 
+    it("rejects a non-numeric press or type delay", async () => {
+      document.body.innerHTML = '<input id="input" type="text" />';
+      const page = createPage();
+      const locator = page.locator("#input");
+      const actions: [string, () => Promise<unknown>][] = [
+        ["page.press", () => page.press("#input", "a", { delay: "x" } as any)],
+        ["page.type", () => page.type("#input", "a", { delay: "x" } as any)],
+        ["locator.press", () => locator.press("a", { delay: "x" } as any)],
+        ["locator.type", () => locator.type("a", { delay: "x" } as any)],
+        [
+          "locator.pressSequentially",
+          () => locator.pressSequentially("a", { delay: "x" } as any),
+        ],
+      ];
+
+      for (const [apiName, run] of actions) {
+        const error = await run().then(
+          () => undefined,
+          (error) => error
+        );
+        expect(error, apiName).toBeInstanceOf(TypeError);
+        expect(error.message, apiName).toBe("delay: expected number");
+      }
+      expect(document.querySelector<HTMLInputElement>("#input")!.value).toBe(
+        ""
+      );
+    });
+
     it("forwards explicit timeout through locator terminal actions", async () => {
       document.body.innerHTML = "";
       const page = createPage();

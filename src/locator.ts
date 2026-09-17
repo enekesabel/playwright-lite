@@ -1,6 +1,6 @@
 import type { Locator } from "@playwright/test";
 import { assertMaxArguments } from "./evaluation";
-import { validateNoWaitAfter } from "./protocolValidation";
+import { validateDelay, validateNoWaitAfter } from "./protocolValidation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import type {
   AriaSnapshotOptions,
@@ -781,6 +781,7 @@ function rejectUnsupportedOptions(
     throw new TypeError(`${method} signal must be an AbortSignal`);
   if (supported.includes("noWaitAfter"))
     validateNoWaitAfter(method, options.noWaitAfter);
+  if (supported.includes("delay")) validateDelay(options.delay);
 }
 
 function cssObjectToString(style: Record<string, string | number>): string {

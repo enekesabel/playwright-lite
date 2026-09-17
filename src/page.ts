@@ -11,7 +11,11 @@ import {
   DEFAULT_TEST_ID_ATTRIBUTE,
 } from "./injected";
 import { AdapterTimeoutError } from "./errors";
-import { validateNoWaitAfter, validateString } from "./protocolValidation";
+import {
+  validateDelay,
+  validateNoWaitAfter,
+  validateString,
+} from "./protocolValidation";
 import { AdapterElementHandle } from "./elementHandle";
 import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
@@ -3658,6 +3662,7 @@ function assertPageActionOptions(
     validateTimeout(options.timeout, `${method} timeout`);
   if (supported.includes("noWaitAfter"))
     validateNoWaitAfter(method, options.noWaitAfter);
+  if (supported.includes("delay")) validateDelay(options.delay);
   if (
     supported.includes("strict") &&
     options.strict !== undefined &&
