@@ -1,7 +1,8 @@
 import { assertEvaluationOptions, assertMaxArguments } from "./evaluation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import { rejectUnsupportedOptions } from "./protocolValidation";
-import type { PageImpl } from "./page";
+import type { InputFiles } from "./inputFiles";
+import type { PageImpl, SelectOptionValue } from "./page";
 import { withAbortPrefix } from "./page";
 import type { ElementHandle } from "@playwright/test";
 
@@ -83,6 +84,107 @@ export class AdapterElementHandle {
       checked,
       "elementHandle.setChecked",
       options
+    );
+  }
+
+  async fill(
+    value: string,
+    options?: Parameters<ElementHandle["fill"]>[1]
+  ): Promise<void> {
+    rejectUnsupportedOptions("fill", options, [
+      "noWaitAfter",
+      "signal",
+      "timeout",
+    ]);
+    await withAbortPrefix("elementHandle.fill", () =>
+      this.ownerPage.fillSelector(
+        this.requireElement(),
+        value,
+        "elementHandle.fill",
+        options?.timeout,
+        undefined,
+        true,
+        options?.signal
+      )
+    );
+  }
+
+  async focus(): Promise<void> {
+    await this.ownerPage.focusSelector(
+      this.requireElement(),
+      "elementHandle.focus"
+    );
+  }
+
+  async type(
+    text: string,
+    options?: Parameters<ElementHandle["type"]>[1]
+  ): Promise<void> {
+    rejectUnsupportedOptions("type", options, [
+      "delay",
+      "noWaitAfter",
+      "signal",
+      "timeout",
+    ]);
+    await withAbortPrefix("elementHandle.type", () =>
+      this.ownerPage.typeSelector(
+        this.requireElement(),
+        text,
+        options,
+        "elementHandle.type",
+        true
+      )
+    );
+  }
+
+  async selectOption(
+    values: string | SelectOptionValue | (string | SelectOptionValue)[] | null,
+    options?: Parameters<ElementHandle["selectOption"]>[1]
+  ): Promise<string[]> {
+    rejectUnsupportedOptions("selectOption", options, [
+      "noWaitAfter",
+      "signal",
+      "timeout",
+    ]);
+    return withAbortPrefix("elementHandle.selectOption", () =>
+      this.ownerPage.selectOptionSelector(
+        this.requireElement(),
+        values,
+        "elementHandle.selectOption",
+        options?.timeout,
+        undefined,
+        true,
+        options?.signal
+      )
+    );
+  }
+
+  async setInputFiles(
+    files: InputFiles,
+    options?: Parameters<ElementHandle["setInputFiles"]>[1]
+  ): Promise<void> {
+    rejectUnsupportedOptions("setInputFiles", options, [
+      "noWaitAfter",
+      "signal",
+      "timeout",
+    ]);
+    await withAbortPrefix("elementHandle.setInputFiles", () =>
+      this.ownerPage.setInputFilesSelector(
+        this.requireElement(),
+        files,
+        options,
+        true,
+        "elementHandle.setInputFiles"
+      )
+    );
+  }
+
+  async dispatchEvent(type: string, eventInit: object = {}): Promise<void> {
+    await this.ownerPage.dispatchEventSelector(
+      this.requireElement(),
+      type,
+      eventInit,
+      "elementHandle.dispatchEvent"
     );
   }
 

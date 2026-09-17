@@ -83,13 +83,17 @@ describe("cancellation", () => {
       (h: Handle, o: Options) => Promise<unknown>,
       boolean,
     ][] = [
+      ["elementHandle.fill", (h, o) => h.fill("x", o), true],
       ["elementHandle.press", (h, o) => h.press("a", o), false],
-      ["elementHandle.selectText", (h, o) => h.selectText(o), true],
       [
         "elementHandle.scrollIntoViewIfNeeded",
         (h, o) => h.scrollIntoViewIfNeeded(o),
         true,
       ],
+      ["elementHandle.selectOption", (h, o) => h.selectOption("x", o), true],
+      ["elementHandle.selectText", (h, o) => h.selectText(o), true],
+      ["elementHandle.setInputFiles", (h, o) => h.setInputFiles([], o), false],
+      ["elementHandle.type", (h, o) => h.type("x", o), false],
     ];
 
     document.body.innerHTML = '<input id=hidden style="display:none" value=x>';

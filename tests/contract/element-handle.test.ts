@@ -208,6 +208,117 @@ describe("ElementHandle", () => {
     expect(input.selectionEnd).toBe(5);
   });
 
+  it("fills the fixed element", async () => {
+    document.body.innerHTML = '<input value="one"><input value="two">';
+    const page = createPage();
+    const handle = (await page.$("input"))!;
+
+    await handle.fill("filled");
+
+    expect(document.querySelectorAll("input")[0].value).toBe("filled");
+    expect(document.querySelectorAll("input")[1].value).toBe("two");
+  });
+
+  it("reports a fill rejection through the handle member", async () => {
+    document.body.innerHTML = "<select><option>one</option></select>";
+    const page = createPage();
+    const handle = (await page.$("select"))!;
+
+    const error = await handle.fill("x").then(
+      () => null,
+      (error: Error) => error
+    );
+
+    expect(error!.message).toBe(
+      "elementHandle.fill: Error: Element is not an <input>, <textarea> or [contenteditable] element\n" +
+        "Call log:\n  - attempting fill action\n" +
+        "    - waiting for element to be visible, enabled and editable"
+    );
+  });
+
+  it("focuses the fixed element", async () => {
+    document.body.innerHTML = '<input id="one"><input id="two">';
+    const page = createPage();
+    const handle = (await page.$("input"))!;
+
+    await handle.focus();
+
+    expect(document.activeElement!.id).toBe("one");
+  });
+
+  it("types into the fixed element", async () => {
+    document.body.innerHTML = '<input value="hello"><input value="other">';
+    const page = createPage();
+    const handle = (await page.$("input"))!;
+
+    await handle.type("world");
+
+    expect(document.querySelectorAll("input")[0].value).toBe("worldhello");
+    expect(document.querySelectorAll("input")[1].value).toBe("other");
+  });
+
+  it("selects an option on the fixed element", async () => {
+    document.body.innerHTML =
+      "<select><option>one</option><option>two</option></select>" +
+      "<select><option>three</option></select>";
+    const page = createPage();
+    const handle = (await page.$("select"))!;
+
+    await expect(handle.selectOption("two")).resolves.toEqual(["two"]);
+
+    expect(document.querySelectorAll("select")[0].value).toBe("two");
+  });
+
+  it("sets input files on the fixed element", async () => {
+    document.body.innerHTML = '<input type="file"><input type="file">';
+    const page = createPage();
+    const handle = (await page.$("input"))!;
+
+    await handle.setInputFiles({
+      name: "upload.txt",
+      mimeType: "text/plain",
+      buffer: new TextEncoder().encode("contents") as Buffer,
+    });
+
+    const inputs = document.querySelectorAll<HTMLInputElement>("input");
+    expect(Array.from(inputs[0].files!, (file) => file.name)).toEqual([
+      "upload.txt",
+    ]);
+    expect(inputs[1].files!.length).toBe(0);
+  });
+
+  it("dispatches an event on the fixed element", async () => {
+    document.body.innerHTML = "<button>go</button><button>other</button>";
+    const page = createPage();
+    const handle = (await page.$("button"))!;
+    const clicked: string[] = [];
+    for (const button of document.querySelectorAll("button"))
+      button.addEventListener("click", () => clicked.push(button.textContent!));
+
+    await handle.dispatchEvent("click");
+
+    expect(clicked).toEqual(["go"]);
+  });
+
+  it("keeps action members bound to a detached or disposed handle", async () => {
+    document.body.innerHTML = '<input value="one">';
+    const page = createPage();
+    const handle = (await page.$("input"))!;
+    document.querySelector("input")!.remove();
+
+    await expect(handle.focus()).rejects.toThrow(
+      "Element is not attached to the DOM"
+    );
+    await expect(handle.type("x")).rejects.toThrow(
+      "Element is not attached to the DOM"
+    );
+    await expect(handle.dispatchEvent("click")).rejects.toThrow(
+      "Element is not attached to the DOM"
+    );
+    await handle.dispose();
+    await expect(handle.fill("x")).rejects.toThrow(/disposed/);
+  });
+
   it.each(["check", "uncheck", "setChecked"] as const)(
     "reports the invoked checked method: %s",
     async (method) => {
