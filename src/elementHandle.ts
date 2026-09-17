@@ -2,6 +2,7 @@ import { assertEvaluationOptions, assertMaxArguments } from "./evaluation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import { rejectUnsupportedOptions } from "./protocolValidation";
 import type { PageImpl } from "./page";
+import { withAbortPrefix } from "./page";
 import type { ElementHandle } from "@playwright/test";
 
 type ElementHandleWaitOptions = { timeout?: number };
@@ -92,39 +93,53 @@ export class AdapterElementHandle {
     const delay = rejectUnsupportedOptions("press", options, [
       "delay",
       "noWaitAfter",
+      "signal",
       "timeout",
     ]);
-    await this.ownerPage.pressSelector(
-      this.requireElement(),
-      key,
-      "elementHandle.press",
-      options?.timeout,
-      undefined,
-      true,
-      undefined,
-      delay
+    await withAbortPrefix("elementHandle.press", () =>
+      this.ownerPage.pressSelector(
+        this.requireElement(),
+        key,
+        "elementHandle.press",
+        options?.timeout,
+        undefined,
+        true,
+        options?.signal,
+        delay
+      )
     );
   }
 
   async selectText(
     options?: Parameters<ElementHandle["selectText"]>[0]
   ): Promise<void> {
-    rejectUnsupportedOptions("selectText", options, ["timeout"]);
-    await this.ownerPage.selectText(
-      this.requireElement(),
-      "elementHandle.selectText",
-      options?.timeout
+    rejectUnsupportedOptions("selectText", options, ["signal", "timeout"]);
+    await withAbortPrefix("elementHandle.selectText", () =>
+      this.ownerPage.selectText(
+        this.requireElement(),
+        "elementHandle.selectText",
+        options?.timeout,
+        undefined,
+        options?.signal
+      )
     );
   }
 
   async scrollIntoViewIfNeeded(
     options?: Parameters<ElementHandle["scrollIntoViewIfNeeded"]>[0]
   ): Promise<void> {
-    rejectUnsupportedOptions("scrollIntoViewIfNeeded", options, ["timeout"]);
-    await this.ownerPage.scrollLocatorIntoView(
-      this.requireElement(),
-      "elementHandle.scrollIntoViewIfNeeded",
-      options?.timeout
+    rejectUnsupportedOptions("scrollIntoViewIfNeeded", options, [
+      "signal",
+      "timeout",
+    ]);
+    await withAbortPrefix("elementHandle.scrollIntoViewIfNeeded", () =>
+      this.ownerPage.scrollLocatorIntoView(
+        this.requireElement(),
+        "elementHandle.scrollIntoViewIfNeeded",
+        options?.timeout,
+        undefined,
+        options?.signal
+      )
     );
   }
 

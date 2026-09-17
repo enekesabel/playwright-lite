@@ -71,6 +71,56 @@ describe("cancellation", () => {
     }
   });
 
+  it("aborts every handle action with a prefixed AbortError", async () => {
+    type Options = { signal: AbortSignal; timeout: number };
+    type Handle = NonNullable<
+      Awaited<ReturnType<ReturnType<typeof createPage>["$"]>>
+    >;
+    // A handle already holds its element, so only the members that wait for
+    // actionability can observe an abort raised after the call started.
+    const actions: [
+      string,
+      (h: Handle, o: Options) => Promise<unknown>,
+      boolean,
+    ][] = [
+      ["elementHandle.press", (h, o) => h.press("a", o), false],
+      ["elementHandle.selectText", (h, o) => h.selectText(o), true],
+      [
+        "elementHandle.scrollIntoViewIfNeeded",
+        (h, o) => h.scrollIntoViewIfNeeded(o),
+        true,
+      ],
+    ];
+
+    document.body.innerHTML = '<input id=hidden style="display:none" value=x>';
+    const page = createPage();
+
+    for (const [apiName, run, waits] of actions) {
+      for (const inFlight of waits ? [false, true] : [false]) {
+        const handle = (await page.$("#hidden"))!;
+        const reason = new Error("stop");
+        const controller = new AbortController();
+        if (inFlight) window.setTimeout(() => controller.abort(reason), 10);
+        else controller.abort(reason);
+        const error = await run(handle, {
+          signal: controller.signal,
+          timeout: 0,
+        }).then(
+          () => undefined,
+          (error) => error
+        );
+        const context = `${apiName} ${inFlight ? "in-flight" : "pre-aborted"}`;
+        expect(error?.name, context).toBe("AbortError");
+        expect(error.message, context).toMatch(
+          inFlight
+            ? new RegExp(`^${apiName}: stop\\nCall log:`)
+            : `${apiName}: The operation was aborted`
+        );
+        expect(error.cause, context).toBe(reason);
+      }
+    }
+  });
+
   it("aborts every query with a prefixed AbortError", async () => {
     document.body.innerHTML = "<select id=select><option>one</option></select>";
     const page = createPage();
