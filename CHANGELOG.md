@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0](https://github.com/enekesabel/playwright-lite/compare/v0.2.1...v0.3.0) (2026-09-18)
+
+
+### Features
+
+* accept force, steps and signal on the pinned actions ([#77](https://github.com/enekesabel/playwright-lite/issues/77)) ([3802a3c](https://github.com/enekesabel/playwright-lite/commit/3802a3c1e1253d5c8b7aaa9f589bcec10102e30a)), closes [#59](https://github.com/enekesabel/playwright-lite/issues/59)
+* add addScriptTag, addStyleTag and Locator.drop ([#88](https://github.com/enekesabel/playwright-lite/issues/88)) ([838f38a](https://github.com/enekesabel/playwright-lite/commit/838f38af0db6e41744f3f5d3d3fee99c41957a6d))
+* add ElementHandle fill, focus, type, selectOption, setInputFiles and dispatchEvent ([#76](https://github.com/enekesabel/playwright-lite/issues/76)) ([34b764c](https://github.com/enekesabel/playwright-lite/commit/34b764c3aecdb47ecb1acd4e717da38e2f2eaadf)), closes [#57](https://github.com/enekesabel/playwright-lite/issues/57)
+* add ElementHandle scrollIntoViewIfNeeded, selectText and press ([#71](https://github.com/enekesabel/playwright-lite/issues/71)) ([a833017](https://github.com/enekesabel/playwright-lite/commit/a8330175b406b77a4399f84aeb68631f23cd5202)), closes [#56](https://github.com/enekesabel/playwright-lite/issues/56)
+* add Locator.waitForFunction ([f1248bf](https://github.com/enekesabel/playwright-lite/commit/f1248bf82ee8965f520ce0d6a753442fb5327fdc))
+* return real JSHandles from evaluateHandle ([#94](https://github.com/enekesabel/playwright-lite/issues/94)) ([76092e0](https://github.com/enekesabel/playwright-lite/commit/76092e051c9b3a55d8ca68c280ef4f26a211eecb))
+* type text like Playwright's events and caret ([#72](https://github.com/enekesabel/playwright-lite/issues/72)) ([b262644](https://github.com/enekesabel/playwright-lite/commit/b2626448b4dc815e71a52efed2af650624b5a460)), closes [#55](https://github.com/enekesabel/playwright-lite/issues/55)
+
+
+### Bug Fixes
+
+* correct ElementHandle error messages and the compatibility note ([#75](https://github.com/enekesabel/playwright-lite/issues/75)) ([b061c89](https://github.com/enekesabel/playwright-lite/commit/b061c8986f18da45a4dc0e5b083614c9f5cb596e)), closes [#58](https://github.com/enekesabel/playwright-lite/issues/58)
+* validate and report fill and selectOption like Playwright ([#74](https://github.com/enekesabel/playwright-lite/issues/74)) ([c19d06c](https://github.com/enekesabel/playwright-lite/commit/c19d06cc814a758275cef4d976badca633905104)), closes [#54](https://github.com/enekesabel/playwright-lite/issues/54)
+
 ## [0.2.1](https://github.com/enekesabel/playwright-lite/compare/v0.2.0...v0.2.1) (2026-09-17)
 
 
