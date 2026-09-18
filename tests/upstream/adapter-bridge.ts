@@ -526,7 +526,7 @@ export async function createAdapterPage(
       : "",
   ].join("\n");
   const adapterPageSetup =
-    "\nwindow.builtins ??= {}; window.builtins.Date ??= window.Date;" +
+    `\n(${installBuiltins.toString()})();` +
     "\nwindow.__pwLiteAdapterPage = window.__pwLiteAdapter.createPage({ testIdAttribute: window.__pwLiteTestIdAttributeName });" +
     `\n${configuredTimeouts}` +
     // Pinned upstream tests expose the highlight shadow root in test mode.
@@ -1482,6 +1482,32 @@ function serializableQueryOptions(options: unknown) {
     unknown
   >;
   return serializable;
+}
+
+/**
+ * Upstream's injected utility script publishes the document's own timers,
+ * `performance`, `Date` and friends as `window.builtins` while under test, so
+ * a spec can schedule work that page-installed clocks cannot replace
+ * (`packages/injected/src/utilityScript.ts`, pinned commit 26a9e47). This
+ * package has no utility script, so the fixture performs the same install,
+ * with the same members bound to the same window, before the test runs.
+ */
+function installBuiltins() {
+  const host = window;
+  (host as any).builtins = {
+    setTimeout: host.setTimeout?.bind(host),
+    clearTimeout: host.clearTimeout?.bind(host),
+    setInterval: host.setInterval?.bind(host),
+    clearInterval: host.clearInterval?.bind(host),
+    requestAnimationFrame: host.requestAnimationFrame?.bind(host),
+    cancelAnimationFrame: host.cancelAnimationFrame?.bind(host),
+    requestIdleCallback: host.requestIdleCallback?.bind(host),
+    cancelIdleCallback: host.cancelIdleCallback?.bind(host),
+    performance: host.performance,
+    Intl: host.Intl,
+    Date: host.Date,
+    AbortSignal: host.AbortSignal,
+  };
 }
 
 function initializeAdapterBridge(sabotagedMethod: string | null) {
