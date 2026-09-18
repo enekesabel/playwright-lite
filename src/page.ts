@@ -1957,22 +1957,10 @@ export class PageImpl {
 
   /**
    * Polls a predicate in the controlled document until it returns a
-   * truthy value.
-   *
-   * Mirrors pinned 26a9e47 server/frames.ts:1626-1694:
-   *   - pollingInterval must be >0 (frames.ts:1628)
-   *   - expression is normalized (frames.ts:1629)
-   *   - isFunction=true  → eval once, call each poll (frames.ts:1640-1642)
-   *   - isFunction=false → re-eval each poll (frames.ts:1643-1644,
-   *     since evaledExpression is never cached)
-   *   - abort mechanism cleans up pending timers (frames.ts:1679-1681)
-   *   - timeout races independently (handles never-settling predicates)
+   * truthy value. Public API: derives isFunction from typeof pageFunction.
    *
    * Returns a minimal handle with `jsonValue()` and `dispose()`,
    * mirroring pinned client JSHandle interface.
-   */
-  /**
-   * Public API: derives isFunction from typeof pageFunction.
    */
   async waitForFunction(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1990,6 +1978,54 @@ export class PageImpl {
 
   /**
    * Internal: accepts explicit isFunction for bridge transport.
+   */
+  async _waitForFunctionExpression(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pageFunction: string | ((...a: any[]) => any),
+    isFunction: boolean,
+    arg?: unknown,
+    options?: WaitForFunctionOptions
+  ): Promise<AdapterJSHandle> {
+    const value = await this.pollPredicate(
+      "page.waitForFunction",
+      pageFunction,
+      isFunction,
+      arg,
+      options
+    );
+    return this.evaluation.handleFor(value);
+  }
+
+  /**
+   * The `Locator` form of the member. Mirrors pinned 26a9e47
+   * server/frames.ts:1696-1712 `waitForFunctionExpressionOnElement`: the
+   * selector is re-resolved strictly on every poll and its element is passed
+   * to the predicate ahead of `arg`, so a re-rendered element is tolerated.
+   * The pinned client discards the predicate's value (`client/locator.ts`
+   * `waitForFunction` awaits the channel call and returns nothing), and it
+   * sends neither `polling` nor a handle back.
+   */
+  async waitForFunctionOnSelector(
+    selector: string,
+    label: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pageFunction: string | ((...a: any[]) => any),
+    arg: unknown,
+    options: { signal?: AbortSignal; timeout?: number } | undefined
+  ): Promise<void> {
+    await this.pollPredicate(
+      "locator.waitForFunction",
+      pageFunction,
+      typeof pageFunction === "function",
+      arg,
+      options,
+      { selector, label }
+    );
+  }
+
+  /**
+   * Shared polling engine of both forms. Resolves with the first truthy
+   * predicate value.
    *
    * Mirrors pinned 26a9e47 server/frames.ts:1626-1694:
    *   - pollingInterval must be >0 (frames.ts:1628)
@@ -1999,14 +2035,20 @@ export class PageImpl {
    *     since evaledExpression is never cached)
    *   - abort mechanism cleans up pending timers (frames.ts:1679-1681)
    *   - timeout races independently (handles never-settling predicates)
+   *
+   * `target` names the locator of the element form: it is re-resolved
+   * strictly on every poll, so a locator that matches nothing yet keeps
+   * polling while a strict mode violation ends the wait.
    */
-  async _waitForFunctionExpression(
+  private async pollPredicate(
+    apiName: string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     pageFunction: string | ((...a: any[]) => any),
     isFunction: boolean,
-    arg?: unknown,
-    options?: WaitForFunctionOptions
-  ): Promise<AdapterJSHandle> {
+    arg: unknown,
+    options: WaitForFunctionOptions | undefined,
+    target?: { selector: string; label: string }
+  ): Promise<unknown> {
     const timeout = this.resolveTimeout(options?.timeout, 30_000);
     validateSignal("waitForFunction", options?.signal);
     const signal = options?.signal;
@@ -2020,9 +2062,9 @@ export class PageImpl {
       throw new Error("Cannot poll with non-positive interval: " + polling);
 
     return withAbortPrefix(
-      "page.waitForFunction",
+      apiName,
       () =>
-        new Promise<AdapterJSHandle>((resolve, reject) => {
+        new Promise<unknown>((resolve, reject) => {
           let aborted = false;
           let timeoutId: number | undefined;
           let pollTimerId: number | undefined;
@@ -2039,7 +2081,8 @@ export class PageImpl {
               cleanup();
               reject(
                 new AdapterTimeoutError(
-                  `page.waitForFunction: Timeout ${timeout}ms exceeded.`
+                  `${apiName}: Timeout ${timeout}ms exceeded.` +
+                    (target ? queryCallLog(target.selector) : "")
                 )
               );
             }, timeout);
@@ -2064,8 +2107,28 @@ export class PageImpl {
 
           const check = () => {
             if (aborted) return;
+            let element: Element | undefined;
+            if (target) {
+              try {
+                element = this.queryElement(
+                  target.selector,
+                  target.label,
+                  true
+                );
+              } catch (e) {
+                // A locator that matches nothing yet keeps polling; a strict
+                // mode violation is the caller's error and ends the wait.
+                if (!isRetryableQueryError(e)) {
+                  cleanup();
+                  reject(e);
+                  return;
+                }
+                scheduleNext();
+                return;
+              }
+            }
             try {
-              const result = predicate();
+              const result = predicate(element);
               if (
                 result &&
                 typeof (result as Promise<unknown>)?.then === "function"
@@ -2075,7 +2138,7 @@ export class PageImpl {
                     if (aborted) return;
                     if (v) {
                       cleanup();
-                      resolve(this.evaluation.handleFor(v));
+                      resolve(v);
                     } else {
                       scheduleNext();
                     }
@@ -2090,7 +2153,7 @@ export class PageImpl {
               }
               if (result) {
                 cleanup();
-                resolve(this.evaluation.handleFor(result));
+                resolve(result);
                 return;
               }
             } catch (e) {

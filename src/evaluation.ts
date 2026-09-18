@@ -131,21 +131,31 @@ export class Evaluation {
     }
   }
 
-  /** Deserialize once, retaining predicate argument state across polls. */
+  /**
+   * Deserialize once, retaining predicate argument state across polls.
+   *
+   * The returned poll accepts the element a `Locator` predicate is called on,
+   * which the pinned element form passes ahead of the argument
+   * (`server/frames.ts` `waitForFunctionExpressionOnElement`).
+   */
   predicate(
     expression: EvaluationFunction,
     isFunction: boolean,
     arg?: unknown
-  ): () => unknown {
+  ): (target?: Element) => unknown {
     const normalized = normalizeExpression(String(expression), isFunction);
     const { serialized, handles } = this.argument(arg);
     const argument = parseEvaluationResultValue(serialized, handles);
-    let callback: ((arg: unknown) => unknown) | undefined;
-    return () => {
+    let callback: ((...args: unknown[]) => unknown) | undefined;
+    return (target?: Element) => {
       try {
         const result = callback ?? this.page.window.eval(normalized);
         if (isFunction) callback = result;
-        const value = isFunction ? callback!(argument) : result;
+        const value = isFunction
+          ? callback!(
+              ...(target === undefined ? [argument] : [target, argument])
+            )
+          : result;
         if (value && typeof (value as Promise<unknown>).then === "function")
           return Promise.resolve(value).catch((error) => {
             throw evaluationError(error);

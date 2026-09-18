@@ -319,7 +319,9 @@ export const locatorLedger = {
   type: implemented(),
   uncheck: implemented(),
   waitFor: implemented(),
-  waitForFunction: undecided(),
+  waitForFunction: partial(
+    "A promise returned by the page function is awaited before its value is judged; Playwright treats the returned promise object itself as truthy and stops waiting."
+  ),
 } as const satisfies Ledger<Locator>;
 
 export const keyboardLedger = {

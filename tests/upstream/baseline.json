@@ -981,6 +981,56 @@
       "evidence": "The unchanged assertion verifies Locator.evaluate rejects a multi-match selector with strict-mode diagnostics."
     },
     {
+      "id": "locator-wait-for-function.spec.ts > should abort via already-aborted signal",
+      "method": "Locator.waitForFunction",
+      "evidence": "A signal that is already aborted rejects the call up front with an AbortError carrying the abort reason as cause."
+    },
+    {
+      "id": "locator-wait-for-function.spec.ts > should abort via signal",
+      "method": "Locator.waitForFunction",
+      "evidence": "With timeout 0 only the signal can end the wait; aborting it mid-poll rejects with an AbortError carrying the abort reason as cause."
+    },
+    {
+      "id": "locator-wait-for-function.spec.ts > should accept ElementHandle arguments",
+      "method": "Locator.waitForFunction",
+      "evidence": "The predicate asserts on its second parameter, so the ElementHandle passed as arg is forwarded alongside the located element as the first parameter."
+    },
+    {
+      "id": "locator-wait-for-function.spec.ts > should accept string expression",
+      "method": "Locator.waitForFunction",
+      "evidence": "A string pageFunction is evaluated and the wait resolves, proving the member accepts the expression form instead of requiring a function."
+    },
+    {
+      "id": "locator-wait-for-function.spec.ts > should resolve a promise returned by the predicate",
+      "method": "Locator.waitForFunction",
+      "evidence": "An async predicate resolves the wait, proving the member awaits a returned promise before judging the value."
+    },
+    {
+      "id": "locator-wait-for-function.spec.ts > should return immediately when already truthy",
+      "method": "Locator.waitForFunction",
+      "evidence": "An already-truthy predicate resolves the wait with undefined, proving the member reports completion and discards the predicate's value like the pinned client."
+    },
+    {
+      "id": "locator-wait-for-function.spec.ts > should throw on strict mode violation",
+      "method": "Locator.waitForFunction",
+      "evidence": "A locator matching two elements rejects with Playwright's strict mode violation, proving the per-poll resolution is strict rather than first-match."
+    },
+    {
+      "id": "locator-wait-for-function.spec.ts > should throw when predicate throws",
+      "method": "Locator.waitForFunction",
+      "evidence": "A throwing predicate rejects the wait with the thrown message instead of being retried until the timeout."
+    },
+    {
+      "id": "locator-wait-for-function.spec.ts > should wait for an attribute to appear",
+      "method": "Locator.waitForFunction",
+      "evidence": "The predicate is false until a 1s timer adds aria-expanded; the wait resolves only after it appears, proving Locator.waitForFunction keeps polling the predicate rather than reading it once."
+    },
+    {
+      "id": "locator-wait-for-function.spec.ts > should wait for element to appear and survive rerender",
+      "method": "Locator.waitForFunction",
+      "evidence": "The locator matches nothing at first and its element is replaced on every tick; the wait still resolves on the third render, proving the selector is re-resolved on every poll."
+    },
+    {
       "id": "page-add-script-tag.spec.ts > should throw a nice error when the request fails",
       "method": "Page.addScriptTag",
       "evidence": "A url the server does not serve rejects with a message naming that exact url, so the failure is the script load the adapter awaited."

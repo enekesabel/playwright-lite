@@ -240,7 +240,7 @@ Targets Playwright **1.62.1**. Statuses describe API compatibility within the ru
 | [`type`](https://playwright.dev/docs/api/class-locator#locator-type)                                         |   ✅   |                                                                                                                                                                          |
 | [`uncheck`](https://playwright.dev/docs/api/class-locator#locator-uncheck)                                   |   ✅   |                                                                                                                                                                          |
 | [`waitFor`](https://playwright.dev/docs/api/class-locator#locator-wait-for)                                  |   ✅   |                                                                                                                                                                          |
-| [`waitForFunction`](https://playwright.dev/docs/api/class-locator#locator-wait-for-function)                 |   ❌   |                                                                                                                                                                          |
+| [`waitForFunction`](https://playwright.dev/docs/api/class-locator#locator-wait-for-function)                 |   ⚠️   | A promise returned by the page function is awaited before its value is judged; Playwright treats the returned promise object itself as truthy and stops waiting.         |
 
 ### ElementHandle compatibility
 

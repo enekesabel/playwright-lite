@@ -1,8 +1,63 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- intentional casts to test runtime validation */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
+import { ADAPTER_TIMEOUT_ERROR } from "../../src/errors";
 import { AdapterJSHandle } from "../../src/jsHandle";
 import { createPage } from "../../src/index";
+
+afterEach(() => {
+  document.body.innerHTML = "";
+});
+
+describe("Locator.waitForFunction", () => {
+  it("rejects options the pinned member does not take", async () => {
+    document.body.innerHTML = '<div id="target">yes</div>';
+    const page = createPage();
+    await expect(
+      (page.locator("#target") as any).waitForFunction(() => true, undefined, {
+        polling: 10,
+      })
+    ).rejects.toThrow(
+      "waitForFunction(): unsupported Playwright option(s): polling."
+    );
+  });
+
+  it("rejects a signal that is not an AbortSignal", async () => {
+    document.body.innerHTML = '<div id="target">yes</div>';
+    const page = createPage();
+    await expect(
+      (page.locator("#target") as any).waitForFunction(() => true, undefined, {
+        signal: "nope",
+      })
+    ).rejects.toThrow("waitForFunction signal must be an AbortSignal");
+  });
+
+  it("names the locator in its timeout error", async () => {
+    const page = createPage();
+    const error: Error = await page
+      .locator("#missing")
+      .waitForFunction(() => true, undefined, { timeout: 20 })
+      .then(() => {
+        throw new Error("Expected a timeout");
+      })
+      .catch((error: Error) => error);
+    expect(error.name).toBe("TimeoutError");
+    expect((error as any)[ADAPTER_TIMEOUT_ERROR]).toBe(true);
+    expect(error.message).toBe(
+      "locator.waitForFunction: Timeout 20ms exceeded.\n" +
+        "Call log:\n  - waiting for locator('#missing')"
+    );
+  });
+
+  it("applies the page default timeout", async () => {
+    document.body.innerHTML = '<div id="target">no</div>';
+    const page = createPage();
+    page.setDefaultTimeout(20);
+    await expect(
+      page.locator("#target").waitForFunction((element) => element.id === "x")
+    ).rejects.toThrow("Timeout 20ms exceeded");
+  });
+});
 
 describe("Page.waitForFunction", () => {
   it("resolves immediately with AdapterJSHandle", async () => {
