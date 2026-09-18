@@ -741,9 +741,11 @@ test("evaluateHandle, getProperty and getProperties republish the adapter's own 
   });
 
   const handle = await (adapterPage as any).evaluateHandle(
-    (a: string) => a + "!",
+    (a: string) => ((window.location.hash = "handle"), a + "!"),
     "sentinel"
   );
+  // Handle routes refresh the synchronous url facade like every other member.
+  expect(adapterPage.url()).toBe(page.url());
   // toString() is synchronous in Playwright's API: it replays the description
   // the adapter gave when the handle was created.
   expect(handle.toString()).toBe("JSHandle@browser");
@@ -964,10 +966,15 @@ test("adapter evaluate can mutate the DOM", async ({ page, adapterPage }) => {
 // ── W-27: waitForFunction through the adapter bridge ───────────────
 
 test("adapter waitForFunction resolves with handle.jsonValue()", async ({
+  page,
   adapterPage,
 }) => {
-  const handle = await (adapterPage as any).waitForFunction(() => 42);
+  const handle = await (adapterPage as any).waitForFunction(
+    () => ((window.location.hash = "waited"), 42)
+  );
   expect(await handle.jsonValue()).toBe(42);
+  // Handle routes refresh the synchronous url facade like every other member.
+  expect(adapterPage.url()).toBe(page.url());
 });
 
 test("adapter waitForFunction false predicate times out", async ({

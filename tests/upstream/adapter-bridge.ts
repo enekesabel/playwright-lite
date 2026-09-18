@@ -803,12 +803,12 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
 
       if (prop === "evaluateHandle") {
         return async (pageFunction: unknown, arg?: unknown) => {
-          const id = await evaluateAdapter<string>(
+          const result = await evaluateAdapter<{ id: string; url: string }>(
             realPage,
             ({ expression, isFunction, arg: a }) => {
               const host = window as any;
-              return host.__pwLiteInvokeAdapter(async () =>
-                host.__pwLiteStoreElementHandle(
+              return host.__pwLiteInvokeAdapter(async () => ({
+                id: host.__pwLiteStoreElementHandle(
                   await host.__pwLiteAdapterPage.evaluateHandle(
                     isFunction
                       ? host.__pwLiteReconstructFunction(expression)
@@ -816,8 +816,9 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
                     host.__pwLiteDecodeBridgeValue(a)
                   ),
                   "JSHandle"
-                )
-              );
+                ),
+                url: host.__pwLiteAdapterPage.url(),
+              }));
             },
             {
               expression: String(pageFunction),
@@ -825,7 +826,8 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
               arg: encodeBridgeValueForPage(arg, realPage),
             }
           );
-          return createElementHandleProxy(realPage, state, id);
+          state.url = result.url;
+          return createElementHandleProxy(realPage, state, result.id);
         };
       }
 
@@ -835,7 +837,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
           arg?: unknown,
           options?: unknown
         ) => {
-          const id = await evaluateAdapter<string>(
+          const result = await evaluateAdapter<{ id: string; url: string }>(
             realPage,
             ({ expression, isFunction, arg: a, options: opts }) => {
               const host = window as any;
@@ -847,7 +849,10 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
                   host.__pwLiteDecodeBridgeValue(a),
                   host.__pwLiteDecodeBridgeValue(opts)
                 );
-                return host.__pwLiteStoreElementHandle(handle, "JSHandle");
+                return {
+                  id: host.__pwLiteStoreElementHandle(handle, "JSHandle"),
+                  url: host.__pwLiteAdapterPage.url(),
+                };
               });
             },
             {
@@ -860,7 +865,8 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
               >,
             }
           );
-          return createElementHandleProxy(realPage, state, id);
+          state.url = result.url;
+          return createElementHandleProxy(realPage, state, result.id);
         };
       }
 
