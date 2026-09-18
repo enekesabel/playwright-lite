@@ -63,6 +63,7 @@ export function parseReport(report) {
           id: stableTestId(file, [...titlePath, spec.title]),
           status: result.status,
           file: filename,
+          titlePath: [...titlePath, spec.title].filter(Boolean),
           error: result.error?.message ?? result.errors?.[0]?.message ?? null,
           execution: JSON.parse(
             (test.annotations ?? []).find((a) => a.type === "adapter-execution")
@@ -437,16 +438,21 @@ function writeSabotageConfig(method) {
 }
 
 /**
- * Resolve the spec file and escaped --grep pattern for a promotion id,
- * splitting at the first " > " only so a test title that itself contains
- * " > " (e.g. a selector combinator in the title) survives intact.
+ * Build the --grep pattern for a test's title path (its enclosing
+ * `test.describe` titles, in order, followed by its own title).
+ *
+ * The serialized "file > title" id is ambiguous when a describe title or the
+ * test title itself contains " > ", so the rerun greps from the report's
+ * structured title path instead of reparsing the id.
+ *
+ * This reproduces what Playwright 1.62.1 matches --grep against:
+ * `_grepTitleWithTags()` (playwright/lib/common/index.js) joins the test's
+ * full title path (including project and file segments, which precede ours)
+ * with tags appended after. The match is unanchored, so our escaped title
+ * path alone still matches as a substring — tags never need to be included.
  */
-export function sabotageRerunTarget(id) {
-  const separatorIndex = id.indexOf(" > ");
-  const file = separatorIndex === -1 ? id : id.slice(0, separatorIndex);
-  const title =
-    separatorIndex === -1 ? "" : id.slice(separatorIndex + " > ".length);
-  return { file, grep: title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") };
+export function sabotageGrep(titlePath) {
+  return titlePath.join(" ").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -454,16 +460,15 @@ export function sabotageRerunTarget(id) {
  * makes the in-browser adapter dispatch for that method throw instead of
  * executing it.
  */
-function runSabotaged(id, method) {
-  const { file, grep } = sabotageRerunTarget(id);
-  console.log(`\nRerunning ${id} with ${method} sabotaged…`);
+function runSabotaged(entry, method) {
+  console.log(`\nRerunning ${entry.id} with ${method} sabotaged…`);
   writeSabotageConfig(method);
   runPlaywright(
     [
       `--config=${SABOTAGE_CONFIG_PATH}`,
-      resolve(PKG_ROOT, `tests/upstream/${file}`),
+      resolve(PKG_ROOT, `tests/upstream/${entry.file}`),
       "--grep",
-      grep,
+      sabotageGrep(entry.titlePath),
     ],
     SABOTAGE_REPORT_PATH
   );
@@ -535,8 +540,10 @@ function doUpdate(entries) {
     throw new Error(
       "Resolve existing baseline regressions before promoting tests."
     );
-  for (const { id, method } of promotions)
-    sabotageVerdict(runSabotaged(id, method), id, method);
+  for (const { id, method } of promotions) {
+    const entry = entries.find((entry) => entry.id === id);
+    sabotageVerdict(runSabotaged(entry, method), id, method);
+  }
   const reviewed = [
     ...previous.reviewed.filter(
       (entry) => !promotions.some((p) => p.id === entry.id)

@@ -8,7 +8,7 @@ import {
   reviewedPromotion,
   failurePhase,
   sabotageVerdict,
-  sabotageRerunTarget,
+  sabotageGrep,
 } from "./upstream-baseline.mjs";
 
 // ── parseReport ─────────────────────────────────────────────────────
@@ -335,6 +335,7 @@ describe("parseReport", () => {
 
     const entries = parseReport(report);
     assert.equal(entries[0].id, "foo.spec.ts > describe block > nested test");
+    assert.deepEqual(entries[0].titlePath, ["describe block", "nested test"]);
   });
 
   it("reads observed outcomes of tests the harness expects to fail", () => {
@@ -571,26 +572,31 @@ describe("compareBaseline", () => {
   });
 });
 
-// ── sabotageRerunTarget ─────────────────────────────────────────────
+// ── sabotageGrep ────────────────────────────────────────────────────
 
-describe("sabotageRerunTarget", () => {
-  it("splits an id into its spec file and title", () => {
-    const result = sabotageRerunTarget("locator-click.spec.ts > should click");
-    assert.equal(result.file, "locator-click.spec.ts");
-    assert.equal(result.grep, "should click");
+describe("sabotageGrep", () => {
+  it("greps a plain title with no enclosing describe", () => {
+    assert.equal(sabotageGrep(["should click"]), "should click");
+  });
+
+  it("joins a nested describe's title path with spaces", () => {
+    assert.equal(
+      sabotageGrep(["toHaveText with regex", "pass"]),
+      "toHaveText with regex pass"
+    );
   });
 
   it("keeps a title that itself contains the id separator intact", () => {
-    const result = sabotageRerunTarget(
-      "selectors-css.spec.ts > should work with > combinator and spaces"
+    assert.equal(
+      sabotageGrep(["should work with > combinator and spaces"]),
+      "should work with > combinator and spaces"
     );
-    assert.equal(result.file, "selectors-css.spec.ts");
-    assert.equal(result.grep, "should work with > combinator and spaces");
   });
 
   it("escapes regex metacharacters in the title", () => {
-    const result = sabotageRerunTarget("a.spec.ts > should handle a.b (c)");
-    assert.equal(result.file, "a.spec.ts");
-    assert.equal(result.grep, "should handle a\\.b \\(c\\)");
+    assert.equal(
+      sabotageGrep(["should handle a.b (c)"]),
+      "should handle a\\.b \\(c\\)"
+    );
   });
 });
