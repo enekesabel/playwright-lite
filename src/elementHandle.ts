@@ -1,8 +1,12 @@
-import { assertEvaluationOptions, assertMaxArguments } from "./evaluation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
+import {
+  AdapterJSHandle,
+  assertEvaluationOptions,
+  assertMaxArguments,
+} from "./jsHandle";
 import { rejectUnsupportedOptions, validateForce } from "./protocolValidation";
 import type { InputFiles } from "./inputFiles";
-import type { PageImpl, SelectOptionValue } from "./page";
+import type { PageImpl, SelectOptionValues } from "./page";
 import { withAbortPrefix } from "./page";
 import type { ElementHandle } from "@playwright/test";
 
@@ -12,18 +16,22 @@ type ElementHandleSelectorWaitOptions = ElementHandleWaitOptions & {
 };
 
 /**
- * A browser-native, fixed reference to one element in the controlled document.
+ * A browser-native, fixed reference to one node in the controlled document.
  *
- * This deliberately is not a Locator: selector operations below remain scoped
- * to `element`, even after the document replaces a matching node.
+ * Pinned dom.ts:120 derives ElementHandle from JSHandle; the node members below
+ * extend the handle members with it. This deliberately is not a Locator:
+ * selector operations remain scoped to `element`, even after the document
+ * replaces a matching node.
  */
-export class AdapterElementHandle {
-  private disposed = false;
+export class AdapterElementHandle extends AdapterJSHandle<Element> {
+  protected override readonly disposedError = "ElementHandle has been disposed";
 
   constructor(
     private readonly ownerPage: PageImpl,
-    private element: Element | undefined
-  ) {}
+    element: Element
+  ) {
+    super(element, ownerPage.evaluation);
+  }
 
   async click(options?: Parameters<ElementHandle["click"]>[0]): Promise<void> {
     await this.ownerPage.clickSelector(
@@ -146,7 +154,7 @@ export class AdapterElementHandle {
   }
 
   async selectOption(
-    values: string | SelectOptionValue | (string | SelectOptionValue)[] | null,
+    values: SelectOptionValues,
     options?: Parameters<ElementHandle["selectOption"]>[1]
   ): Promise<string[]> {
     rejectUnsupportedOptions("selectOption", options, [
@@ -313,7 +321,7 @@ export class AdapterElementHandle {
     );
   }
 
-  async evaluate<T>(
+  override async evaluate<T>(
     pageFunction: EvaluationFunction<T>,
     arg?: unknown,
     options?: EvaluationOptions
@@ -326,6 +334,11 @@ export class AdapterElementHandle {
       arg,
       this.requireElement()
     );
+  }
+
+  /** Kept here so releasing a node is attributed to ElementHandle. */
+  override async dispose(): Promise<void> {
+    await super.dispose();
   }
 
   async textContent(): Promise<string | null> {
@@ -351,8 +364,19 @@ export class AdapterElementHandle {
     return this.ownerPage.inputValueForElement(this.requireElement());
   }
 
-  asElement(): AdapterElementHandle {
+  override asElement(): AdapterElementHandle {
     return this;
+  }
+
+  /** Pinned dom.ts:135 previews a node through the injected script. */
+  protected override computePreview(): string {
+    try {
+      return `JSHandle@${this.ownerPage.previewNode(this.requireElement())}`;
+    } catch {
+      // Pinned dom.ts:129 leaves the JSHandle constructor preview in place when
+      // the injected preview fails.
+      return "JSHandle@node";
+    }
   }
 
   async isEnabled(): Promise<boolean> {
@@ -423,21 +447,7 @@ export class AdapterElementHandle {
     );
   }
 
-  async dispose(): Promise<void> {
-    this.disposed = true;
-    this.element = undefined;
-  }
-
-  /** Internal boundary used only by Page evaluation argument unwrapping. */
-  elementForEvaluation(ownerPage: PageImpl): Element {
-    if (ownerPage !== this.ownerPage)
-      throw new Error("ElementHandle belongs to a different Page");
-    return this.requireElement();
-  }
-
   private requireElement(): Element {
-    if (this.disposed) throw new Error("ElementHandle has been disposed");
-    if (!this.element) throw new Error("ElementHandle has been disposed");
-    return this.element;
+    return this.valueForEvaluation(this.ownerPage.evaluation);
   }
 }

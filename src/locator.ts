@@ -1,5 +1,5 @@
 import type { Locator } from "@playwright/test";
-import { assertMaxArguments } from "./evaluation";
+import { AdapterJSHandle, assertMaxArguments } from "./jsHandle";
 import { rejectUnsupportedOptions, validateForce } from "./protocolValidation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import type {
@@ -7,7 +7,7 @@ import type {
   LocatorQueryOptions,
   LocatorVisibilityOptions,
   PageImpl,
-  SelectOptionValue,
+  SelectOptionValues,
 } from "./page";
 import { withAbortPrefix } from "./page";
 import { AdapterElementHandle } from "./elementHandle";
@@ -437,6 +437,23 @@ export class LocatorImpl {
     );
   }
 
+  async evaluateHandle(
+    pageFunction: EvaluationFunction,
+    arg?: unknown,
+    options?: LocatorQueryOptions & EvaluationOptions
+  ): Promise<AdapterJSHandle> {
+    assertMaxArguments(arguments.length, 3);
+    return withAbortPrefix("locator.evaluateHandle", () =>
+      this.ownerPage.locatorEvaluateHandle(
+        this.selector,
+        this.label,
+        pageFunction,
+        arg,
+        options
+      )
+    );
+  }
+
   async evaluateAll<R>(
     pageFunction: EvaluationFunction<R>,
     arg?: unknown
@@ -639,7 +656,7 @@ export class LocatorImpl {
   }
 
   async selectOption(
-    values: string | SelectOptionValue | (string | SelectOptionValue)[] | null,
+    values: SelectOptionValues,
     options?: LocatorForcibleActionWithNoWaitAfterOptions
   ) {
     rejectUnsupportedOptions("selectOption", options, [

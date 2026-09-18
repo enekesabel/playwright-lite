@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- intentional casts to test runtime validation */
 import { describe, expect, it } from "vitest";
 
-import { AdapterJSHandle } from "../../src/evaluation";
+import { AdapterJSHandle } from "../../src/jsHandle";
 import { createPage } from "../../src/index";
 
 describe("Page.waitForFunction", () => {
@@ -10,6 +10,25 @@ describe("Page.waitForFunction", () => {
     const handle = await (page as any).waitForFunction(() => 42);
     expect(handle).toBeInstanceOf(AdapterJSHandle);
     expect(await handle.jsonValue()).toBe(42);
+  });
+
+  it("resolves with an element handle when the predicate returns a node", async () => {
+    document.body.innerHTML = "";
+    const page = createPage();
+    window.setTimeout(
+      () => (document.body.innerHTML = '<p id="ready">Ready</p>'),
+      10
+    );
+
+    const handle = await page.waitForFunction(
+      () => document.querySelector("#ready"),
+      undefined,
+      { polling: 5 }
+    );
+
+    const element = handle.asElement();
+    expect(element).toBe(handle);
+    await expect(element!.textContent()).resolves.toBe("Ready");
   });
 
   it("polls until the predicate becomes truthy", async () => {
