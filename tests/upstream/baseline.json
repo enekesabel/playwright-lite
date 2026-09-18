@@ -551,6 +551,101 @@
       "evidence": "'xpath=/html/body/section' resolves through the XPath engine and Page.$eval returns the element's id."
     },
     {
+      "id": "jshandle-as-element.spec.ts > should return ElementHandle for TextNodes",
+      "method": "JSHandle.asElement",
+      "evidence": "A handle to a Text node is an element handle, and passing it back into Page.evaluate reports nodeType TEXT_NODE, so asElement covers every Node and not only Elements. Native setContent only establishes the document; the asserted calls run in the adapter."
+    },
+    {
+      "id": "jshandle-as-element.spec.ts > should return null for non-elements",
+      "method": "JSHandle.asElement",
+      "evidence": "A handle to the number 2 answers asElement() with null, so element-ness is decided from the referenced value instead of from the handle itself."
+    },
+    {
+      "id": "jshandle-as-element.spec.ts > should work @smoke",
+      "method": "JSHandle.asElement",
+      "evidence": "A handle to document.body reports itself as an element: evaluateHandle produced an element handle for a node value, and asElement returns that same handle."
+    },
+    {
+      "id": "jshandle-as-element.spec.ts > should work with nullified Node",
+      "method": "JSHandle.asElement",
+      "evidence": "After the page deletes window.Node, a handle to a <section> still reports an element, so the node test uses the Node constructor captured when the adapter started rather than the live global. Native setContent only establishes the document."
+    },
+    {
+      "id": "jshandle-evaluate.spec.ts > should work with function @smoke",
+      "method": "JSHandle.evaluate",
+      "evidence": "Evaluating a callback against a handle to window returns window.foo as [1, 2]: the handle's value is passed to the page function as its first argument and the result comes back by value."
+    },
+    {
+      "id": "jshandle-json-value.spec.ts > should handle circular objects",
+      "method": "JSHandle.jsonValue",
+      "evidence": "jsonValue() on a handle to a self-referencing object reproduces the cycle instead of throwing, which is the pinned serializer's reference handling."
+    },
+    {
+      "id": "jshandle-json-value.spec.ts > should work @smoke",
+      "method": "JSHandle.jsonValue",
+      "evidence": "jsonValue() on a handle to { foo: 'bar' } returns that object by value, so the handle's value is copied out through the pinned serializer."
+    },
+    {
+      "id": "jshandle-json-value.spec.ts > should work with dates",
+      "method": "JSHandle.jsonValue",
+      "evidence": "jsonValue() on a handle to a Date returns a Date whose toJSON() is the original ISO string, so the serializer's date branch survives the handle boundary."
+    },
+    {
+      "id": "jshandle-properties.spec.ts > getProperties should return empty map for non-objects",
+      "method": "JSHandle.getProperties",
+      "evidence": "A handle to the number 123 enumerates no properties, matching the pinned server's empty map for a value with no remote object behind it."
+    },
+    {
+      "id": "jshandle-properties.spec.ts > getProperties should return even non-own properties",
+      "method": "JSHandle.getProperties",
+      "evidence": "Both fields a class assigns, one in its base constructor and one in its own, are enumerated on the instance handle."
+    },
+    {
+      "id": "jshandle-properties.spec.ts > getProperties should work",
+      "method": "JSHandle.getProperties",
+      "evidence": "getProperties() returns a Map from own enumerable property name to a handle: 'foo' resolves to a handle whose jsonValue() is 'bar'."
+    },
+    {
+      "id": "jshandle-properties.spec.ts > getProperties should work with elements",
+      "method": "JSHandle.getProperties",
+      "evidence": "A property holding document.body comes back as an element handle whose textContent() reads 'Hello', so a node-valued property becomes an ElementHandle. Native setContent only establishes the document."
+    },
+    {
+      "id": "jshandle-properties.spec.ts > should work @smoke",
+      "method": "JSHandle.getProperty",
+      "evidence": "getProperty('two') returns another handle whose jsonValue() is 2, so a property read yields a handle to the property's value rather than a copy of the object."
+    },
+    {
+      "id": "jshandle-properties.spec.ts > should work with undefined, null, and empty",
+      "method": "JSHandle.getProperty",
+      "evidence": "getProperty answers for an explicit undefined, an explicit null and a missing property alike: all three return handles whose jsonValue() is undefined, null and undefined."
+    },
+    {
+      "id": "jshandle-properties.spec.ts > should work with unserializable values",
+      "method": "JSHandle.getProperty",
+      "evidence": "Handles for the Infinity, -Infinity, NaN and -0 properties round-trip those values through jsonValue(), so the unserializable-value encoding survives a property read."
+    },
+    {
+      "id": "jshandle-to-string.spec.ts > should work for complicated objects",
+      "method": "JSHandle.toString",
+      "evidence": "A handle to window prints 'Window', the object description Chromium reports for the global object."
+    },
+    {
+      "id": "jshandle-to-string.spec.ts > should work for primitives",
+      "method": "JSHandle.toString",
+      "evidence": "Handles to 2 and to 'a' print '2' and 'a', the preview the pinned client shows for a value that has no remote object."
+    },
+    {
+      "id": "jshandle-to-string.spec.ts > should work for promises",
+      "method": "JSHandle.toString",
+      "evidence": "A handle to a promise held in an object property prints 'Promise', so the preview describes the property's own value."
+    },
+    {
+      "id": "jshandle-to-string.spec.ts > should work with previewable subtypes",
+      "method": "JSHandle.toString",
+      "evidence": "Handles to /foo/, new Date(0) and new Int32Array() print '/foo/', a date string containing GMT and a text containing 'Int32Array', matching Chromium's descriptions for those subtypes."
+    },
+    {
       "id": "locator-click.spec.ts > should click if the target element is removed in pointerdown event",
       "method": "Locator.click",
       "evidence": "Awaiting Locator.click completes without rejection when the target element is removed in pointerdown event."
@@ -1766,6 +1861,16 @@
       "evidence": "A disabled-button trial rejects with a trial-run action log at its short deadline and never activates the button."
     },
     {
+      "id": "page-dispatchevent.spec.ts > should dispatch drag drop events",
+      "method": "Page.dispatchEvent",
+      "evidence": "A DataTransfer handle inside eventInit is unwrapped to the DataTransfer object, so the dispatched dragstart and drop share one transfer and the source really moves into the target. Native goto only establishes the document."
+    },
+    {
+      "id": "page-dispatchevent.spec.ts > should dispatch drag drop events via ElementHandles",
+      "method": "ElementHandle.dispatchEvent",
+      "evidence": "The same drag and drop dispatched from element handles unwraps the DataTransfer handle in their eventInit and moves the source into the target. Native goto only establishes the document."
+    },
+    {
       "id": "page-drop.spec.ts > should drop a file payload",
       "method": "Locator.drop",
       "evidence": "The drop handler reads one DataTransfer file with the dropped name, MIME type, size and text, so the adapter built the payload and dispatched the drop."
@@ -1794,6 +1899,61 @@
       "id": "page-drop.spec.ts > should throw when target does not accept drop",
       "method": "Locator.drop",
       "evidence": "A dragover handler that does not call preventDefault makes drop reject with the pinned drop-target-did-not-accept message instead of dispatching drop."
+    },
+    {
+      "id": "page-evaluate-handle.spec.ts > should accept multiple nested handles",
+      "method": "Page.evaluate",
+      "evidence": "Three handles nested at different depths of one argument are each replaced by their values in place."
+    },
+    {
+      "id": "page-evaluate-handle.spec.ts > should accept nested handle",
+      "method": "Page.evaluate",
+      "evidence": "A handle nested inside a plain object argument is replaced by its value while the containing object is copied around it."
+    },
+    {
+      "id": "page-evaluate-handle.spec.ts > should accept nested window handle",
+      "method": "Page.evaluate",
+      "evidence": "A nested handle to window arrives as the same window object, so the argument carries the reference and not a copy."
+    },
+    {
+      "id": "page-evaluate-handle.spec.ts > should accept object handle as an argument",
+      "method": "Page.evaluate",
+      "evidence": "A handle to navigator passed as the argument arrives as the navigator object itself, whose userAgent contains 'Mozilla'."
+    },
+    {
+      "id": "page-evaluate-handle.spec.ts > should accept object handle to primitive types",
+      "method": "Page.evaluate",
+      "evidence": "A handle to the number 5 arrives as 5 under Object.is, so a handle to a primitive is unwrapped to its value."
+    },
+    {
+      "id": "page-evaluate-handle.spec.ts > should accept object handle to unserializable value",
+      "method": "Page.evaluate",
+      "evidence": "A handle to Infinity arrives as Infinity under Object.is, a value the by-value argument path cannot carry on its own."
+    },
+    {
+      "id": "page-evaluate-handle.spec.ts > should accept same handle multiple times",
+      "method": "Page.evaluate",
+      "evidence": "One handle referenced three times in the same argument is unwrapped at every position."
+    },
+    {
+      "id": "page-evaluate-handle.spec.ts > should accept same nested object multiple times",
+      "method": "Page.evaluate",
+      "evidence": "A plain object referenced three times in one argument arrives with its value at each position."
+    },
+    {
+      "id": "page-evaluate-handle.spec.ts > should pass configurable args",
+      "method": "Page.evaluate",
+      "evidence": "The argument the page function receives is a fresh writable and configurable object: the callback overwrites its property, deletes it, and returns the emptied object."
+    },
+    {
+      "id": "page-evaluate-handle.spec.ts > should work",
+      "method": "Page.evaluateHandle",
+      "evidence": "evaluateHandle resolves with a handle object for window instead of a by-value copy, which Page.evaluate cannot return."
+    },
+    {
+      "id": "page-evaluate-handle.spec.ts > should work with primitives",
+      "method": "Page.evaluate",
+      "evidence": "A handle to window returns the property that the evaluateHandle callback set on window, so the handle keeps referencing the live object across calls."
     },
     {
       "id": "page-evaluate.spec.ts > should accept \"undefined\" as one of multiple parameters",
@@ -1866,6 +2026,16 @@
       "evidence": "Returned objects whose toJSON method and whose toJSON getter both throw serialize to {} instead of propagating those throws, so Page.evaluate's result serializer never invokes a page-supplied toJSON."
     },
     {
+      "id": "page-evaluate.spec.ts > should jsonValue() date",
+      "method": "JSHandle.jsonValue",
+      "evidence": "jsonValue() on a handle to { date } returns an object holding a Date with the same time value."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should jsonValue() url",
+      "method": "JSHandle.jsonValue",
+      "evidence": "jsonValue() on a handle to { url } returns an object holding an equal URL, which the pinned serializer encodes as its own type."
+    },
+    {
       "id": "page-evaluate.spec.ts > should modify global environment",
       "method": "Page.evaluate",
       "evidence": "One Page.evaluate assigns window.globalVar = 123 and a later Page.evaluate('globalVar') reads back 123, so both calls run against the same document global scope."
@@ -1894,6 +2064,11 @@
       "id": "page-evaluate.spec.ts > should not use Array.prototype.toJSON when evaluating",
       "method": "Page.evaluate",
       "evidence": "With Array.prototype.toJSON replaced by a function returning 'busted', the returned [1, 2, 3] still arrives as [1, 2, 3], so Page.evaluate ignores a page-defined Array toJSON."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should not use toJSON in jsonValue",
+      "method": "JSHandle.jsonValue",
+      "evidence": "An object with a toJSON method is copied out by its own properties, with toJSON itself arriving as {}, so jsonValue() does not call toJSON."
     },
     {
       "id": "page-evaluate.spec.ts > should not use toJSON when evaluating",
@@ -2329,6 +2504,11 @@
       "id": "page-localstorage.spec.ts > sessionStorage round-trip",
       "method": "Page.sessionStorage.setItem",
       "evidence": "The unchanged test checks empty enumeration, both written values, getItem, selective removal and final clear through the browser sessionStorage wrapper. Native goto establishes the origin and is not certified."
+    },
+    {
+      "id": "page-select-option.spec.ts > should select single option by handle",
+      "method": "Page.selectOption",
+      "evidence": "An ElementHandle to the white <option> selects it and fires input and change with 'white', so a handle value is matched as the option node itself. Native goto only establishes the document."
     },
     {
       "id": "page-select-option.spec.ts > should throw if passed wrong types",
