@@ -55,7 +55,7 @@ const outOfScope = (limitations: string): CompatibilityEntry => ({
  * browser runtime.
  */
 export const elementHandleLimitations =
-  "Returned `ElementHandle` objects do not implement `contentFrame()`, `ownerFrame()`, `screenshot()`, `tap()`, `evaluateHandle()`, `jsonValue()`, `getProperties()`, `getProperty()`, or `[Symbol.asyncDispose]()`. Their `$()` ignores `strict`; `click()` does not wait for navigation; `waitForSelector()` rejects `strict`; `evaluate()` rejects `exposeFunctions: true`. The `JSHandle` returned by `waitForFunction()` does not implement `asElement()`, `evaluate()`, `evaluateHandle()`, `getProperties()`, `getProperty()`, or `[Symbol.asyncDispose]()`.";
+  "Returned `ElementHandle` objects do not implement `contentFrame()`, `ownerFrame()`, `screenshot()`, or `tap()`. Their `$()` ignores `strict`; `click()` does not wait for navigation; `waitForSelector()` rejects `strict`; `evaluate()` rejects `exposeFunctions: true`. A returned `JSHandle` or `ElementHandle` builds its `toString()` preview from the referenced value inside the document instead of reading a browser-process object description: the preview describes the value as it is when the handle is first converted to a string, and a handle to a `Proxy` prints the target's class name, such as `Object`, where Playwright prints `Proxy(Object)`.";
 
 export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),
@@ -96,13 +96,13 @@ export const pageLedger = {
   context: undecided(),
   coverage: undecided(),
   dblclick: implemented(),
-  dispatchEvent: partial(
-    "`JSHandle`/`ElementHandle` values in `eventInit` are not unwrapped."
-  ),
+  dispatchEvent: implemented(),
   dragAndDrop: undecided(),
   emulateMedia: undecided(),
   evaluate: partial("Rejects `exposeFunctions: true`."),
-  evaluateHandle: undecided(),
+  evaluateHandle: partial(
+    "Rejects `exposeFunctions: true`. The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
+  ),
   exposeBinding: undecided(),
   exposeFunction: undecided(),
   fill: implemented(),
@@ -184,7 +184,7 @@ export const pageLedger = {
   routeWebSocket: undecided(),
   screencast: undecided(),
   screenshot: undecided(),
-  selectOption: partial("`ElementHandle` option values are unsupported."),
+  selectOption: implemented(),
   sessionStorage: implemented("Native current-window Storage only."),
   setChecked: implemented(),
   setContent: outOfScope("Document replacement is excluded."),
@@ -210,7 +210,7 @@ export const pageLedger = {
     "Only console and pageerror are planned; other events remain undecided."
   ),
   waitForFunction: partial(
-    "The returned handle implements only `jsonValue()` and `dispose()`, even when the predicate returns a DOM node; see [ElementHandle compatibility](#elementhandle-compatibility)."
+    "The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   waitForLoadState: undecided(),
   waitForNavigation: undecided(),
@@ -246,9 +246,7 @@ export const locatorLedger = {
   description: partial(
     "`describe('').description()` returns `''` instead of `null`; `describe('x').filter({}).description()` returns `null` instead of `'x'`."
   ),
-  dispatchEvent: partial(
-    "`JSHandle`/`ElementHandle` values in `eventInit` are not unwrapped."
-  ),
+  dispatchEvent: implemented(),
   dragTo: undecided(),
   drop: partial(
     "Accepts only in-memory `{ name, mimeType, buffer }` file payloads; file paths are unsupported. Empty `mimeType` throws instead of inferring a MIME type."
@@ -263,7 +261,9 @@ export const locatorLedger = {
   evaluateAll: implemented(
     "Uses the pinned Playwright by-value argument and result serializers."
   ),
-  evaluateHandle: undecided(),
+  evaluateHandle: partial(
+    "Rejects `exposeFunctions: true`. The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
+  ),
   fill: implemented(),
   filter: implemented(),
   first: implemented(),
@@ -305,7 +305,7 @@ export const locatorLedger = {
   pressSequentially: implemented(),
   screenshot: undecided(),
   scrollIntoViewIfNeeded: implemented(),
-  selectOption: partial("`ElementHandle` option values are unsupported."),
+  selectOption: implemented(),
   selectText: implemented(),
   setChecked: implemented(),
   setInputFiles: partial(

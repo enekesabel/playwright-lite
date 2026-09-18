@@ -8,6 +8,7 @@ import {
 } from "virtual:playwright-lite-evaluation";
 
 import { AdapterElementHandle } from "./elementHandle";
+import { AdapterJSHandle } from "./jsHandle";
 import type { PageImpl } from "./page";
 
 export type EvaluationFunction<R = any> =
@@ -15,33 +16,22 @@ export type EvaluationFunction<R = any> =
 
 export type EvaluationOptions = { exposeFunctions?: boolean };
 
-const invalidArguments =
-  "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object.";
-
-export function assertEvaluationOptions(options?: EvaluationOptions): void {
-  if (
-    options !== undefined &&
-    (typeof options !== "object" || options === null || Array.isArray(options))
-  )
-    throw new Error(invalidArguments);
-  if (options?.exposeFunctions === true)
-    throw new Error("Unsupported Playwright option: evaluate.exposeFunctions");
-  if (
-    options?.exposeFunctions !== undefined &&
-    typeof options.exposeFunctions !== "boolean"
-  )
-    throw new Error("exposeFunctions must be a boolean");
-}
-
-export function assertMaxArguments(count: number, maximum: number): void {
-  if (count > maximum) throw new Error(invalidArguments);
-}
+/** The value an evaluation runs against: a `this` for the page function. */
+type EvaluationTarget = Element | Element[] | AdapterJSHandle;
 
 /** Uses the pinned UtilityScript for by-value calls without a browser protocol. */
 export class Evaluation {
   private utility: UtilityScript | undefined;
+  /**
+   * The pinned protocol reports a node as a remote-object subtype. In the
+   * document that test is `instanceof Node`, so the constructor is captured
+   * before a page script can delete the global.
+   */
+  private readonly node: typeof Node;
 
-  constructor(private readonly page: PageImpl) {}
+  constructor(private readonly page: PageImpl) {
+    this.node = page.window.Node;
+  }
 
   private get script(): UtilityScript {
     return (this.utility ??= new UtilityScript(this.page.window, false));
@@ -52,10 +42,7 @@ export class Evaluation {
     // the utility serializer replace them with the controlled browser objects.
     const references: unknown[] = [];
     const protocolValue = serializeValue(value, (candidate) => {
-      if (
-        candidate instanceof AdapterElementHandle ||
-        candidate instanceof AdapterJSHandle
-      ) {
+      if (candidate instanceof AdapterJSHandle) {
         references.push(candidate);
         return { h: references.length - 1 };
       }
@@ -64,10 +51,6 @@ export class Evaluation {
     const copy = parseSerializedValue(protocolValue, references);
     const handles: unknown[] = [];
     const serialized = serializeAsCallArgument(copy, (candidate) => {
-      if (candidate instanceof AdapterElementHandle) {
-        handles.push(candidate.elementForEvaluation(this.page));
-        return { h: handles.length - 1 };
-      }
       if (candidate instanceof AdapterJSHandle) {
         handles.push(candidate.valueForEvaluation(this));
         return { h: handles.length - 1 };
@@ -77,29 +60,72 @@ export class Evaluation {
     return { serialized, handles };
   }
 
+  /** Replaces the handles inside a protocol argument with their values. */
+  unwrapHandles(value: unknown): unknown {
+    const { serialized, handles } = this.argument(value);
+    return parseEvaluationResultValue(serialized, handles);
+  }
+
+  /** Pinned crExecutionContext.ts:142 answers a node with an ElementHandle. */
+  handleFor(value: unknown): AdapterJSHandle {
+    return value instanceof this.node
+      ? new AdapterElementHandle(this.page, value as Element)
+      : new AdapterJSHandle(value, this);
+  }
+
   async byValue<R>(
     expression: EvaluationFunction<R>,
     isFunction: boolean,
     arg?: unknown,
-    target?: Element | Element[]
+    target?: EvaluationTarget
   ): Promise<R> {
+    const result = await this.run(expression, isFunction, true, arg, target);
+    return protocolResult(parseEvaluationResultValue(result)) as R;
+  }
+
+  /**
+   * Pinned javascript.ts:249 evaluates with `returnByValue: false`, and the
+   * protocol's `awaitPromise` settles a returned promise before it hands back
+   * the handle.
+   */
+  async byHandle(
+    expression: EvaluationFunction,
+    isFunction: boolean,
+    arg?: unknown,
+    target?: EvaluationTarget
+  ): Promise<AdapterJSHandle> {
+    return this.handleFor(
+      await this.run(expression, isFunction, false, arg, target)
+    );
+  }
+
+  private async run(
+    expression: EvaluationFunction,
+    isFunction: boolean,
+    returnByValue: boolean,
+    arg: unknown,
+    target: EvaluationTarget | undefined
+  ): Promise<unknown> {
     const normalized = normalizeExpression(String(expression), isFunction);
     const { serialized, handles } = this.argument(arg);
     const parameters = [serialized];
     if (target !== undefined) {
-      handles.push(target);
+      handles.push(
+        target instanceof AdapterJSHandle
+          ? target.valueForEvaluation(this)
+          : target
+      );
       parameters.unshift({ h: handles.length - 1 });
     }
     try {
-      const result = await this.script.evaluate(
+      return await this.script.evaluate(
         isFunction,
-        true,
+        returnByValue,
         normalized,
         parameters.length,
         ...parameters,
         ...handles
       );
-      return protocolResult(parseEvaluationResultValue(result)) as R;
     } catch (error) {
       throw evaluationError(error);
     }
@@ -171,33 +197,4 @@ function evaluationError(error: unknown): Error {
   return new Error(
     error instanceof Error ? error.stack || String(error) : String(error)
   );
-}
-
-/** The existing waitForFunction handle. Additional JSHandle methods are unsupported. */
-export class AdapterJSHandle<T = unknown> {
-  private disposed = false;
-
-  constructor(
-    private value: T,
-    private readonly evaluation: Evaluation
-  ) {}
-
-  valueForEvaluation(evaluation: Evaluation): T {
-    if (this.evaluation !== evaluation)
-      throw new Error(
-        "JSHandles can be evaluated only in the context they were created!"
-      );
-    if (this.disposed) throw new Error("JSHandle is disposed!");
-    return this.value;
-  }
-
-  async jsonValue(): Promise<T> {
-    return this.evaluation.jsonValue(this.valueForEvaluation(this.evaluation));
-  }
-
-  async dispose(): Promise<void> {
-    // Playwright invalidates the protocol handle even for primitive values.
-    this.disposed = true;
-    this.value = undefined as T;
-  }
 }

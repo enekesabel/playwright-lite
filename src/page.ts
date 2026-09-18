@@ -1,10 +1,10 @@
+import { Evaluation } from "./evaluation";
+import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import {
-  Evaluation,
   AdapterJSHandle,
   assertEvaluationOptions,
   assertMaxArguments,
-} from "./evaluation";
-import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
+} from "./jsHandle";
 import {
   injectedScriptFor,
   parseAriaExpectation,
@@ -160,6 +160,14 @@ export type SelectOptionValue = {
   value?: string;
 };
 
+/** Pinned elementHandle.ts:241 also accepts handles to the option elements. */
+export type SelectOptionValues =
+  | string
+  | SelectOptionValue
+  | AdapterElementHandle
+  | (string | SelectOptionValue | AdapterElementHandle)[]
+  | null;
+
 type QueryCapableInjectedScript = {
   elementState(element: Element, state: QueryState): QueryStateResult;
   retarget(
@@ -206,7 +214,7 @@ type ActionableInjectedScript = {
   blurNode(element: Element): "error:notconnected" | "done";
   selectOptions(
     element: Element,
-    options: ({ valueOrLabel: string } | SelectOptionValue)[]
+    options: (Node | { valueOrLabel: string } | SelectOptionValue)[]
   ):
     | "error:notconnected"
     | "error:optionsnotfound"
@@ -300,6 +308,10 @@ export class PageImpl {
 
   elementHandleFor(element: Element | undefined): AdapterElementHandle | null {
     return element ? new AdapterElementHandle(this, element) : null;
+  }
+
+  previewNode(node: Node): string {
+    return this.injected.previewNode(node);
   }
 
   requireSingle(selector: string, label: string): Element {
@@ -914,7 +926,7 @@ export class PageImpl {
 
   async selectOptionSelector(
     selector: string | Element,
-    values: string | SelectOptionValue | (string | SelectOptionValue)[] | null,
+    values: SelectOptionValues,
     label: string,
     timeout?: number,
     deadline = this.createActionDeadline(timeout),
@@ -922,7 +934,7 @@ export class PageImpl {
     signal?: AbortSignal,
     force = false
   ): Promise<string[]> {
-    const options = selectOptionValues(values);
+    const options = selectOptionValues(values, this.evaluation);
     this.attachActionSignal(deadline, signal);
     let lastError: Error | undefined;
 
@@ -1578,7 +1590,7 @@ export class PageImpl {
 
   async selectOption(
     selector: string,
-    values: string | SelectOptionValue | (string | SelectOptionValue)[] | null,
+    values: SelectOptionValues,
     options?: PageForcibleActionOptions
   ): Promise<string[]> {
     assertPageActionOptions("selectOption", options, [
@@ -1682,13 +1694,16 @@ export class PageImpl {
     signal?: AbortSignal
   ): Promise<void> {
     this.attachActionSignal(deadline, signal);
+    // Pinned frames.ts parses the protocol argument before it resolves the
+    // target, which replaces the handles inside the event init with the values
+    // they reference.
+    const init = this.evaluation.unwrapHandles(eventInit) as object;
     await this.query(
       selector,
       label,
       { signal, timeout },
       strict,
-      (element) =>
-        this.actionableInjected.dispatchEvent(element, type, eventInit),
+      (element) => this.actionableInjected.dispatchEvent(element, type, init),
       deadline
     );
   }
@@ -1873,6 +1888,21 @@ export class PageImpl {
     );
   }
 
+  /** Keeps the result in the document, referenced by a handle. */
+  async evaluateHandle(
+    pageFunction: EvaluationFunction,
+    arg?: unknown,
+    options?: EvaluationOptions
+  ): Promise<AdapterJSHandle> {
+    assertMaxArguments(arguments.length, 3);
+    assertEvaluationOptions(options);
+    return this.evaluation.byHandle(
+      pageFunction,
+      typeof pageFunction === "function",
+      arg
+    );
+  }
+
   /** Evaluates through the pinned Playwright UtilityScript. */
   async $eval<T>(
     selector: string,
@@ -2045,7 +2075,7 @@ export class PageImpl {
                     if (aborted) return;
                     if (v) {
                       cleanup();
-                      resolve(new AdapterJSHandle(v, this.evaluation));
+                      resolve(this.evaluation.handleFor(v));
                     } else {
                       scheduleNext();
                     }
@@ -2060,7 +2090,7 @@ export class PageImpl {
               }
               if (result) {
                 cleanup();
-                resolve(new AdapterJSHandle(result, this.evaluation));
+                resolve(this.evaluation.handleFor(result));
                 return;
               }
             } catch (e) {
@@ -2368,23 +2398,46 @@ export class PageImpl {
     arg?: unknown,
     options?: LocatorQueryOptions & EvaluationOptions
   ): Promise<T> {
-    assertEvaluationOptions(options);
-    const { exposeFunctions: _exposeFunctions, ...queryOptions } =
-      options ?? {};
-    void _exposeFunctions;
-    const element = await this.query(
-      selector,
-      label,
-      queryOptions,
-      true,
-      (element) => element
-    );
     // Do not retry callback exceptions as selector resolution errors.
     return this.evaluation.byValue(
       pageFunction,
       typeof pageFunction === "function",
       arg,
-      element
+      await this.locatorEvaluationTarget(selector, label, options)
+    );
+  }
+
+  async locatorEvaluateHandle(
+    selector: string,
+    label: string,
+    pageFunction: EvaluationFunction,
+    arg?: unknown,
+    options?: LocatorQueryOptions & EvaluationOptions
+  ): Promise<AdapterJSHandle> {
+    return this.evaluation.byHandle(
+      pageFunction,
+      typeof pageFunction === "function",
+      arg,
+      await this.locatorEvaluationTarget(selector, label, options)
+    );
+  }
+
+  /** Pinned locator.ts resolves the element before it evaluates against it. */
+  private async locatorEvaluationTarget(
+    selector: string,
+    label: string,
+    options?: LocatorQueryOptions & EvaluationOptions
+  ): Promise<Element> {
+    assertEvaluationOptions(options);
+    const { exposeFunctions: _exposeFunctions, ...queryOptions } =
+      options ?? {};
+    void _exposeFunctions;
+    return this.query(
+      selector,
+      label,
+      queryOptions,
+      true,
+      (element) => element
     );
   }
 
@@ -4335,14 +4388,19 @@ function isRetryableQueryError(error: unknown): boolean {
  * FrameSelectOptionParams protocol validation of every entry.
  */
 function selectOptionValues(
-  values: string | SelectOptionValue | (string | SelectOptionValue)[] | null
-): ({ valueOrLabel: string } | SelectOptionValue)[] {
+  values: SelectOptionValues,
+  evaluation: Evaluation
+): (Node | { valueOrLabel: string } | SelectOptionValue)[] {
   if (values === null) return [];
   const list = Array.isArray(values) ? values : [values];
   list.forEach((value, index) => {
     if (value === null)
       throw new Error(`options[${index}]: expected object, got null`);
   });
+  if (list[0] instanceof AdapterElementHandle)
+    return (list as AdapterElementHandle[]).map((value) =>
+      value.valueForEvaluation(evaluation)
+    );
   if (typeof list[0] === "string" || list[0] instanceof String)
     return list.map((value, index) => ({
       valueOrLabel: validateString(value, `options[${index}].valueOrLabel`),
