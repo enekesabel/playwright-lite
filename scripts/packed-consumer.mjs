@@ -51,7 +51,7 @@ try {
         dependencies: {
           "@enekesabel/playwright-lite": `file:${tarball}`,
           "@playwright/test": playwrightVersion,
-          "@types/node": "20.19.43",
+          "@types/node": "24.13.4",
           esbuild: "0.28.1",
           typescript: runtimeCheck ? "6.0.3" : "5.9.3",
         },
@@ -110,7 +110,6 @@ try {
     readFileSync(resolve(installedRoot, "package.json"), "utf8")
   );
   assert.equal(installedPackage.license, "MIT");
-  assert.equal(installedPackage.engines.node, ">=20");
   assert.deepEqual(Object.keys(installedPackage.exports), ["."]);
   assert.equal(installedPackage.dependencies?.yaml, undefined);
   assert.equal(installedPackage.devDependencies.yaml, "2.9.0");

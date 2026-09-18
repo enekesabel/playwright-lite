@@ -11,5 +11,7 @@ export default defineConfig({
     neverBundle: ["@playwright/test"],
   },
   format: ["esm"],
+  // The package runs in browsers, so package.json declares no Node engine for tsdown to derive a target from.
+  target: "es2023",
   plugins: [playwrightInjectedPlugin()],
 });
