@@ -552,6 +552,39 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
     localStorage: createWebStorageProxy(realPage, "localStorage"),
     sessionStorage: createWebStorageProxy(realPage, "sessionStorage"),
   };
+
+  // Route a member through the adapter page in the browser. Both method calls
+  // and property accesses go through the adapter so that unsupported members
+  // (keyboard, mouse, touchscreen, etc.) are never leaked from the real
+  // Playwright driver.
+  const adapterMember =
+    (member: string) =>
+    async (...args: unknown[]) =>
+      withAbortSignalBridge(realPage, args, async (encodedArgs) => {
+        const result = await evaluateAdapter<{ value: unknown; url: string }>(
+          realPage,
+          ({ member: name, args: a }) => {
+            const host = window as any;
+            return host.__pwLiteInvokeAdapter(async () => {
+              const p = host.__pwLiteAdapterPage;
+              const v = p[name];
+              const args = host.__pwLiteDecodeBridgeValue(a);
+              let value: unknown;
+              if (typeof v === "function") value = await v.call(p, ...args);
+              else if (a.length === 0 && v !== undefined) value = v;
+              else
+                throw new TypeError(
+                  `__pwLiteAdapterPage.${name} is not a function`
+                );
+              return { value, url: p.url() };
+            }, a);
+          },
+          { member, args: encodedArgs as any[] }
+        );
+        state.url = result.url;
+        return result.value;
+      });
+
   return new Proxy(realPage, {
     get(target, prop, receiver) {
       if (typeof prop === "symbol") return Reflect.get(target, prop, receiver);
@@ -573,14 +606,25 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       if (prop === "localStorage" || prop === "sessionStorage")
         return storage[prop];
 
-      // Explicit fixture setup, never fallback after an adapter failure.
-      // Only specs whose subject is storage/highlighting opt in. Every such
-      // navigation is recorded and cannot certify Page.goto compatibility.
+      // Explicit fixture setup, never fallback after an adapter failure. Only
+      // opted-in spec files reach this branch, and only until the test first
+      // enters the adapter: a `goto` issued after that is no longer document
+      // setup, so it routes through the adapter like any other member and can
+      // fail there. Every native navigation is recorded and cannot certify
+      // Page.goto compatibility.
       if (prop === "goto" && state.nativeNavigationForSetup) {
         return async (...args: Parameters<Page["goto"]>) => {
           const previous = await realPage.evaluate(
             () => (window as any).__pwLiteEvidence
           );
+          // The bridge reads Page.url after every adapter operation and once
+          // when the adapter page is created, to keep the synchronous url()
+          // facade honest. Those reads are the bridge's own bookkeeping, not
+          // operations the test performed.
+          const enteredByTest = (previous.entered as string[]).filter(
+            (member) => member !== "Page.url"
+          );
+          if (enteredByTest.length > 0) return adapterMember("goto")(...args);
           nativeOperationLog(realPage).push("Page.goto");
           const response = await realPage.goto(...args);
           await realPage.evaluate((prior) => {
@@ -763,34 +807,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       }
 
       // Everything else: route through the adapter page in the browser.
-      // Both method calls and property accesses go through the adapter
-      // so that unsupported members (keyboard, mouse, touchscreen, etc.)
-      // are never leaked from the real Playwright driver.
-      return async (...args: unknown[]) =>
-        withAbortSignalBridge(realPage, args, async (encodedArgs) => {
-          const result = await evaluateAdapter<{ value: unknown; url: string }>(
-            realPage,
-            ({ member, args: a }) => {
-              const host = window as any;
-              return host.__pwLiteInvokeAdapter(async () => {
-                const p = host.__pwLiteAdapterPage;
-                const v = p[member];
-                const args = host.__pwLiteDecodeBridgeValue(a);
-                let value: unknown;
-                if (typeof v === "function") value = await v.call(p, ...args);
-                else if (a.length === 0 && v !== undefined) value = v;
-                else
-                  throw new TypeError(
-                    `__pwLiteAdapterPage.${member} is not a function`
-                  );
-                return { value, url: p.url() };
-              }, a);
-            },
-            { member: prop, args: encodedArgs as any[] }
-          );
-          state.url = result.url;
-          return result.value;
-        });
+      return adapterMember(prop);
     },
   }) as Page;
 }

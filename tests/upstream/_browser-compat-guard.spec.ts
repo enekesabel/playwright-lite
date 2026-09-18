@@ -171,10 +171,12 @@ base("explicit navigation setup preserves browser evidence and failures", async 
     body: "<button>Target</button>",
   }));
   const adapter = await createAdapterPage(page, { nativeNavigationForSetup: true });
+  // Native setup navigation runs only before the first adapter call, so both
+  // documents are established up front.
   await adapter.goto("http://pw-lite.test/one");
+  await adapter.goto("http://pw-lite.test/two");
   await adapter.localStorage.setItem("key", "value");
   await expect((adapter as any).missingBrowserOperation()).rejects.toThrow("is not a function");
-  await adapter.goto("http://pw-lite.test/two");
   expect(await adapter.localStorage.getItem("key")).toBe("value");
   const entered = await page.evaluate(() => (window as any).__pwLiteEvidence.entered);
   expect(entered.filter((method: string) => method === "Page.localStorage.setItem")).toEqual([
@@ -191,6 +193,28 @@ base("explicit navigation setup preserves browser evidence and failures", async 
   await expect(adapter.localStorage.getItem("key")).rejects.toThrow("is not a function");
   expect((page as any).__pwLiteNativeOperations).toEqual(["Page.goto", "Page.goto"]);
   expect((page as any).__pwLiteTransportFailures).toHaveLength(2);
+});
+
+base("native setup navigation ends at the first adapter call", async ({ page }) => {
+  await page.route("http://pw-lite.test/**", route => route.fulfill({
+    contentType: "text/html",
+    body: "<button>Target</button>",
+  }));
+  const adapter = await createAdapterPage(page, { nativeNavigationForSetup: true });
+  await adapter.goto("http://pw-lite.test/one");
+  expect((page as any).__pwLiteNativeOperations).toEqual(["Page.goto"]);
+  expect(await page.evaluate(() => (window as any).__pwLiteEvidence.entered)).not.toContain(
+    "Page.goto"
+  );
+
+  // One adapter call, and goto is no longer document setup: it routes through
+  // the adapter, which records it as browser evidence and never as a native
+  // operation.
+  expect(await adapter.locator("button").textContent()).toBe("Target");
+  await expect(adapter.goto("#second")).resolves.toBeNull();
+  expect(adapter.url()).toBe("http://pw-lite.test/one#second");
+  expect((page as any).__pwLiteNativeOperations).toEqual(["Page.goto"]);
+  expect(await page.evaluate(() => (window as any).__pwLiteEvidence.entered)).toContain("Page.goto");
 });
 
 test("highlight validates its style like stock Playwright before rendering", async ({ page, adapterPage }) => {

@@ -61,13 +61,17 @@ export function isKnownFailure(titlePath: readonly string[]): boolean {
  * its subject. These files run `page.goto` on the native Playwright driver
  * instead.
  *
+ * Being listed here only enables setup navigation: the bridge stops using the
+ * native driver at the test's first adapter call, so a `goto` issued after
+ * that routes through the adapter like any other member and fails there.
+ *
  * The native call is recorded as `Page.goto` native evidence, so it can never
  * certify navigation compatibility, and it is never a fallback for a failed
  * browser-adapter action. Everything each spec asserts still executes through
  * the browser adapter. Specs whose subject is navigation itself
  * (`page-goto.spec.ts`) are deliberately absent.
  */
-const nativeNavigationForSetupSpecs = [
+const nativeNavigationForSetupSpecs = new Set([
   "elementhandle-bounding-box.spec.ts",
   "elementhandle-click.spec.ts",
   "elementhandle-convenience.spec.ts",
@@ -121,7 +125,7 @@ const nativeNavigationForSetupSpecs = [
   "selectors-misc.spec.ts",
   "selectors-text.spec.ts",
   "wheel.spec.ts",
-];
+]);
 
 // ── Fixtures ────────────────────────────────────────────────────────
 
@@ -215,8 +219,8 @@ export const test = base.extend<
         actionTimeout,
         navigationTimeout,
         sabotagedMethod,
-        nativeNavigationForSetup: nativeNavigationForSetupSpecs.some((name) =>
-          testInfo.file.endsWith(`/${name}`)
+        nativeNavigationForSetup: nativeNavigationForSetupSpecs.has(
+          basename(testInfo.file)
         ),
       });
       await use(proxyPage);
