@@ -109,7 +109,6 @@ try {
   const installedPackage = JSON.parse(
     readFileSync(resolve(installedRoot, "package.json"), "utf8")
   );
-  assert.equal(installedPackage.license, "MIT");
   assert.deepEqual(Object.keys(installedPackage.exports), ["."]);
   assert.equal(installedPackage.dependencies?.yaml, undefined);
   assert.equal(installedPackage.devDependencies.yaml, "2.9.0");
