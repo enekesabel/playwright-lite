@@ -768,6 +768,21 @@ export class LocatorImpl {
       )
     );
   }
+
+  async waitForFunction(
+    pageFunction: EvaluationFunction,
+    arg?: unknown,
+    options: LocatorActionOptions = {}
+  ): Promise<void> {
+    rejectUnsupportedOptions("waitForFunction", options, ["signal", "timeout"]);
+    await this.ownerPage.waitForFunctionOnSelector(
+      this.selector,
+      this.label,
+      pageFunction,
+      arg,
+      options
+    );
+  }
 }
 
 // ── Brand validation ────────────────────────────────────────────────
