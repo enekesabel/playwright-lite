@@ -41,8 +41,6 @@ playwright-lite is pre-1.0; APIs may change.
 npm add @enekesabel/playwright-lite
 ```
 
-Requires Node.js 20 or newer.
-
 ## Compatibility
 
 Targets Playwright **1.62.1**. Statuses describe API compatibility within the runtime boundaries above. API links open Playwright's current documentation.

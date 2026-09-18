@@ -18,7 +18,7 @@ const workflow = parse(
 );
 const releasePlease = workflow.jobs["release-please"];
 const check = workflow.jobs.check;
-const consumer = workflow.jobs["consumer-node20"];
+const consumer = workflow.jobs.consumer;
 const publish = workflow.jobs["publish-npm"];
 const checkout = check.steps.find((step) =>
   step.uses?.startsWith("actions/checkout@")
@@ -86,7 +86,7 @@ test("publication is main-only and uses the tested release artifact", () => {
     "release-please",
     "check",
     "corpus",
-    "consumer-node20",
+    "consumer",
   ]);
   assert.equal(
     publish.if,
@@ -102,7 +102,7 @@ test("publication is main-only and uses the tested release artifact", () => {
       .with.ref,
     "${{ needs.check.outputs.sha }}"
   );
-  assert.equal(consumer.name, "Packed consumer on Node 20.0.0");
+  assert.equal(consumer.name, "Packed consumer");
   assert.equal(consumer.strategy, undefined);
   assert.equal(
     consumer.steps.filter((step) =>
