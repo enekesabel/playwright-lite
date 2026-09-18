@@ -1051,16 +1051,6 @@
       "evidence": "The fixture button handler changes result to Clicked after Page.click; native goto establishes the document only."
     },
     {
-      "id": "page-click.spec.ts > should click the button after a cross origin navigation ",
-      "method": "Page.click",
-      "evidence": "After recorded native cross-origin setup, the adapter click runs the current document button handler. No navigation compatibility is claimed."
-    },
-    {
-      "id": "page-click.spec.ts > should click the button after navigation ",
-      "method": "Page.click",
-      "evidence": "After recorded native document replacement for setup, the browser-adapter click runs the new document button handler. This certifies the click, not navigation."
-    },
-    {
       "id": "page-click.spec.ts > should click the button behind position:absolute header",
       "method": "Page.click",
       "evidence": "A target obscured inside a nested scroll container by an absolute header is scrolled and activated; its handler flag is asserted."
@@ -1524,11 +1514,6 @@
       "id": "page-localstorage.spec.ts > sessionStorage round-trip",
       "method": "Page.sessionStorage.setItem",
       "evidence": "The unchanged test checks empty enumeration, both written values, getItem, selective removal and final clear through the browser sessionStorage wrapper. Native goto establishes the origin and is not certified."
-    },
-    {
-      "id": "page-localstorage.spec.ts > storage methods are scoped to the current origin",
-      "method": "Page.localStorage.getItem",
-      "evidence": "Across three explicitly recorded native setup navigations, the second origin starts empty and returning to the first recovers origin-1 rather than origin-2. Adapter storage calls prove origin scoping, not navigation support."
     },
     {
       "id": "page-select-option.spec.ts > should throw if passed wrong types",
