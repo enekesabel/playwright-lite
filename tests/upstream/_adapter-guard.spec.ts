@@ -613,6 +613,162 @@ test("adapter page callbacks enter public adapter methods", async ({
   expect(execution.entered).toContain("Page.$$eval");
 });
 
+test("method shorthand page functions reach the adapter as the caller wrote them", async ({
+  adapterPage,
+}) => {
+  const shorthand = {
+    sum([a, b]: number[]) {
+      return a + b;
+    },
+    async mult([a, b]: number[]) {
+      return a * b;
+    },
+  };
+
+  await expect((adapterPage as any).evaluate(shorthand.sum, [1, 2])).resolves.toBe(3);
+  await expect((adapterPage as any).evaluate(shorthand.mult, [2, 4])).resolves.toBe(8);
+});
+
+test("rich argument values arrive in the adapter with their own identity", async ({
+  page,
+  adapterPage,
+}) => {
+  const error = new Error("error message");
+  error.name = "foobar";
+  const argument = {
+    date: new Date("2020-05-27T01:31:38.506Z"),
+    url: new URL("https://example.com/path"),
+    regexp: /hello/im,
+    error,
+    map: new Map([[1, 2]]),
+    typed: new Int16Array([1, 2, 3]),
+    bytes: Buffer.from([99, 0, 128, 255, 99]).subarray(1, 4),
+    poisoned: { __proto__: { polluted: true }, safeKey: "safeValue" },
+  };
+
+  await expect(
+    (adapterPage as any).evaluate(
+      (a: any) => ({
+        date: [a.date instanceof Date, a.date.toISOString()],
+        url: [a.url instanceof URL, a.url.toString()],
+        regexp: [a.regexp instanceof RegExp, a.regexp.toString()],
+        error: [a.error instanceof Error, a.error.name, a.error.message],
+        map: a.map.constructor.name + " " + JSON.stringify(a.map),
+        typed: [a.typed.constructor.name, Array.from(a.typed)],
+        bytes: [a.bytes.constructor.name, Array.from(a.bytes)],
+        poisoned: [Object.keys(a.poisoned), (a.poisoned as any).polluted],
+      }),
+      argument
+    )
+  ).resolves.toEqual({
+    date: [true, "2020-05-27T01:31:38.506Z"],
+    url: [true, "https://example.com/path"],
+    regexp: [true, "/hello/im"],
+    error: [true, "foobar", "error message"],
+    map: "Object {}",
+    typed: ["Int16Array", [1, 2, 3]],
+    bytes: ["Uint8Array", [0, 128, 255]],
+    poisoned: [["safeKey"], undefined],
+  });
+  expect((page as any).__pwLiteNativeOperations).toEqual([]);
+});
+
+test("a live native driver object is still refused as an argument", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent('<iframe srcdoc="<p>native iframe</p>"></iframe>');
+
+  await expect(
+    (adapterPage as any).evaluate(
+      (a: unknown) => a,
+      adapterPage.frameLocator("iframe")
+    )
+  ).rejects.toThrow("does not support native Playwright handles or frames");
+});
+
+test("function arguments reach the adapter as functions with their source", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.evaluate(() => {
+    const host = window as any;
+    host.__pwLiteAdapterPage.evaluate = async (callback: any, arg: any) => ({
+      callbackSource: String(callback),
+      argumentKind: typeof arg.nested.property,
+      argumentSource: String(arg.nested.property),
+      called: arg.nested.property(),
+    });
+  });
+
+  await expect(
+    (adapterPage as any).evaluate((a: any) => a, {
+      nested: { property: () => 41 + 1 },
+    })
+  ).resolves.toEqual({
+    callbackSource: expect.stringContaining("=>"),
+    argumentKind: "function",
+    argumentSource: expect.stringContaining("41 + 1"),
+    called: 42,
+  });
+  // The unreplaced adapter still applies its own pinned rejection.
+  await expect(
+    (await createAdapterPage(page)).evaluate((a: unknown) => a, () => {})
+  ).rejects.toThrow("Attempting to serialize unexpected value");
+});
+
+test("evaluateHandle, getProperty and getProperties republish the adapter's own handles", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.evaluate(() => {
+    const host = window as any;
+    const sentinelHandle = (description: string, value: unknown): unknown => ({
+      toString: () => description,
+      jsonValue: async () => value,
+      getProperty: async (name: string) =>
+        sentinelHandle(`property:${name}`, `${name}=${value}`),
+      getProperties: async () =>
+        new Map([["only", sentinelHandle("property:only", value)]]),
+      dispose: async () => {
+        host.disposedHandles = [...(host.disposedHandles ?? []), description];
+      },
+    });
+    host.__pwLiteAdapterPage.evaluateHandle = async (
+      callback: any,
+      arg: unknown
+    ) => sentinelHandle("JSHandle@browser", await callback(arg));
+  });
+
+  const handle = await (adapterPage as any).evaluateHandle(
+    (a: string) => ((window.location.hash = "handle"), a + "!"),
+    "sentinel"
+  );
+  // Handle routes refresh the synchronous url facade like every other member.
+  expect(adapterPage.url()).toBe(page.url());
+  // toString() is synchronous in Playwright's API: it replays the description
+  // the adapter gave when the handle was created.
+  expect(handle.toString()).toBe("JSHandle@browser");
+  expect(await handle.jsonValue()).toBe("sentinel!");
+
+  const property = await handle.getProperty("only");
+  expect(property.toString()).toBe("property:only");
+  expect(await property.jsonValue()).toBe("only=sentinel!");
+
+  const properties = await handle.getProperties();
+  expect([...properties.keys()]).toEqual(["only"]);
+  expect(await properties.get("only").jsonValue()).toBe("sentinel!");
+
+  await property.dispose();
+  await handle.dispose();
+  expect(await page.evaluate(() => (window as any).disposedHandles)).toEqual([
+    "property:only",
+    "JSHandle@browser",
+  ]);
+  await expect(handle.jsonValue()).rejects.toThrow("Unknown or disposed");
+  expect((page as any).__pwLiteNativeOperations).toEqual([]);
+});
+
 test("adapter element handles keep native identity, scope queries, and release bridge references", async ({
   page,
   adapterPage,
@@ -810,10 +966,15 @@ test("adapter evaluate can mutate the DOM", async ({ page, adapterPage }) => {
 // ── W-27: waitForFunction through the adapter bridge ───────────────
 
 test("adapter waitForFunction resolves with handle.jsonValue()", async ({
+  page,
   adapterPage,
 }) => {
-  const handle = await (adapterPage as any).waitForFunction(() => 42);
+  const handle = await (adapterPage as any).waitForFunction(
+    () => ((window.location.hash = "waited"), 42)
+  );
   expect(await handle.jsonValue()).toBe(42);
+  // Handle routes refresh the synchronous url facade like every other member.
+  expect(adapterPage.url()).toBe(page.url());
 });
 
 test("adapter waitForFunction false predicate times out", async ({

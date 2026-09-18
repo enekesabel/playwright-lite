@@ -6,6 +6,36 @@
   "selectedTestCount": 1911,
   "reviewed": [
     {
+      "id": "elementhandle-bounding-box.spec.ts > should force a layout",
+      "method": "ElementHandle.boundingBox",
+      "evidence": "After Page.evaluate changes the element's height to 200px, boundingBox reports {x:8,y:8,width:100,height:200}: it reads layout at call time and includes the default 8px body margin in the returned coordinates."
+    },
+    {
+      "id": "elementhandle-bounding-box.spec.ts > should get frame box",
+      "method": "ElementHandle.boundingBox",
+      "evidence": "An <iframe> element handle reports {x:0,y:0,width:300,height:500}: boundingBox measures the iframe element itself in the host document, with its default 300px width and the flex-stretched body height, and never descends into the frame."
+    },
+    {
+      "id": "elementhandle-bounding-box.spec.ts > should return null for invisible elements",
+      "method": "ElementHandle.boundingBox",
+      "evidence": "A display:none div yields null, so boundingBox reports the absence of a layout box as null instead of a zero-sized rect or a rejection."
+    },
+    {
+      "id": "elementhandle-bounding-box.spec.ts > should work",
+      "method": "ElementHandle.boundingBox",
+      "evidence": "In a 500x500 viewport on grid.html the 13th .box handle reports exactly {x:100,y:50,width:50,height:50}, so boundingBox returns the element's real viewport-relative border box in CSS pixels."
+    },
+    {
+      "id": "elementhandle-bounding-box.spec.ts > should work when inline box child is outside of viewport",
+      "method": "ElementHandle.boundingBox",
+      "evidence": "A <span> whose absolutely positioned <i> child sits 1000px above the viewport still reports (to 1/100 px) the same box as its own getBoundingClientRect(), so boundingBox returns the element's border box and does not union in out-of-flow descendants."
+    },
+    {
+      "id": "elementhandle-bounding-box.spec.ts > should work with SVG nodes",
+      "method": "ElementHandle.boundingBox",
+      "evidence": "For an SVG <rect> the returned box equals the x/y/width/height of getBoundingClientRect() read in the same document, so boundingBox measures SVG geometry per element instead of falling back to the host <svg> box."
+    },
+    {
       "id": "elementhandle-click.spec.ts > should double click the button",
       "method": "ElementHandle.dblclick",
       "evidence": "Both the dblclick listener and ordinary button activation are observed after the actual handled-node double click. Native goto is fixture setup only."
@@ -36,9 +66,29 @@
       "evidence": "The actual button handler changes result to Clicked after the browser ElementHandle click. Recorded native goto establishes the fixture only."
     },
     {
+      "id": "elementhandle-convenience.spec.ts > getAttribute should work",
+      "method": "ElementHandle.getAttribute",
+      "evidence": "Reading name on #outer returns 'value' and an absent attribute returns null, so getAttribute reports the attribute value through the handle and reports a missing attribute as null."
+    },
+    {
+      "id": "elementhandle-convenience.spec.ts > innerHTML should work",
+      "method": "ElementHandle.innerHTML",
+      "evidence": "The #outer handle returns '<div id=\"inner\">Text,\\nmore text</div>', so innerHTML serializes the element's children verbatim, newline included, and excludes the element's own tag."
+    },
+    {
       "id": "elementhandle-convenience.spec.ts > innerText should throw",
       "method": "ElementHandle.innerText",
       "evidence": "The unchanged test resolves an SVG ElementHandle through the browser adapter and asserts ElementHandle.innerText rejects with the same Node-is-not-an-HTMLElement diagnostic; Page.setContent is setup only."
+    },
+    {
+      "id": "elementhandle-convenience.spec.ts > innerText should work",
+      "method": "ElementHandle.innerText",
+      "evidence": "The #inner handle returns 'Text, more text' where the markup holds 'Text,\\nmore text', so innerText returns rendered text with layout-collapsed whitespace rather than the raw source text."
+    },
+    {
+      "id": "elementhandle-convenience.spec.ts > inputValue should work",
+      "method": "ElementHandle.inputValue",
+      "evidence": "An <input> handle reports the exact text a preceding fill put in it, and inputValue on a plain <div> handle rejects with 'Node is not an <input>, <textarea> or <select> element', so it reads the live value property and enforces the element-type precondition."
     },
     {
       "id": "elementhandle-convenience.spec.ts > isChecked should work",
@@ -71,6 +121,71 @@
       "evidence": "The unchanged regression test churns the target in requestAnimationFrame and awaits Page.isVisible ten times without rejection. Every Page.isVisible call enters the browser adapter; Page.setContent is setup only."
     },
     {
+      "id": "elementhandle-convenience.spec.ts > textContent should work",
+      "method": "ElementHandle.textContent",
+      "evidence": "The #inner handle returns 'Text,\\nmore text' with the source newline intact, so textContent returns the raw concatenated text of the subtree without rendering-time whitespace collapsing."
+    },
+    {
+      "id": "elementhandle-eval-on-selector.spec.ts > should not throw in case of missing selector for all",
+      "method": "ElementHandle.$$eval",
+      "evidence": "With no match inside the handle the page function still runs and observes nodes.length === 0, so $$eval passes an empty array instead of rejecting the way $eval does."
+    },
+    {
+      "id": "elementhandle-eval-on-selector.spec.ts > should retrieve content from subtree",
+      "method": "ElementHandle.$eval",
+      "evidence": "With an identical .a element outside the handle, $eval returns 'a-child-div', so the selector is matched inside the handle's subtree and not against the whole document."
+    },
+    {
+      "id": "elementhandle-eval-on-selector.spec.ts > should retrieve content from subtree for all",
+      "method": "ElementHandle.$$eval",
+      "evidence": "With a matching .a outside the handle, $$eval sees only ['a1-child-div','a2-child-div'], so the match set is scoped to the handle's subtree."
+    },
+    {
+      "id": "elementhandle-eval-on-selector.spec.ts > should work",
+      "method": "ElementHandle.$eval",
+      "evidence": "$eval on a .tweet handle with '.like' returns '100' from the matched node's innerText, so it resolves the selector to one element, runs the page function on that element and returns its serialized result."
+    },
+    {
+      "id": "elementhandle-eval-on-selector.spec.ts > should work for all",
+      "method": "ElementHandle.$$eval",
+      "evidence": "$$eval receives both .like nodes and returns ['100','10'], so it passes every match in document order to the page function as a single array argument."
+    },
+    {
+      "id": "elementhandle-misc.spec.ts > should allow disposing twice",
+      "method": "ElementHandle.dispose",
+      "evidence": "Two consecutive dispose() calls on the same handle both resolve, so dispose releases the handle and a second call on an already-disposed handle is a no-op instead of rejecting (upstream issue 29945)."
+    },
+    {
+      "id": "elementhandle-misc.spec.ts > should check the box",
+      "method": "ElementHandle.check",
+      "evidence": "checkbox.checked is true after check on an unchecked box, so check drives the checkbox to the checked state through the handle."
+    },
+    {
+      "id": "elementhandle-misc.spec.ts > should check the box using setChecked",
+      "method": "ElementHandle.setChecked",
+      "evidence": "setChecked(true) then setChecked(false) leaves checkbox.checked true then false, so setChecked sets the requested state in both directions rather than toggling."
+    },
+    {
+      "id": "elementhandle-misc.spec.ts > should fill input",
+      "method": "ElementHandle.fill",
+      "evidence": "After fill on an <input> handle the page's own input listener has recorded window.result === 'some value', so fill sets the value through the element and dispatches the input event the page observes."
+    },
+    {
+      "id": "elementhandle-misc.spec.ts > should focus a button",
+      "method": "ElementHandle.focus",
+      "evidence": "document.activeElement is not the button before the call and is the button after it, so focus moves document focus to the handle's element."
+    },
+    {
+      "id": "elementhandle-misc.spec.ts > should select single option",
+      "method": "ElementHandle.selectOption",
+      "evidence": "After selectOption('blue') the page's recorded window.result.onInput and onChange both equal ['blue'], so selectOption selects the option by value and fires both input and change on the <select>."
+    },
+    {
+      "id": "elementhandle-misc.spec.ts > should uncheck the box",
+      "method": "ElementHandle.uncheck",
+      "evidence": "checkbox.checked is false after uncheck on a box that started checked, so uncheck clears the checked state through the handle."
+    },
+    {
       "id": "elementhandle-press.spec.ts > should not modify selection when focused",
       "method": "Page.press",
       "evidence": "With the input focused and a selection set, press replaces the selected text in place, producing hewo."
@@ -94,6 +209,36 @@
       "id": "elementhandle-press.spec.ts > should work with number input",
       "method": "Page.press",
       "evidence": "Pressing 1 on an unfocused input[type=number] holding 2 leaves 12, proving the pressed character lands at the caret of a selection-less control rather than after its value."
+    },
+    {
+      "id": "elementhandle-query-selector.spec.ts > should query existing element",
+      "method": "ElementHandle.$",
+      "evidence": "Chaining $ from the html handle to .second and then .inner yields a handle whose textContent, read back through Page.evaluate, is 'A', so $ returns a usable handle for the first descendant matching the selector."
+    },
+    {
+      "id": "elementhandle-query-selector.spec.ts > should query existing elements",
+      "method": "ElementHandle.$$",
+      "evidence": "$$('div') under the html handle returns exactly two handles whose textContents read back as ['A','B'], so $$ returns one usable handle per descendant match in document order."
+    },
+    {
+      "id": "elementhandle-query-selector.spec.ts > should return empty array for non-existing elements",
+      "method": "ElementHandle.$$",
+      "evidence": "$$('div') on a document holding only <span> elements returns a zero-length array, so $$ reports no match as an empty array rather than null or a rejection."
+    },
+    {
+      "id": "elementhandle-query-selector.spec.ts > should return null for non-existing element",
+      "method": "ElementHandle.$",
+      "evidence": "Querying '.third' under the html handle returns null, so $ reports no match as null instead of rejecting."
+    },
+    {
+      "id": "elementhandle-query-selector.spec.ts > xpath should query existing element",
+      "method": "ElementHandle.$$",
+      "evidence": "Relative xpath steps './body/div[...]' then './div[...]' resolve from the html handle down to the .inner div whose textContent is 'A', so $$ evaluates an xpath= selector relative to the handle it is called on."
+    },
+    {
+      "id": "elementhandle-query-selector.spec.ts > xpath should return null for non-existing element",
+      "method": "ElementHandle.$$",
+      "evidence": "The absolute xpath '/div[...]' matches nothing and $$ returns [], so an unmatched xpath= selector yields an empty array rather than a rejection."
     },
     {
       "id": "elementhandle-scroll-into-view.spec.ts > should scroll display:contents into view",
@@ -126,6 +271,11 @@
       "evidence": "Same waiting proof through an unrendered ancestor: the call is asserted pending while the parent span is display:none and resolves only after that parent becomes visible."
     },
     {
+      "id": "elementhandle-scroll-into-view.spec.ts > should work @smoke",
+      "method": "ElementHandle.scrollIntoViewIfNeeded",
+      "evidence": "For each of 11 buttons whose right edge starts 10*i px past the viewport, the call brings right - innerWidth to <= 0, so scrollIntoViewIfNeeded scrolls the element into the viewport from every one of those offsets."
+    },
+    {
       "id": "elementhandle-scroll-into-view.spec.ts > should work for visibility:hidden element",
       "method": "ElementHandle.scrollIntoViewIfNeeded",
       "evidence": "A visibility:hidden div still has a layout box, so scrollIntoViewIfNeeded resolves instead of waiting for visibility; the reviewed display:none sibling still times out."
@@ -134,6 +284,26 @@
       "id": "elementhandle-scroll-into-view.spec.ts > should work for zero-sized element",
       "method": "ElementHandle.scrollIntoViewIfNeeded",
       "evidence": "A height:0 div still has a layout box, so scrollIntoViewIfNeeded resolves instead of waiting for a non-empty box."
+    },
+    {
+      "id": "elementhandle-select-text.spec.ts > should select input",
+      "method": "ElementHandle.selectText",
+      "evidence": "window.getSelection().toString() is 'some value' after the call, so selectText selects the full value of an <input> handle."
+    },
+    {
+      "id": "elementhandle-select-text.spec.ts > should select plain div",
+      "method": "ElementHandle.selectText",
+      "evidence": "window.getSelection().toString() is 'Plain div' after the call, so selectText also selects the text content of a non-form element."
+    },
+    {
+      "id": "elementhandle-select-text.spec.ts > should select textarea",
+      "method": "ElementHandle.selectText",
+      "evidence": "window.getSelection().toString() is 'some value' after the call, so selectText selects the full text of a <textarea> handle."
+    },
+    {
+      "id": "elementhandle-select-text.spec.ts > should wait for visible",
+      "method": "ElementHandle.selectText",
+      "evidence": "The call stays pending for a second while the textarea is display:none and resolves once it is shown again, so selectText waits for the element to become visible instead of acting on a hidden element or failing at once."
     },
     {
       "id": "elementhandle-type.spec.ts > should not modify selection when focused",
@@ -159,6 +329,56 @@
       "id": "elementhandle-type.spec.ts > should work with number input",
       "method": "Page.type",
       "evidence": "Typing 13 into an unfocused input[type=number] holding 2 leaves 132, proving both characters land at the caret of a control that exposes no selection API instead of being appended after the existing value."
+    },
+    {
+      "id": "elementhandle-wait-for-element-state.spec.ts > should timeout waiting for visible",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "A 'visible' wait on a permanently display:none div rejects with a message containing 'Timeout 1000ms exceeded', so the timeout option bounds the wait and is reported in the error."
+    },
+    {
+      "id": "elementhandle-wait-for-element-state.spec.ts > should wait for already hidden",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "The 'hidden' wait on an empty div resolves at once, so an element with no layout box already counts as hidden."
+    },
+    {
+      "id": "elementhandle-wait-for-element-state.spec.ts > should wait for already visible",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "The 'visible' wait on an already visible div resolves instead of hanging, so an element that already satisfies the state completes the call immediately."
+    },
+    {
+      "id": "elementhandle-wait-for-element-state.spec.ts > should wait for aria enabled button",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "The 'enabled' wait on a span inside a button with aria-disabled=true stays pending and resolves when the attribute flips to false, so the enabled state honours aria-disabled on the enclosing control and not only the disabled property."
+    },
+    {
+      "id": "elementhandle-wait-for-element-state.spec.ts > should wait for button with an aria-disabled parent",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "The 'enabled' wait stays pending while an ancestor div[role=group] carries aria-disabled=true and resolves when it flips to false, so the enabled state inherits aria-disabled from ancestors."
+    },
+    {
+      "id": "elementhandle-wait-for-element-state.spec.ts > should wait for editable input",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "The 'editable' wait on a readonly input stays pending and resolves once readOnly is cleared, so the editable state tracks the readOnly property."
+    },
+    {
+      "id": "elementhandle-wait-for-element-state.spec.ts > should wait for hidden",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "The 'hidden' wait is still pending after five animation-frame pairs while the div is rendered and resolves once display becomes none, so 'hidden' tracks live visibility."
+    },
+    {
+      "id": "elementhandle-wait-for-element-state.spec.ts > should wait for hidden when detached",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "The 'hidden' wait is pending while the div is rendered and resolves when the div is removed from the DOM, so detaching an element satisfies 'hidden' instead of raising a detached-element error."
+    },
+    {
+      "id": "elementhandle-wait-for-element-state.spec.ts > should wait for stable position",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "The 'stable' wait on a button under a 10s margin transition stays pending and resolves only after the transition is cleared, so 'stable' compares successive bounding boxes instead of resolving on the first sample."
+    },
+    {
+      "id": "elementhandle-wait-for-element-state.spec.ts > should wait for visible",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "The 'visible' wait is still pending after five animation-frame pairs while the div is display:none and resolves once display becomes block, so the state is polled against live layout rather than decided once at call time."
     },
     {
       "id": "eval-on-selector-all.spec.ts > should auto-detect css selector",
@@ -379,6 +599,31 @@
       "id": "locator-convenience.spec.ts > isEnabled and isDisabled should work",
       "method": "Locator.isEnabled",
       "evidence": "Assertions verify Locator and Page enabled and disabled state across ordinary and disabled elements using InjectedScript element-state semantics."
+    },
+    {
+      "id": "locator-element-handle.spec.ts > should query existing element @smoke",
+      "method": "Locator.elementHandle",
+      "evidence": "The chained locator html > .second > .inner resolves to a single handle whose textContent, read back through Page.evaluate, is 'A', so elementHandle materialises the locator's match as a handle usable as an evaluate argument."
+    },
+    {
+      "id": "locator-element-handle.spec.ts > should query existing elements",
+      "method": "Locator.elementHandles",
+      "evidence": "A locator matching two divs returns two handles whose textContents read back as ['A','B'], so elementHandles returns one usable handle per match in document order."
+    },
+    {
+      "id": "locator-element-handle.spec.ts > should return empty array for non-existing elements",
+      "method": "Locator.elementHandles",
+      "evidence": "A locator with no match returns a zero-length array, so elementHandles reports an empty match set as [] rather than null or a rejection."
+    },
+    {
+      "id": "locator-element-handle.spec.ts > xpath should query existing element",
+      "method": "Locator.elementHandle",
+      "evidence": "Chained relative xpath locators resolve to the .inner div whose textContent is 'A', so elementHandle resolves a locator built from xpath= steps relative to its parent locator."
+    },
+    {
+      "id": "locator-element-handle.spec.ts > xpath should return null for non-existing element",
+      "method": "Locator.elementHandles",
+      "evidence": "An unmatched absolute xpath locator returns [], so elementHandles yields an empty array for an xpath= selector with no match."
     },
     {
       "id": "locator-evaluate.spec.ts > should not throw in case of missing selector for all",
@@ -999,6 +1244,21 @@
       "id": "page-aria-snapshot.spec.ts > should work with slots",
       "method": "Locator._expect",
       "evidence": "The unchanged upstream ARIA assertions verify should work with slots through browser-side Locator._expect execution."
+    },
+    {
+      "id": "page-autowaiting-basic.spec.ts > should not stall on JS navigation link",
+      "method": "Page.click",
+      "evidence": "Clicking an <a href=\"javascript:...\"> resolves, so the click's post-action wait treats a javascript: URL as producing no navigation instead of blocking on one that never happens."
+    },
+    {
+      "id": "page-autowaiting-no-hang.spec.ts > calling window.open and window.close",
+      "method": "Page.evaluate",
+      "evidence": "An evaluate that opens a popup and immediately closes it resolves, so evaluate is not blocked by the page opening and closing another window during the call."
+    },
+    {
+      "id": "page-autowaiting-no-hang.spec.ts > calling window.stop sync",
+      "method": "Page.evaluate",
+      "evidence": "An evaluate whose function assigns window.location.href and calls window.stop() in the same task resolves, so evaluate returns on a started-and-cancelled navigation instead of waiting for one that never commits."
     },
     {
       "id": "page-basic.spec.ts > has navigator.webdriver set to true",
@@ -2239,6 +2499,141 @@
       "id": "page-wait-for-function.spec.ts > should work with multiline body",
       "method": "Page.waitForFunction",
       "evidence": "A multiline string expression resolves and its handle returns true."
+    },
+    {
+      "id": "page-wait-for-selector-1.spec.ts > elementHandle.waitForSelector should immediately resolve if node exists",
+      "method": "ElementHandle.waitForSelector",
+      "evidence": "Scoped to a div handle containing <span>target</span> while a <span>extra</span> sits outside it, the call returns the handle whose textContent is 'target', so the scoped wait matches inside the handle's subtree only."
+    },
+    {
+      "id": "page-wait-for-selector-1.spec.ts > elementHandle.waitForSelector should timeout",
+      "method": "ElementHandle.waitForSelector",
+      "evidence": "A scoped wait for a span that is never added rejects with a message containing 'Timeout 100ms exceeded.', so the timeout option bounds the scoped wait."
+    },
+    {
+      "id": "page-wait-for-selector-1.spec.ts > elementHandle.waitForSelector should wait",
+      "method": "ElementHandle.waitForSelector",
+      "evidence": "The scoped wait is outstanding when the handle's innerHTML is replaced with <span>target</span> and then resolves with that span, so it observes nodes added to the handle's subtree after the call started."
+    },
+    {
+      "id": "page-wait-for-selector-1.spec.ts > should immediately resolve promise if node exists",
+      "method": "Page.waitForSelector",
+      "evidence": "waitForSelector('*') against the existing document and waitForSelector('div', {state:'attached'}) after a div is appended both resolve without waiting, so an already-matching selector completes the call immediately."
+    },
+    {
+      "id": "page-wait-for-selector-1.spec.ts > should resolve promise when node is added in shadow dom",
+      "method": "Page.waitForSelector",
+      "evidence": "A pending wait for 'span' resolves with the span appended into an open shadow root 100ms later and its textContent reads 'Hello from shadow', so the wait pierces open shadow roots and keeps observing after the host is attached."
+    },
+    {
+      "id": "page-wait-for-selector-1.spec.ts > should work when node is added through innerHTML",
+      "method": "Page.waitForSelector",
+      "evidence": "A pending state:'attached' wait for 'h3 div' resolves after both nodes appear through one innerHTML assignment, so the wait notices subtrees inserted wholesale rather than only element-by-element insertions."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > hidden should wait for display: none",
+      "method": "Page.waitForSelector",
+      "evidence": "The state:'hidden' wait resolves when display:none is set on the still-attached div, so display:none satisfies 'hidden' just as visibility:hidden does."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > hidden should wait for hidden",
+      "method": "Page.waitForSelector",
+      "evidence": "The state:'hidden' wait is still unresolved after a round trip while the div is displayed and resolves once visibility:hidden is set, so 'hidden' is polled against live style."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > hidden should wait for removal",
+      "method": "Page.waitForSelector",
+      "evidence": "The state:'hidden' wait resolves when the div is removed from the document, so a detached element satisfies 'hidden'."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should allow you to select an element with single slash xpath",
+      "method": "Page.waitForSelector",
+      "evidence": "The wait for '//html/body/div' resolves with the handle whose textContent is 'some text', so an absolute document-rooted xpath is matched from the document root."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should consider outside of viewport visible",
+      "method": "Locator.waitFor",
+      "evidence": "waitFor({state:'visible'}) resolves for a fixed element translated 200px off the left edge, so visibility is decided by the element having a layout box, not by whether it intersects the viewport."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should correctly handle hidden shadow host",
+      "method": "Page.waitForSelector",
+      "evidence": "The div lives in an open shadow root whose host is hidden by ':host([hidden]) { display: none; }'; the state:'hidden' wait resolves for it while Page.textContent still reads 'Find me', so visibility is computed across the shadow boundary from the host's rendered state."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should have an error message specifically for awaiting an element to be hidden",
+      "method": "Page.waitForSelector",
+      "evidence": "A timed-out state:'hidden' wait reports \"waiting for locator('div') to be hidden\", so the call log names the awaited state instead of the default visible wording."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should not consider visible when zero-sized",
+      "method": "Page.waitForSelector",
+      "evidence": "A 0x0 div times out, a 10px-wide but 0-high div still times out, and only a 10x10 div returns a handle, so an element with an empty layout box does not count as visible."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should respect timeout",
+      "method": "Page.waitForSelector",
+      "evidence": "A 3s state:'attached' wait for a missing div rejects with 'page.waitForSelector: Timeout 3000ms exceeded', the call-log line \"waiting for locator('div')\", and an error that is an instance of playwright.errors.TimeoutError, so the timeout carries Playwright's TimeoutError identity, prefix and locator description."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should respect timeout xpath",
+      "method": "Page.waitForSelector",
+      "evidence": "A 3s attached wait for '//div' rejects with 'page.waitForSelector: Timeout 3000ms exceeded', the call log \"waiting for locator('//div')\" and a playwright.errors.TimeoutError instance, so xpath waits time out with the same error identity and locator description as CSS ones."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should respond to node attribute mutation",
+      "method": "Page.waitForSelector",
+      "evidence": "A pending state:'attached' wait for '.zombo' resolves when an existing div's className changes to zombo, so the wait re-evaluates the selector on attribute changes and not only on node insertion."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should return null if waiting to hide non-existing element",
+      "method": "Page.waitForSelector",
+      "evidence": "state:'hidden' for a selector that matches nothing resolves with null, so the hidden wait returns null rather than a handle when there is no element."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should return the element handle",
+      "method": "Page.waitForSelector",
+      "evidence": "The resolved value is a handle Page.evaluate reads 'anything' from, so waitForSelector returns a usable element handle for the matched node."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should return the element handle xpath",
+      "method": "Page.waitForSelector",
+      "evidence": "A pending wait for '//*[@class=\"zombo\"]' resolves with a handle whose textContent reads 'anything', so an xpath wait returns a usable handle for the matched node."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should succeed if element handle was detached while waiting for detached",
+      "method": "ElementHandle.waitForSelector",
+      "evidence": "A scoped state:'detached' wait for a descendant that never exists settles successfully although the scope button is removed from the document during the test; the test proves the wait does not reject, not when it completed."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should succeed if element handle was detached while waiting for hidden",
+      "method": "ElementHandle.waitForSelector",
+      "evidence": "A scoped state:'hidden' wait for a descendant that never exists settles successfully although the scope button is removed from the document during the test; the test proves the wait does not reject, not when it completed."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should support some fancy xpath",
+      "method": "Page.waitForSelector",
+      "evidence": "The wait for '//p[normalize-space(.)=\"hello world\"]' returns the handle for '<p>hello  world  </p>' and not the 'red herring' paragraph, so an xpath selector using an XPath function is evaluated by the XPath engine."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should wait for detached",
+      "method": "Page.waitForSelector",
+      "evidence": "The state:'detached' wait is still pending while the div exists and resolves once $eval removes it, so 'detached' is polled until the matched node leaves the document."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should wait for detached if already detached",
+      "method": "Page.waitForSelector",
+      "evidence": "state:'detached' for a selector that matches nothing resolves with null immediately, so an already-absent element satisfies 'detached'."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should wait for visible",
+      "method": "Page.waitForSelector",
+      "evidence": "The default wait stays unresolved while the div is display:none and still while only visibility:hidden remains, and resolves only after both are removed, so the default 'visible' state requires the element to be displayed and visible."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should wait for visible recursively",
+      "method": "Page.waitForSelector",
+      "evidence": "The wait for div#inner resolves only after display:none and visibility:hidden are removed from its ancestor, so visibility is computed from the element's rendered state including inherited ancestor styles."
     },
     {
       "id": "queryselector.spec.ts > should auto-detect css selector",

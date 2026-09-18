@@ -41,6 +41,18 @@ A harness change is accepted on tests that fail with an adapter error instead of
 a bridge error, not on tests turning green: the remaining failure must come from
 the adapter under test. A harness pull request promotes nothing.
 
+Functions cannot cross `realPage.evaluate`, so the bridge carries a function
+argument as its source and rebuilds it in the browser, normalizing a method
+shorthand the way the pinned server normalizes a page function. The rebuilt
+function has no Node closure: a test whose callback must run in Node
+(`exposeFunction`, event handlers) still fails, in the adapter rather than in the
+bridge. Values the pinned protocol serializer understands — `Date`, `URL`,
+`Error`, `RegExp`, typed arrays — travel unchanged; every other object travels as
+its own enumerable properties, which is that serializer's object branch. A live
+Playwright driver object obtained from an out-of-scope native member is the one
+argument the bridge still refuses, because this adapter cannot make its identity
+mean anything.
+
 ## Baseline promotion
 
 Treat newly passing upstream tests as candidates for review. Before promoting each test:
