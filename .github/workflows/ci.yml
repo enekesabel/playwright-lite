@@ -74,13 +74,19 @@ jobs:
           path: ${{ runner.temp }}/package/*.tgz
           if-no-files-found: error
 
-  corpus:
-    name: Corpus
+  corpus-shard:
+    name: Corpus shard ${{ matrix.shard }}
     needs: release-please
     # PRs/manual runs skip Release Please; a skipped controller must not suppress CI.
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      # One shard's infrastructure failure must not hide the other shards' verdicts.
+      fail-fast: false
+      matrix:
+        # Keep this list in sync with CORPUS_SHARD_TOTAL in the "Corpus" job.
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -95,7 +101,82 @@ jobs:
       - run: pnpm exec playwright install --only-shell chromium
       # The corpus harness loads dist/index.mjs.
       - run: pnpm build
-      - run: pnpm test:e2e
+      # `tests/upstream/[^_]` is the corpus: every upstream spec except the
+      # underscore-prefixed harness guards, which "Corpus" runs once. The
+      # reporter list and the timeout have to be given here because the CLI
+      # replaces the configured reporters, and because the baseline check runs
+      # the corpus with the same 15s timeout.
+      - name: Run corpus shard ${{ matrix.shard }}
+        shell: bash
+        run: |
+          set +e
+          pnpm exec playwright test \
+            --shard=${{ matrix.shard }}/${{ strategy.job-total }} \
+            --timeout=15000 \
+            --reporter=blob,list \
+            'tests/upstream/[^_]'
+          status=$?
+          set -e
+          # Corpus failures are expected; the merged report is what gets judged.
+          # Only 0 (all passed) and 1 (some tests failed) are a completed run.
+          if [[ $status -ne 0 && $status -ne 1 ]]; then
+            echo "::error::Playwright exited with unexpected status $status (runner/config failure)."
+            exit $status
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: corpus-blob-${{ matrix.shard }}
+          path: blob-report/
+          if-no-files-found: error
+
+  corpus:
+    name: Corpus
+    needs: [release-please, corpus-shard]
+    # PRs/manual runs skip Release Please; a skipped controller must not suppress CI.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Keep in sync with the shard matrix above.
+      CORPUS_SHARD_TOTAL: 4
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # Build the same commit "check" builds.
+          ref: ${{ needs.release-please.outputs.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.12.0
+      - run: npm install --global pnpm@11.24.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --only-shell chromium
+      # The corpus harness loads dist/index.mjs.
+      - run: pnpm build
+      # Before the merge: a Playwright run clears test-results/, where the
+      # merged report goes.
+      - run: pnpm test:guards
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: corpus-blob-*
+          path: ${{ runner.temp }}/blob-reports
+          merge-multiple: true
+      # merge-reports merges whatever it finds, so a shard that crashed before
+      # uploading would silently shrink the corpus. The selectedTestCount guard
+      # in the baseline check would catch it too; this says why.
+      - name: Require one blob report per shard
+        shell: bash
+        run: |
+          blobs=("$RUNNER_TEMP/blob-reports/"*.zip)
+          if [[ ! -f "${blobs[0]}" || ${#blobs[@]} -ne $CORPUS_SHARD_TOTAL ]]; then
+            echo "::error::Expected $CORPUS_SHARD_TOTAL shard blob reports, found ${#blobs[@]}. A corpus shard crashed or uploaded nothing."
+            exit 1
+          fi
+      - name: Merge the shard reports
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/report.json
+        run: pnpm exec playwright merge-reports --reporter=json "$RUNNER_TEMP/blob-reports"
+      - run: node scripts/upstream-baseline.mjs check --report test-results/report.json
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

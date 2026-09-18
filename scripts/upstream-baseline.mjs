@@ -376,15 +376,15 @@ function runPlaywright(selectionArgs, reportPath) {
 }
 
 /**
- * Run the corpus and validate that the report covers it completely.
+ * Validate that a corpus report covers the corpus completely and record its
+ * diagnostics.
+ *
+ * @param {string} reportPath  A Playwright JSON report of a corpus run.
+ * @param {string} provenance  How the report was produced, for the log line.
  */
-function runCorpus() {
-  const exitCode = runPlaywright(
-    specNames.map((s) => `tests/upstream/${s}`),
-    REPORT_PATH
-  );
-
-  const report = loadAndValidateReport(REPORT_PATH, 2);
+function readCorpus(reportPath, provenance) {
+  const report = loadAndValidateReport(reportPath, 2);
+  mkdirSync(resolve(PKG_ROOT, "test-results"), { recursive: true });
   writeFileSync(
     resolve(PKG_ROOT, "test-results/compatibility.json"),
     JSON.stringify(
@@ -395,9 +395,20 @@ function runCorpus() {
   );
 
   console.log(
-    `Corpus: ${report.specCount} specs, ${report.testCount} tests (Playwright exit ${exitCode})`
+    `Corpus: ${report.specCount} specs, ${report.testCount} tests (${provenance})`
   );
   return report.entries;
+}
+
+/**
+ * Run the corpus and validate that the report covers it completely.
+ */
+function runCorpus() {
+  const exitCode = runPlaywright(
+    specNames.map((s) => `tests/upstream/${s}`),
+    REPORT_PATH
+  );
+  return readCorpus(REPORT_PATH, `Playwright exit ${exitCode}`);
 }
 
 /**
@@ -637,6 +648,20 @@ function doCheck(entries) {
 
 // ── Main ────────────────────────────────────────────────────────────
 
+/**
+ * Read `<flag> <value>` from the command's arguments.
+ */
+function argumentValue(flag) {
+  const index = process.argv.indexOf(flag, 3);
+  if (index === -1) return undefined;
+  const value = process.argv[index + 1];
+  if (!value) {
+    console.error(`ERROR: ${flag} requires a value.`);
+    process.exit(2);
+  }
+  return value;
+}
+
 const isMain =
   import.meta.url === `file://${process.argv[1]}` ||
   import.meta.url === new URL(process.argv[1], "file://").href;
@@ -652,13 +677,19 @@ if (isMain) {
     }
     case "check": {
       requireCorpusIntegrity(2);
-      const entries = runCorpus();
+      // `--report <path>`: judge a report produced elsewhere — CI merges the
+      // blob reports of its corpus shards into one — instead of running the
+      // corpus here. Every validation below is the same either way.
+      const reportPath = argumentValue("--report");
+      const entries = reportPath
+        ? readCorpus(resolve(process.cwd(), reportPath), `from ${reportPath}`)
+        : runCorpus();
       doCheck(entries);
       break;
     }
     default:
       console.error(
-        "Usage: upstream-baseline.mjs check | promote <test-id> <method> <evidence>"
+        "Usage: upstream-baseline.mjs check [--report <path>] | promote <test-id> <method> <evidence>"
       );
       process.exit(1);
   }
