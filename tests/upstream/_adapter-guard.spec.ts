@@ -329,6 +329,97 @@ test("interval waitForFunction uses the controlled Date and settles", async ({
   ).toBe(settledCalls);
 });
 
+test("window.builtins keeps the page's own timers and performance", async ({
+  adapterPage,
+}) => {
+  const observed = await adapterPage.evaluate(async () => {
+    const replaced = () => {
+      throw new Error("replaced timer must not run");
+    };
+    const realTimers = {
+      setTimeout: window.setTimeout,
+      setInterval: window.setInterval,
+      requestAnimationFrame: window.requestAnimationFrame,
+    };
+    const realPerformance = window.performance;
+    // Upstream's builtins protect a spec from a page that replaces its
+    // timers, so this guard replaces them the way clock emulation would.
+    Object.assign(window, {
+      setTimeout: replaced,
+      setInterval: replaced,
+      requestAnimationFrame: replaced,
+    });
+    Object.defineProperty(window, "performance", {
+      configurable: true,
+      value: { mark: replaced, measure: replaced, getEntriesByType: replaced },
+    });
+    try {
+      const builtins = window.builtins;
+      const timeout = await new Promise((resolve) => {
+        builtins.clearTimeout(
+          builtins.setTimeout(() => resolve("cleared timeout ran"), 1)
+        );
+        builtins.setTimeout(() => resolve("timeout"), 2);
+      });
+      const interval = await new Promise((resolve) => {
+        let ticks = 0;
+        const id = builtins.setInterval(() => {
+          if (++ticks < 2) return;
+          builtins.clearInterval(id);
+          resolve("interval");
+        }, 1);
+      });
+      const frame = await new Promise((resolve) => {
+        builtins.cancelAnimationFrame(
+          builtins.requestAnimationFrame(() => resolve("cancelled frame ran"))
+        );
+        builtins.requestAnimationFrame(() => resolve("frame"));
+      });
+      builtins.performance.mark("guard-start");
+      builtins.performance.mark("guard-end");
+      builtins.performance.measure("guard", "guard-start", "guard-end");
+      return {
+        members: Object.keys(builtins).sort(),
+        timeout,
+        interval,
+        frame,
+        measures: builtins.performance
+          .getEntriesByType("measure")
+          .map((entry) => entry.name),
+        date: typeof builtins.Date.now(),
+      };
+    } finally {
+      Object.assign(window, realTimers);
+      Object.defineProperty(window, "performance", {
+        configurable: true,
+        value: realPerformance,
+      });
+    }
+  });
+
+  expect(observed).toEqual({
+    members: [
+      "AbortSignal",
+      "Date",
+      "Intl",
+      "cancelAnimationFrame",
+      "cancelIdleCallback",
+      "clearInterval",
+      "clearTimeout",
+      "performance",
+      "requestAnimationFrame",
+      "requestIdleCallback",
+      "setInterval",
+      "setTimeout",
+    ],
+    timeout: "timeout",
+    interval: "interval",
+    frame: "frame",
+    measures: ["guard"],
+    date: "number",
+  });
+});
+
 // ── Adapter routing works ───────────────────────────────────────────
 
 test("adapter goto keeps hash navigation in the current document", async ({
