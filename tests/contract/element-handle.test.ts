@@ -386,6 +386,39 @@ describe("ElementHandle", () => {
     await expect(handle.fill("x")).rejects.toThrow(/disposed/);
   });
 
+  it("evaluates against the pinned node and keeps a node result as an ElementHandle", async () => {
+    document.body.innerHTML = '<div id="outer"><span>Text</span></div>';
+    const page = createPage();
+    const outer = (await page.$("#outer"))!;
+
+    const child = await outer.evaluateHandle(
+      (element, selector: string) => element.querySelector(selector),
+      "span"
+    );
+
+    const childElement = child.asElement();
+    expect(childElement).toBe(child);
+    await expect(childElement!.textContent()).resolves.toBe("Text");
+    await expect(
+      (await outer.evaluateHandle((element) => element.id)).jsonValue()
+    ).resolves.toBe("outer");
+  });
+
+  it("previews the node the way the pinned injected script does", async () => {
+    document.body.innerHTML =
+      '<div id="outer" name="value"><span>Text</span></div>';
+    const page = createPage();
+
+    expect(String(await page.$("#outer"))).toBe(
+      'JSHandle@<div id="outer" name="value">…</div>'
+    );
+    expect(String(await page.$("span"))).toBe("JSHandle@<span>Text</span>");
+    const text = await page
+      .locator("span")
+      .evaluateHandle((element) => element.firstChild);
+    expect(String(text)).toBe("JSHandle@#text=Text");
+  });
+
   it.each(["check", "uncheck", "setChecked"] as const)(
     "reports the invoked checked method: %s",
     async (method) => {

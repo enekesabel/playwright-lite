@@ -45,6 +45,27 @@ describe("Locator.dispatchEvent", () => {
     ]);
   });
 
+  it("unwraps handles inside the event init", async () => {
+    document.body.innerHTML = "<div id=source>drag</div>";
+    const page = createPage();
+    const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+    await dataTransfer.evaluate((transfer: DataTransfer) =>
+      transfer.setData("text/plain", "payload")
+    );
+    const received: Array<string | null> = [];
+    document
+      .querySelector("#source")!
+      .addEventListener("dragstart", (event) =>
+        received.push(
+          (event as DragEvent).dataTransfer?.getData("text/plain") ?? null
+        )
+      );
+
+    await page.locator("#source").dispatchEvent("dragstart", { dataTransfer });
+
+    expect(received).toEqual(["payload"]);
+  });
+
   it("rejects unsupported options", async () => {
     document.body.innerHTML = "<button id=button>go</button>";
     const page = createPage();

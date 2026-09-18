@@ -153,6 +153,25 @@ describe("Locator.selectOption", () => {
     ).toEqual(["one"]);
   });
 
+  it("selects the options ElementHandle values point at", async () => {
+    document.body.innerHTML = `
+      <select id=select multiple>
+        <option value=one>One</option>
+        <option value=two>Two</option>
+      </select>
+    `;
+    const page = createPage();
+    const one = (await page.$("[value=one]"))!;
+    const two = (await page.$("[value=two]"))!;
+
+    await expect(
+      page.locator("#select").selectOption([one, two] as any)
+    ).resolves.toEqual(["one", "two"]);
+    await expect(
+      page.locator("#select").selectOption(two as any)
+    ).resolves.toEqual(["two"]);
+  });
+
   it("times out missing select options after the configured wait", async () => {
     document.body.innerHTML = `<select id=select></select>`;
     const page = createPage();
