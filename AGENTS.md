@@ -117,7 +117,7 @@ Follow `docs/RELEASE_PROCESS.md` for releases. Keep maintainer release instructi
 
 PR titles must use Conventional Commit syntax. Use squash merge for normal PRs so the title becomes the commit on `main`.
 
-CI lints PR titles with commitlint against `commitlint.config.js`. Check a title locally:
+CI lints PR titles with commitlint against `commitlint.config.js`. Use `feat` or `fix` only for adapter behaviour consumers see, and `test` for harness, corpus and promotion work. Leave out the scope; only Release Please uses `chore(main)`. Check a title locally:
 
 ```sh
 echo "feat: add locator support" | pnpm commitlint
