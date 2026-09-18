@@ -161,6 +161,176 @@
       "evidence": "Typing 13 into an unfocused input[type=number] holding 2 leaves 132, proving both characters land at the caret of a control that exposes no selection API instead of being appended after the existing value."
     },
     {
+      "id": "eval-on-selector-all.spec.ts > should auto-detect css selector",
+      "method": "Page.$$eval",
+      "evidence": "A bare 'div' is auto-detected as css and Page.$$eval reports 3."
+    },
+    {
+      "id": "eval-on-selector-all.spec.ts > should return complex values",
+      "method": "Page.$$eval",
+      "evidence": "Mapping textContent over all matches returns ['hello', 'beautiful', 'world!'], so Page.$$eval serializes an array result in document order."
+    },
+    {
+      "id": "eval-on-selector-all.spec.ts > should support * capture",
+      "method": "Page.$$eval",
+      "evidence": "Across three documents the '*css=' capture modifier makes Page.$$eval count the captured ancestors (1, 1, 4, 1, 1, 3, 1) instead of the final step's matches."
+    },
+    {
+      "id": "eval-on-selector-all.spec.ts > should support * capture when multiple paths match",
+      "method": "Page.$$eval",
+      "evidence": "A div captured through two different descendant paths is reported once, so Page.$$eval counts 2 rather than 3."
+    },
+    {
+      "id": "eval-on-selector-all.spec.ts > should support >> syntax",
+      "method": "Page.$$eval",
+      "evidence": "'css=div >> css=span' collects spans from every matching div, so Page.$$eval reports 3 across two parents and excludes the span outside them."
+    },
+    {
+      "id": "eval-on-selector-all.spec.ts > should work with bogus Array.from",
+      "method": "Page.$$eval",
+      "evidence": "After the page replaces Array.from with a function returning [], Page.$$eval still reports 3 divs, so it does not build its match array through the page's Array.from."
+    },
+    {
+      "id": "eval-on-selector-all.spec.ts > should work with css selector",
+      "method": "Page.$$eval",
+      "evidence": "Page.$$eval('css=div') reports divs.length as 3, so every match is handed to the callback in one array."
+    },
+    {
+      "id": "eval-on-selector-all.spec.ts > should work with text selector",
+      "method": "Page.$$eval",
+      "evidence": "'text=\"beautiful\"' matches exactly the two divs with that text and Page.$$eval reports 2, so the text engine is applied to the whole match set."
+    },
+    {
+      "id": "eval-on-selector-all.spec.ts > should work with xpath selector",
+      "method": "Page.$$eval",
+      "evidence": "'xpath=/html/body/div' hands all three divs to the Page.$$eval callback."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should accept arguments",
+      "method": "Page.$eval",
+      "evidence": "Page.$eval passes ' world!' to the callback next to the matched element and returns 'hello world!', so the extra argument reaches the in-document callback."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should accept ElementHandles as arguments",
+      "method": "Page.$eval",
+      "evidence": "An ElementHandle for the div is passed as the Page.$eval argument and the callback concatenates both textContents into 'hello world', so handle arguments are unwrapped to live nodes."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should auto-detect css selector",
+      "method": "Page.$eval",
+      "evidence": "A bare 'section' with no engine prefix is treated as css and Page.$eval returns the element's id."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should auto-detect css selector with attributes",
+      "method": "Page.$eval",
+      "evidence": "'section[id=\"testAttribute\"]' is auto-detected as css and Page.$eval returns that element's id."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should auto-detect nested selectors",
+      "method": "Page.$eval",
+      "evidence": "'div[foo=bar] > section >> \"Hello\" >> div' chains css, text and css engines and Page.$eval returns id 'target', so each step narrows the scope of the next."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should not stop at first failure with >> syntax",
+      "method": "Page.$eval",
+      "evidence": "'button >> \"Next\"' returns '<button>Next</button>', so Page.$eval keeps trying later buttons instead of failing on the first one whose text does not match."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should return complex values",
+      "method": "Page.$eval",
+      "evidence": "Page.$eval returns [{ id: 'testAttribute' }], so a nested array-of-object result from the callback is serialized rather than flattened."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should support * capture",
+      "method": "Page.$eval",
+      "evidence": "The '*css=' capture modifier makes Page.$eval return the captured div or span outerHTML rather than the final step's match, across three different chains."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should support >> syntax",
+      "method": "Page.$eval",
+      "evidence": "'css=section >> css=div' resolves the nested div and Page.$eval returns 'hello world!' with the passed suffix appended."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should support >> syntax with different engines",
+      "method": "Page.$eval",
+      "evidence": "'xpath=/html/body/section >> css=div >> text=\"hello\"' mixes three engines in one chain and Page.$eval returns 'hello world!'."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should support spaces with >> syntax",
+      "method": "Page.$eval",
+      "evidence": "' css = div >>css=div>>css   = span  ' with irregular whitespace around engines and separators resolves the deep-shadow span, and Page.$eval returns 'Hello from root2'. Page.goto is recorded as native fixture setup."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should throw on malformed * capture",
+      "method": "Page.$eval",
+      "evidence": "Page.$eval rejects '*=div' with 'Unknown engine \"\" while parsing selector *=div', so the adapter reports the malformed capture with the pinned parser's diagnostic."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should throw on multiple * captures",
+      "method": "Page.$eval",
+      "evidence": "Page.$eval rejects '*css=div >> *css=span' with 'Only one of the selectors can capture using * modifier', so the selector is rejected inside the adapter before any querying."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should work with css selector",
+      "method": "Page.$eval",
+      "evidence": "The explicit 'css=section' engine resolves the section and Page.$eval returns its id 'testAttribute', so the engine prefix is honoured."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should work with data-test selector",
+      "method": "Page.$eval",
+      "evidence": "'data-test=foo' matches the section by its data-test attribute and Page.$eval returns its id."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should work with data-test-id selector",
+      "method": "Page.$eval",
+      "evidence": "'data-test-id=foo' matches the section by its data-test-id attribute and Page.$eval returns its id."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should work with data-testid selector",
+      "method": "Page.$eval",
+      "evidence": "'data-testid=foo' matches the section by its data-testid attribute and Page.$eval returns its id."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should work with id selector",
+      "method": "Page.$eval",
+      "evidence": "'id=testAttribute' resolves through the id engine and Page.$eval returns that element's id."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should work with quotes in css attributes",
+      "method": "Page.$",
+      "evidence": "Attribute values containing an escaped double quote or an apostrophe, in both quoting styles and with and without surrounding spaces, each resolve the matching input through Page.$ across four documents."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should work with quotes in css attributes when missing",
+      "method": "Page.waitForSelector",
+      "evidence": "A Page.waitForSelector for an attribute selector containing an escaped double quote resolves once the matching input is added, while Page.$ for the same selector returns null beforehand."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should work with spaces in css attributes",
+      "method": "Page.$eval",
+      "evidence": "Ten spellings of an attribute selector whose value contains a space - double- and single-quoted, with and without a tag, a 'css=' prefix or a '>>' step - all return the same '<input placeholder=\"Select date\">' from Page.$eval."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should work with spaces in css attributes when missing",
+      "method": "Page.waitForSelector",
+      "evidence": "A Page.waitForSelector for '[placeholder=\"Select date\"]' started before the input exists resolves once the content is added, while Page.$ for the same selector returns null in between."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should work with text selector",
+      "method": "Page.$eval",
+      "evidence": "Unquoted 'text=43543' matches the section by its normalized text and Page.$eval returns its id."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should work with text selector in quotes",
+      "method": "Page.$eval",
+      "evidence": "'text=\"43543\"' matches the section by its exact node text and Page.$eval returns its id."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should work with xpath selector",
+      "method": "Page.$eval",
+      "evidence": "'xpath=/html/body/section' resolves through the XPath engine and Page.$eval returns the element's id."
+    },
+    {
       "id": "locator-click.spec.ts > should click if the target element is removed in pointerdown event",
       "method": "Locator.click",
       "evidence": "Awaiting Locator.click completes without rejection when the target element is removed in pointerdown event."
@@ -209,6 +379,31 @@
       "id": "locator-convenience.spec.ts > isEnabled and isDisabled should work",
       "method": "Locator.isEnabled",
       "evidence": "Assertions verify Locator and Page enabled and disabled state across ordinary and disabled elements using InjectedScript element-state semantics."
+    },
+    {
+      "id": "locator-evaluate.spec.ts > should not throw in case of missing selector for all",
+      "method": "Locator.evaluateAll",
+      "evidence": "With nothing matching '#myId .a', Locator.evaluateAll still calls the callback and reports nodes.length as 0 instead of rejecting."
+    },
+    {
+      "id": "locator-evaluate.spec.ts > should retrieve content from subtree",
+      "method": "Locator.evaluate",
+      "evidence": "'#myId .a' returns 'a-child-div' rather than the same-class div outside #myId, so Locator.evaluate resolves the scoped descendant selector before running the callback."
+    },
+    {
+      "id": "locator-evaluate.spec.ts > should retrieve content from subtree for all",
+      "method": "Locator.evaluateAll",
+      "evidence": "'#myId .a' yields ['a1-child-div', 'a2-child-div'] and excludes the same-class div outside #myId, so evaluateAll applies the scoped selector to the whole match set."
+    },
+    {
+      "id": "locator-evaluate.spec.ts > should work @smoke",
+      "method": "Locator.evaluate",
+      "evidence": "Locator.evaluate resolves '.tweet .like' to the one matching node and the callback reads its innerText as '100', so the located element is what the callback receives."
+    },
+    {
+      "id": "locator-evaluate.spec.ts > should work for all",
+      "method": "Locator.evaluateAll",
+      "evidence": "Locator.evaluateAll hands the callback every '.tweet .like' node at once and returns ['100', '10'], so all matches arrive as one array in document order."
     },
     {
       "id": "locator-highlight.spec.ts > hideHighlight removes a styled highlight",
@@ -1286,6 +1481,311 @@
       "evidence": "A disabled-button trial rejects with a trial-run action log at its short deadline and never activates the button."
     },
     {
+      "id": "page-evaluate.spec.ts > should accept \"undefined\" as one of multiple parameters",
+      "method": "Page.evaluate",
+      "evidence": "The callback reports Object.is(a, undefined) && Object.is(b, 'foo') as true for the argument { a: undefined, b: 'foo' }, so Page.evaluate's argument serializer keeps an explicitly undefined field alongside a defined one."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should accept a string",
+      "method": "Page.evaluate",
+      "evidence": "The expression string '1 + 2' returns 3, so Page.evaluate evaluates the string form instead of treating it as a value."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should accept a string with comments",
+      "method": "Page.evaluate",
+      "evidence": "'2 + 5;\\n// do some math!' returns 7, so Page.evaluate evaluates a multi-line expression string whose last line is a comment."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should accept a string with semi colons",
+      "method": "Page.evaluate",
+      "evidence": "'1 + 5;' returns 6, so a trailing semicolon does not stop Page.evaluate from evaluating the expression string."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should accept element handle as an argument",
+      "method": "Page.evaluate",
+      "evidence": "The ElementHandle from Page.$ is passed as the argument and the callback reads its textContent as '42', so Page.evaluate unwraps a handle argument back to the same live node."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should alias Window, Document and Node",
+      "method": "Page.evaluate",
+      "evidence": "Evaluating '[window, document, document.body]' returns ['ref: <Window>', 'ref: <Document>', 'ref: <Node>'], so Page.evaluate's result serializer substitutes Playwright's ref aliases for host objects instead of failing or emptying them."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should await promise",
+      "method": "Page.evaluate",
+      "evidence": "A callback returning Promise.resolve(8 * 7) resolves to 56, so Page.evaluate awaits a returned promise rather than serializing the promise object."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should await promise from popup",
+      "method": "Page.evaluate",
+      "evidence": "The callback returns a promise built from another window's Promise constructor and Page.evaluate still resolves it to 42, so the await path does not depend on the promise coming from the document's own realm."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should evaluate date",
+      "method": "Page.evaluate",
+      "evidence": "A returned { date: new Date('2020-05-27T01:31:38.506Z') } compares equal to the same Date, so Page.evaluate round-trips Date values instead of flattening them to strings."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should evaluate exception",
+      "method": "Page.evaluate",
+      "evidence": "An Error returned by value keeps its message, its custom name 'foobar' and a stack naming innerFunction, so Page.evaluate serializes error objects with their own properties rather than as {}."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should evaluate exception with a function on the stack",
+      "method": "Page.evaluate",
+      "evidence": "An Error created inside a named IIFE and returned by value keeps message 'error message' and a stack containing functionOnStack, so Page.evaluate preserves the stack captured in the document."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should evaluate in the page context",
+      "method": "Page.evaluate",
+      "evidence": "After the fixture's native setup navigation to global-var.html, Page.evaluate('globalVar') returns 123, so the expression is evaluated against the document's own global scope. Page.goto is recorded as native fixture setup."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should evaluate url",
+      "method": "Page.evaluate",
+      "evidence": "A returned { url: new URL('https://example.com') } compares equal to the same URL, so Page.evaluate round-trips URL values."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should ignore buggy toJSON",
+      "method": "Page.evaluate",
+      "evidence": "Returned objects whose toJSON method and whose toJSON getter both throw serialize to {} instead of propagating those throws, so Page.evaluate's result serializer never invokes a page-supplied toJSON."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should modify global environment",
+      "method": "Page.evaluate",
+      "evidence": "One Page.evaluate assigns window.globalVar = 123 and a later Page.evaluate('globalVar') reads back 123, so both calls run against the same document global scope."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should not add a toJSON property to newly created Arrays after evaluation",
+      "method": "Page.evaluate",
+      "evidence": "After one Page.evaluate returns an array, a second one evaluates \"'toJSON' in []\" to false, so serializing an array result leaves no toJSON behind on Array.prototype."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should not expose the injected script export",
+      "method": "Page.evaluate",
+      "evidence": "Page.evaluate('typeof pwExport === \"undefined\"') returns true, so evaluating a string expression sees the document's real globals and the adapter's bundled injected script left no pwExport there."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should not leak handles",
+      "method": "Page.evaluate",
+      "evidence": "Page.evaluate('handles.length') rejects with a message containing ' handles', so the ReferenceError for the undeclared identifier reaches the caller instead of an internal handle table resolving it."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should not leak utility script",
+      "method": "Page.evaluate",
+      "evidence": "Page.evaluate('this === window') returns true, so a string expression is evaluated with `this` bound to the document window rather than to an internal wrapper object."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should not use Array.prototype.toJSON when evaluating",
+      "method": "Page.evaluate",
+      "evidence": "With Array.prototype.toJSON replaced by a function returning 'busted', the returned [1, 2, 3] still arrives as [1, 2, 3], so Page.evaluate ignores a page-defined Array toJSON."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should not use toJSON when evaluating",
+      "method": "Page.evaluate",
+      "evidence": "A returned { toJSON: () => 'string', data: 'data' } arrives as { data: 'data', toJSON: {} }, so Page.evaluate serializes own properties instead of calling toJSON."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should properly serialize null arguments",
+      "method": "Page.evaluate",
+      "evidence": "null passed as the argument is returned as null, so Page.evaluate does not collapse null into undefined or into a missing argument."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should properly serialize null fields",
+      "method": "Page.evaluate",
+      "evidence": "A returned { a: null } keeps its null field, so Page.evaluate's result serializer preserves null values."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should properly serialize undefined arguments",
+      "method": "Page.evaluate",
+      "evidence": "undefined passed as the argument and wrapped as { a: x } comes back as {}, so Page.evaluate drops an undefined field from the serialized result the way Playwright does."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should properly serialize undefined fields",
+      "method": "Page.evaluate",
+      "evidence": "A returned { a: undefined } compares equal to {}, so undefined fields are dropped from the serialized value."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should properly serialize window.performance object",
+      "method": "Page.evaluate",
+      "evidence": "The document's live window.performance is returned and matches the expected navigation and timing shape with numeric fields, so Page.evaluate serializes a host object into a plain structure rather than {}."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should reject promise with exception",
+      "method": "Page.evaluate",
+      "evidence": "Reading a missing global in the callback rejects Page.evaluate with a message containing 'not_existing_object', so the in-document ReferenceError is surfaced to the caller."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should respect use strict expression",
+      "method": "Page.evaluate",
+      "evidence": "A 'use strict' callback assigning an undeclared variableY rejects with a message containing 'variableY', so Page.evaluate keeps the callback's own strict-mode semantics."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should return -0",
+      "method": "Page.evaluate",
+      "evidence": "Object.is(result, -0) holds for a returned -0, so the result serializer distinguishes -0 from 0."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should return -Infinity",
+      "method": "Page.evaluate",
+      "evidence": "Object.is(result, -Infinity) holds for a returned -Infinity, so the result serializer carries it rather than null."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should return complex objects",
+      "method": "Page.evaluate",
+      "evidence": "The returned object equals { foo: 'bar!' } but is not the same reference as the argument, so Page.evaluate hands back a serialized copy rather than the caller's object."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should return Infinity",
+      "method": "Page.evaluate",
+      "evidence": "Object.is(result, Infinity) holds for a returned Infinity, so the result serializer carries it rather than null."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should return NaN",
+      "method": "Page.evaluate",
+      "evidence": "Object.is(result, NaN) holds for a returned NaN, so the result serializer carries NaN rather than null."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should return undefined for non-serializable objects",
+      "method": "Page.evaluate",
+      "evidence": "A callback returning a function yields undefined, so Page.evaluate drops a non-serializable result instead of rejecting."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should return undefined for objects with symbols",
+      "method": "Page.evaluate",
+      "evidence": "Symbols as an array element, as an object key and nested inside an object serialize to [undefined], {} and { foo: [{ a: undefined }] }, so the result serializer drops symbol values and symbol-keyed properties."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should return undefined properties",
+      "method": "Page.evaluate",
+      "evidence": "The value returned for { a: undefined } still reports \"'a' in value\" as true, so the key survives even though the value compares equal to {}."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should roundtrip promise to unserializable values",
+      "method": "Page.evaluate",
+      "evidence": "A promise resolving to { infinity, nInfinity, nZero, nan } comes back with those exact values, so Page.evaluate awaits the promise and serializes the unserializable numbers inside it."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should roundtrip promise to value",
+      "method": "Page.evaluate",
+      "evidence": "Promise.resolve(value) for null, Infinity, -0 and undefined resolves to each exact value, so Page.evaluate awaits the returned promise and preserves the identity of what it resolves with."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should roundtrip regex",
+      "method": "Page.evaluate",
+      "evidence": "A RegExp passed as the argument and returned unchanged stringifies to /hello/im, so Page.evaluate carries RegExp arguments with their flags."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should roundtrip unserializable values",
+      "method": "Page.evaluate",
+      "evidence": "An object of Infinity, -Infinity, -0 and NaN passed in and returned unchanged compares equal, so both the argument and the result serializer carry unserializable numbers."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should support thrown numbers as error messages",
+      "method": "Page.evaluate",
+      "evidence": "A callback throwing the number 100500 rejects with a message containing '100500', so Page.evaluate reports non-Error throws instead of losing them."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should support thrown strings as error messages",
+      "method": "Page.evaluate",
+      "evidence": "A callback throwing the string 'qwerty' rejects with a message containing 'qwerty', so Page.evaluate reports non-Error throws instead of losing them."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should throw error with detailed information on exception inside promise ",
+      "method": "Page.evaluate",
+      "evidence": "A throw inside the promise the callback returns rejects Page.evaluate with 'Error in promise', so a rejection of the awaited promise is reported rather than swallowed."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should transfer -0",
+      "method": "Page.evaluate",
+      "evidence": "Object.is(result, -0) holds for -0 passed as the argument and echoed back, so the argument serializer distinguishes -0 from 0."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should transfer -Infinity",
+      "method": "Page.evaluate",
+      "evidence": "-Infinity passed as the argument is echoed back identically, so the argument serializer carries it."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should transfer 100Mb of data from page to node.js",
+      "method": "Page.evaluate",
+      "evidence": "A 100MB string built inside the callback is returned with its full length intact, so Page.evaluate neither truncates nor chunks a very large string result."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should transfer arrays",
+      "method": "Page.evaluate",
+      "evidence": "[1, 2, 3] passed as the argument is echoed back equal, so the argument serializer carries array contents."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should transfer arrays as arrays, not objects",
+      "method": "Page.evaluate",
+      "evidence": "Array.isArray(a) is true inside the callback, so an array argument arrives as a real Array in the document rather than as an index-keyed object."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should transfer bigint",
+      "method": "Page.evaluate",
+      "evidence": "42n returned and 17n passed as the argument both compare equal to those BigInt values, so Page.evaluate carries BigInt in both directions."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should transfer Infinity",
+      "method": "Page.evaluate",
+      "evidence": "Infinity passed as the argument is echoed back identically, so the argument serializer carries it."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should transfer NaN",
+      "method": "Page.evaluate",
+      "evidence": "Object.is(result, NaN) holds for NaN passed as the argument and echoed back, so the argument serializer carries NaN."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should work @smoke",
+      "method": "Page.evaluate",
+      "evidence": "A self-contained callback returning 7 * 3 resolves to 21, so Page.evaluate ran the function in the document and returned its value."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should work even when JSON is set to null",
+      "method": "Page.evaluate",
+      "evidence": "After the page sets window.JSON.stringify and window.JSON to null, Page.evaluate still returns { abc: 123 }, so its serializer does not route through the page's JSON global."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should work for circular object",
+      "method": "Page.evaluate",
+      "evidence": "A self-referencing object is returned and compares equal to the same circular structure, so the result serializer resolves cycles instead of overflowing."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should work with Array.from/map",
+      "method": "Page.evaluate",
+      "evidence": "A callback building '([a-f0-9]{2})' three times through Array.from(...).map(...).join('') returns the concatenated string, so the result is serialized verbatim instead of being mangled by the regex-looking content."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should work with large strings",
+      "method": "Page.evaluate",
+      "evidence": "A 40,000-character string passed as the argument and echoed back compares equal, so the argument serializer carries large strings intact."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should work with large unicode strings",
+      "method": "Page.evaluate",
+      "evidence": "A surrogate pair repeated 10,000 times passed as the argument and echoed back compares equal, so the argument serializer does not split surrogate pairs."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should work with non-strict expressions",
+      "method": "Page.evaluate",
+      "evidence": "A sloppy-mode callback that assigns an undeclared y and returns it yields 3.14, so Page.evaluate does not impose strict mode on the callback."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should work with overridden Object.defineProperty",
+      "method": "Page.evaluate",
+      "evidence": "After the loaded document nulls Object.create, defineProperty, getOwnPropertyDescriptor, getOwnPropertyNames, getPrototypeOf and Object.prototype.hasOwnProperty, Page.evaluate('1+2') still returns 3, so it does not depend on the page's Object methods. Page.goto is recorded as native fixture setup."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should work with overwritten Promise",
+      "method": "Page.evaluate",
+      "evidence": "With window.Promise replaced by a non-native class, the sanity check reports the replacement is in use and Page.evaluate still resolves Promise.resolve(42) to 42, so the await path uses the intrinsic promise rather than the page's."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should work with unicode chars",
+      "method": "Page.evaluate",
+      "evidence": "An object keyed by '中文字符' passed as the argument yields 42 when the callback reads that key, so non-ASCII property names survive argument serialization."
+    },
+    {
       "id": "page-fill.spec.ts > fill back to back",
       "method": "Page.fill",
       "evidence": "Consecutive fills on distinct inputs produce the two independently asserted values."
@@ -1686,6 +2186,81 @@
       "evidence": "A multiline string expression resolves and its handle returns true."
     },
     {
+      "id": "queryselector.spec.ts > should auto-detect css selector",
+      "method": "Page.$",
+      "evidence": "A bare 'section' is auto-detected as css and Page.$ returns a handle."
+    },
+    {
+      "id": "queryselector.spec.ts > should auto-detect text selector",
+      "method": "Page.$",
+      "evidence": "The quoted selector '\"test\"' is auto-detected as a text selector and Page.$ returns a handle."
+    },
+    {
+      "id": "queryselector.spec.ts > should auto-detect xpath selector",
+      "method": "Page.$",
+      "evidence": "'//html/body/section' with no engine prefix is auto-detected as XPath and Page.$ returns a handle."
+    },
+    {
+      "id": "queryselector.spec.ts > should auto-detect xpath selector starting with ..",
+      "method": "Page.$",
+      "evidence": "'\"test\" >> ../span' and '\"test\" >> ..' step out of the text-matched section, and the handles Page.$ returns evaluate to nodeName SPAN and DIV respectively."
+    },
+    {
+      "id": "queryselector.spec.ts > should auto-detect xpath selector with starting parenthesis",
+      "method": "Page.$",
+      "evidence": "'(//section)[1]' is auto-detected as XPath despite the leading parenthesis and Page.$ returns a handle."
+    },
+    {
+      "id": "queryselector.spec.ts > should query existing element with css selector @smoke",
+      "method": "Page.$",
+      "evidence": "Page.$('css=section') returns a handle for the section, so the explicit css engine resolves through the adapter."
+    },
+    {
+      "id": "queryselector.spec.ts > should query existing element with text selector",
+      "method": "Page.$",
+      "evidence": "Page.$('text=\"test\"') returns a handle for the section that carries that exact text."
+    },
+    {
+      "id": "queryselector.spec.ts > should query existing element with xpath selector",
+      "method": "Page.$",
+      "evidence": "Page.$('xpath=/html/body/section') returns a handle, so the XPath engine resolves through the adapter."
+    },
+    {
+      "id": "queryselector.spec.ts > should query existing elements",
+      "method": "Page.$$",
+      "evidence": "Page.$$('div') returns two handles, and passing each back into Page.evaluate reads 'A' and 'B', so the handles reference the right nodes in document order and the <br> between them is not matched."
+    },
+    {
+      "id": "queryselector.spec.ts > should return empty array if nothing is found",
+      "method": "Page.$$",
+      "evidence": "On the empty document Page.$$('div') returns an array of length 0 rather than null. Page.goto is recorded as native fixture setup."
+    },
+    {
+      "id": "queryselector.spec.ts > should return null for non-existing element",
+      "method": "Page.$",
+      "evidence": "Page.$('non-existing-element') resolves to null rather than rejecting or handing back an empty handle."
+    },
+    {
+      "id": "queryselector.spec.ts > should support >> syntax",
+      "method": "Page.$",
+      "evidence": "'css=section >> css=div' resolves the nested div through the chained engines and Page.$ returns a handle."
+    },
+    {
+      "id": "queryselector.spec.ts > xpath should query existing element",
+      "method": "Page.$$",
+      "evidence": "'xpath=/html/body/section' returns exactly one truthy handle from Page.$$."
+    },
+    {
+      "id": "queryselector.spec.ts > xpath should return empty array for non-existing element",
+      "method": "Page.$$",
+      "evidence": "An XPath matching nothing makes Page.$$ resolve to [] rather than null or a rejection."
+    },
+    {
+      "id": "queryselector.spec.ts > xpath should return multiple elements",
+      "method": "Page.$$",
+      "evidence": "'xpath=/html/body/div' makes Page.$$ return both divs."
+    },
+    {
       "id": "retarget.spec.ts > check retargeting",
       "method": "Locator.isChecked",
       "evidence": "Across six label and control cases, Locator.isChecked observes false then true after direct mutation; uncheck, check, and setChecked(false) drive the input to false, true, then false."
@@ -1754,6 +2329,131 @@
       "id": "retarget.spec.ts > visible/hidden retargeting",
       "method": "ElementHandle.waitForElementState",
       "evidence": "Explicit visibility assertions and handle state waits distinguish the tested label/control and hidden-parent cases."
+    },
+    {
+      "id": "selectors-css.spec.ts > css on the handle should be relative",
+      "method": "ElementHandle.$eval",
+      "evidence": "The same '.find-me' selector returns target1 from the page and target2 from the div handle, so ElementHandle.$eval scopes the query to the handle's own subtree rather than the document."
+    },
+    {
+      "id": "selectors-css.spec.ts > should absolutize relative selectors",
+      "method": "Page.$eval",
+      "evidence": "'div >> >span' resolves the span, so a leading child combinator in a chained step is absolutized against that step's scope; 'div:has(> span)' matches the div while 'div:has(> div)' resolves to null."
+    },
+    {
+      "id": "selectors-css.spec.ts > should keep dom order with comma separated list",
+      "method": "Page.$$eval",
+      "evidence": "Comma lists and '*css=' captures return node names in document order ('SPAN,DIV' for both 'span,div' and 'div,span'), so Page.$$eval orders results by the document rather than by clause order."
+    },
+    {
+      "id": "selectors-css.spec.ts > should not match root after >>",
+      "method": "Page.$",
+      "evidence": "'css=section >> css=section' resolves to null, so a scoped step does not match the root it was scoped to."
+    },
+    {
+      "id": "selectors-css.spec.ts > should return multiple captures for the same node",
+      "method": "Page.$$eval",
+      "evidence": "'*css=div >> span' reports the one span reached through three nested divs as three captured DIVs, so each capture path yields its own result."
+    },
+    {
+      "id": "selectors-css.spec.ts > should return multiple captures when going up the hierarchy",
+      "method": "Page.$$eval",
+      "evidence": "'*css=li >> ../.. >> text=Hello' returns both LI elements that reach the 'Hello' text through their grandparent, so captures survive an upward XPath step."
+    },
+    {
+      "id": "selectors-css.spec.ts > should use light DOM structure for child combinator with slotted content",
+      "method": "Page.$eval",
+      "evidence": "'my-button > div' and 'my-button > .content' resolve the slotted child, so the child combinator follows the light-DOM tree rather than the shadow tree the <slot> renders it into."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with :has",
+      "method": "Page.$$eval",
+      "evidence": "':has()' with a descendant id, with attribute selectors and with comma-separated inner clauses returns the documented counts, including 'section:has(span, br)' matching both sections while 'section:has(span, div)' matches one."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with :is",
+      "method": "Page.$$eval",
+      "evidence": "Ten ':is()' forms, including ':is()' as the whole compound, combined with a descendant selector, and nested inside ':has()', return the documented counts on the deep-shadow document."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with :not",
+      "method": "Page.$$eval",
+      "evidence": "'div:not(#root1)', 'body :not(span)' and 'div > :not(span):not(div)' return 2, 4 and 0 on the deep-shadow document, so negation is applied per candidate element including inside open shadow roots. Page.goto is recorded as native fixture setup."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with :nth-child",
+      "method": "Page.$$eval",
+      "evidence": "Ten :nth-child forms (odd, even, n+1, n+2, 2n, 2n+1, -n, -n+1, -n+2, 23n+2) return the documented span counts on the deep-shadow document. Page.goto is recorded as native fixture setup."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with :nth-child(of) notation with nested functions",
+      "method": "Page.$$eval",
+      "evidence": "':nth-child(1 of .foo:has(dd.marker))' and its nth-last-child forms select span3, span4 and span5, and an unsatisfiable 'of' clause returns an empty list, so nested functional pseudo-classes are evaluated rather than ignored."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with :scope",
+      "method": "Page.$$eval",
+      "evidence": "':scope' resolves to the queried root itself (1 match) while '* :scope', '* + :scope', '* > :scope' and '* ~ :scope' return 0 for both page- and handle-scoped queries, and ':is(:scope#root1)' versus ':has(:scope > #target)' show which form rebinds the scope."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with :scope and class",
+      "method": "Locator.locator",
+      "evidence": "Chaining ':scope.selected' onto the '.apple' locator narrows two apples to the one that also carries the selected class, so Locator.locator evaluates the child selector with ':scope' bound to each parent match."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with *",
+      "method": "Page.$$eval",
+      "evidence": "Twelve page-scoped universal selectors ('*', '*#div1', '*:not(#div1)', '*:not(div)', '*:is(*)', '* *', 'div > *', '* > *', ...) return the documented counts including html, head and body, so Page.$$eval applies '*' across the whole document."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with +",
+      "method": "Page.$$eval",
+      "evidence": "Adjacent-sibling chains return the expected id lists, including ':scope+div', the leading '+ div' shorthand, 'div + :scope', and ':has(:scope > div + #div2)' matching while ':has(:scope > div + #div1)' does not."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with ~",
+      "method": "Page.$$eval",
+      "evidence": "Subsequent-sibling chains return the expected id lists, including ':scope ~ div' and the leading '~ div' shorthand on a scoped step, and the counts for '#divN ~ div ~ div' decrease as the anchor moves later."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with attribute selectors",
+      "method": "Page.$eval",
+      "evidence": "Twelve attribute-selector forms (=, ~=, ^=, $=, *=, |=, the case-insensitive i flag, and values containing quotes, '>>' and brackets) each resolve to the element the page stored on window.div, checked by identity inside the callback."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with comma inside text",
+      "method": "Page.$eval",
+      "evidence": "A comma inside a quoted attribute value is not treated as a clause separator: four spellings resolve the div, while 'css=div[attr=\"hello,world!\"],span' does split and returns the earlier span."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with comma separated list",
+      "method": "Page.$$eval",
+      "evidence": "Comma-separated clauses report one entry per node even when several clauses match it, and a clause matching nothing is skipped, giving the counts 5, 5, 1, 4, 4, 2 and 4 on the deep-shadow document. Page.goto is recorded as native fixture setup."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with comma separated list in various positions",
+      "method": "Page.$$eval",
+      "evidence": "Comma lists placed in the first, middle and last step of a '>>' chain each yield the expected node names, so Page.$$eval splits clauses per step rather than only at the top level."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with large DOM @smoke",
+      "method": "Page.$$eval",
+      "evidence": "Over a generated 12-level DOM, nine descendant, child and sibling selector shapes produce exactly the match counts document.querySelectorAll reports for the same strings in the same document, so Page.$$eval's css engine agrees with the browser's."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with numerical id",
+      "method": "Page.$",
+      "evidence": "The escaped id selector '#\\31\\32\\33' resolves the section whose id is '123', so Page.$ passes CSS escapes through to the css engine."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with spaces in :nth-child and :not",
+      "method": "Page.$$eval",
+      "evidence": "Whitespace variants inside ':nth-child(23n + 2)' and nested ':not(...)' clauses produce the same counts as their compact spellings, so the parser normalizes whitespace inside functional pseudo-classes. Page.goto is recorded as native fixture setup."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work with wrong-case id",
+      "method": "Page.$eval",
+      "evidence": "'#Hello', '#hello', '#HELLO' and '#helLO' all resolve the same section and Page.$eval returns SECTION for each, so id comparison follows the document's own case rules instead of an engine-side exact match."
     },
     {
       "id": "selectors-get-by.spec.ts > getBy escaping",
@@ -1974,6 +2674,86 @@
       "id": "selectors-misc.spec.ts > xpath should be relative",
       "method": "ElementHandle.$eval",
       "evidence": "XPath queries rooted in a retained element return target2 while the document query returns target1."
+    },
+    {
+      "id": "selectors-role.spec.ts > errors",
+      "method": "Page.$",
+      "evidence": "Nine malformed role selectors each reject Page.$ with the pinned parser's own diagnostic: empty role, unknown attribute (with the list of supported ones), dotted attribute name, non-numeric level, invalid checked and expanded values, '~=' against a non-string, level on an unsupported role, and name without a value."
+    },
+    {
+      "id": "selectors-role.spec.ts > hidden with shadow dom slots",
+      "method": "Locator.evaluateAll",
+      "evidence": "Buttons slotted into a shadow root that renders no <slot> count as hidden, so 'role=button' returns only the two visible buttons while '[include-hidden]' returns all four."
+    },
+    {
+      "id": "selectors-role.spec.ts > should detect roles",
+      "method": "Locator.evaluateAll",
+      "evidence": "'role=button', listbox, combobox, heading, group and dialog each return exactly the element carrying that implicit or explicit role, and 'role=menuitem' returns an empty list, so Locator.evaluateAll hands the callback the role-resolved match set."
+    },
+    {
+      "id": "selectors-role.spec.ts > should filter hidden, unless explicitly asked for",
+      "method": "Locator.evaluateAll",
+      "evidence": "'role=button' returns only the four buttons that are visible - excluding hidden, aria-hidden=true, visibility:hidden and display:none ones, keeping one made visible inside a hidden ancestor and one in an open shadow root - while '[include-hidden]' and '[include-hidden=true]' return all ten."
+    },
+    {
+      "id": "selectors-role.spec.ts > should inherit disabled from the ancestor",
+      "method": "Locator._expect",
+      "evidence": "A button inside a span with aria-disabled=\"true\" is reported disabled, while an h1 in the same position is not, so the disabled expectation inherits from ancestors only for roles that can be disabled."
+    },
+    {
+      "id": "selectors-role.spec.ts > should not match scope by default",
+      "method": "Locator.getByRole",
+      "evidence": "getByRole('listitem') chained onto the 'Parent list' listitem returns its two children with texts 'child 1' and 'child 2', so the scoped role query does not match the scope element itself."
+    },
+    {
+      "id": "selectors-role.spec.ts > should support checked",
+      "method": "Locator.evaluateAll",
+      "evidence": "'role=checkbox[checked]', '[checked=true]', '[checked=false]' and '[checked=\"mixed\"]' partition native checkboxes - including the one made indeterminate - and aria-checked divs, with an unset aria-checked div counted as not checked."
+    },
+    {
+      "id": "selectors-role.spec.ts > should support disabled",
+      "method": "Locator.evaluateAll",
+      "evidence": "'role=button[disabled]' includes buttons disabled by aria-disabled and by a disabled fieldset ancestor, 'role=option[disabled]' includes an option inside a disabled optgroup, and the '=false' forms return exactly the complement."
+    },
+    {
+      "id": "selectors-role.spec.ts > should support disabled fieldset",
+      "method": "Locator._expect",
+      "evidence": "Inside a disabled fieldset, buttons in the first <legend> - including one nested in a div - are reported enabled, while buttons in a second legend, in a nested fieldset, or outside any legend are reported disabled."
+    },
+    {
+      "id": "selectors-role.spec.ts > should support expanded",
+      "method": "Locator.evaluateAll",
+      "evidence": "'role=treeitem[expanded]', '[expanded=true]' and '[expanded=false]' each return only the treeitem with the matching aria-expanded, leaving the one without the attribute out of both."
+    },
+    {
+      "id": "selectors-role.spec.ts > should support level",
+      "method": "Locator.evaluateAll",
+      "evidence": "'role=heading[level=1|3|5]' return the h1, the h3 and the aria-level=5 div respectively, so heading level comes from the tag name or from aria-level."
+    },
+    {
+      "id": "selectors-role.spec.ts > should support name",
+      "method": "Locator.evaluateAll",
+      "evidence": "'role=button[name=...]' matches on the normalized accessible name through exact, '*=' substring, regex and case-insensitive regex forms, and '[include-hidden]' additionally returns the aria-hidden buttons."
+    },
+    {
+      "id": "selectors-role.spec.ts > should support option name with html whitespace",
+      "method": "Page.getByRole",
+      "evidence": "getByRole('option', { name: 'HTML' }) matches the option whose text begins with a non-breaking space, so the accessible name is whitespace-normalized before it is compared."
+    },
+    {
+      "id": "selectors-role.spec.ts > should support output accessible name",
+      "method": "Page.getByRole",
+      "evidence": "getByRole('status', { name: 'Output1' }) matches the <output> wrapped in a label, so <output> maps to the status role and takes its accessible name from the enclosing label."
+    },
+    {
+      "id": "selectors-role.spec.ts > should support pressed",
+      "method": "Locator.evaluateAll",
+      "evidence": "'role=button[pressed]', '[pressed=true]', '[pressed=false]' and '[pressed=\"mixed\"]' partition the aria-pressed buttons, with the button carrying no aria-pressed counted as not pressed."
+    },
+    {
+      "id": "selectors-role.spec.ts > should support selected",
+      "method": "Locator.evaluateAll",
+      "evidence": "'role=option[selected]', '[selected=true]' and '[selected=false]' partition the native selected option and the aria-selected divs, and getByRole({ selected }) returns the same outerHTML lists."
     },
     {
       "id": "selectors-text.spec.ts > hasText and internal:text should match full node text in strict mode",
