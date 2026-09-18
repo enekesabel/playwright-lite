@@ -26,7 +26,30 @@ const ADAPTER_DIST_PATH = resolve(__dirname, "../../dist/index.mjs");
 const LOCATOR_CHAIN_PAYLOAD = "__pwLiteLocatorChain";
 const ELEMENT_HANDLE_REF_PAYLOAD = "__pwLiteElementHandleRef";
 const ABORT_SIGNAL_PAYLOAD = "__pwLiteAbortSignal";
+const FUNCTION_SOURCE_PAYLOAD = "__pwLiteFunctionSource";
+const TYPED_ARRAY_PAYLOAD = "__pwLiteTypedArray";
+const NATIVE_RESULT_MARKER = "__pwLiteNativeResult";
 const DEFAULT_TEST_ID_ATTRIBUTE = "data-testid";
+
+/**
+ * The pinned protocol serializer's typed-array vocabulary
+ * (playwright-core `protocol/serializers`: `typedArrayKindToConstructor`).
+ * Reused here so a typed array keeps its element kind across the fixture's
+ * `realPage.evaluate` boundary, which cannot carry a Node `Buffer` view.
+ */
+const TYPED_ARRAY_KINDS = [
+  ["i8", Int8Array],
+  ["ui8", Uint8Array],
+  ["ui8c", Uint8ClampedArray],
+  ["i16", Int16Array],
+  ["ui16", Uint16Array],
+  ["i32", Int32Array],
+  ["ui32", Uint32Array],
+  ["f32", Float32Array],
+  ["f64", Float64Array],
+  ["bi64", BigInt64Array],
+  ["bui64", BigUint64Array],
+] as const;
 let nextAbortSignalId = 0;
 type ChainStep = [string, unknown[]];
 type AdapterPageState = {
@@ -71,6 +94,7 @@ function wrapNativeResult(value: unknown, realPage: Page): unknown {
   return new Proxy(value as object, {
     get(target, prop, receiver) {
       if (prop === "then") return undefined;
+      if (prop === NATIVE_RESULT_MARKER) return true;
       const member = Reflect.get(target, prop, receiver);
       if (typeof prop === "symbol" || typeof member !== "function")
         return wrapNativeResult(member, realPage);
@@ -175,10 +199,11 @@ function encodeBridgeValue(
   seen = new WeakMap<object, unknown>(),
   ownerPage?: Page
 ): unknown {
+  // Functions cannot cross realPage.evaluate. Carry the caller's source so the
+  // browser can rebuild the same function and hand it to the adapter, which
+  // decides what a function in this position means — including rejecting it.
   if (typeof value === "function")
-    throw new TypeError(
-      "The upstream adapter bridge does not support nested function arguments or event callbacks."
-    );
+    return { [FUNCTION_SOURCE_PAYLOAD]: String(value) };
   if (!value || typeof value !== "object") return value;
 
   const locatorChain = locatorProxyChains.get(value);
@@ -201,7 +226,20 @@ function encodeBridgeValue(
 
   // Transport only. The runtime receives bytes and owns file assignment.
   // Buffer extends Uint8Array; preserve subarray offsets by copying its view.
-  if (value instanceof Uint8Array) return { __pwLiteBytes: Array.from(value) };
+  const typedArrayKind = TYPED_ARRAY_KINDS.find(
+    ([, constructor]) => value instanceof constructor
+  )?.[0];
+  if (typedArrayKind) {
+    const view = value as ArrayBufferView;
+    return {
+      [TYPED_ARRAY_PAYLOAD]: {
+        k: typedArrayKind,
+        b: Array.from(
+          new Uint8Array(view.buffer, view.byteOffset, view.byteLength)
+        ),
+      },
+    };
+  }
 
   if (Array.isArray(value)) {
     const encoded: unknown[] = [];
@@ -211,14 +249,26 @@ function encodeBridgeValue(
     return encoded;
   }
 
-  // Playwright transports regular expressions in locator options. Browser
-  // handles, frames, and other live driver objects are deliberately excluded:
-  // this single-document adapter cannot make their identity meaningful.
-  if (value instanceof RegExp) return value;
-  if (!isPlainObject(value))
+  // Playwright's own protocol serializer already carries these across
+  // realPage.evaluate with their identity intact, exactly as it does for a
+  // client-side evaluate argument, so they travel unchanged.
+  if (
+    value instanceof RegExp ||
+    value instanceof Date ||
+    value instanceof URL ||
+    value instanceof Error
+  )
+    return value;
+  // A live Playwright driver object reached the test through an out-of-scope
+  // native member. This single-document adapter cannot make its identity
+  // meaningful, and copying one only yields more wrapped driver objects.
+  if ((value as Record<string, unknown>)[NATIVE_RESULT_MARKER])
     throw new TypeError(
-      "The upstream adapter bridge does not support handles, frames, or non-plain object arguments."
+      "The upstream adapter bridge does not support native Playwright handles or frames as arguments."
     );
+  // Anything else travels as its own enumerable string-keyed properties, which
+  // is the pinned serializer's object branch: a Map arrives as `{}` and a
+  // `__proto__`-poisoned literal arrives without that prototype.
   const encoded: Record<string, unknown> = {};
   seen.set(value, encoded);
   for (const [key, item] of Object.entries(value))
@@ -568,9 +618,12 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
             return host.__pwLiteInvokeAdapter(async () => {
               const p = host.__pwLiteAdapterPage;
               const v = p[name];
-              const args = host.__pwLiteDecodeBridgeValue(a);
               let value: unknown;
-              if (typeof v === "function") value = await v.call(p, ...args);
+              // Arguments are rebuilt only for a member the adapter has, so a
+              // missing member is reported as such instead of as a transport
+              // failure while reconstructing what it would have received.
+              if (typeof v === "function")
+                value = await v.call(p, ...host.__pwLiteDecodeBridgeValue(a));
               else if (a.length === 0 && v !== undefined) value = v;
               else
                 throw new TypeError(
@@ -726,7 +779,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
               const host = window as any;
               return host.__pwLiteInvokeAdapter(async () => {
                 const callback = isFunction
-                  ? (0, eval)(`(${expression})`)
+                  ? host.__pwLiteReconstructFunction(expression)
                   : expression;
                 return {
                   value: await host.__pwLiteAdapterPage.evaluate(
@@ -748,6 +801,34 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
         };
       }
 
+      if (prop === "evaluateHandle") {
+        return async (pageFunction: unknown, arg?: unknown) => {
+          const id = await evaluateAdapter<string>(
+            realPage,
+            ({ expression, isFunction, arg: a }) => {
+              const host = window as any;
+              return host.__pwLiteInvokeAdapter(async () =>
+                host.__pwLiteStoreElementHandle(
+                  await host.__pwLiteAdapterPage.evaluateHandle(
+                    isFunction
+                      ? host.__pwLiteReconstructFunction(expression)
+                      : expression,
+                    host.__pwLiteDecodeBridgeValue(a)
+                  ),
+                  "JSHandle"
+                )
+              );
+            },
+            {
+              expression: String(pageFunction),
+              isFunction: typeof pageFunction === "function",
+              arg: encodeBridgeValueForPage(arg, realPage),
+            }
+          );
+          return createElementHandleProxy(realPage, state, id);
+        };
+      }
+
       if (prop === "waitForFunction") {
         return async (
           pageFunction: unknown,
@@ -760,7 +841,9 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
               const host = window as any;
               return host.__pwLiteInvokeAdapter(async () => {
                 const handle = await host.__pwLiteAdapterPage.waitForFunction(
-                  isFunction ? (0, eval)(`(${expression})`) : expression,
+                  isFunction
+                    ? host.__pwLiteReconstructFunction(expression)
+                    : expression,
                   host.__pwLiteDecodeBridgeValue(a),
                   host.__pwLiteDecodeBridgeValue(opts)
                 );
@@ -792,7 +875,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
               return host.__pwLiteInvokeAdapter(() =>
                 host.__pwLiteAdapterPage[method](
                   s,
-                  (0, eval)(`(${expression})`),
+                  host.__pwLiteReconstructFunction(expression),
                   host.__pwLiteDecodeBridgeValue(a)
                 )
               );
@@ -873,19 +956,25 @@ async function createElementHandleProxy(
   state: AdapterPageState,
   id: string
 ): Promise<object> {
-  // Like Page.url(), this synchronous API needs a browser-observed snapshot.
-  // Read the actual identity result before publishing the proxy; do not assume
-  // every stored JSHandle is an ElementHandle or manufacture a passing result.
-  const asElement = await evaluateAdapter<"self" | "null" | "unsupported">(
+  // Like Page.url(), these synchronous APIs need a browser-observed snapshot.
+  // Read the actual identity result and the handle's own description before
+  // publishing the proxy; do not assume every stored JSHandle is an
+  // ElementHandle or manufacture a passing result.
+  const { asElement, description } = await evaluateAdapter<{
+    asElement: "self" | "null" | "unsupported";
+    description: string;
+  }>(
     realPage,
     (handleId) => {
       const host = window as any;
       return host.__pwLiteInvokeAdapter(() => {
         const handle = host.__pwLiteElementHandleForId(handleId);
-        if (typeof handle.asElement !== "function") return "unsupported";
+        const description = String(handle);
+        if (typeof handle.asElement !== "function")
+          return { asElement: "unsupported", description };
         const element = handle.asElement();
-        if (element === handle) return "self";
-        if (element === null) return "null";
+        if (element === handle) return { asElement: "self", description };
+        if (element === null) return { asElement: "null", description };
         throw new TypeError(
           "Cannot serialize a non-identity ElementHandle.asElement result."
         );
@@ -900,6 +989,9 @@ async function createElementHandleProxy(
       if (prop === "then") return undefined;
       if (prop === "asElement" && asElement !== "unsupported")
         return () => (asElement === "self" ? proxy : null);
+      // JSHandle.toString() is synchronous in Playwright's public API, so it
+      // replays the description the adapter gave when the handle was created.
+      if (prop === "toString") return () => description;
 
       if (prop === "dispose") {
         return async () =>
@@ -964,6 +1056,63 @@ async function createElementHandleProxy(
         };
       }
 
+      // A property handle is another adapter handle, so it is stored and
+      // republished as a proxy instead of being serialized by value.
+      if (prop === "getProperty") {
+        return async (name: string) => {
+          const propertyId = await evaluateAdapter<string>(
+            realPage,
+            ({ handleId, name: propertyName }) => {
+              const host = window as any;
+              return host.__pwLiteInvokeAdapter(async () =>
+                host.__pwLiteStoreElementHandle(
+                  await host
+                    .__pwLiteElementHandleForId(handleId)
+                    .getProperty(propertyName),
+                  "JSHandle"
+                )
+              );
+            },
+            { handleId: id, name }
+          );
+          return createElementHandleProxy(realPage, state, propertyId);
+        };
+      }
+
+      if (prop === "getProperties") {
+        return async () => {
+          const references = await evaluateAdapter<[string, string][]>(
+            realPage,
+            (handleId) => {
+              const host = window as any;
+              return host.__pwLiteInvokeAdapter(async () =>
+                Array.from(
+                  await host
+                    .__pwLiteElementHandleForId(handleId)
+                    .getProperties(),
+                  ([name, handle]: [string, unknown]) => [
+                    name,
+                    host.__pwLiteStoreElementHandle(handle, "JSHandle"),
+                  ]
+                )
+              );
+            },
+            id
+          );
+          return new Map(
+            await Promise.all(
+              references.map(
+                async ([name, propertyId]) =>
+                  [
+                    name,
+                    await createElementHandleProxy(realPage, state, propertyId),
+                  ] as const
+              )
+            )
+          );
+        };
+      }
+
       if (prop === "$eval" || prop === "$$eval") {
         return async (selector: string, pageFunction: unknown, arg?: unknown) =>
           evaluateAdapter(
@@ -975,7 +1124,7 @@ async function createElementHandleProxy(
                   .__pwLiteElementHandleForId(handleId)
                   [method](
                     s,
-                    (0, eval)(`(${expression})`),
+                    host.__pwLiteReconstructFunction(expression),
                     host.__pwLiteDecodeBridgeValue(a)
                   )
               );
@@ -1000,7 +1149,7 @@ async function createElementHandleProxy(
                 host
                   .__pwLiteElementHandleForId(handleId)
                   [method](
-                    (0, eval)(`(${expression})`),
+                    host.__pwLiteReconstructFunction(expression),
                     host.__pwLiteDecodeBridgeValue(a)
                   )
               );
@@ -1266,7 +1415,7 @@ function createLocatorProxy(
               const host = window as any;
               return host.__pwLiteInvokeAdapter(() => {
                 const current: any = host.__pwLiteReplayAdapterChain(c);
-                const callback = (0, eval)(`(${expression})`);
+                const callback = host.__pwLiteReconstructFunction(expression);
                 const argument = host.__pwLiteDecodeBridgeValue(a);
                 return method === "evaluateAll"
                   ? current.evaluateAll(callback, argument)
@@ -1399,11 +1548,43 @@ function initializeAdapterBridge(sabotagedMethod: string | null) {
       throw error;
     }
   };
+  const typedArrayConstructors: Record<string, any> = {
+    i8: Int8Array,
+    ui8: Uint8Array,
+    ui8c: Uint8ClampedArray,
+    i16: Int16Array,
+    ui16: Uint16Array,
+    i32: Int32Array,
+    ui32: Uint32Array,
+    f32: Float32Array,
+    f64: Float64Array,
+    bi64: BigInt64Array,
+    bui64: BigUint64Array,
+  };
+  // Mirrors pinned server/javascript.ts normalizeExpression: a method
+  // shorthand (`foo() {}`) only becomes an expression once it is prefixed.
+  // Rebuilding the caller's function keeps its source, which the adapter
+  // stringifies again for its own serialization and error messages.
+  host.__pwLiteReconstructFunction = function reconstruct(source: string) {
+    let result = source.trim();
+    try {
+      new Function("(" + result + ")");
+    } catch {
+      result = result.startsWith("async ")
+        ? "async function " + result.substring("async ".length)
+        : "function " + result;
+    }
+    return (0, eval)("(" + result + ")");
+  };
   host.__pwLiteDecodeBridgeValue = function decode(value: any): any {
     if (!value || typeof value !== "object") return value;
     if (Array.isArray(value)) return value.map(decode);
-    if (Array.isArray(value.__pwLiteBytes))
-      return Uint8Array.from(value.__pwLiteBytes);
+    if (typeof value.__pwLiteFunctionSource === "string")
+      return host.__pwLiteReconstructFunction(value.__pwLiteFunctionSource);
+    if (value.__pwLiteTypedArray) {
+      const { k, b } = value.__pwLiteTypedArray;
+      return new typedArrayConstructors[k](Uint8Array.from(b).buffer);
+    }
     if (typeof value.__pwLiteAbortSignal === "string") {
       let controller = host.__pwLiteAbortSignals.get(value.__pwLiteAbortSignal);
       if (!controller) {
