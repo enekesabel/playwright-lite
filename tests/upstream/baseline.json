@@ -126,6 +126,16 @@
       "evidence": "Same waiting proof through an unrendered ancestor: the call is asserted pending while the parent span is display:none and resolves only after that parent becomes visible."
     },
     {
+      "id": "elementhandle-scroll-into-view.spec.ts > should work for visibility:hidden element",
+      "method": "ElementHandle.scrollIntoViewIfNeeded",
+      "evidence": "A visibility:hidden div still has a layout box, so scrollIntoViewIfNeeded resolves instead of waiting for visibility; the reviewed display:none sibling still times out."
+    },
+    {
+      "id": "elementhandle-scroll-into-view.spec.ts > should work for zero-sized element",
+      "method": "ElementHandle.scrollIntoViewIfNeeded",
+      "evidence": "A height:0 div still has a layout box, so scrollIntoViewIfNeeded resolves instead of waiting for a non-empty box."
+    },
+    {
       "id": "elementhandle-type.spec.ts > should not modify selection when focused",
       "method": "Page.type",
       "evidence": "With the input focused and a selection set, type replaces the selected text in place, producing heworldo."
@@ -876,6 +886,11 @@
       "evidence": "Force-clicking input[type=hidden] rejects with Element is not visible; the asserted rejection is an adapter geometry error, not a dispatch error."
     },
     {
+      "id": "page-click-scroll.spec.ts > should not hit scroll bar",
+      "method": "Page.click",
+      "evidence": "The Story button inside a 180px horizontally scrolling flex row is scrolled into view and passes the hit-target check within the requested 2000ms deadline; hitting the scrollbar instead would retry to that deadline."
+    },
+    {
       "id": "page-click-scroll.spec.ts > should not scroll nested container when scroll is \"none\"",
       "method": "Locator.click",
       "evidence": "The clipped nested-container button does not activate with scroll:none; the subsequent ordinary click scrolls and activates the same button."
@@ -924,6 +939,11 @@
       "id": "page-click-timeout-3.spec.ts > should report wrong hit target subtree",
       "method": "ElementHandle.click",
       "evidence": "The hit-target error identifies both the intercepting inner div and its blocker subtree, and reports the requested timeout and retries."
+    },
+    {
+      "id": "page-click-timeout-3.spec.ts > should still click when force but hit target is obscured",
+      "method": "ElementHandle.click",
+      "evidence": "force: true skips the hit-target check under the injected 400x200 blocker and the handled click resolves, where the reviewed unforced case times out on the same obstruction."
     },
     {
       "id": "page-click-timeout-3.spec.ts > should timeout waiting for hit target",
@@ -986,6 +1006,16 @@
       "evidence": "A disabled attribute on a non-form div does not incorrectly suppress the click; its handler flag becomes true."
     },
     {
+      "id": "page-click.spec.ts > should click if opened select covers the button",
+      "method": "Page.click",
+      "evidence": "After a click that opens the select, the second click sets window.__CLICKED to 42, proving it reached the button rather than the covering select."
+    },
+    {
+      "id": "page-click.spec.ts > should click into shadow root with slotted div",
+      "method": "Locator.click",
+      "evidence": "The role selector resolves through an open shadow root to the shadow button and the click's hit target accepts its slotted div; a mismatched hit target would retry to the deadline."
+    },
+    {
       "id": "page-click.spec.ts > should click on a span with an inline element inside",
       "method": "Page.click",
       "evidence": "Clicking the span with generated inline content runs its handler and sets CLICKED to 42."
@@ -999,6 +1029,11 @@
       "id": "page-click.spec.ts > should click on checkbox label and toggle",
       "method": "Page.click",
       "evidence": "Label clicks toggle the associated input true then false and produce its exact click/input/change sequence through native DOM activation."
+    },
+    {
+      "id": "page-click.spec.ts > should click shadow root button",
+      "method": "Locator.click",
+      "evidence": "Clicking the shadow host descends through its open shadow root to the button it contains; without that descent the hit target never matches and the click times out."
     },
     {
       "id": "page-click.spec.ts > should click svg",
@@ -1526,14 +1561,54 @@
       "evidence": "Native setContent installs an input; adapter Page.setInputFiles assigns an in-memory payload. Adapter $eval assertions verify one selected file named test.txt, with no transport failures or native upload calls."
     },
     {
+      "id": "page-strict.spec.ts > should escape class names",
+      "method": "Locator.hover",
+      "evidence": "The strict-mode violation raised by Locator.hover escapes the colons in the matched elements' foo bar:0 and foo bar:1 class names."
+    },
+    {
       "id": "page-strict.spec.ts > should escape tag names",
       "method": "Locator._expect",
       "evidence": "The expectation resolves strictly through the pinned InjectedScript, so the rejection is its strict mode violation listing both matches with generated locators, including the escaped q\\:template tag name."
     },
     {
+      "id": "page-strict.spec.ts > should fail page.$ in strict mode",
+      "method": "Page.$",
+      "evidence": "With two matching spans, Page.$ with strict: true rejects with the strict-mode violation instead of returning the first matching handle."
+    },
+    {
+      "id": "page-strict.spec.ts > should fail page.dispatchEvent in strict mode",
+      "method": "Page.dispatchEvent",
+      "evidence": "With two matching spans, Page.dispatchEvent with strict: true rejects with the strict-mode violation listing both locator('span').first() and locator('div span') instead of dispatching to the first match."
+    },
+    {
       "id": "page-strict.spec.ts > should fail page.fill in strict mode",
       "method": "Page.fill",
       "evidence": "With two matching inputs, Page.fill with strict: true rejects with Playwright strict-mode diagnostics before filling either input."
+    },
+    {
+      "id": "page-strict.spec.ts > should fail page.getAttribute in strict mode",
+      "method": "Page.getAttribute",
+      "evidence": "With two matching spans, Page.getAttribute with strict: true rejects with the adapter's strict-mode violation instead of returning the first match's attribute."
+    },
+    {
+      "id": "page-strict.spec.ts > should fail page.textContent in strict mode",
+      "method": "Page.textContent",
+      "evidence": "With two matching spans, Page.textContent with strict: true rejects with the strict-mode violation listing both matches as 1) <span>span1</span> aka getByText('span1') and 2) <span>target</span> aka getByText('target') instead of reading the first."
+    },
+    {
+      "id": "page-strict.spec.ts > should fail page.waitForSelector in strict mode",
+      "method": "Page.waitForSelector",
+      "evidence": "With two matching spans, Page.waitForSelector with strict: true rejects with the strict-mode violation instead of resolving to the first match."
+    },
+    {
+      "id": "page-strict.spec.ts > should keep the engine name for a \"text=..\" selector in strict mode",
+      "method": "Locator.hover",
+      "evidence": "The strict-mode violation raised by Locator.hover on a text= selector keeps the engine prefix and reports locator('text=..loading')."
+    },
+    {
+      "id": "page-strict.spec.ts > should properly format :nth-child() in strict mode message",
+      "method": "Locator.hover",
+      "evidence": "The strict-mode violation raised by Locator.hover formats an ambiguous match with child combinators as body > div:nth-child(2) > div:nth-child(2), which descendant combinators would make ambiguous."
     },
     {
       "id": "page-wait-for-function.spec.ts > should accept a string",
