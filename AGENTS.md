@@ -117,6 +117,12 @@ Follow `docs/RELEASE_PROCESS.md` for releases. Keep maintainer release instructi
 
 PR titles must use Conventional Commit syntax. Use squash merge for normal PRs so the title becomes the commit on `main`.
 
+CI lints PR titles with commitlint against `commitlint.config.js`. Check a title locally:
+
+```sh
+echo "feat: add locator support" | pnpm commitlint
+```
+
 ## Development environment
 
 - Start a persistent Devbox shell and run all project commands inside it.

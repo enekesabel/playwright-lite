@@ -43,16 +43,6 @@ jobs:
     outputs:
       sha: ${{ needs.release-please.outputs.sha || github.sha }}
     steps:
-      - name: Check PR title
-        if: github.event_name == 'pull_request'
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        shell: bash
-        run: |
-          if ! printf '%s\n' "$PR_TITLE" | grep -Eq '^[a-z][a-z0-9-]*(\([^)]+\))?!?: .+'; then
-            echo "::error::PR title must use Conventional Commit syntax, for example: feat: add locator support"
-            exit 1
-          fi
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # Release Please can observe a merge newer than this workflow's push.
@@ -64,6 +54,12 @@ jobs:
           node-version: 24.12.0
       - run: npm install --global pnpm@11.24.0
       - run: pnpm install --frozen-lockfile
+      # The squash merge makes the PR title the commit on main that Release Please reads.
+      - name: Check PR title
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$PR_TITLE" | pnpm exec commitlint
       # vitest runs Chromium in-process for src/**/*.test.ts; headless shell is enough since
       # everything here runs headless.
       - run: pnpm exec playwright install --only-shell chromium

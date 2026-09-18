@@ -49,12 +49,15 @@
     "check": "pnpm check:readme && pnpm build && pnpm lint && pnpm typecheck && pnpm upstream:check && pnpm test && pnpm test:evaluation && pnpm test:package && pnpm format:check",
     "test:evaluation": "node scripts/evaluation-parity.mjs",
     "generate:readme": "node scripts/generate-readme.mjs",
-    "check:readme": "node scripts/generate-readme.mjs --check"
+    "check:readme": "node scripts/generate-readme.mjs --check",
+    "commitlint": "commitlint"
   },
   "peerDependencies": {
     "@playwright/test": ">=1.29 <1.63"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "1.62.1",
     "@types/formidable": "^3.5.1",
