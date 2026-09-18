@@ -860,6 +860,61 @@ test("evaluateHandle, getProperty and getProperties republish the adapter's own 
   expect((page as any).__pwLiteNativeOperations).toEqual([]);
 });
 
+test("a member without a dedicated handle route republishes the handle it returned", async ({
+  page,
+  adapterPage,
+}) => {
+  const scriptHandle = await (adapterPage as any).addScriptTag({
+    content: 'window["__tagged"] = 7;',
+  });
+  // The adapter's own handle, not a copy of its fields: asElement() answers
+  // with the same proxy and toString() replays the description the adapter
+  // gave in the browser.
+  expect(scriptHandle.asElement()).toBe(scriptHandle);
+  expect(scriptHandle.toString()).toBe(
+    await page.evaluate(async () =>
+      String(await (window as any).__pwLiteAdapterPage.$("script"))
+    )
+  );
+  expect(
+    await scriptHandle.evaluate((element: Element) => element.tagName)
+  ).toBe("SCRIPT");
+  expect(await page.evaluate(() => (window as any).__tagged)).toBe(7);
+
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  expect(execution.entered).toContain("Page.addScriptTag");
+  expect(execution.entered).toContain("ElementHandle.evaluate");
+  expect((page as any).__pwLiteNativeOperations).toEqual([]);
+});
+
+test("a member returning an array republishes each handle in it", async ({
+  page,
+  adapterPage,
+}) => {
+  // Stands for any member whose result mixes handles with plain values; no
+  // implemented Page member returns that shape outside a dedicated route. The
+  // handle is the adapter's own non-element one, so the evidence shows the kind
+  // the bridge stored it under.
+  await page.evaluate(() => {
+    const host = window as any;
+    host.__pwLiteAdapterPage.addStyleTag = async () => [
+      await host.__pwLiteAdapterPage.waitForFunction(() => 42),
+      "plain",
+    ];
+  });
+
+  const [handle, plain] = await (adapterPage as any).addStyleTag();
+  expect(plain).toBe("plain");
+  expect(await handle.jsonValue()).toBe(42);
+
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  expect(execution.entered).toContain("JSHandle.jsonValue");
+  expect(execution.entered).not.toContain("ElementHandle.jsonValue");
+
+  await handle.dispose();
+  await expect(handle.jsonValue()).rejects.toThrow("Unknown or disposed");
+});
+
 test("adapter element handles keep native identity, scope queries, and release bridge references", async ({
   page,
   adapterPage,

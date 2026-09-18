@@ -53,6 +53,13 @@ Playwright driver object obtained from an out-of-scope native member is the one
 argument the bridge still refuses, because this adapter cannot make its identity
 mean anything.
 
+An adapter handle cannot cross that boundary by value either, so whichever member
+returns one — alone or inside an array — the browser side stores it and the Node
+side republishes it as a handle proxy. A handle is recognized by the surface the
+adapter's ElementHandle and JSHandle share, `dispose` together with `asElement` or
+`jsonValue`. A handle whose `asElement()` is itself is an ElementHandle and one
+that answers `null` is a JSHandle, which is the kind the evidence records.
+
 ## Baseline promotion
 
 Treat newly passing upstream tests as candidates for review. Before promoting each test:

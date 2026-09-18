@@ -280,6 +280,31 @@ function encodeBridgeValueForPage(value: unknown, realPage: Page): unknown {
   return encodeBridgeValue(value, new WeakMap<object, unknown>(), realPage);
 }
 
+/**
+ * Republishes the handles a member returned. An adapter handle cannot cross
+ * `realPage.evaluate` by value, so the browser side stores every handle it
+ * finds in a result and sends back a reference envelope; here each reference
+ * becomes a handle proxy, the same object a dedicated route returns. Arrays
+ * travel element by element, which is the shape `$$`-like members return.
+ */
+async function decodeBridgeResult(
+  value: unknown,
+  realPage: Page,
+  state: AdapterPageState
+): Promise<unknown> {
+  if (Array.isArray(value))
+    return Promise.all(
+      value.map((item) => decodeBridgeResult(item, realPage, state))
+    );
+  if (!value || typeof value !== "object") return value;
+  const reference = (value as Record<string, unknown>)[
+    ELEMENT_HANDLE_REF_PAYLOAD
+  ];
+  return typeof reference === "string"
+    ? createElementHandleProxy(realPage, state, reference)
+    : value;
+}
+
 function serializableAbortReason(reason: unknown): unknown {
   if (reason instanceof Error)
     return {
@@ -629,13 +654,16 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
                 throw new TypeError(
                   `__pwLiteAdapterPage.${name} is not a function`
                 );
-              return { value, url: p.url() };
+              return {
+                value: host.__pwLiteEncodeAdapterResult(value),
+                url: p.url(),
+              };
             }, a);
           },
           { member, args: encodedArgs as any[] }
         );
         state.url = result.url;
-        return result.value;
+        return decodeBridgeResult(result.value, realPage, state);
       });
 
   return new Proxy(realPage, {
@@ -1755,6 +1783,35 @@ function initializeAdapterBridge(sabotagedMethod: string | null) {
     const id = `${handleContext}:element-${++nextElementHandleId}`;
     host.__pwLiteElementHandles.set(id, instrument(handle, kind));
     return id;
+  };
+  // A member the bridge has no dedicated route for still returns the adapter's
+  // own handles, which cannot cross the evaluation boundary by value. Store
+  // each one and report a reference the Node side republishes as a proxy.
+  // A handle is recognized by the surface the adapter's ElementHandle and
+  // JSHandle share — `dispose` together with `asElement` or `jsonValue`. The
+  // two kinds are told apart the way Playwright's own API does it, by what
+  // `asElement()` answers: a handle that answers with itself is an
+  // ElementHandle, and one that answers `null` is a JSHandle, so the execution
+  // evidence keeps the names the dedicated routes give. Locator.highlight's
+  // disposable has `dispose` alone, so it stays with its own route.
+  host.__pwLiteEncodeAdapterResult = function encode(value: any): any {
+    if (Array.isArray(value)) return value.map(encode);
+    if (
+      !value ||
+      typeof value !== "object" ||
+      typeof value.dispose !== "function" ||
+      (typeof value.asElement !== "function" &&
+        typeof value.jsonValue !== "function")
+    )
+      return value;
+    const element =
+      typeof value.asElement === "function" && value.asElement() === value;
+    return {
+      __pwLiteElementHandleRef: host.__pwLiteStoreElementHandle(
+        value,
+        element ? "ElementHandle" : "JSHandle"
+      ),
+    };
   };
   host.__pwLiteElementHandleForId = function resolve(id: string): any {
     const handle = host.__pwLiteElementHandles.get(id);
