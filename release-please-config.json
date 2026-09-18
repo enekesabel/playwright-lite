@@ -5,7 +5,8 @@
       "release-type": "node",
       "include-component-in-tag": false,
       "prerelease": true,
-      "initial-version": "0.1.0"
+      "initial-version": "0.1.0",
+      "pull-request-title-pattern": "chore(release): ${version}"
     }
   }
 }

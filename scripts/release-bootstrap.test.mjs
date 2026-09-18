@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
@@ -31,4 +32,17 @@ test("bootstrap release configuration stays consistent", () => {
     packageJson.version,
     /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/
   );
+});
+
+test("release PR titles pass the PR title lint", () => {
+  const title = packageConfig["pull-request-title-pattern"].replace(
+    "${version}",
+    "0.2.2"
+  );
+  assert.equal(title, "chore(release): 0.2.2");
+  execFileSync("pnpm", ["exec", "commitlint"], {
+    cwd: new URL("..", import.meta.url),
+    input: `${title}\n`,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
 });

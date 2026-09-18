@@ -1,7 +1,7 @@
 // CI lints each PR title, which becomes the squash-merged commit on `main` that Release Please reads.
 // `feat` and `fix` are only for adapter behaviour consumers see, because they bump the version and
 // appear in the changelog. Use `test` for harness, corpus and promotion work.
-// The only scope is `main`, which Release Please uses for `chore(main): release x.y.z`.
+// Scope is optional. The only allowed scope is `release`, for Release Please's `chore(release): x.y.z`.
 export default {
   extends: ["@commitlint/config-conventional"],
   rules: {
@@ -21,7 +21,7 @@ export default {
         "test",
       ],
     ],
-    "scope-enum": [2, "always", ["main"]],
+    "scope-enum": [2, "always", ["release"]],
     "header-max-length": [2, "always", 100],
   },
 };
