@@ -8,6 +8,7 @@ import {
   reviewedPromotion,
   failurePhase,
   sabotageVerdict,
+  sabotageGrep,
 } from "./upstream-baseline.mjs";
 
 // ── parseReport ─────────────────────────────────────────────────────
@@ -334,6 +335,7 @@ describe("parseReport", () => {
 
     const entries = parseReport(report);
     assert.equal(entries[0].id, "foo.spec.ts > describe block > nested test");
+    assert.deepEqual(entries[0].titlePath, ["describe block", "nested test"]);
   });
 
   it("reads observed outcomes of tests the harness expects to fail", () => {
@@ -567,5 +569,34 @@ describe("compareBaseline", () => {
       result.failed +
       result.skipped;
     assert.equal(reconciled, result.total);
+  });
+});
+
+// ── sabotageGrep ────────────────────────────────────────────────────
+
+describe("sabotageGrep", () => {
+  it("greps a plain title with no enclosing describe", () => {
+    assert.equal(sabotageGrep(["should click"]), "should click");
+  });
+
+  it("joins a nested describe's title path with spaces", () => {
+    assert.equal(
+      sabotageGrep(["toHaveText with regex", "pass"]),
+      "toHaveText with regex pass"
+    );
+  });
+
+  it("keeps a title that itself contains the id separator intact", () => {
+    assert.equal(
+      sabotageGrep(["should work with > combinator and spaces"]),
+      "should work with > combinator and spaces"
+    );
+  });
+
+  it("escapes regex metacharacters in the title", () => {
+    assert.equal(
+      sabotageGrep(["should handle a.b (c)"]),
+      "should handle a\\.b \\(c\\)"
+    );
   });
 });
