@@ -437,12 +437,25 @@ function writeSabotageConfig(method) {
 }
 
 /**
+ * Resolve the spec file and escaped --grep pattern for a promotion id,
+ * splitting at the first " > " only so a test title that itself contains
+ * " > " (e.g. a selector combinator in the title) survives intact.
+ */
+export function sabotageRerunTarget(id) {
+  const separatorIndex = id.indexOf(" > ");
+  const file = separatorIndex === -1 ? id : id.slice(0, separatorIndex);
+  const title =
+    separatorIndex === -1 ? "" : id.slice(separatorIndex + " > ".length);
+  return { file, grep: title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") };
+}
+
+/**
  * Rerun a single corpus test with the reviewed method sabotaged: the fixture
  * makes the in-browser adapter dispatch for that method throw instead of
  * executing it.
  */
 function runSabotaged(id, method) {
-  const [file, ...titles] = id.split(" > ");
+  const { file, grep } = sabotageRerunTarget(id);
   console.log(`\nRerunning ${id} with ${method} sabotaged…`);
   writeSabotageConfig(method);
   runPlaywright(
@@ -450,7 +463,7 @@ function runSabotaged(id, method) {
       `--config=${SABOTAGE_CONFIG_PATH}`,
       resolve(PKG_ROOT, `tests/upstream/${file}`),
       "--grep",
-      titles.join(" ").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      grep,
     ],
     SABOTAGE_REPORT_PATH
   );

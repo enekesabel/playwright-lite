@@ -8,6 +8,7 @@ import {
   reviewedPromotion,
   failurePhase,
   sabotageVerdict,
+  sabotageRerunTarget,
 } from "./upstream-baseline.mjs";
 
 // ── parseReport ─────────────────────────────────────────────────────
@@ -567,5 +568,29 @@ describe("compareBaseline", () => {
       result.failed +
       result.skipped;
     assert.equal(reconciled, result.total);
+  });
+});
+
+// ── sabotageRerunTarget ─────────────────────────────────────────────
+
+describe("sabotageRerunTarget", () => {
+  it("splits an id into its spec file and title", () => {
+    const result = sabotageRerunTarget("locator-click.spec.ts > should click");
+    assert.equal(result.file, "locator-click.spec.ts");
+    assert.equal(result.grep, "should click");
+  });
+
+  it("keeps a title that itself contains the id separator intact", () => {
+    const result = sabotageRerunTarget(
+      "selectors-css.spec.ts > should work with > combinator and spaces"
+    );
+    assert.equal(result.file, "selectors-css.spec.ts");
+    assert.equal(result.grep, "should work with > combinator and spaces");
+  });
+
+  it("escapes regex metacharacters in the title", () => {
+    const result = sabotageRerunTarget("a.spec.ts > should handle a.b (c)");
+    assert.equal(result.file, "a.spec.ts");
+    assert.equal(result.grep, "should handle a\\.b \\(c\\)");
   });
 });
