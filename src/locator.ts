@@ -497,6 +497,18 @@ export class LocatorImpl {
     );
   }
 
+  async drop(
+    payload: Parameters<Locator["drop"]>[0],
+    options?: Parameters<Locator["drop"]>[1]
+  ) {
+    await this.ownerPage.dropSelector(
+      this.selector,
+      this.label,
+      payload,
+      options
+    );
+  }
+
   async press(key: string, options?: LocatorKeyboardInputOptions) {
     const delay = rejectUnsupportedOptions("press", options, [
       "delay",

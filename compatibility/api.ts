@@ -76,8 +76,12 @@ export const pageLedger = {
     "Only console and pageerror are planned; other events remain undecided."
   ),
   addLocatorHandler: undecided(),
-  addScriptTag: undecided(),
-  addStyleTag: undecided(),
+  addScriptTag: partial(
+    "Rejects `path`, which reads the script from disk. Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
+  ),
+  addStyleTag: partial(
+    "Rejects `path`, which reads the stylesheet from disk. Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
+  ),
   ariaSnapshot: implemented("Current document only; no iframe traversal."),
   bringToFront: undecided(),
   cancelPickLocator: undecided(),
@@ -246,7 +250,9 @@ export const locatorLedger = {
     "`JSHandle`/`ElementHandle` values in `eventInit` are not unwrapped."
   ),
   dragTo: undecided(),
-  drop: undecided(),
+  drop: partial(
+    "Accepts only in-memory `{ name, mimeType, buffer }` file payloads; file paths are unsupported. Empty `mimeType` throws instead of inferring a MIME type."
+  ),
   elementHandle: partial(
     "Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),

@@ -22,7 +22,7 @@ import {
 import { AdapterElementHandle } from "./elementHandle";
 import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import type { ByRoleOptions, LocatorOptions } from "./locator";
 import { LocatorImpl } from "./locator";
 import {
@@ -123,6 +123,10 @@ type PageSetInputFilesOptions = PageActionWithNoWaitAfterOptions & {
  * the shared option type carries it for every form of those two members.
  */
 type SteppedPointerOptions = { steps?: number };
+type AddTagOptions = NonNullable<Parameters<Page["addStyleTag"]>[0]>;
+type AddScriptTagOptions = NonNullable<Parameters<Page["addScriptTag"]>[0]>;
+export type DropPayload = Parameters<Locator["drop"]>[0];
+type DropOptions = NonNullable<Parameters<Locator["drop"]>[1]>;
 export type PointerActionOptions = NonNullable<Parameters<Page["click"]>[1]> &
   SteppedPointerOptions;
 type HoverActionOptions = NonNullable<Parameters<Page["hover"]>[1]>;
@@ -1100,7 +1104,218 @@ export class PageImpl {
       deadline
     );
   }
+
+  /**
+   * Simulates an external drag-and-drop onto the resolved element.
+   *
+   * Mirrors pinned 26a9e47 `server/dom.ts` ElementHandle._drop: the element is
+   * awaited visible and stable (never enabled), then one synthetic
+   * `DataTransfer` carries the payload through `dragenter`, `dragover` and
+   * `drop` at the action point. A `dragover` handler that does not call
+   * `preventDefault()` rejects the drop, which ends with `dragleave`.
+   */
+  async dropSelector(
+    selector: string | Element,
+    label: string,
+    payload: DropPayload,
+    options: DropOptions = {},
+    strict = true
+  ): Promise<void> {
+    assertPageActionOptions("drop", options, ["position"]);
+    const files =
+      payload?.files === undefined
+        ? []
+        : inputFilePayloads(payload.files, "drop");
+    const data = Object.entries(payload?.data ?? {});
+    if (files.length === 0 && data.length === 0)
+      throw new Error('At least one of "files" or "data" must be provided.');
+    const deadline = this.createActionDeadline(options.timeout);
+    this.attachActionSignal(deadline, options.signal);
+    const { element, point } = await this.retryActionability(
+      selector,
+      label,
+      "drop",
+      ["visible", "stable"],
+      true,
+      deadline,
+      options.position,
+      { ...options, strict }
+    );
+    this.assertActionDeadline(deadline, "drop");
+    this.dispatchDrop(element, point, files, data);
+  }
+
+  /** The page function of pinned `server/dom.ts` ElementHandle._drop. */
+  private dispatchDrop(
+    element: Element,
+    point: ActionPoint,
+    files: readonly { name: string; mimeType: string; buffer: string }[],
+    data: readonly [string, string][]
+  ): void {
+    const transfer = new this.window.DataTransfer();
+    for (const file of files) {
+      const bytes = Uint8Array.from(
+        this.window.atob(file.buffer),
+        (character) => character.charCodeAt(0)
+      );
+      transfer.items.add(
+        new this.window.File([bytes], file.name, { type: file.mimeType })
+      );
+    }
+    for (const [mimeType, value] of data) transfer.setData(mimeType, value);
+    const dragEvent = (type: string) =>
+      new this.window.DragEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        clientX: point.x,
+        clientY: point.y,
+        dataTransfer: transfer,
+      });
+    element.dispatchEvent(dragEvent("dragenter"));
+    const over = dragEvent("dragover");
+    element.dispatchEvent(over);
+    if (!over.defaultPrevented) {
+      element.dispatchEvent(dragEvent("dragleave"));
+      throw new Error(
+        "Drop target did not accept the drop — its dragover handler did not call preventDefault()"
+      );
+    }
+    element.dispatchEvent(dragEvent("drop"));
+  }
+
   // ── Setup operations ─────────────────────────────────────────────
+
+  /**
+   * Adds a `<script>` tag to the controlled document.
+   *
+   * Mirrors pinned 26a9e47 `server/frames.ts` Frame._addScriptTag and its
+   * `addScriptUrl`/`addScriptContent` page functions: a `url` script resolves
+   * on its load event and fails naming the source, while `content` is injected
+   * as `text/javascript` unless `type` says otherwise.
+   */
+  async addScriptTag(
+    options: AddScriptTagOptions = {}
+  ): Promise<AdapterElementHandle> {
+    const {
+      url = null,
+      content = null,
+      type = "",
+    } = assertAddTagOptions("addScriptTag", options);
+    return await this.raceWithCSPError(async () => {
+      const script = this.document.createElement("script");
+      if (url !== null) {
+        script.src = url;
+        if (type) script.type = type;
+        await this.appendLoadedTag(
+          script,
+          () => `Failed to load script at ${script.src}`
+        );
+        return this.elementHandleFor(script)!;
+      }
+      script.type = type || "text/javascript";
+      script.text = content!;
+      let error: unknown = null;
+      script.onerror = (event) => (error = event);
+      this.document.head.appendChild(script);
+      if (error) throw error;
+      // The pinned code sees a Content Security Policy violation as a console
+      // message, which arrives while `appendChild` runs. In the document the
+      // browser reports the same violation as a queued event, so let that task
+      // run before reporting success, like the pinned asynchronous-CSP path.
+      await new Promise<void>((resolve) => this.window.setTimeout(resolve));
+      return this.elementHandleFor(script)!;
+    });
+  }
+
+  /**
+   * Adds a `<link rel="stylesheet">` or `<style type="text/css">` tag to the
+   * controlled document.
+   *
+   * Mirrors pinned 26a9e47 `server/frames.ts` Frame._addStyleTag and its
+   * `addStyleUrl`/`addStyleContent` page functions, which resolve on the load
+   * event of the inserted tag. The pinned page functions reject with the raw
+   * error event; this names the stylesheet instead, as the pinned script tag
+   * does.
+   */
+  async addStyleTag(
+    options: AddTagOptions = {}
+  ): Promise<AdapterElementHandle> {
+    const { url = null, content = null } = assertAddTagOptions(
+      "addStyleTag",
+      options
+    );
+    return await this.raceWithCSPError(async () => {
+      if (url !== null) {
+        const link = this.document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = url;
+        await this.appendLoadedTag(
+          link,
+          () => `Failed to load style at ${link.href}`
+        );
+        return this.elementHandleFor(link)!;
+      }
+      const style = this.document.createElement("style");
+      style.type = "text/css";
+      style.appendChild(this.document.createTextNode(content!));
+      await this.appendLoadedTag(
+        style,
+        () => "Failed to apply the injected style content"
+      );
+      return this.elementHandleFor(style)!;
+    });
+  }
+
+  /** Appends a tag to the document head and settles on its load event. */
+  private appendLoadedTag(
+    tag: HTMLLinkElement | HTMLScriptElement | HTMLStyleElement,
+    failure: () => string
+  ): Promise<void> {
+    const loaded = new Promise<void>((resolve, reject) => {
+      tag.onload = () => resolve();
+      tag.onerror = () => reject(new Error(failure()));
+    });
+    this.document.head.appendChild(tag);
+    return loaded;
+  }
+
+  /**
+   * Fails a tag insertion the document's Content Security Policy blocked.
+   *
+   * Mirrors pinned 26a9e47 `server/frames.ts` Frame._raceWithCSPError, which
+   * races the insertion against the browser's CSP report. That report reaches
+   * the pinned code as a console message; inside the document the browser
+   * reports the same violation as a `securitypolicyviolation` event.
+   */
+  private async raceWithCSPError<T>(action: () => Promise<T>): Promise<T> {
+    let violation: SecurityPolicyViolationEvent | undefined;
+    let onViolation: (event: Event) => void = () => {};
+    const violated = new Promise<void>((resolve) => {
+      onViolation = (event) => {
+        violation = event as SecurityPolicyViolationEvent;
+        resolve();
+      };
+    });
+    this.document.addEventListener("securitypolicyviolation", onViolation);
+    let result: T | undefined;
+    let error: unknown;
+    const completed = action().then(
+      (value) => void (result = value),
+      (reason: unknown) => void (error = reason)
+    );
+    try {
+      await Promise.race([completed, violated]);
+    } finally {
+      this.document.removeEventListener("securitypolicyviolation", onViolation);
+    }
+    if (violation)
+      throw new Error(
+        `Content Security Policy directive "${violation.violatedDirective}" blocked ${violation.blockedURI || "an inline resource"}`
+      );
+    if (error) throw error;
+    return result as T;
+  }
 
   /**
    * Serializes the controlled document.
@@ -2468,6 +2683,7 @@ export class PageImpl {
     actionName:
       | "click"
       | "dblclick"
+      | "drop"
       | "fill"
       | "hover"
       | "select option"
@@ -3861,6 +4077,27 @@ function validateTimeout(timeout: unknown, name: string): number {
   if (typeof timeout !== "number" || timeout < 0 || !Number.isFinite(timeout))
     throw new TypeError(`${name} must be a non-negative finite number`);
   return timeout;
+}
+
+/**
+ * Options of `addScriptTag` and `addStyleTag`. The pinned client reads `path`
+ * from disk into `content` before the call leaves the process, which this
+ * runtime cannot do; every other shape reaches the pinned server check for a
+ * `url` or `content` property unexamined, including a non-object argument.
+ */
+function assertAddTagOptions<T extends AddScriptTagOptions>(
+  method: string,
+  options: T
+): T {
+  if (options?.path !== undefined)
+    throw new Error(
+      `${method}: the \`path\` option is not supported; pass \`url\` or \`content\`.`
+    );
+  if (!options?.url && !options?.content)
+    throw new Error(
+      "Provide an object with a `url`, `path` or `content` property"
+    );
+  return options;
 }
 
 /** Returns the normalized `delay`, unwrapped like the pointer options. */
