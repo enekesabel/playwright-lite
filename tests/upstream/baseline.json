@@ -2603,12 +2603,12 @@
     {
       "id": "page-wait-for-selector-2.spec.ts > should succeed if element handle was detached while waiting for detached",
       "method": "ElementHandle.waitForSelector",
-      "evidence": "A scoped state:'detached' wait resolves when the scope button is removed, so detaching the scope element satisfies the detached wait."
+      "evidence": "A scoped state:'detached' wait for a descendant that never exists settles successfully although the scope button is removed from the document during the test; the test proves the wait does not reject, not when it completed."
     },
     {
       "id": "page-wait-for-selector-2.spec.ts > should succeed if element handle was detached while waiting for hidden",
       "method": "ElementHandle.waitForSelector",
-      "evidence": "A scoped state:'hidden' wait on a button handle resolves when the button itself is removed from the document, so detaching the scope element satisfies the hidden wait instead of rejecting with a detached-element error."
+      "evidence": "A scoped state:'hidden' wait for a descendant that never exists settles successfully although the scope button is removed from the document during the test; the test proves the wait does not reject, not when it completed."
     },
     {
       "id": "page-wait-for-selector-2.spec.ts > should support some fancy xpath",
