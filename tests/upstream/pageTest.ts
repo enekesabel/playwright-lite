@@ -51,6 +51,78 @@ export function isKnownFailure(titlePath: readonly string[]): boolean {
   );
 }
 
+// ── Native setup navigation ─────────────────────────────────────────
+
+/**
+ * Specs that establish their test document or origin with `page.goto` before
+ * exercising the member they assert. In this package's single-document
+ * adapter that navigation replaces the document the adapter lives in, so the
+ * setup call destroys the execution context and the test dies before reaching
+ * its subject. These files run `page.goto` on the native Playwright driver
+ * instead.
+ *
+ * The native call is recorded as `Page.goto` native evidence, so it can never
+ * certify navigation compatibility, and it is never a fallback for a failed
+ * browser-adapter action. Everything each spec asserts still executes through
+ * the browser adapter. Specs whose subject is navigation itself
+ * (`page-goto.spec.ts`) are deliberately absent.
+ */
+const nativeNavigationForSetupSpecs = [
+  "elementhandle-bounding-box.spec.ts",
+  "elementhandle-click.spec.ts",
+  "elementhandle-convenience.spec.ts",
+  "elementhandle-misc.spec.ts",
+  "elementhandle-query-selector.spec.ts",
+  "elementhandle-scroll-into-view.spec.ts",
+  "elementhandle-select-text.spec.ts",
+  "elementhandle-wait-for-element-state.spec.ts",
+  "eval-on-selector.spec.ts",
+  "expect-boolean.spec.ts",
+  "expect-matcher-result.spec.ts",
+  "expect-misc.spec.ts",
+  "locator-click.spec.ts",
+  "locator-convenience.spec.ts",
+  "locator-element-handle.spec.ts",
+  "locator-misc-1.spec.ts",
+  "locator-misc-2.spec.ts",
+  "locator-query.spec.ts",
+  "matchers.misc.spec.ts",
+  "page-add-locator-handler.spec.ts",
+  "page-add-script-tag.spec.ts",
+  "page-add-style-tag.spec.ts",
+  "page-aria-snapshot.spec.ts",
+  "page-autowaiting-no-hang.spec.ts",
+  "page-basic.spec.ts",
+  "page-click-react.spec.ts",
+  "page-click-scroll.spec.ts",
+  "page-click-timeout-1.spec.ts",
+  "page-click-timeout-2.spec.ts",
+  "page-click-timeout-3.spec.ts",
+  "page-click-timeout-4.spec.ts",
+  "page-click.spec.ts",
+  "page-dispatchevent.spec.ts",
+  "page-drag.spec.ts",
+  "page-evaluate.spec.ts",
+  "page-filechooser.spec.ts",
+  "page-fill.spec.ts",
+  "page-history.spec.ts",
+  "page-keyboard.spec.ts",
+  "page-localstorage.spec.ts",
+  "page-mouse.spec.ts",
+  "page-select-option.spec.ts",
+  "page-set-input-files.spec.ts",
+  "page-wait-for-function.spec.ts",
+  "page-wait-for-load-state.spec.ts",
+  "page-wait-for-selector-1.spec.ts",
+  "page-wait-for-selector-2.spec.ts",
+  "page-wait-for-url.spec.ts",
+  "queryselector.spec.ts",
+  "selectors-css.spec.ts",
+  "selectors-misc.spec.ts",
+  "selectors-text.spec.ts",
+  "wheel.spec.ts",
+];
+
 // ── Fixtures ────────────────────────────────────────────────────────
 
 type ServerFixtures = {
@@ -143,18 +215,9 @@ export const test = base.extend<
         actionTimeout,
         navigationTimeout,
         sabotagedMethod,
-        // Native navigation establishes the document only. It is recorded and
-        // cannot certify navigation or replace a failed browser-adapter action.
-        nativeNavigationForSetup: [
-          "page-localstorage.spec.ts",
-          "page-click.spec.ts",
-          "elementhandle-click.spec.ts",
-          "page-click-scroll.spec.ts",
-          "page-click-timeout-1.spec.ts",
-          "page-click-timeout-2.spec.ts",
-          "page-click-timeout-3.spec.ts",
-          "page-click-timeout-4.spec.ts",
-        ].some((name) => testInfo.file.endsWith(`/${name}`)),
+        nativeNavigationForSetup: nativeNavigationForSetupSpecs.some((name) =>
+          testInfo.file.endsWith(`/${name}`)
+        ),
       });
       await use(proxyPage);
     } finally {
