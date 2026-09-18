@@ -80,7 +80,7 @@ function runPublish(t, { version = "0.2.0", ...overrides } = {}) {
 test("publication is main-only and uses the tested release artifact", () => {
   assert.equal(
     releasePlease.if,
-    "github.event_name == 'push' && github.ref == 'refs/heads/main'"
+    "github.repository == 'enekesabel/playwright-lite' && github.event_name == 'push' && github.ref == 'refs/heads/main'"
   );
   assert.deepEqual(publish.needs, [
     "release-please",
