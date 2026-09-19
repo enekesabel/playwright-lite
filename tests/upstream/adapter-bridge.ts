@@ -384,12 +384,12 @@ async function withAbortSignalBridge<Result>(
   }
 }
 
-function callbackSource(callback: unknown, operation: string): string {
-  if (typeof callback !== "function")
+function encodePageFunction(callback: unknown, operation: string): unknown {
+  if (typeof callback !== "function" && typeof callback !== "string")
     throw new TypeError(
-      `${operation} requires a function callback in the upstream adapter bridge.`
+      `${operation} requires a function or string callback in the upstream adapter bridge.`
     );
-  return String(callback);
+  return encodeBridgeValue(callback);
 }
 
 type BridgeEnvelope<Result> =
@@ -909,7 +909,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
               return host.__pwLiteInvokeAdapter(() =>
                 host.__pwLiteAdapterPage[method](
                   s,
-                  host.__pwLiteReconstructFunction(expression),
+                  host.__pwLiteDecodeBridgeValue(expression),
                   host.__pwLiteDecodeBridgeValue(a)
                 )
               );
@@ -917,7 +917,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
             {
               method: prop,
               selector,
-              expression: callbackSource(pageFunction, `Page.${prop}`),
+              expression: encodePageFunction(pageFunction, `Page.${prop}`),
               arg: encodeBridgeValueForPage(arg, realPage),
             }
           );
@@ -1158,7 +1158,7 @@ async function createElementHandleProxy(
                   .__pwLiteElementHandleForId(handleId)
                   [method](
                     s,
-                    host.__pwLiteReconstructFunction(expression),
+                    host.__pwLiteDecodeBridgeValue(expression),
                     host.__pwLiteDecodeBridgeValue(a)
                   )
               );
@@ -1167,7 +1167,10 @@ async function createElementHandleProxy(
               handleId: id,
               method: prop,
               selector,
-              expression: callbackSource(pageFunction, `ElementHandle.${prop}`),
+              expression: encodePageFunction(
+                pageFunction,
+                `ElementHandle.${prop}`
+              ),
               arg: encodeBridgeValueForPage(arg, realPage),
             }
           );
@@ -1183,7 +1186,7 @@ async function createElementHandleProxy(
                 host
                   .__pwLiteElementHandleForId(handleId)
                   [method](
-                    host.__pwLiteReconstructFunction(expression),
+                    host.__pwLiteDecodeBridgeValue(expression),
                     host.__pwLiteDecodeBridgeValue(a)
                   )
               );
@@ -1191,7 +1194,10 @@ async function createElementHandleProxy(
             {
               handleId: id,
               method: prop,
-              expression: callbackSource(pageFunction, `ElementHandle.${prop}`),
+              expression: encodePageFunction(
+                pageFunction,
+                `ElementHandle.${prop}`
+              ),
               arg: encodeBridgeValueForPage(arg, realPage),
             }
           );
@@ -1449,7 +1455,7 @@ function createLocatorProxy(
               const host = window as any;
               return host.__pwLiteInvokeAdapter(() => {
                 const current: any = host.__pwLiteReplayAdapterChain(c);
-                const callback = host.__pwLiteReconstructFunction(expression);
+                const callback = host.__pwLiteDecodeBridgeValue(expression);
                 const argument = host.__pwLiteDecodeBridgeValue(a);
                 return method === "evaluateAll"
                   ? current.evaluateAll(callback, argument)
@@ -1463,7 +1469,7 @@ function createLocatorProxy(
             {
               chain: encodeBridgeValueForPage(chain, realPage),
               method: prop,
-              expression: callbackSource(pageFunction, `Locator.${prop}`),
+              expression: encodePageFunction(pageFunction, `Locator.${prop}`),
               arg: encodeBridgeValueForPage(arg, realPage),
               options: serializableQueryOptions(
                 encodeBridgeValueForPage(options, realPage)
