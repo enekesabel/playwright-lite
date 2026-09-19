@@ -384,12 +384,12 @@ async function withAbortSignalBridge<Result>(
   }
 }
 
-function callbackSource(callback: unknown, operation: string): string {
-  if (typeof callback !== "function")
+function callbackSource(callback: unknown, operation: string): unknown {
+  if (typeof callback !== "function" && typeof callback !== "string")
     throw new TypeError(
-      `${operation} requires a function callback in the upstream adapter bridge.`
+      `${operation} requires a function or string callback in the upstream adapter bridge.`
     );
-  return String(callback);
+  return encodeBridgeValue(callback);
 }
 
 type BridgeEnvelope<Result> =
@@ -909,7 +909,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
               return host.__pwLiteInvokeAdapter(() =>
                 host.__pwLiteAdapterPage[method](
                   s,
-                  host.__pwLiteReconstructFunction(expression),
+                  host.__pwLiteDecodeBridgeValue(expression),
                   host.__pwLiteDecodeBridgeValue(a)
                 )
               );
@@ -1158,7 +1158,7 @@ async function createElementHandleProxy(
                   .__pwLiteElementHandleForId(handleId)
                   [method](
                     s,
-                    host.__pwLiteReconstructFunction(expression),
+                    host.__pwLiteDecodeBridgeValue(expression),
                     host.__pwLiteDecodeBridgeValue(a)
                   )
               );
@@ -1183,7 +1183,7 @@ async function createElementHandleProxy(
                 host
                   .__pwLiteElementHandleForId(handleId)
                   [method](
-                    host.__pwLiteReconstructFunction(expression),
+                    host.__pwLiteDecodeBridgeValue(expression),
                     host.__pwLiteDecodeBridgeValue(a)
                   )
               );
@@ -1449,7 +1449,7 @@ function createLocatorProxy(
               const host = window as any;
               return host.__pwLiteInvokeAdapter(() => {
                 const current: any = host.__pwLiteReplayAdapterChain(c);
-                const callback = host.__pwLiteReconstructFunction(expression);
+                const callback = host.__pwLiteDecodeBridgeValue(expression);
                 const argument = host.__pwLiteDecodeBridgeValue(a);
                 return method === "evaluateAll"
                   ? current.evaluateAll(callback, argument)

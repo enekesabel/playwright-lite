@@ -680,6 +680,66 @@ test("adapter callback operations reconstruct in the adapter", async ({
   expect(execution.entered).toContain("Locator.evaluateAll");
 });
 
+test("adapter handle evaluation forwards string expressions unchanged", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<div>handle</div>");
+  const handle = await adapterPage.$("div");
+  if (!handle) throw new Error("Expected ElementHandle");
+
+  await page.evaluate(() => {
+    const host = window as any;
+    const resolve = host.__pwLiteElementHandleForId;
+    host.__pwLiteElementHandleForId = (id: string) => {
+      const target = resolve(id);
+      return new Proxy(target, {
+        get(target, property, receiver) {
+          if (property === "evaluate")
+            return async (expression: unknown) => ({
+              expression,
+              type: typeof expression,
+            });
+          return Reflect.get(target, property, receiver);
+        },
+      });
+    };
+  });
+
+  await expect(handle.evaluate("document.title")).resolves.toEqual({
+    expression: "document.title",
+    type: "string",
+  });
+});
+
+test("adapter locator evaluation forwards string expressions unchanged", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<div>locator</div>");
+  await page.evaluate(() => {
+    const host = window as any;
+    const locator = host.__pwLiteAdapterPage.locator.bind(
+      host.__pwLiteAdapterPage
+    );
+    host.__pwLiteAdapterPage.locator = (...args: unknown[]) => {
+      const target = locator(...args);
+      target.evaluate = async (expression: unknown) => ({
+        expression,
+        type: typeof expression,
+      });
+      return target;
+    };
+  });
+
+  await expect(
+    adapterPage.locator("div").evaluate("document.title")
+  ).resolves.toEqual({
+    expression: "document.title",
+    type: "string",
+  });
+});
+
 test("adapter page callbacks enter public adapter methods", async ({
   page,
   adapterPage,
