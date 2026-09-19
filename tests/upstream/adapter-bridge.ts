@@ -384,7 +384,7 @@ async function withAbortSignalBridge<Result>(
   }
 }
 
-function callbackSource(callback: unknown, operation: string): unknown {
+function encodePageFunction(callback: unknown, operation: string): unknown {
   if (typeof callback !== "function" && typeof callback !== "string")
     throw new TypeError(
       `${operation} requires a function or string callback in the upstream adapter bridge.`
@@ -917,7 +917,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
             {
               method: prop,
               selector,
-              expression: callbackSource(pageFunction, `Page.${prop}`),
+              expression: encodePageFunction(pageFunction, `Page.${prop}`),
               arg: encodeBridgeValueForPage(arg, realPage),
             }
           );
@@ -1167,7 +1167,10 @@ async function createElementHandleProxy(
               handleId: id,
               method: prop,
               selector,
-              expression: callbackSource(pageFunction, `ElementHandle.${prop}`),
+              expression: encodePageFunction(
+                pageFunction,
+                `ElementHandle.${prop}`
+              ),
               arg: encodeBridgeValueForPage(arg, realPage),
             }
           );
@@ -1191,7 +1194,10 @@ async function createElementHandleProxy(
             {
               handleId: id,
               method: prop,
-              expression: callbackSource(pageFunction, `ElementHandle.${prop}`),
+              expression: encodePageFunction(
+                pageFunction,
+                `ElementHandle.${prop}`
+              ),
               arg: encodeBridgeValueForPage(arg, realPage),
             }
           );
@@ -1463,7 +1469,7 @@ function createLocatorProxy(
             {
               chain: encodeBridgeValueForPage(chain, realPage),
               method: prop,
-              expression: callbackSource(pageFunction, `Locator.${prop}`),
+              expression: encodePageFunction(pageFunction, `Locator.${prop}`),
               arg: encodeBridgeValueForPage(arg, realPage),
               options: serializableQueryOptions(
                 encodeBridgeValueForPage(options, realPage)
