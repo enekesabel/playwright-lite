@@ -19,6 +19,8 @@ describe("expect(locator)", () => {
     };
     typeOnly(false);
   });
+  // Locator hooks are exercised directly because this browser contract owns the
+  // adapter boundary. Page assertions below use the public `expect(page)` API.
 
   it("retries and exposes state, text, count, value, attribute, and accessibility assertions", async () => {
     document.body.innerHTML = `
@@ -194,6 +196,23 @@ describe("expect(locator)", () => {
     });
 
     await extended(createPage().locator("#missing")).toHaveText("custom");
+  });
+
+  it("keeps Page-named custom matchers on non-Page values", () => {
+    let customCalls = 0;
+    const isolatedExpect = browserExpect.extend({});
+    const extended = isolatedExpect.extend({
+      toHaveTitle(received: unknown, expected: string) {
+        customCalls++;
+        return {
+          pass: received === expected,
+          message: () => "custom title",
+        };
+      },
+    });
+
+    extended("title").toHaveTitle("title");
+    expect(customCalls).toBe(1);
   });
 });
 
@@ -407,6 +426,22 @@ describe("public expect", () => {
     expect(customCalls).toBe(0);
   });
 
+  it("expect.extend should not override Page matchers through returned instances", async () => {
+    let customCalls = 0;
+    const isolatedExpect = browserExpect.extend({});
+    const extended = isolatedExpect.extend({
+      toHaveTitle() {
+        customCalls++;
+        return { pass: true, message: () => "custom matcher ran" };
+      },
+    });
+    const page = createPage();
+    document.title = "Reserved Page matcher";
+
+    await extended(page).toHaveTitle("Reserved Page matcher");
+    expect(customCalls).toBe(0);
+  });
+
   it("awaits thenable custom matcher results", async () => {
     const extended = browserExpect.extend({
       toBeThenable(received: unknown, expected: unknown) {
@@ -532,5 +567,361 @@ describe("public expect", () => {
     expect(message).toBe(
       'expect(received).rejects.toThrow(expected)\n\nExpected substring: "other"\nReceived message:   "many"\n  ● Test suite failed to run\n\n    AggregateError: many\n\n      at aggregate (aggregate.js:5:6)\n\n    Errors contained in AggregateError:\n     first\n\n          at one (one.js:1:2)\n\n     TypeError: second\n\n          at two (two.js:3:4)\n\n'
     );
+  });
+});
+
+describe("Page assertions", () => {
+  it("does not treat Page-shaped lookalikes as Pages", () => {
+    let pageExpectCalled = false;
+    let customMatcherCalled = false;
+    const lookalike = {
+      title: async () => "lookalike",
+      url: () => "https://example.test/",
+      _expect: async () => {
+        pageExpectCalled = true;
+        return { matches: true };
+      },
+    };
+    const isolatedExpect = browserExpect.extend({});
+    const extended = isolatedExpect.extend({
+      toHaveTitle(received: unknown) {
+        customMatcherCalled = true;
+        return {
+          pass: received === lookalike,
+          message: () => "custom title",
+        };
+      },
+    });
+    const matchers = extended(lookalike) as unknown as Record<string, unknown>;
+
+    expect(matchers.toHaveTitle).toBeTypeOf("function");
+    (matchers.toHaveTitle as () => void)();
+    expect(customMatcherCalled).toBe(true);
+    expect(matchers.toHaveURL).toBeUndefined();
+    expect(pageExpectCalled).toBe(false);
+  });
+
+  it("supports immediate and retried title assertions", async () => {
+    const page = createPage();
+    document.title = "Checkout";
+    await browserExpect(page).toHaveTitle("Checkout");
+
+    document.title = "Before";
+    window.setTimeout(() => {
+      document.title = "After";
+    }, 25);
+    await browserExpect(page).toHaveTitle("After", { timeout: 200 });
+  });
+
+  it("supports title regular expressions, ignoreCase, and negation", async () => {
+    const page = createPage();
+    document.title = "Checkout ready";
+    await browserExpect(page).toHaveTitle(/READY$/i);
+    await browserExpect(page).toHaveTitle("CHECKOUT READY", {
+      ignoreCase: true,
+    });
+    await browserExpect(page).not.toHaveTitle("Sign in");
+  });
+
+  it("preserves RegExp flags without mutating caller state", async () => {
+    const page = createPage();
+    document.title = "xxFOO";
+
+    await browserExpect(page).not.toHaveTitle(/foo/y, { ignoreCase: true });
+    await browserExpect(page).not.toHaveTitle(/foo/i, { ignoreCase: false });
+
+    const titlePattern = /FOO/g;
+    titlePattern.lastIndex = 2;
+    await browserExpect(page).toHaveTitle(titlePattern);
+    expect(titlePattern.lastIndex).toBe(2);
+
+    const original = page.url();
+    const mixedCase = new URL(original);
+    mixedCase.pathname = "/FOO";
+    try {
+      window.history.replaceState({}, "", mixedCase.href);
+      await browserExpect(page).not.toHaveURL(/foo/i, { ignoreCase: false });
+
+      const urlPattern = /FOO/g;
+      urlPattern.lastIndex = 1;
+      await browserExpect(page).toHaveURL(urlPattern);
+      expect(urlPattern.lastIndex).toBe(1);
+    } finally {
+      window.history.replaceState({}, "", original);
+    }
+  });
+
+  it("normalizes title strings but tests regular expressions against the raw title", async () => {
+    const page = createPage();
+    document.title = "  Hello\u200b \u00ad world  ";
+    await browserExpect(page).toHaveTitle("Hello world");
+    await browserExpect(page).toHaveTitle(/Hello\u200b \u00ad world/);
+
+    const regexFailure = (await browserExpect(page)
+      .toHaveTitle(/Hello world/, { timeout: 20 })
+      .catch((error: Error) => error)) as Error;
+    expect(regexFailure.message).toContain(
+      "Expected pattern: /Hello world/\nReceived string:"
+    );
+    expect(regexFailure.message).toContain("Timeout: 20ms");
+  });
+
+  it("treats a zero timeout as an unlimited title assertion timeout", async () => {
+    const page = createPage();
+    document.title = "Before";
+    window.setTimeout(() => {
+      document.title = "After";
+    }, 25);
+    await browserExpect(page).toHaveTitle("After", { timeout: 0 });
+  });
+
+  it("reports title timeout, cancellation, custom messages, and failure details", async () => {
+    const page = createPage();
+    document.title = "Bye";
+    const timeout = (await browserExpect(page)
+      .toHaveTitle("Hello", { timeout: 20 })
+      .catch((error: Error) => error)) as Error;
+    expect(timeout.message).toContain(
+      'expect(page).toHaveTitle(expected) failed\n\nExpected: "Hello"\nReceived: "Bye"\nTimeout:  20ms'
+    );
+    expect(timeout.message).toContain(
+      '- Expect "toHaveTitle" with timeout 20ms'
+    );
+
+    const controller = new AbortController();
+    const pending = browserExpect(page).toHaveTitle("Hello", {
+      timeout: 200,
+      signal: controller.signal,
+    });
+    window.setTimeout(() => controller.abort(new Error("stop it")), 10);
+    const aborted = (await pending.catch((error: Error) => error)) as Error;
+    expect(aborted.message).toContain(
+      "Error: The assertion was aborted: stop it"
+    );
+    expect(aborted.message).not.toContain("Timeout:");
+
+    const custom = (await browserExpect(page, "custom title")
+      .toHaveTitle("Hello", { timeout: 20 })
+      .catch((error: Error) => error)) as Error;
+    expect(custom.message).toContain(
+      "custom title\n\nexpect(page).toHaveTitle"
+    );
+  });
+
+  it("supports matching and retrying current-document URL forms", async () => {
+    const page = createPage();
+    const original = page.url();
+    try {
+      await browserExpect(page).toHaveURL(original);
+      await browserExpect(page).toHaveURL(`${new URL(original).origin}/*`);
+      await browserExpect(page).toHaveURL(
+        new RegExp(new URL(original).pathname)
+      );
+      await browserExpect(page).toHaveURL((url) => url.href === original);
+      await browserExpect(page).not.toHaveURL("");
+      const emptyString = (await browserExpect(page)
+        .toHaveURL("", { timeout: 20 })
+        .catch((error: Error) => error)) as Error;
+      expect(emptyString.message).toContain(
+        'Expected: ""\nReceived: ' +
+          JSON.stringify(original) +
+          "\nTimeout:  20ms"
+      );
+
+      const expected = `${original}#ready`;
+      const waiting = browserExpect(page).toHaveURL(expected, { timeout: 200 });
+      window.setTimeout(() => {
+        window.history.pushState({}, "", expected);
+      }, 25);
+      await waiting;
+    } finally {
+      window.history.replaceState({}, "", original);
+    }
+  });
+
+  it("supports URLPattern when the browser provides it and ignoreCase", async () => {
+    const page = createPage();
+    const original = page.url();
+    try {
+      await browserExpect(page).toHaveURL(original.toUpperCase(), {
+        ignoreCase: true,
+      });
+      const URLPatternConstructor = (
+        window as typeof window & {
+          URLPattern?: new (init: { pathname: string }) => unknown;
+        }
+      ).URLPattern;
+      if (URLPatternConstructor) {
+        await browserExpect(page).toHaveURL(
+          new URLPatternConstructor({
+            pathname: new URL(original).pathname,
+          }) as any
+        );
+      }
+    } finally {
+      window.history.replaceState({}, "", original);
+    }
+  });
+
+  it("applies URL ignoreCase to predicates and URLPattern matching", async () => {
+    const page = createPage();
+    const original = page.url();
+    const mixedCase = new URL(original);
+    mixedCase.pathname = "/MiXeD-Case";
+    try {
+      window.history.replaceState({}, "", mixedCase.href);
+      await browserExpect(page).toHaveURL(
+        (url) => url.pathname === "/mixed-case",
+        { ignoreCase: true }
+      );
+
+      const URLPatternConstructor = (
+        window as typeof window & {
+          URLPattern?: new (init: { pathname: string }) => unknown;
+        }
+      ).URLPattern;
+      if (URLPatternConstructor) {
+        await browserExpect(page).toHaveURL(
+          new URLPatternConstructor({ pathname: "/mixed-case" }) as any,
+          { ignoreCase: true }
+        );
+      }
+    } finally {
+      window.history.replaceState({}, "", original);
+    }
+  });
+
+  it("supports URL negation and reports timeout, cancellation, and custom messages", async () => {
+    const page = createPage();
+    const original = page.url();
+    try {
+      await browserExpect(page).not.toHaveURL(`${original}#other`);
+      const timeout = (await browserExpect(page)
+        .toHaveURL(`${original}#missing`, { timeout: 20 })
+        .catch((error: Error) => error)) as Error;
+      expect(timeout.message).toContain(
+        `expect(page).toHaveURL(expected) failed\n\nExpected: ${JSON.stringify(`${original}#missing`)}\nReceived: ${JSON.stringify(original)}\nTimeout:  20ms`
+      );
+
+      const controller = new AbortController();
+      const pending = browserExpect(page).toHaveURL(`${original}#missing`, {
+        timeout: 200,
+        signal: controller.signal,
+      });
+      window.setTimeout(() => controller.abort("stop it"), 10);
+      const aborted = (await pending.catch((error: Error) => error)) as Error;
+      expect(aborted.message).toContain(
+        "Error: The assertion was aborted: stop it"
+      );
+
+      const custom = (await browserExpect(page, "custom URL")
+        .toHaveURL(`${original}#missing`, { timeout: 20 })
+        .catch((error: Error) => error)) as Error;
+      expect(custom.message).toContain("custom URL\n\nexpect(page).toHaveURL");
+    } finally {
+      window.history.replaceState({}, "", original);
+    }
+  });
+
+  it("matches pinned predicate timeout and abort formatting", async () => {
+    const page = createPage();
+    const original = page.url();
+
+    const timeout = (await browserExpect(page)
+      .toHaveURL(() => false, { timeout: 20 })
+      .catch((error: Error) => error)) as Error;
+    expect(timeout.message).toBe(
+      "expect(page).toHaveURL(expected) failed\n\n" +
+        "Expected: predicate to succeed\n" +
+        `Received: ${JSON.stringify(original)}\n` +
+        "Timeout:  20ms\n"
+    );
+
+    const controller = new AbortController();
+    const pending = browserExpect(page).toHaveURL(() => false, {
+      timeout: 200,
+      signal: controller.signal,
+    });
+    window.setTimeout(() => controller.abort("stop it"), 10);
+    const aborted = (await pending.catch((error: Error) => error)) as Error;
+    expect(aborted.message).toBe(
+      "expect(page).toHaveURL(expected) failed\n\n" +
+        "Expected: predicate to succeed\n" +
+        "Error: The assertion was aborted: stop it\n"
+    );
+
+    const URLPatternConstructor = (
+      window as typeof window & {
+        URLPattern?: new (init: { pathname: string }) => unknown;
+      }
+    ).URLPattern;
+    if (URLPatternConstructor) {
+      const patternFailure = (await browserExpect(page)
+        .toHaveURL(
+          new URLPatternConstructor({ pathname: "/__missing__" }) as any,
+          { timeout: 20 }
+        )
+        .catch((error: Error) => error)) as Error;
+      expect(patternFailure.message).toBe(
+        "expect(page).toHaveURL(expected) failed\n\n" +
+          "Expected: predicate to succeed\n" +
+          `Received: ${JSON.stringify(original)}\n` +
+          "Timeout:  20ms\n"
+      );
+    }
+  });
+
+  it("matches pinned invalid-value and regular-expression failure formatting", async () => {
+    const page = createPage();
+    const invalid = (await browserExpect(page)
+      .toHaveURL({} as any)
+      .catch((error: Error) => error)) as Error;
+    expect(invalid.message).toBe(
+      "expect(page).toHaveURL(expected) failed\n\n" +
+        "Error: expected value must be a string or regular expression\n" +
+        "Expected has type:  object\n" +
+        "Expected has value: {}\n"
+    );
+
+    document.title = "Bye";
+    const regexFailure = (await browserExpect(page)
+      .toHaveTitle(/Hello/, { timeout: 20 })
+      .catch((error: Error) => error)) as Error;
+    expect(regexFailure.message).toBe(
+      "expect(page).toHaveTitle(expected) failed\n\n" +
+        "Expected pattern: /Hello/\n" +
+        'Received string:  "Bye"\n' +
+        "Timeout: 20ms\n\n" +
+        "Call log:\n" +
+        '- Expect "toHaveTitle" with timeout 20ms\n' +
+        "- waiting for page\n"
+    );
+  });
+
+  it("types Page matchers only for Page values", () => {
+    const page = createPage();
+    const pageMatchers = browserExpect(page);
+    const assertPageMatchers = (value: {
+      toHaveTitle(expected: string | RegExp): Promise<void>;
+      toHaveURL(
+        expected: string | RegExp | ((url: URL) => boolean)
+      ): Promise<void>;
+    }) => value;
+    assertPageMatchers(pageMatchers);
+
+    const genericMatchers = browserExpect("title");
+    const locatorMatchers = browserExpect(page.locator("body"));
+    type GenericMatchers = typeof genericMatchers;
+    type LocatorMatchers = typeof locatorMatchers;
+    // @ts-expect-error Page assertions are not generic value matchers.
+    type GenericPageTitle = GenericMatchers["toHaveTitle"];
+    // @ts-expect-error Page assertions are not Locator matchers.
+    type LocatorPageURL = LocatorMatchers["toHaveURL"];
+    void page;
+    void pageMatchers;
+    void genericMatchers;
+    void locatorMatchers;
+    void (undefined as unknown as GenericPageTitle);
+    void (undefined as unknown as LocatorPageURL);
   });
 });

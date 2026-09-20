@@ -345,7 +345,7 @@ export const touchscreenLedger = {
   tap: planned("Synthetic functional input only."),
 } as const satisfies Ledger<Touchscreen>;
 
-/** The public in-browser expect API. */
+/** The public in-browser expect foundation and its owner-specific assertions. */
 export const expectLedger = {
   "expect(value)": implemented(
     "Supports Playwright's generic value matchers, asymmetric matching, `.not`, `.resolves`, `.rejects`, and custom messages. `expect(locator)` also supports the documented Locator assertions."
@@ -359,11 +359,14 @@ export const expectLedger = {
   "expect.soft()": outOfScope(
     "Throws because playwright-lite has no Playwright Test failure-reporting context."
   ),
+  "expect(page).toHaveTitle()": implemented(
+    "Supports string and RegExp expectations with `ignoreCase`, `timeout`, and `signal` options."
+  ),
+  "expect(page).toHaveURL()": partial(
+    "Supports string/glob, RegExp, URL predicates, and URLPattern values with `ignoreCase`, `timeout`, and `signal`; string expectations are matched against the current document because this runtime has no configured Playwright `baseURL`."
+  ),
   "Locator assertions": implemented(
     "Supports `toBeAttached`, `toBeChecked`, `toBeDisabled`, `toBeEditable`, `toBeEmpty`, `toBeEnabled`, `toBeFocused`, `toBeHidden`, `toBeInViewport`, `toBeVisible`, `toContainText`, `toContainClass`, `toHaveAccessibleDescription`, `toHaveAccessibleName`, `toHaveAccessibleErrorMessage`, `toHaveAttribute`, `toHaveClass`, `toHaveCount`, `toHaveCSS`, `toHaveId`, `toHaveJSProperty`, `toHaveRole`, `toHaveText`, `toHaveValue`, `toHaveValues`, and inline-string `toMatchAriaSnapshot`. `toHaveScreenshot` and file/config-driven ARIA snapshot forms are excluded."
-  ),
-  "Page assertions": planned(
-    "Page assertions are not connected to this browser-safe expect implementation."
   ),
   "Filesystem-backed snapshot assertions": outOfScope(
     "They require filesystem and test-runner state that is unavailable in the browser document."
