@@ -14,7 +14,7 @@ import {
   expect,
 } from "@playwright/test";
 import { createAdapterPage } from "./adapter-bridge";
-import { test as corpusTest } from "./pageTest";
+import { test as corpusTest, expect as corpusExpect } from "./pageTest";
 import { TestServer } from "./testServer";
 
 // The promotion rerun withholds its method through the generated configuration
@@ -40,6 +40,38 @@ const test = base.extend<
     });
     await use(proxy);
   },
+});
+
+// ── Public expect trust root ────────────────────────────────────────
+
+test("corpus expect enters playwright-lite public matchers for adapter receivers", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<title>Public expect</title><h1>hello</h1>");
+
+  await corpusExpect(adapterPage.locator("h1")).toHaveText("hello");
+  await corpusExpect(adapterPage).toHaveTitle("Public expect");
+  corpusExpect({ value: 42 }).toEqual({ value: 42 });
+
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  expect(execution.expect).toEqual(
+    expect.arrayContaining(["Locator.toHaveText", "Page.toHaveTitle"])
+  );
+  expect(execution.entered).toEqual(
+    expect.arrayContaining(["Locator._expect", "Page._expect"])
+  );
+});
+
+test("public matcher sabotage breaks the promoted expect path", async ({ page }) => {
+  const sabotaged = await createAdapterPage(page, {
+    sabotagedMatcher: "Locator.toHaveText",
+  });
+  await page.setContent("<h1>hello</h1>");
+
+  await expect(
+    corpusExpect(sabotaged.locator("h1")).toHaveText("hello")
+  ).rejects.toThrow("__pwLiteSabotagedMatcher: Locator.toHaveText");
 });
 
 // ── Proxy presence ──────────────────────────────────────────────────
