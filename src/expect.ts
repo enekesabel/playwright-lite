@@ -292,7 +292,13 @@ type Matchers<R, T, ExtendedMatchers> = {
   (T extends (...args: never[]) => unknown
     ? FunctionAssertions
     : Record<never, never>) &
-  UserMatchers<ExtendedMatchers, R, T>;
+  UserMatchers<
+    T extends Page
+      ? Omit<ExtendedMatchers, keyof PageAssertions>
+      : ExtendedMatchers,
+    R,
+    T
+  >;
 
 type PollMatchers<T, ExtendedMatchers> = {
   not: PollMatchers<T, ExtendedMatchers>;
@@ -320,7 +326,7 @@ export type Expect<ExtendedMatchers = Record<never, never>> = {
     >,
   >(
     matchers: MoreMatchers
-  ): Expect<ExtendedMatchers & Omit<MoreMatchers, "toHaveTitle" | "toHaveURL">>;
+  ): Expect<ExtendedMatchers & MoreMatchers>;
   configure(configuration: {
     message?: string;
     soft?: boolean;
@@ -1240,9 +1246,18 @@ function pageMatcherMessage(
   const receivedSuffix = isRegExp(expected) ? " string" : "";
   if (isPredicate) {
     message += `Expected: predicate to ${isNot ? "fail" : "succeed"}\n`;
-    if (received !== undefined)
+    if (!result.errorMessage && received !== undefined)
       message += `Received: ${context.utils.printReceived(received)}\n`;
-  } else if (isNot) {
+    if (result.timedOut) {
+      const timeout =
+        result.timeout ??
+        (context as MatcherContext & { timeout: number }).timeout;
+      message += `Timeout:  ${timeout}ms\n`;
+    }
+    if (result.errorMessage) message += `${result.errorMessage}\n`;
+    return message;
+  }
+  if (isNot) {
     message += `Expected${expectedSuffix}: not ${context.utils.printExpected(expected)}\n`;
     if (received !== undefined)
       message += `Received${receivedSuffix}: ${context.utils.printReceived(received)}\n`;
@@ -1454,7 +1469,7 @@ function createExpect(info: ExpectMetaInfo): Expect<any> {
         );
     }
     for (const [name, matcher] of Object.entries(matchers)) {
-      if (name in allBuiltinMatchers || name in pageMatchers) continue;
+      if (name in allBuiltinMatchers) continue;
       accepted[name] = matcher;
       info.userMatchers[name] = matcher;
       const { positive, inverse } = buildCustomAsymmetricMatcher(name, matcher);
@@ -1494,7 +1509,11 @@ function createMatchers(
     : isLocatorExpectationReceiver(actual)
       ? { ...allBuiltinMatchers, ...locatorMatchers }
       : allBuiltinMatchers;
-  const matchers = { ...builtinMatchers, ...info.userMatchers };
+  const matchers = {
+    ...builtinMatchers,
+    ...info.userMatchers,
+    ...(isPageExpectationTarget(actual) ? pageMatchers : {}),
+  };
   for (const [name, matcher] of Object.entries({
     ...matchers,
   })) {
