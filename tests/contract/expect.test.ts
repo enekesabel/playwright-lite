@@ -739,8 +739,14 @@ describe("Page assertions", () => {
     const regexFailure = (await browserExpect(page)
       .toHaveTitle(/Hello/, { timeout: 20 })
       .catch((error: Error) => error)) as Error;
-    expect(regexFailure.message).toContain(
-      'expect(page).toHaveTitle(expected) failed\n\nExpected pattern: /Hello/\nReceived string:  "Bye"\nTimeout: 20ms'
+    expect(regexFailure.message).toBe(
+      "expect(page).toHaveTitle(expected) failed\n\n" +
+        "Expected pattern: /Hello/\n" +
+        'Received string:  "Bye"\n' +
+        "Timeout: 20ms\n\n" +
+        "Call log:\n" +
+        '- Expect "toHaveTitle" with timeout 20ms\n' +
+        "- waiting for page\n"
     );
   });
 
