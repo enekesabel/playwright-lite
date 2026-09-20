@@ -7,6 +7,7 @@ import { format, resolveConfig } from "prettier";
 import {
   pageLedger,
   locatorLedger,
+  expectLedger,
   elementHandleLimitations,
 } from "../compatibility/api.ts";
 
@@ -31,7 +32,28 @@ const selectorAliases = new Map([
   ["$$eval", "eval-on-selector-all"],
 ]);
 
-function rowsFor(owner, ledger) {
+const expectMemberUrls = new Map([
+  [
+    "expect(value)",
+    "https://playwright.dev/docs/test-assertions#generic-matchers",
+  ],
+  [
+    "expect.extend()",
+    "https://playwright.dev/docs/test-assertions#add-custom-matchers-using-expectextend",
+  ],
+  [
+    "expect.configure()",
+    "https://playwright.dev/docs/test-assertions#expectconfigure",
+  ],
+  ["expect.poll()", "https://playwright.dev/docs/test-assertions#expectpoll"],
+  ["toPass()", "https://playwright.dev/docs/test-assertions#expecttopass"],
+  [
+    "expect.soft()",
+    "https://playwright.dev/docs/test-assertions#soft-assertions",
+  ],
+]);
+
+function rowsFor(owner, ledger, showAllNotes = false) {
   return Reflect.ownKeys(ledger)
     .map((key) => {
       const entry = ledger[key];
@@ -51,9 +73,10 @@ function rowsFor(owner, ledger) {
       return {
         name,
         label: key === Symbol.asyncDispose ? "[Symbol.asyncDispose]()" : name,
-        url:
-          specialMemberUrls.get(name) ??
-          `https://playwright.dev/docs/api/class-${owner}#${owner}-${anchor}`,
+        url: owner
+          ? (specialMemberUrls.get(name) ??
+            `https://playwright.dev/docs/api/class-${owner}#${owner}-${anchor}`)
+          : expectMemberUrls.get(name),
         status:
           entry.status === "implemented"
             ? partial
@@ -62,9 +85,15 @@ function rowsFor(owner, ledger) {
             : excluded
               ? "🚫"
               : "❌",
-        note: (partial || excluded ? entry.limitations : "")
-          .replaceAll("|", "&#124;")
-          .replace(/\r?\n/g, "<br>"),
+        note:
+          (showAllNotes
+            ? entry.limitations
+            : partial || excluded
+              ? entry.limitations
+              : ""
+          )
+            ?.replaceAll("|", "&#124;")
+            .replace(/\r?\n/g, "<br>") ?? "",
       };
     })
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
@@ -82,6 +111,7 @@ export async function renderReadme(root = projectRoot) {
     elementHandleLimitations,
     playwrightVersion: pkg.devDependencies["@playwright/test"],
     tables: [
+      { name: "Expect", rows: rowsFor(undefined, expectLedger, true) },
       { name: "Page", rows: rowsFor("page", pageLedger) },
       { name: "Locator", rows: rowsFor("locator", locatorLedger) },
     ],

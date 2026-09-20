@@ -1,7 +1,9 @@
 import type { Locator, Page } from "@playwright/test";
 import {
   createPage,
+  expect,
   type CreatePageOptions,
+  type Expect,
 } from "@enekesabel/playwright-lite";
 import * as publicExports from "@enekesabel/playwright-lite";
 
@@ -39,6 +41,12 @@ export async function runConsumer() {
     navigationTimeout: 30_000,
   };
   const page: Page = createPage(options);
+  const configuredExpect: Expect = expect.configure({ timeout: 100 });
+  configuredExpect({ user: "Ada" }).toEqual({
+    user: expect.stringContaining("Ada"),
+  });
+  let observed = 0;
+  await configuredExpect.poll(() => ++observed, { intervals: [0] }).toBe(2);
   const profile = new ProfilePage(page);
   await profile.saveName("Ada");
   return {
@@ -50,5 +58,6 @@ export async function runConsumer() {
     defaultCount: await createPage().getByTestId("default").count(),
     snapshot: await page.ariaSnapshot(),
     locatorSnapshot: await profile.save.ariaSnapshot(),
+    expectObserved: observed,
   };
 }

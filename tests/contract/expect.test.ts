@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- intentional casts to test runtime validation */
 import { describe, expect, it } from "vitest";
 
-import { createPage } from "../../src/index";
+import { createPage, expect as browserExpect } from "../../src/index";
 import { PageImpl } from "../../src/page";
 
 // Playwright's own `expect(locator)` matchers are the caller of these
@@ -179,5 +179,125 @@ describe("Page._waitForFunctionExpression", () => {
     ).toBe(1);
     delete (window as typeof window & { __waitForFunctionRejects?: number })
       .__waitForFunctionRejects;
+  });
+});
+
+describe("public expect", () => {
+  it("supports equality, deep asymmetric matching, and negation", () => {
+    browserExpect(2 + 2).toBe(4);
+    browserExpect({
+      name: "Ada Lovelace",
+      roles: ["author", "mathematician"],
+    }).toEqual({
+      name: browserExpect.stringContaining("Lovelace"),
+      roles: browserExpect.arrayContaining(["mathematician"]),
+    });
+    browserExpect({ enabled: true }).not.toEqual({ enabled: false });
+  });
+
+  it("supports promise modifiers", async () => {
+    await browserExpect(Promise.resolve({ answer: 42 })).resolves.toEqual({
+      answer: 42,
+    });
+    await browserExpect(Promise.reject(new Error("offline"))).rejects.toThrow(
+      "offline"
+    );
+  });
+
+  it("includes a custom message on failure", () => {
+    expect(() => browserExpect(1, "expected answer").toBe(2)).toThrow(
+      /expected answer[\s\S]*Expected: 2[\s\S]*Received: 1/
+    );
+  });
+
+  it("supports custom matchers and configured timeouts", () => {
+    const extended = browserExpect.extend({
+      toBeWithin(received: unknown, floor: number, ceiling: number) {
+        const pass =
+          typeof received === "number" &&
+          received >= floor &&
+          received <= ceiling;
+        return {
+          pass,
+          message: () => `${String(received)} is outside the range`,
+        };
+      },
+      toUseTimeout(_received: unknown, expected: number) {
+        return {
+          pass: this.timeout === expected,
+          message: () => `received timeout ${this.timeout}`,
+        };
+      },
+    });
+
+    extended(5).toBeWithin(1, 10);
+    extended.configure({ timeout: 17 })(null).toUseTimeout(17);
+  });
+
+  it("polls until success and reports the last failure on timeout", async () => {
+    let value = 0;
+    await browserExpect
+      .poll(() => ++value, { timeout: 200, intervals: [0] })
+      .toBe(3);
+
+    await expect(
+      browserExpect
+        .poll(() => "waiting", { timeout: 20, intervals: [0] })
+        .toBe("ready")
+    ).rejects.toThrow(
+      /Expected: "ready"[\s\S]*Received: "waiting"[\s\S]*Timeout 20ms exceeded/
+    );
+  });
+
+  it("applies negation while polling", async () => {
+    let value = 0;
+    await browserExpect
+      .poll(() => ++value, { timeout: 200, intervals: [0] })
+      .not.toBeLessThan(3);
+    expect(value).toBe(3);
+  });
+
+  it("does not retry a polling callback that throws", async () => {
+    let attempts = 0;
+    await expect(
+      browserExpect
+        .poll(() => {
+          attempts++;
+          throw new Error("predicate failed");
+        })
+        .toBe("ready")
+    ).rejects.toThrow("predicate failed");
+    expect(attempts).toBe(1);
+  });
+
+  it("retries toPass callbacks and times out with the last failure", async () => {
+    let attempts = 0;
+    await browserExpect(() => {
+      browserExpect(++attempts).toBe(3);
+    }).toPass({ timeout: 200, intervals: [0] });
+
+    await expect(
+      browserExpect(() => browserExpect("actual").toBe("expected")).toPass({
+        timeout: 20,
+        intervals: [0],
+      })
+    ).rejects.toThrow(
+      /Expected: "expected"[\s\S]*Received: "actual"[\s\S]*Timeout 20ms exceeded/
+    );
+  });
+
+  it("rejects soft assertions without a test failure owner", () => {
+    expect(() => (browserExpect as unknown as { soft: unknown }).soft).toThrow(
+      "Soft assertions require Playwright Test's failure-reporting context"
+    );
+    expect(() =>
+      (
+        browserExpect.configure as unknown as (options: {
+          soft: boolean;
+        }) => unknown
+      )({ soft: true })
+    ).toThrow(
+      "Soft assertions require Playwright Test's failure-reporting context"
+    );
   });
 });

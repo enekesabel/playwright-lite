@@ -345,6 +345,34 @@ export const touchscreenLedger = {
   tap: planned("Synthetic functional input only."),
 } as const satisfies Ledger<Touchscreen>;
 
+/**
+ * The public in-browser expect foundation. Locator and Page assertions are
+ * tracked separately because they are not connected to this function yet.
+ */
+export const expectLedger = {
+  "expect(value)": implemented(
+    "Supports Playwright's generic value matchers, asymmetric matching, `.not`, `.resolves`, `.rejects`, and custom messages."
+  ),
+  "expect.extend()": implemented(),
+  "expect.configure()": partial(
+    "Supports `timeout` and `message`. The `soft` option throws because playwright-lite has no Playwright Test failure-reporting context."
+  ),
+  "expect.poll()": implemented(),
+  "toPass()": implemented(),
+  "expect.soft()": outOfScope(
+    "Throws because playwright-lite has no Playwright Test failure-reporting context."
+  ),
+  "Locator and Page assertions": planned(
+    "This foundation does not connect Locator or Page assertions."
+  ),
+  "Filesystem-backed snapshot assertions": outOfScope(
+    "They require filesystem and test-runner state that is unavailable in the browser document."
+  ),
+  "API response assertions": outOfScope(
+    "They operate on Playwright's Node-side API response objects, which have no in-document counterpart."
+  ),
+} as const satisfies Readonly<Record<string, CompatibilityEntry>>;
+
 export const ledgers = {
   Page: pageLedger,
   Locator: locatorLedger,

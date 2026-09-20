@@ -94,6 +94,7 @@ try {
     "THIRD_PARTY_NOTICES.txt",
     "LICENSES/PLAYWRIGHT-LICENSE.txt",
     "LICENSES/PLAYWRIGHT-NOTICE",
+    "LICENSES/JEST-EXPECT-BUNDLE-LICENSES.txt",
     "LICENSES/YAML-LICENSE.txt",
   ]) {
     assert.ok(files.has(file), `Missing package file: ${file}`);
@@ -202,7 +203,7 @@ try {
     );
     await driver.addScriptTag({ path: bundlePath });
     const observed = await driver.evaluate(() => window.consumer.runConsumer());
-    assert.deepEqual(observed.exports, ["createPage"]);
+    assert.deepEqual(observed.exports, ["createPage", "expect"]);
     assert.equal(observed.value, "Ada!");
     assert.equal(observed.saved, "Ada!");
     assert.equal(observed.clicks, 1);
@@ -210,6 +211,7 @@ try {
     assert.equal(observed.defaultCount, 1);
     assert.match(observed.snapshot, /button "Save"/);
     assert.match(observed.locatorSnapshot, /button "Save"/);
+    assert.equal(observed.expectObserved, 2);
   }
 
   console.log(

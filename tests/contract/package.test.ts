@@ -8,8 +8,8 @@ afterEach(() => {
 });
 
 describe("public browser entry", () => {
-  it("exports only the page factory at runtime", () => {
-    expect(Object.keys(publicExports)).toEqual(["createPage"]);
+  it("exports the page factory and browser expect at runtime", () => {
+    expect(Object.keys(publicExports).sort()).toEqual(["createPage", "expect"]);
   });
   it("captures an ordinary accessibility snapshot", async () => {
     document.body.innerHTML = "<h1>Settings</h1><button>Save</button>";
