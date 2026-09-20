@@ -353,6 +353,7 @@ type PageExpectationResult = {
   received?: { value?: string };
   timeout?: number;
   timedOut?: boolean;
+  invalid?: boolean;
   errorMessage?: string;
   log?: string[];
 };
@@ -1234,23 +1235,30 @@ function pageMatcherMessage(
 ): string {
   const isNot = !!context.isNot;
   let message = `expect(page)${isNot ? ".not" : ""}.${matcherName}(expected) failed\n\n`;
+  if (result.invalid) {
+    if (result.errorMessage) message += `${result.errorMessage}\n`;
+    return message;
+  }
   const received = result.received?.value;
-  if (typeof expected === "function" || isURLPattern(expected)) {
+  const isPredicate = typeof expected === "function" || isURLPattern(expected);
+  const expectedSuffix = isRegExp(expected) ? " pattern" : "";
+  const receivedSuffix = isRegExp(expected) ? " string" : "";
+  if (isPredicate) {
     message += `Expected: predicate to ${isNot ? "fail" : "succeed"}\n`;
     if (received !== undefined)
       message += `Received: ${context.utils.printReceived(received)}\n`;
   } else if (isNot) {
-    message += `Expected: not ${context.utils.printExpected(expected)}\n`;
+    message += `Expected${expectedSuffix}: not ${context.utils.printExpected(expected)}\n`;
     if (received !== undefined)
-      message += `Received: ${context.utils.printReceived(received)}\n`;
+      message += `Received${receivedSuffix}: ${context.utils.printReceived(received)}\n`;
   } else if (result.errorMessage) {
-    message += `Expected: ${context.utils.printExpected(expected)}\n`;
+    message += `Expected${expectedSuffix}: ${context.utils.printExpected(expected)}\n`;
   } else if (received !== undefined) {
     message += context.utils.printDiffOrStringify(
       expected,
       received,
-      "Expected",
-      "Received",
+      `Expected${expectedSuffix}`,
+      `Received${receivedSuffix}`,
       false
     );
     message += "\n";
@@ -1261,7 +1269,8 @@ function pageMatcherMessage(
     const timeout =
       result.timeout ??
       (context as MatcherContext & { timeout: number }).timeout;
-    message += `Timeout:  ${timeout}ms\n`;
+    const aligned = !result.errorMessage && !expectedSuffix && !receivedSuffix;
+    message += `Timeout: ${aligned ? " " : ""}${timeout}ms\n`;
   }
   if (result.errorMessage) message += `${result.errorMessage}\n`;
   if (result.log?.length) message += `\nCall log:\n${result.log.join("\n")}\n`;
@@ -1289,6 +1298,7 @@ async function toHaveTitle(
     throw new Error(
       pageMatcherMessage(this, "toHaveTitle", expected, {
         matches: !!this.isNot,
+        invalid: true,
         errorMessage:
           `Error: ${this.utils.EXPECTED_COLOR("expected")} value must be a string or regular expression\n` +
           this.utils.printWithType(
@@ -1331,6 +1341,7 @@ async function toHaveURL(
     throw new Error(
       pageMatcherMessage(this, "toHaveURL", expected, {
         matches: !!this.isNot,
+        invalid: true,
         errorMessage:
           `Error: ${this.utils.EXPECTED_COLOR("expected")} value must be a string or regular expression\n` +
           this.utils.printWithType(

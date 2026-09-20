@@ -560,6 +560,30 @@ describe("Page assertions", () => {
     await browserExpect(page).not.toHaveTitle("Sign in");
   });
 
+  it("normalizes title strings but tests regular expressions against the raw title", async () => {
+    const page = createPage();
+    document.title = "  Hello\u200b \u00ad world  ";
+    await browserExpect(page).toHaveTitle("Hello world");
+    await browserExpect(page).toHaveTitle(/Hello\u200b \u00ad world/);
+
+    const regexFailure = (await browserExpect(page)
+      .toHaveTitle(/Hello world/, { timeout: 20 })
+      .catch((error: Error) => error)) as Error;
+    expect(regexFailure.message).toContain(
+      "Expected pattern: /Hello world/\nReceived string:"
+    );
+    expect(regexFailure.message).toContain("Timeout: 20ms");
+  });
+
+  it("treats a zero timeout as an unlimited title assertion timeout", async () => {
+    const page = createPage();
+    document.title = "Before";
+    window.setTimeout(() => {
+      document.title = "After";
+    }, 25);
+    await browserExpect(page).toHaveTitle("After", { timeout: 0 });
+  });
+
   it("reports title timeout, cancellation, custom messages, and failure details", async () => {
     const page = createPage();
     document.title = "Bye";
@@ -639,6 +663,34 @@ describe("Page assertions", () => {
     }
   });
 
+  it("applies URL ignoreCase to predicates and URLPattern matching", async () => {
+    const page = createPage();
+    const original = page.url();
+    const mixedCase = new URL(original);
+    mixedCase.pathname = "/MiXeD-Case";
+    try {
+      window.history.replaceState({}, "", mixedCase.href);
+      await browserExpect(page).toHaveURL(
+        (url) => url.pathname === "/mixed-case",
+        { ignoreCase: true }
+      );
+
+      const URLPatternConstructor = (
+        window as typeof window & {
+          URLPattern?: new (init: { pathname: string }) => unknown;
+        }
+      ).URLPattern;
+      if (URLPatternConstructor) {
+        await browserExpect(page).toHaveURL(
+          new URLPatternConstructor({ pathname: "/mixed-case" }) as any,
+          { ignoreCase: true }
+        );
+      }
+    } finally {
+      window.history.replaceState({}, "", original);
+    }
+  });
+
   it("supports URL negation and reports timeout, cancellation, and custom messages", async () => {
     const page = createPage();
     const original = page.url();
@@ -669,6 +721,27 @@ describe("Page assertions", () => {
     } finally {
       window.history.replaceState({}, "", original);
     }
+  });
+
+  it("matches pinned invalid-value and regular-expression failure formatting", async () => {
+    const page = createPage();
+    const invalid = (await browserExpect(page)
+      .toHaveURL({} as any)
+      .catch((error: Error) => error)) as Error;
+    expect(invalid.message).toBe(
+      "expect(page).toHaveURL(expected) failed\n\n" +
+        "Error: expected value must be a string or regular expression\n" +
+        "Expected has type:  object\n" +
+        "Expected has value: {}\n"
+    );
+
+    document.title = "Bye";
+    const regexFailure = (await browserExpect(page)
+      .toHaveTitle(/Hello/, { timeout: 20 })
+      .catch((error: Error) => error)) as Error;
+    expect(regexFailure.message).toContain(
+      'expect(page).toHaveTitle(expected) failed\n\nExpected pattern: /Hello/\nReceived string:  "Bye"\nTimeout: 20ms'
+    );
   });
 
   it("types Page matchers only for Page values", () => {

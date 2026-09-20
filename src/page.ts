@@ -610,15 +610,6 @@ export class PageImpl {
     if (last.matches !== isNot)
       return { matches: !isNot, received: { value: last.received } };
 
-    if (timeout === 0)
-      return {
-        matches: isNot,
-        received: { value: last.received },
-        timeout,
-        timedOut: true,
-        log,
-      };
-
     let result: PageExpectationResult | undefined;
     const observation = await this.observeCurrentDocument(
       () => {
@@ -4777,9 +4768,9 @@ function titleMatches(
   match: string | RegExp | URLMatch,
   ignoreCase = false
 ): boolean {
-  const normalizedTitle = title.replace(/\s+/g, " ").trim();
   if (typeof match === "string") {
-    const expected = match.replace(/\s+/g, " ").trim();
+    const normalizedTitle = normalizeWhiteSpace(title);
+    const expected = normalizeWhiteSpace(match);
     return ignoreCase
       ? normalizedTitle.toLocaleLowerCase() === expected.toLocaleLowerCase()
       : normalizedTitle === expected;
@@ -4791,13 +4782,20 @@ function titleMatches(
       ? new RegExp(match.source, flags.replace("i", "") + "i")
       : match;
     expression.lastIndex = 0;
-    return expression.test(normalizedTitle);
+    return expression.test(title);
   }
   throw new Error(
     "expected value must be a string or regular expression\n" +
       `Expected has type: ${typeof match}\n` +
       `Expected has value: ${String(match)}`
   );
+}
+
+function normalizeWhiteSpace(text: string): string {
+  return text
+    .replace(/[\u200b\u00ad]/g, "")
+    .trim()
+    .replace(/\s+/g, " ");
 }
 
 function urlMatches(url: string, match: URLMatch, ignoreCase = false): boolean {
@@ -4815,8 +4813,9 @@ function urlMatches(url: string, match: URLMatch, ignoreCase = false): boolean {
     expression.lastIndex = 0;
     return expression.test(url);
   }
-  if (isURLPattern(match)) return match.test(url);
-  if (typeof match === "function") return match(new URL(url));
+  const urlForMatch = ignoreCase ? url.toLocaleLowerCase() : url;
+  if (isURLPattern(match)) return match.test(urlForMatch);
+  if (typeof match === "function") return match(new URL(urlForMatch));
   throw new Error(
     "url parameter should be string, RegExp, URLPattern or function"
   );
