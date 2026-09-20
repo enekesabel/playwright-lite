@@ -571,24 +571,34 @@ describe("public expect", () => {
 });
 
 describe("Page assertions", () => {
-  it("does not expose Page matchers on Page-shaped lookalikes", () => {
-    let expectCalled = false;
+  it("does not treat Page-shaped lookalikes as Pages", () => {
+    let pageExpectCalled = false;
+    let customMatcherCalled = false;
     const lookalike = {
       title: async () => "lookalike",
       url: () => "https://example.test/",
       _expect: async () => {
-        expectCalled = true;
+        pageExpectCalled = true;
         return { matches: true };
       },
     };
-    const matchers = browserExpect(lookalike) as unknown as Record<
-      string,
-      unknown
-    >;
+    const isolatedExpect = browserExpect.extend({});
+    const extended = isolatedExpect.extend({
+      toHaveTitle(received: unknown) {
+        customMatcherCalled = true;
+        return {
+          pass: received === lookalike,
+          message: () => "custom title",
+        };
+      },
+    });
+    const matchers = extended(lookalike) as unknown as Record<string, unknown>;
 
-    expect(matchers.toHaveTitle).toBeUndefined();
+    expect(matchers.toHaveTitle).toBeTypeOf("function");
+    (matchers.toHaveTitle as () => void)();
+    expect(customMatcherCalled).toBe(true);
     expect(matchers.toHaveURL).toBeUndefined();
-    expect(expectCalled).toBe(false);
+    expect(pageExpectCalled).toBe(false);
   });
 
   it("supports immediate and retried title assertions", async () => {
