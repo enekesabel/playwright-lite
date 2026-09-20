@@ -48,6 +48,20 @@ Targets Playwright **1.62.1**. Statuses describe API compatibility within the ru
 
 ✅ Compatible · ⚠️ Partially compatible · ❌ Not implemented · 🚫 Intentionally excluded
 
+### Expect
+
+| API                                                                                                     | Status | Notes                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------- | :----: | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `API response assertions`                                                                               |   🚫   | They operate on Playwright's Node-side API response objects, which have no in-document counterpart.                                  |
+| `Filesystem-backed snapshot assertions`                                                                 |   🚫   | They require filesystem and test-runner state that is unavailable in the browser document.                                           |
+| `Locator and Page assertions`                                                                           |   ❌   | This foundation does not connect Locator or Page assertions.                                                                         |
+| [`expect(value)`](https://playwright.dev/docs/test-assertions#generic-matchers)                         |   ✅   | Supports Playwright's generic value matchers, asymmetric matching, `.not`, `.resolves`, `.rejects`, and custom messages.             |
+| [`expect.configure()`](https://playwright.dev/docs/test-assertions#expectconfigure)                     |   ⚠️   | Supports `timeout` and `message`. The `soft` option throws because playwright-lite has no Playwright Test failure-reporting context. |
+| [`expect.extend()`](https://playwright.dev/docs/test-assertions#add-custom-matchers-using-expectextend) |   ✅   |                                                                                                                                      |
+| [`expect.poll()`](https://playwright.dev/docs/test-assertions#expectpoll)                               |   ✅   |                                                                                                                                      |
+| [`expect.soft()`](https://playwright.dev/docs/test-assertions#soft-assertions)                          |   🚫   | Throws because playwright-lite has no Playwright Test failure-reporting context.                                                     |
+| [`toPass()`](https://playwright.dev/docs/test-assertions#expecttopass)                                  |   ✅   |                                                                                                                                      |
+
 ### Page
 
 | API                                                                                                             | Status | Notes                                                                                                                                                                                                                              |

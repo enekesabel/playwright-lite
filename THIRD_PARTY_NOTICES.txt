@@ -2,9 +2,13 @@ playwright-lite is MIT licensed. Included third-party code retains its own licen
 
 Playwright
 Copyright Microsoft Corporation and contributors.
-The browser injected and utility scripts, protocol serializers, copied upstream tests, keyboard layout, and other identified Playwright-derived code are distributed under Apache License 2.0.
+The browser injected and utility scripts, protocol serializers, copied upstream tests, keyboard layout, public expect wrapper, and other identified Playwright-derived code are distributed under Apache License 2.0.
 The pinned upstream revision is recorded in tests/upstream/corpus.ts. The injected script is generated with the upstream build tool, then bundled with a browser-side Page and Locator implementation. The keyboard layout retains its original data with local typing helpers. Copied upstream test specifications are unchanged.
 See LICENSES/PLAYWRIGHT-LICENSE.txt and the accompanying upstream notices in LICENSES.
+
+Jest expect components and their dependencies
+Copyright Meta Platforms, Inc. and affiliates, the Jest project contributors, and the respective dependency authors.
+The generic matcher library is based on Playwright's pinned Jest-derived expect sources. Its bundled browser dependencies retain their MIT licenses. See LICENSES/JEST-EXPECT-BUNDLE-LICENSES.txt.
 
 YAML
 Copyright 2018, 2019, 2020 Eemeli Aro and contributors.

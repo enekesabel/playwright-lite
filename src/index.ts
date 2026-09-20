@@ -1,5 +1,8 @@
 import type { Page, PlaywrightTestOptions } from "@playwright/test";
 
+export { expect } from "./expect";
+export type { Expect } from "./expect";
+
 import { PageImpl } from "./page";
 
 export type CreatePageOptions = Partial<

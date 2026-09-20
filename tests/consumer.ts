@@ -1,7 +1,9 @@
 import type { Locator, Page } from "@playwright/test";
 import {
   createPage,
+  expect,
   type CreatePageOptions,
+  type Expect,
 } from "@enekesabel/playwright-lite";
 import * as publicExports from "@enekesabel/playwright-lite";
 
@@ -39,6 +41,32 @@ export async function runConsumer() {
     navigationTimeout: 30_000,
   };
   const page: Page = createPage(options);
+  const configuredExpect: Expect = expect.configure({ timeout: 100 });
+  const receiverExpect = expect.extend({
+    toHaveAmount(locator: Locator, expected: string) {
+      const isNot: boolean = this.isNot;
+      return {
+        pass: Boolean(locator) && expected.length > 0 && !isNot,
+        message: () => "amount differs",
+      };
+    },
+    toBeANicePage(page: Page) {
+      return { pass: Boolean(page), message: () => "page is not nice" };
+    },
+  });
+  if (false) {
+    receiverExpect(page.getByTestId("name")).toHaveAmount("3");
+    receiverExpect(page).toBeANicePage();
+    // @ts-expect-error Locator-only custom matcher.
+    receiverExpect(page).toHaveAmount("3");
+    // @ts-expect-error Page-only custom matcher.
+    receiverExpect(page.getByTestId("name")).toBeANicePage();
+  }
+  configuredExpect({ user: "Ada" }).toEqual({
+    user: expect.stringContaining("Ada"),
+  });
+  let observed = 0;
+  await configuredExpect.poll(() => ++observed, { intervals: [0] }).toBe(2);
   const profile = new ProfilePage(page);
   await profile.saveName("Ada");
   return {
@@ -50,5 +78,6 @@ export async function runConsumer() {
     defaultCount: await createPage().getByTestId("default").count(),
     snapshot: await page.ariaSnapshot(),
     locatorSnapshot: await profile.save.ariaSnapshot(),
+    expectObserved: observed,
   };
 }
