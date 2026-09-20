@@ -401,8 +401,17 @@ export class LocatorImpl {
    * individual matchers, so the pinned InjectedScript remains the semantic
    * authority for text, count, and element-state expectations.
    */
-  async _expect(expression: string, options: Record<string, unknown>) {
-    return this.ownerPage.expect(this.selector, expression, options);
+  async _expect(
+    expression: string,
+    options: Record<string, unknown>,
+    matcherName?: string
+  ) {
+    return this.ownerPage.expect(
+      this.selector,
+      expression,
+      options,
+      matcherName
+    );
   }
 
   async highlight(

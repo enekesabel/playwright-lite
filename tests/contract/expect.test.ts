@@ -4,98 +4,196 @@ import { describe, expect, it } from "vitest";
 import { createPage, expect as browserExpect } from "../../src/index";
 import { PageImpl } from "../../src/page";
 
-// Playwright's own `expect(locator)` matchers are the caller of these
-// Playwright-private-shaped hooks (`_expect`, `_evaluateExpression`,
-// `_waitForFunctionExpression`), so they are a real interface. The vitest
-// browser setup cannot load Playwright's own matcher runtime, so the hooks
-// are exercised directly here instead of through `expect(locator)`.
+describe("expect(locator)", () => {
+  it("keeps Locator assertions out of ordinary expectations at type level", () => {
+    const locator = createPage().locator("body");
+    const typeOnly = (condition: boolean) => {
+      if (!condition) return;
+      browserExpect(locator).toHaveText("body");
+      // @ts-expect-error Locator assertions are not generic value matchers.
+      browserExpect(1).toBeVisible();
+      // @ts-expect-error ignoreCase is not a toHaveId option.
+      browserExpect(locator).toHaveId("body", { ignoreCase: true });
+      // @ts-expect-error Locator role expectations use Playwright's ARIA role union.
+      browserExpect(locator).toHaveRole("not-an-aria-role");
+    };
+    typeOnly(false);
+  });
 
-describe("Locator._expect", () => {
-  const expectedText = (value: string) => [
-    { string: value, normalizeWhiteSpace: true },
-  ];
-
-  it("retries InjectedScript checks until the expectation succeeds", async () => {
-    document.body.innerHTML = '<div id="target">before</div>';
+  it("retries and exposes state, text, count, value, attribute, and accessibility assertions", async () => {
+    document.body.innerHTML = `
+      <button id="button" class="primary active" aria-label="Publish" aria-description="Publishes this draft">Publish</button>
+      <input id="check" type="checkbox"><input id="unchecked" type="checkbox"><input id="value" value="Ready" data-state="ready" readonly>
+      <input id="disabled" disabled><div id="empty"></div><div id="hidden" hidden></div><div id="property"></div>
+      <input id="error" role="textbox" aria-invalid="true" aria-errormessage="message"><div id="message">Required</div>
+      <select id="select" multiple><option selected value="a">A</option><option selected value="b">B</option></select>
+      <ul><li>First item</li><li>Second item</li></ul><div id="target">before<span hidden> hidden</span></div>`;
     const page = createPage();
+    const check = document.querySelector<HTMLInputElement>("#check")!;
+    check.indeterminate = true;
+    (
+      document.getElementById("property") as HTMLElement & { state?: unknown }
+    ).state = { ready: true };
+    (document.getElementById("button") as HTMLButtonElement).focus();
     window.setTimeout(() => {
-      document.getElementById("target")!.textContent = "after";
+      document.getElementById("target")!.firstChild!.textContent = "after";
     }, 25);
 
-    const result = await (page.locator("#target") as any)._expect(
-      "to.have.text",
-      { expectedText: expectedText("after"), timeout: 200 }
-    );
-
-    expect(result.matches).toBe(true);
-    expect(result.timedOut).toBeUndefined();
-  });
-
-  it("parses ARIA matcher templates before invoking InjectedScript", async () => {
-    document.body.innerHTML = "<h1>Accessible title</h1>";
-    const page = createPage();
-
-    const result = await (page.locator("body") as any)._expect(
-      "to.match.aria",
-      {
-        expectedValue: '- heading "Accessible title" [level=1]',
-        timeout: 40,
-      }
-    );
-
-    expect(result).toMatchObject({ matches: true });
-    expect(result.timedOut).toBeUndefined();
-  });
-
-  it("reports a positive missing-element expectation as a timeout", async () => {
-    const page = createPage();
-
-    const result = await (page.locator("#missing") as any)._expect(
-      "to.have.text",
-      { expectedText: expectedText("expected"), timeout: 40 }
-    );
-
-    expect(result).toMatchObject({
-      matches: false,
-      timedOut: true,
-      errorMessage: "Error: element(s) not found",
+    await browserExpect(page.locator("#button")).toBeAttached();
+    await browserExpect(page.locator("#missing")).toBeAttached({
+      attached: false,
     });
-    expect(result.log).toEqual(['waiting for locator("#missing")']);
+    await browserExpect(page.locator("#button")).toBeVisible();
+    await browserExpect(page.locator("#button")).toBeEnabled();
+    await browserExpect(page.locator("#disabled")).toBeDisabled();
+    await browserExpect(page.locator("#disabled")).toBeEnabled({
+      enabled: false,
+    });
+    await browserExpect(page.locator("#value")).toBeEditable({
+      editable: false,
+    });
+    await browserExpect(page.locator("#empty")).toBeEmpty();
+    await browserExpect(page.locator("#button")).toBeFocused();
+    await browserExpect(page.locator("#hidden")).toBeHidden();
+    await browserExpect(page.locator("#hidden")).toBeVisible({
+      visible: false,
+    });
+    await browserExpect(page.locator("#check")).toBeChecked({
+      indeterminate: true,
+    });
+    await browserExpect(page.locator("#unchecked")).not.toBeChecked();
+    await browserExpect(page.locator("#button")).toBeInViewport({ ratio: 0 });
+    await browserExpect(page.locator("#target")).toHaveText("after", {
+      timeout: 200,
+      useInnerText: true,
+    });
+    await browserExpect(page.locator("li")).toContainText(["First", "Second"]);
+    await browserExpect(page.locator("li")).toHaveClass(["", ""]);
+    await browserExpect(page.locator("#button")).toContainClass(
+      "active primary"
+    );
+    await browserExpect(page.locator("li")).toHaveCount(2);
+    await browserExpect(page.locator("#value")).toHaveAttribute(
+      "data-state",
+      "READY",
+      { ignoreCase: true }
+    );
+    await browserExpect(page.locator("#value")).toHaveValue("Ready");
+    await browserExpect(page.locator("#select")).toHaveValues(["a", "b"]);
+    await browserExpect(page.locator("#button")).toHaveAccessibleName(
+      "publish",
+      { ignoreCase: true }
+    );
+    await browserExpect(page.locator("#button")).toHaveAccessibleDescription(
+      "Publishes this draft"
+    );
+    await browserExpect(page.locator("#error")).toHaveAccessibleErrorMessage(
+      "Required"
+    );
+    await browserExpect(page.locator("#button")).toHaveRole("button");
+    await browserExpect(page.locator("#button")).toHaveId("button");
+    await browserExpect(page.locator("#button")).toHaveCSS(
+      "display",
+      "inline-block"
+    );
+    await browserExpect(page.locator("#property")).toHaveJSProperty("state", {
+      ready: true,
+    });
   });
 
-  it("allows a missing locator to satisfy a negated visible expectation", async () => {
+  it("supports negation, missing elements, ARIA text, cancellation, and representative failures", async () => {
+    document.body.innerHTML =
+      '<h1>Accessible title</h1><div id="value">actual</div>';
     const page = createPage();
-
-    const result = await (page.locator("#missing") as any)._expect(
-      "to.be.visible",
-      { isNot: true, timeout: 1 }
+    await browserExpect(page.locator("#missing")).not.toBeVisible();
+    await browserExpect(page.locator("body")).toMatchAriaSnapshot(
+      '- heading "Accessible title" [level=1]'
     );
 
-    // Client matchers compare this with !isNot, so false is a successful
-    // `expect(locator).not.toBeVisible()` result.
-    expect(result).toMatchObject({ matches: false });
-    expect(result.timedOut).toBeUndefined();
-  });
-
-  it("aborts a pending expectation without reporting a timeout", async () => {
-    const page = createPage();
     const controller = new AbortController();
-    window.setTimeout(() => controller.abort(new Error("stop it")), 10);
-
-    const result = await (page.locator("#missing") as any)._expect(
-      "to.have.text",
-      {
-        expectedText: expectedText("expected"),
+    window.setTimeout(() => controller.abort("stop it"), 10);
+    await expect(
+      browserExpect(page.locator("#missing")).toHaveText("expected", {
         timeout: 200,
         signal: controller.signal,
-      }
+      })
+    ).rejects.toThrow("The assertion was aborted: stop it");
+    await expect(
+      browserExpect(page.locator("#value"), "custom message").toHaveText(
+        "expected",
+        { timeout: 20 }
+      )
+    ).rejects.toThrow(
+      /custom message[\s\S]*expect\(locator\)\.toHaveText\(expected\) failed[\s\S]*Expected:[\s\S]*Received:[\s\S]*Timeout: +20ms[\s\S]*Call log:/
+    );
+  });
+
+  it("uses the locator brand and preserves pinned failure diagnostics", async () => {
+    const fakeLocator = {
+      _expect: async () => ({ matches: true }),
+      toString: () => "fake",
+    };
+    expect((browserExpect(fakeLocator) as any).toBeVisible).toBeUndefined();
+
+    document.body.innerHTML =
+      '<input id="check" type="checkbox"><h1>Title</h1>';
+    const page = createPage();
+    const error = (await browserExpect(page.locator("#check"))
+      .toBeChecked({ timeout: 20 })
+      .catch(
+        (reason: Error & { matcherResult?: Record<string, unknown> }) => reason
+      )) as Error & { matcherResult?: Record<string, unknown> };
+    expect(error.message).toContain("Received: unchecked");
+    expect(error.message).toContain('Expect "toBeChecked" with timeout 20ms');
+    expect(error.message).toContain("locator resolved to <input");
+    expect(error.message).toContain('unexpected value "unchecked"');
+    expect(error.matcherResult?.timeout).toBe(20);
+    expect(error.matcherResult?.log).toEqual(
+      expect.arrayContaining([
+        'Expect "toBeChecked" with timeout 20ms',
+        'unexpected value "unchecked"',
+      ])
     );
 
-    expect(result).toMatchObject({
-      matches: false,
-      errorMessage: "Error: The assertion was aborted: stop it",
+    const ariaError = (await browserExpect(page.locator("body"))
+      .toMatchAriaSnapshot(
+        `
+        - heading "Other" [level=1]
+      `,
+        { timeout: 20 }
+      )
+      .catch(
+        (reason: Error & { matcherResult?: Record<string, unknown> }) => reason
+      )) as Error & { matcherResult?: Record<string, unknown> };
+    expect(ariaError.matcherResult?.actual).toContain('heading "Title"');
+    expect(ariaError.matcherResult).toHaveProperty("ariaSnapshot");
+  });
+
+  it("rejects invalid scalar text expectations before querying the document", async () => {
+    document.body.innerHTML = '<div id="UPPER"></div>';
+    const locator = createPage().locator("#missing");
+    await expect(
+      (browserExpect(locator) as any).toHaveText(42)
+    ).rejects.toThrow("expected value must be a string or regular expression");
+    await expect(
+      (browserExpect(locator) as any).toHaveCSS("display", 42)
+    ).rejects.toThrow("expected value must be a string or regular expression");
+    await expect(
+      (browserExpect(createPage().locator("div")) as any).toHaveId("upper", {
+        ignoreCase: true,
+        timeout: 20,
+      })
+    ).rejects.toThrow('Expected: "upper"');
+  });
+
+  it("allows an extended matcher to override a Locator matcher name", async () => {
+    const extended = browserExpect.extend({
+      toHaveText(_received: unknown, expected: string) {
+        return { pass: expected === "custom", message: () => "custom text" };
+      },
     });
-    expect(result.timedOut).toBeUndefined();
+
+    await extended(createPage().locator("#missing")).toHaveText("custom");
   });
 });
 

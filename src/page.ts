@@ -58,6 +58,7 @@ type LocatorExpectationOptions = Record<string, unknown> & {
 type LocatorExpectationAttempt = {
   matches: boolean;
   received?: { value?: unknown; ariaSnapshot?: string };
+  log?: string[];
   missing: boolean;
 };
 
@@ -484,14 +485,18 @@ export class PageImpl {
   async expect(
     selector: string,
     expression: string,
-    options: Record<string, unknown>
+    options: Record<string, unknown>,
+    matcherName?: string
   ): Promise<LocatorExpectationResult> {
     const expectOptions = options as LocatorExpectationOptions;
     const isNot = !!expectOptions.isNot;
     const timeout = expectationTimeout(expectOptions.timeout);
     const signal = expectOptions.signal;
+    const log = [
+      `Expect "${isNot ? "not " : ""}${matcherName ?? expression}" with timeout ${timeout}ms`,
+    ];
 
-    if (signal?.aborted) return abortedExpectationResult(isNot, signal);
+    if (signal?.aborted) return abortedExpectationResult(isNot, signal, log);
 
     const deadline = Date.now() + timeout;
 
@@ -510,9 +515,9 @@ export class PageImpl {
         delay > 0 &&
         !(await waitForExpectationRetry(this.window, delay, signal))
       )
-        return abortedExpectationResult(isNot, signal!);
+        return abortedExpectationResult(isNot, signal!, log);
 
-      if (signal?.aborted) return abortedExpectationResult(isNot, signal);
+      if (signal?.aborted) return abortedExpectationResult(isNot, signal, log);
 
       lastAttempt = await this.expectOnce(selector, expression, options);
       if (lastAttempt.matches !== isNot) return { matches: !isNot };
@@ -525,7 +530,11 @@ export class PageImpl {
       errorMessage: lastAttempt.missing
         ? "Error: element(s) not found"
         : undefined,
-      log: [`waiting for locator(${JSON.stringify(selector)})`],
+      log: [
+        ...log,
+        `waiting for locator(${JSON.stringify(selector)})`,
+        ...(lastAttempt.log ?? []),
+      ],
     };
   }
 
@@ -576,9 +585,19 @@ export class PageImpl {
       { expression, ...injectedOptions },
       elements
     );
+    const log = [
+      isArray
+        ? `locator resolved to ${elements.length} element${elements.length === 1 ? "" : "s"}`
+        : `locator resolved to ${this.previewNode(elements[0])}`,
+    ];
+    if (result.matches === !!expectOptions.isNot)
+      log.push(
+        `unexpected value ${formatExpectationReceived(result.received?.value)}`
+      );
     return {
       matches: result.matches,
       received: result.received,
+      log,
       missing: false,
     };
   }
@@ -4286,13 +4305,19 @@ function missingExpectationAttempt(
 
 function abortedExpectationResult(
   isNot: boolean,
-  signal: AbortSignal
+  signal: AbortSignal,
+  log: string[] = []
 ): LocatorExpectationResult {
   return {
     matches: isNot,
     errorMessage: `Error: The assertion was aborted: ${abortReason(signal)}`,
-    log: ["operation was aborted"],
+    log: [...log, "operation was aborted"],
   };
+}
+
+function formatExpectationReceived(value: unknown): string {
+  const serialized = JSON.stringify(value);
+  return serialized === undefined ? String(value) : serialized;
 }
 
 function abortReason(signal: AbortSignal): string {
