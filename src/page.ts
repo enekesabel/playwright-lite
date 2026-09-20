@@ -12,6 +12,7 @@ import {
 } from "./injected";
 import { AdapterTimeoutError } from "./errors";
 import {
+  rejectUnsupportedOptions,
   validateDelay,
   validateForce,
   validateInteger,
@@ -67,6 +68,7 @@ const DEFAULT_NAVIGATION_TIMEOUT = 30_000;
 const ACTION_RETRY_DELAY = 50;
 const DEFAULT_QUERY_TIMEOUT = 0;
 const QUERY_RETRY_DELAY = 50;
+const CURRENT_DOCUMENT_WAIT_POLL_DELAY = 20;
 
 type ActionPoint = { x: number; y: number };
 type ActionDeadline = {
@@ -139,6 +141,14 @@ type WaitForFunctionOptions = {
   signal?: AbortSignal;
   timeout?: number;
 };
+
+type CurrentDocumentWaitOptions = {
+  signal?: AbortSignal;
+  timeout?: number;
+  waitUntil?: string;
+};
+
+type URLMatch = Parameters<Page["waitForURL"]>[0];
 
 export type AriaSnapshotOptions = {
   boxes?: boolean;
@@ -1801,6 +1811,58 @@ export class PageImpl {
     });
   }
 
+  /**
+   * Pinned client/frame.ts waits for a frame lifecycle event. This runtime has
+   * one document, so the document's ready state is both the lifecycle source
+   * and the boundary: replacing the document stops this code rather than
+   * fabricating a cross-document result.
+   */
+  async waitForLoadState(
+    state = "load",
+    options: Omit<CurrentDocumentWaitOptions, "waitUntil"> = {}
+  ): Promise<void> {
+    const waitUntil = this.currentDocumentLoadState("state", state);
+    rejectUnsupportedOptions("waitForLoadState", options, [
+      "signal",
+      "timeout",
+    ]);
+    assertCurrentDocumentWaitTimeout("waitForLoadState", options.timeout);
+    await this.waitForCurrentDocument(
+      "page.waitForLoadState",
+      waitUntil,
+      undefined,
+      options
+    );
+  }
+
+  /**
+   * Pinned client/frame.ts first checks the current URL, then waits for a
+   * matching navigation and its lifecycle state. Polling supplies the missing
+   * browser navigation event for hash and History API changes without changing
+   * host globals.
+   */
+  async waitForURL(
+    url: URLMatch,
+    options: CurrentDocumentWaitOptions = {}
+  ): Promise<void> {
+    rejectUnsupportedOptions("waitForURL", options, [
+      "signal",
+      "timeout",
+      "waitUntil",
+    ]);
+    assertCurrentDocumentWaitTimeout("waitForURL", options.timeout);
+    const waitUntil = this.currentDocumentLoadState(
+      "waitUntil",
+      options.waitUntil ?? "load"
+    );
+    await this.waitForCurrentDocument(
+      "page.waitForURL",
+      waitUntil,
+      url,
+      options
+    );
+  }
+
   // ── Accessibility ───────────────────────────────────────────────
 
   /**
@@ -2231,6 +2293,119 @@ export class PageImpl {
       return this.defaultNavigationTimeout;
     if (this.defaultTimeout !== undefined) return this.defaultTimeout;
     return fallback;
+  }
+
+  /** One current-document URL/lifecycle wait shared by Page navigation APIs. */
+  private async waitForCurrentDocument(
+    apiName: "page.waitForLoadState" | "page.waitForURL",
+    waitUntil: string,
+    url: URLMatch | undefined,
+    options: Omit<CurrentDocumentWaitOptions, "waitUntil">
+  ): Promise<void> {
+    const timeout = this.resolveTimeout(
+      options.timeout,
+      DEFAULT_NAVIGATION_TIMEOUT,
+      true
+    );
+    const signal = options.signal;
+
+    await withAbortPrefix(
+      apiName,
+      () =>
+        new Promise<void>((resolve, reject) => {
+          let settled = false;
+          let urlMatched = url === undefined;
+          let timeoutId: number | undefined;
+          let pollId: number | undefined;
+
+          const cleanup = () => {
+            this.window.removeEventListener("hashchange", check);
+            this.window.removeEventListener("popstate", check);
+            this.window.removeEventListener("load", check);
+            this.document.removeEventListener("readystatechange", check);
+            signal?.removeEventListener("abort", onAbort);
+            if (timeoutId !== undefined) this.window.clearTimeout(timeoutId);
+            if (pollId !== undefined) this.window.clearTimeout(pollId);
+          };
+
+          const settle = (error?: unknown) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            if (error) reject(error);
+            else resolve();
+          };
+
+          const rejectIfStillWaiting = (error: Error) => {
+            check();
+            if (!settled) settle(error);
+          };
+
+          const onAbort = () =>
+            rejectIfStillWaiting(actionAborted(signal!, true));
+
+          const schedulePoll = () => {
+            if (!settled && pollId === undefined)
+              pollId = this.window.setTimeout(() => {
+                pollId = undefined;
+                check();
+              }, CURRENT_DOCUMENT_WAIT_POLL_DELAY);
+          };
+
+          const check = () => {
+            if (settled) return;
+            try {
+              if (!urlMatched)
+                urlMatched = urlMatches(this.window.location.href, url!);
+              if (urlMatched && this.currentDocumentHasLoadState(waitUntil)) {
+                settle();
+                return;
+              }
+              schedulePoll();
+            } catch (error) {
+              settle(error);
+            }
+          };
+
+          if (signal?.aborted) {
+            settle(actionAborted(signal, false));
+            return;
+          }
+
+          signal?.addEventListener("abort", onAbort, { once: true });
+          this.window.addEventListener("hashchange", check);
+          this.window.addEventListener("popstate", check);
+          this.window.addEventListener("load", check);
+          this.document.addEventListener("readystatechange", check);
+          if (timeout > 0)
+            timeoutId = this.window.setTimeout(
+              () =>
+                rejectIfStillWaiting(
+                  new AdapterTimeoutError(
+                    `${apiName}: Timeout ${timeout}ms exceeded.`
+                  )
+                ),
+              timeout
+            );
+          check();
+        })
+    );
+  }
+
+  private currentDocumentLoadState(name: string, state: string): string {
+    const waitUntil = verifyLoadState(name, state);
+    if (waitUntil === "networkidle")
+      throw new Error(`Unsupported ${name} value: ${waitUntil}`);
+    return waitUntil;
+  }
+
+  private currentDocumentHasLoadState(waitUntil: string): boolean {
+    if (waitUntil === "commit") return true;
+    return (
+      this.document.readyState === "complete" ||
+      (waitUntil === "domcontentloaded" &&
+        this.document.readyState === "interactive")
+    );
   }
 
   private createActionDeadline(timeout?: number): ActionDeadline {
@@ -4435,6 +4610,203 @@ function verifyLoadState(name: string, waitUntil: string): string {
       `${name}: expected one of (load|domcontentloaded|networkidle|commit)`
     );
   return waitUntil;
+}
+
+function assertCurrentDocumentWaitTimeout(
+  method: "waitForLoadState" | "waitForURL",
+  timeout: number | undefined
+) {
+  if (timeout !== undefined) validateTimeout(timeout, `${method} timeout`);
+}
+
+/** Pinned URL matching for the forms usable without a configured baseURL. */
+function urlMatches(url: string, match: URLMatch): boolean {
+  if (match === "") return true;
+  if (typeof match === "string")
+    return new RegExp(resolveGlobToRegexPattern(undefined, match)).test(url);
+  if (isRegExp(match)) {
+    match.lastIndex = 0;
+    return match.test(url);
+  }
+  if (isURLPattern(match)) return match.test(url);
+  if (typeof match === "function") return match(new URL(url));
+  throw new Error(
+    "url parameter should be string, RegExp, URLPattern or function"
+  );
+}
+
+type URLPatternMatch = Exclude<
+  URLMatch,
+  string | RegExp | ((url: URL) => boolean)
+>;
+
+function isURLPattern(value: unknown): value is URLPatternMatch {
+  const constructor = (
+    globalThis as {
+      URLPattern?: new (...args: unknown[]) => object;
+    }
+  ).URLPattern;
+  return typeof constructor === "function" && value instanceof constructor;
+}
+
+function isRegExp(value: unknown): value is RegExp {
+  return (
+    value instanceof RegExp ||
+    Object.prototype.toString.call(value) === "[object RegExp]"
+  );
+}
+
+/** Pinned packages/isomorphic/urlMatch.ts glob grammar. */
+function globToRegexPattern(glob: string): string {
+  const tokens = ["^"];
+  const escaped = new Set([
+    "$",
+    "^",
+    "+",
+    ".",
+    "*",
+    "(",
+    ")",
+    "|",
+    "\\",
+    "?",
+    "{",
+    "}",
+    "[",
+    "]",
+  ]);
+  let inGroup = false;
+
+  for (let index = 0; index < glob.length; ++index) {
+    const character = glob[index];
+    if (character === "\\" && index + 1 < glob.length) {
+      const next = glob[++index];
+      tokens.push(escaped.has(next) ? `\\${next}` : next);
+      continue;
+    }
+    if (character === "*") {
+      const before = glob[index - 1];
+      let count = 1;
+      while (glob[index + 1] === "*") {
+        count++;
+        index++;
+      }
+      if (count > 1) {
+        const after = glob[index + 1];
+        if (after === "/") {
+          tokens.push(before === "/" ? "((.+/)|)" : "(.*/)");
+          index++;
+        } else {
+          tokens.push("(.*)");
+        }
+      } else {
+        tokens.push("([^/]*)");
+      }
+      continue;
+    }
+    switch (character) {
+      case "{":
+        if (inGroup)
+          throw new Error(
+            `Invalid glob pattern ${JSON.stringify(glob)}: nested '{' is not supported`
+          );
+        inGroup = true;
+        tokens.push("(");
+        break;
+      case "}":
+        if (!inGroup)
+          throw new Error(
+            `Invalid glob pattern ${JSON.stringify(glob)}: unmatched '}'`
+          );
+        inGroup = false;
+        tokens.push(")");
+        break;
+      case ",":
+        tokens.push(inGroup ? "|" : "\\,");
+        break;
+      default:
+        tokens.push(escaped.has(character) ? `\\${character}` : character);
+    }
+  }
+  if (inGroup)
+    throw new Error(
+      `Invalid glob pattern ${JSON.stringify(glob)}: unmatched '{'`
+    );
+  tokens.push("$");
+  return tokens.join("");
+}
+
+function resolveGlobToRegexPattern(
+  baseURL: string | undefined,
+  glob: string
+): string {
+  return globToRegexPattern(resolveGlobBase(baseURL, glob));
+}
+
+/** Pinned absolute-URL normalization before glob compilation. */
+function resolveGlobBase(baseURL: string | undefined, match: string): string {
+  if (match.startsWith("*")) return match;
+
+  const tokenMap = new Map<string, string>();
+  const mapToken = (original: string, replacement: string) => {
+    if (original.length === 0) return "";
+    tokenMap.set(replacement, original);
+    return replacement;
+  };
+
+  match = match.replaceAll(/\\\\\?/g, "?");
+  if (
+    ["about:", "data:", "chrome:", "edge:", "file:"].some((scheme) =>
+      match.startsWith(scheme)
+    )
+  )
+    return match;
+
+  const relativePath = match
+    .split("/")
+    .map((token, index) => {
+      if (token === "." || token === ".." || token === "") return token;
+      if (index === 0 && token.endsWith(":")) {
+        if (token.includes("*") || token.includes("{"))
+          return mapToken(token, "http:");
+        return token;
+      }
+      if (!/[*?{}\\]/.test(token)) return token;
+      const questionIndex = token.indexOf("?");
+      if (questionIndex === -1) return mapToken(token, `$_${index}_$`);
+      const prefix = mapToken(
+        token.substring(0, questionIndex),
+        `$_${index}_$`
+      );
+      const suffix = mapToken(token.substring(questionIndex), `?$_${index}_$`);
+      return prefix + suffix;
+    })
+    .join("/");
+
+  const resolvedURL = resolveBaseURL(baseURL, relativePath);
+  let resolved = resolvedURL.resolved;
+  for (const [token, original] of tokenMap) {
+    const normalize = resolvedURL.caseInsensitivePart?.includes(token);
+    resolved = resolved.replace(token, () =>
+      normalize ? original.toLowerCase() : original
+    );
+  }
+  return resolved;
+}
+
+function resolveBaseURL(
+  baseURL: string | undefined,
+  givenURL: string
+): {
+  resolved: string;
+  caseInsensitivePart?: string;
+} {
+  try {
+    const url = new URL(givenURL, baseURL);
+    return { resolved: url.toString(), caseInsensitivePart: url.origin };
+  } catch {
+    return { resolved: givenURL };
+  }
 }
 
 function isRetryableQueryError(error: unknown): boolean {

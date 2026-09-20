@@ -212,7 +212,7 @@ export const pageLedger = {
   waitForFunction: partial(
     "The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
-  waitForLoadState: undecided(),
+  waitForLoadState: partial("Rejects `networkidle`."),
   waitForNavigation: undecided(),
   waitForRequest: undecided(),
   waitForResponse: undecided(),
@@ -220,7 +220,7 @@ export const pageLedger = {
     "Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   waitForTimeout: implemented(),
-  waitForURL: undecided(),
+  waitForURL: partial('Rejects `waitUntil: "networkidle"`.'),
   workers: undecided(),
 } as const satisfies Ledger<Page>;
 

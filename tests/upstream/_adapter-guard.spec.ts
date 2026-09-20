@@ -482,6 +482,32 @@ for (const reload of [false, true]) {
   });
 }
 
+test("adapter waitForURL does not resume across document replacement", async ({
+  page,
+  adapterPage,
+}) => {
+  const server = await TestServer.create();
+  try {
+    const arrived = page.waitForURL(server.EMPTY_PAGE, { waitUntil: "load" });
+    const waiting = adapterPage
+      .waitForURL(server.EMPTY_PAGE, { waitUntil: "load" })
+      .then(
+        () => "resolved",
+        (error) => String(error)
+      );
+    const navigation = adapterPage.goto(server.EMPTY_PAGE).then(
+      () => "resolved",
+      (error) => String(error)
+    );
+
+    await arrived;
+    expect(await waiting).toMatch(/execution context.*destroyed/i);
+    expect(await navigation).toMatch(/execution context.*destroyed/i);
+  } finally {
+    await server.close();
+  }
+});
+
 test("adapter goto rejects unsupported options before changing the URL", async ({
   page,
   adapterPage,
