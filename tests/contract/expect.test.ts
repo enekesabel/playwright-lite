@@ -19,8 +19,8 @@ describe("expect(locator)", () => {
     };
     typeOnly(false);
   });
-// Locator hooks are exercised directly because this browser contract owns the
-// adapter boundary. Page assertions below use the public `expect(page)` API.
+  // Locator hooks are exercised directly because this browser contract owns the
+  // adapter boundary. Page assertions below use the public `expect(page)` API.
 
   it("retries and exposes state, text, count, value, attribute, and accessibility assertions", async () => {
     document.body.innerHTML = `
@@ -406,6 +406,21 @@ describe("public expect", () => {
     });
 
     expect(() => legacyExpect(1).toBe(2)).toThrow(/Expected: 2/);
+    expect(customCalls).toBe(0);
+  });
+
+  it("expect.extend should not override Page matchers through returned instances", async () => {
+    let customCalls = 0;
+    const extended = browserExpect.extend({
+      toHaveTitle() {
+        customCalls++;
+        return { pass: true, message: () => "custom matcher ran" };
+      },
+    });
+    const page = createPage();
+    document.title = "Reserved Page matcher";
+
+    await extended(page).toHaveTitle("Reserved Page matcher");
     expect(customCalls).toBe(0);
   });
 

@@ -1451,6 +1451,7 @@ function createExpect(info: ExpectMetaInfo): Expect<any> {
     );
   };
   expectFunction.extend = (matchers: MatchersObject) => {
+    const accepted: MatchersObject = {};
     for (const [name, matcher] of Object.entries(matchers)) {
       if (typeof matcher !== "function")
         throw new TypeError(
@@ -1459,6 +1460,7 @@ function createExpect(info: ExpectMetaInfo): Expect<any> {
     }
     for (const [name, matcher] of Object.entries(matchers)) {
       if (name in allBuiltinMatchers || name in pageMatchers) continue;
+      accepted[name] = matcher;
       info.userMatchers[name] = matcher;
       const { positive, inverse } = buildCustomAsymmetricMatcher(name, matcher);
       Object.defineProperty(expectFunction, name, {
@@ -1469,7 +1471,7 @@ function createExpect(info: ExpectMetaInfo): Expect<any> {
     }
     return createExpect({
       ...info,
-      userMatchers: { ...info.userMatchers, ...matchers },
+      userMatchers: { ...info.userMatchers, ...accepted },
     });
   };
 
