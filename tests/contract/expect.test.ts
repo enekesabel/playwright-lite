@@ -123,6 +123,16 @@ describe("expect(locator)", () => {
       /custom message[\s\S]*expect\(locator\)\.toHaveText\(expected\) failed[\s\S]*Expected:[\s\S]*Received:[\s\S]*Timeout: +20ms[\s\S]*Call log:/
     );
   });
+
+  it("allows an extended matcher to override a Locator matcher name", async () => {
+    const extended = browserExpect.extend({
+      toHaveText(_received: unknown, expected: string) {
+        return { pass: expected === "custom", message: () => "custom text" };
+      },
+    });
+
+    await extended(createPage().locator("#missing")).toHaveText("custom");
+  });
 });
 
 describe("Page._evaluateExpression", () => {

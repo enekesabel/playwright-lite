@@ -1177,7 +1177,7 @@ function createMatchers(
     rejects: { not: {} },
   };
   const matchers = isLocatorExpectationReceiver(actual)
-    ? { ...allBuiltinMatchers, ...info.userMatchers, ...locatorMatchers }
+    ? { ...allBuiltinMatchers, ...locatorMatchers, ...info.userMatchers }
     : { ...allBuiltinMatchers, ...info.userMatchers };
   for (const [name, matcher] of Object.entries({
     ...matchers,
