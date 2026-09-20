@@ -8,7 +8,11 @@ describe("cancellation", () => {
     const page = createPage();
     const locator = () => page.locator("#never");
     type Options = { signal: AbortSignal; timeout: number };
-    const actions: [string, (options: Options) => Promise<unknown>][] = [
+    const actions: [
+      string,
+      (options: Options) => Promise<unknown>,
+      (() => () => void)?,
+    ][] = [
       ["page.check", (o) => page.check("#never", o)],
       ["page.click", (o) => page.click("#never", o)],
       ["page.dblclick", (o) => page.dblclick("#never", o)],
@@ -26,7 +30,29 @@ describe("cancellation", () => {
         "page.waitForFunction",
         (o) => page.waitForFunction("false", undefined, o),
       ],
+      [
+        "page.waitForLoadState",
+        (o) => page.waitForLoadState(undefined, o),
+        () => {
+          const descriptor = Object.getOwnPropertyDescriptor(
+            document,
+            "readyState"
+          );
+          Object.defineProperty(document, "readyState", {
+            configurable: true,
+            value: "loading",
+          });
+          return () => {
+            if (descriptor)
+              Object.defineProperty(document, "readyState", descriptor);
+            else
+              delete (document as { readyState?: DocumentReadyState })
+                .readyState;
+          };
+        },
+      ],
       ["page.waitForSelector", (o) => page.waitForSelector("#never", o)],
+      ["page.waitForURL", (o) => page.waitForURL("**/*#never", o)],
       ["locator.check", (o) => locator().check(o)],
       ["locator.clear", (o) => locator().clear(o)],
       ["locator.click", (o) => locator().click(o)],
@@ -50,27 +76,33 @@ describe("cancellation", () => {
       ["locator.waitFor", (o) => locator().waitFor(o)],
     ];
 
-    for (const [apiName, run] of actions) {
+    for (const [apiName, run, prepare] of actions) {
       for (const inFlight of [false, true]) {
+        const restore = prepare?.();
         const reason = new Error("stop");
         const controller = new AbortController();
         if (inFlight) window.setTimeout(() => controller.abort(reason), 10);
         else controller.abort(reason);
-        const error = await run({
-          signal: controller.signal,
-          timeout: 0,
-        }).then(
-          () => undefined,
-          (error) => error
-        );
+        let error: Error | undefined;
+        try {
+          error = (await run({ signal: controller.signal, timeout: 0 }).then(
+            () => undefined,
+            (error) => error
+          )) as Error | undefined;
+        } finally {
+          restore?.();
+        }
         const context = `${apiName} ${inFlight ? "in-flight" : "pre-aborted"}`;
         expect(error?.name, context).toBe("AbortError");
-        expect(error.message, context).toMatch(
+        expect(error?.message, context).toMatch(
           inFlight
             ? new RegExp(`^${apiName}: stop\\nCall log:`)
             : `${apiName}: The operation was aborted`
         );
-        expect(error.cause, context).toBe(reason);
+        expect(
+          (error as (Error & { cause?: unknown }) | undefined)?.cause,
+          context
+        ).toBe(reason);
       }
     }
   });

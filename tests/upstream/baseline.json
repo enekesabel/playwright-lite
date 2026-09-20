@@ -2731,6 +2731,21 @@
       "evidence": "A multiline string expression resolves and its handle returns true."
     },
     {
+      "id": "page-wait-for-load-state.spec.ts > should resolve immediately if load state matches",
+      "method": "Page.waitForLoadState",
+      "evidence": "After native setup reaches domcontentloaded while load remains stalled, the awaited adapter call for domcontentloaded resolves immediately."
+    },
+    {
+      "id": "page-wait-for-load-state.spec.ts > should resolve immediately if loaded",
+      "method": "Page.waitForLoadState",
+      "evidence": "After native setup finishes loading, the awaited adapter call resolves with undefined, proving the default load state is recognized as already reached."
+    },
+    {
+      "id": "page-wait-for-load-state.spec.ts > should throw for bad state",
+      "method": "Page.waitForLoadState",
+      "evidence": "The awaited adapter call rejects bad with the pinned state validation message naming load, domcontentloaded, networkidle, and commit."
+    },
+    {
       "id": "page-wait-for-selector-1.spec.ts > elementHandle.waitForSelector should immediately resolve if node exists",
       "method": "ElementHandle.waitForSelector",
       "evidence": "Scoped to a div handle containing <span>target</span> while a <span>extra</span> sits outside it, the call returns the handle whose textContent is 'target', so the scoped wait matches inside the handle's subtree only."
@@ -2864,6 +2879,31 @@
       "id": "page-wait-for-selector-2.spec.ts > should wait for visible recursively",
       "method": "Page.waitForSelector",
       "evidence": "The wait for div#inner resolves only after display:none and visibility:hidden are removed from its ancestor, so visibility is computed from the element's rendered state including inherited ancestor styles."
+    },
+    {
+      "id": "page-wait-for-url.spec.ts > should work with clicking on anchor links",
+      "method": "Page.waitForURL",
+      "evidence": "After the adapter click changes the current document hash, the awaited adapter call accepts the string glob and resolves for the matching hash URL."
+    },
+    {
+      "id": "page-wait-for-url.spec.ts > should work with commit and about:blank",
+      "method": "Page.waitForURL",
+      "evidence": "On the initial about:blank document, the awaited adapter call matches the current URL and resolves at commit."
+    },
+    {
+      "id": "page-wait-for-url.spec.ts > should work with history.pushState()",
+      "method": "Page.waitForURL",
+      "evidence": "After adapter click invokes pushState, the awaited adapter call matches the new URL and the assertion confirms the adapter URL is /wow.html."
+    },
+    {
+      "id": "page-wait-for-url.spec.ts > should work with history.replaceState()",
+      "method": "Page.waitForURL",
+      "evidence": "After adapter click invokes replaceState, the awaited adapter call matches the new URL and the assertion confirms the adapter URL is /replaced.html."
+    },
+    {
+      "id": "page-wait-for-url.spec.ts > should work with url match for same document navigations",
+      "method": "Page.waitForURL",
+      "evidence": "The adapter wait with a regular expression stays unresolved through two nonmatching pushState changes and resolves only after /third.html matches."
     },
     {
       "id": "queryselector.spec.ts > should auto-detect css selector",
