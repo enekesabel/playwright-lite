@@ -12,6 +12,10 @@ describe("expect(locator)", () => {
       browserExpect(locator).toHaveText("body");
       // @ts-expect-error Locator assertions are not generic value matchers.
       browserExpect(1).toBeVisible();
+      // @ts-expect-error ignoreCase is not a toHaveId option.
+      browserExpect(locator).toHaveId("body", { ignoreCase: true });
+      // @ts-expect-error Locator role expectations use Playwright's ARIA role union.
+      browserExpect(locator).toHaveRole("not-an-aria-role");
     };
     typeOnly(false);
   });
@@ -122,6 +126,64 @@ describe("expect(locator)", () => {
     ).rejects.toThrow(
       /custom message[\s\S]*expect\(locator\)\.toHaveText\(expected\) failed[\s\S]*Expected:[\s\S]*Received:[\s\S]*Timeout: +20ms[\s\S]*Call log:/
     );
+  });
+
+  it("uses the locator brand and preserves pinned failure diagnostics", async () => {
+    const fakeLocator = {
+      _expect: async () => ({ matches: true }),
+      toString: () => "fake",
+    };
+    expect((browserExpect(fakeLocator) as any).toBeVisible).toBeUndefined();
+
+    document.body.innerHTML =
+      '<input id="check" type="checkbox"><h1>Title</h1>';
+    const page = createPage();
+    const error = (await browserExpect(page.locator("#check"))
+      .toBeChecked({ timeout: 20 })
+      .catch(
+        (reason: Error & { matcherResult?: Record<string, unknown> }) => reason
+      )) as Error & { matcherResult?: Record<string, unknown> };
+    expect(error.message).toContain("Received: unchecked");
+    expect(error.message).toContain('Expect "toBeChecked" with timeout 20ms');
+    expect(error.message).toContain("locator resolved to <input");
+    expect(error.message).toContain('unexpected value "unchecked"');
+    expect(error.matcherResult?.timeout).toBe(20);
+    expect(error.matcherResult?.log).toEqual(
+      expect.arrayContaining([
+        'Expect "toBeChecked" with timeout 20ms',
+        'unexpected value "unchecked"',
+      ])
+    );
+
+    const ariaError = (await browserExpect(page.locator("body"))
+      .toMatchAriaSnapshot(
+        `
+        - heading "Other" [level=1]
+      `,
+        { timeout: 20 }
+      )
+      .catch(
+        (reason: Error & { matcherResult?: Record<string, unknown> }) => reason
+      )) as Error & { matcherResult?: Record<string, unknown> };
+    expect(ariaError.matcherResult?.actual).toContain('heading "Title"');
+    expect(ariaError.matcherResult).toHaveProperty("ariaSnapshot");
+  });
+
+  it("rejects invalid scalar text expectations before querying the document", async () => {
+    document.body.innerHTML = '<div id="UPPER"></div>';
+    const locator = createPage().locator("#missing");
+    await expect(
+      (browserExpect(locator) as any).toHaveText(42)
+    ).rejects.toThrow("expected value must be a string or regular expression");
+    await expect(
+      (browserExpect(locator) as any).toHaveCSS("display", 42)
+    ).rejects.toThrow("expected value must be a string or regular expression");
+    await expect(
+      (browserExpect(createPage().locator("div")) as any).toHaveId("upper", {
+        ignoreCase: true,
+        timeout: 20,
+      })
+    ).rejects.toThrow('Expected: "upper"');
   });
 
   it("allows an extended matcher to override a Locator matcher name", async () => {

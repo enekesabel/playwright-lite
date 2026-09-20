@@ -37,6 +37,7 @@ import {
   type SyncExpectationResult,
 } from "./expectLibrary";
 import type { Locator } from "@playwright/test";
+import { isPlaywrightLiteLocator, type LocatorImpl } from "./locator";
 
 interface AsymmetricMatcher {
   asymmetricMatch(other: unknown): boolean;
@@ -82,6 +83,8 @@ interface GenericAssertions<R> {
 type LocatorAssertionOptions = {
   signal?: AbortSignal;
   timeout?: number;
+};
+type LocatorStateAssertionOptions = LocatorAssertionOptions & {
   attached?: boolean;
   checked?: boolean;
   editable?: boolean;
@@ -94,6 +97,7 @@ type LocatorAssertionOptions = {
 type TextAssertionOptions = LocatorAssertionOptions & {
   ignoreCase?: boolean;
 };
+type AriaRole = Parameters<Locator["getByRole"]>[0];
 
 /** The browser-safe subset of Playwright's LocatorAssertions. */
 interface LocatorAssertions {
@@ -162,7 +166,7 @@ interface LocatorAssertions {
   toHaveCSS(
     name: string,
     expected: string | RegExp,
-    options?: LocatorAssertionOptions & { pseudo?: "before" | "after" }
+    options?: LocatorAssertionOptions & { pseudo?: string }
   ): Promise<void>;
   toHaveId(
     expected: string | RegExp,
@@ -174,7 +178,7 @@ interface LocatorAssertions {
     options?: LocatorAssertionOptions
   ): Promise<void>;
   toHaveRole(
-    expected: string,
+    expected: AriaRole,
     options?: LocatorAssertionOptions
   ): Promise<void>;
   toHaveText(
@@ -229,6 +233,9 @@ interface MatcherResult {
   name?: string;
   expected?: unknown;
   actual?: unknown;
+  ariaSnapshot?: string;
+  log?: string[];
+  timeout?: number;
 }
 
 type ToUserMatcher<F, R> = F extends (
@@ -309,8 +316,11 @@ type ExpectMetaInfo = {
 
 type InternalMatcherResult = SyncExpectationResult & {
   actual?: unknown;
+  ariaSnapshot?: string;
   expected?: unknown;
+  log?: string[];
   name?: string;
+  timeout?: number;
 };
 
 const DEFAULT_EXPECT_TIMEOUT = 5_000;
@@ -418,21 +428,7 @@ async function toPass(
   return { message: () => "", pass: !this.isNot };
 }
 
-type LocatorExpectationReceiver = {
-  _expect(
-    expression: string,
-    options: Record<string, unknown>
-  ): Promise<LocatorExpectationResult>;
-  toString(): string;
-};
-
-type LocatorExpectationResult = {
-  matches: boolean;
-  received?: { value?: unknown };
-  log?: string[];
-  timedOut?: boolean;
-  errorMessage?: string;
-};
+type LocatorExpectationReceiver = LocatorImpl;
 
 type LocatorMatcherKind = "truthy" | "text" | "equal" | "aria";
 type LocatorMatcherCall = {
@@ -447,12 +443,7 @@ type LocatorMatcherCall = {
 function isLocatorExpectationReceiver(
   value: unknown
 ): value is LocatorExpectationReceiver {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    typeof (value as { _expect?: unknown })._expect === "function" &&
-    typeof (value as { toString?: unknown }).toString === "function"
-  );
+  return isPlaywrightLiteLocator(value);
 }
 
 function serializeExpectedTextValues(
@@ -473,10 +464,42 @@ function serializeExpectedTextValues(
   }));
 }
 
-function assertionOptions(value: unknown): LocatorAssertionOptions {
+function assertionOptions(value: unknown): LocatorStateAssertionOptions {
   return value && typeof value === "object"
-    ? (value as LocatorAssertionOptions)
+    ? (value as LocatorStateAssertionOptions)
     : {};
+}
+
+function timingOptions(value: unknown): LocatorAssertionOptions {
+  const { signal, timeout } = assertionOptions(value);
+  return { signal, timeout };
+}
+
+function assertTextExpected(
+  expected: unknown
+): asserts expected is string | RegExp {
+  if (
+    typeof expected !== "string" &&
+    !(expected && typeof (expected as { test?: unknown }).test === "function")
+  )
+    throw new Error(
+      `Error: expected value must be a string or regular expression\n${utils.printWithType("Expected", expected, utils.printExpected)}`
+    );
+}
+
+function dedentAriaSnapshot(snapshot: string): string {
+  const lines = snapshot.split("\n");
+  let whitespacePrefixLength = 100;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const match = line.match(/^(\s*)/);
+    if (match && match[1].length < whitespacePrefixLength)
+      whitespacePrefixLength = match[1].length;
+  }
+  return lines
+    .filter((line) => line.trim())
+    .map((line) => line.substring(whitespacePrefixLength))
+    .join("\n");
 }
 
 function locatorMatcher(
@@ -498,12 +521,16 @@ function locatorMatcher(
     const options = assertionOptions(call.options);
     const timeout =
       options.timeout ?? (this as MatcherContext & { timeout: number }).timeout;
-    const result = await actual._expect(call.expression, {
-      ...call.options,
-      isNot: !!this.isNot,
-      timeout,
-      signal: options.signal,
-    });
+    const result = await actual._expect(
+      call.expression,
+      {
+        ...call.options,
+        isNot: !!this.isNot,
+        timeout,
+        signal: options.signal,
+      },
+      matcherName
+    );
     const pass = result.matches;
     if (pass === !this.isNot)
       return {
@@ -525,8 +552,14 @@ function locatorMatcher(
     return {
       name: matcherName,
       expected: call.expected,
-      actual: received,
+      actual:
+        call.kind === "aria"
+          ? (received as { raw?: string } | undefined)?.raw
+          : received,
+      ariaSnapshot: result.received?.ariaSnapshot,
+      log: result.log,
       pass,
+      timeout: result.timedOut ? timeout : undefined,
       message: () =>
         formatLocatorMatcherMessage(this.utils, {
           isNot: !!this.isNot,
@@ -559,7 +592,32 @@ function locatorFailureDetails(
     const expected = String(call.expected);
     return {
       printedExpected: `Expected: ${pass ? "not " : ""}${expected}`,
-      printedReceived: errorMessage ? "" : `Received: ${expected}`,
+      printedReceived: errorMessage
+        ? ""
+        : `Received: ${pass ? expected : String(received)}`,
+    };
+  }
+
+  if (call.kind === "aria") {
+    const expected = call.expected as string;
+    const receivedRaw = (received as { raw?: string } | undefined)?.raw ?? "";
+    if (errorMessage)
+      return {
+        printedExpected: `Expected: ${isNot ? "not " : ""}${matcherUtils.printExpected(expected)}`,
+      };
+    if (pass)
+      return {
+        printedExpected: `Expected: not ${matcherUtils.printExpected(expected)}`,
+        printedReceived: `Received: ${matcherUtils.printReceived(receivedRaw)}`,
+      };
+    return {
+      printedDiff: matcherUtils.printDiffOrStringify(
+        expected,
+        receivedRaw,
+        "Expected",
+        "Received",
+        false
+      ),
     };
   }
 
@@ -664,7 +722,10 @@ function formatLocatorMatcherMessage(
       ? details.errorMessage
       : `${details.errorMessage}\n`;
   if (details.log?.some(Boolean))
-    message += `\nCall log:\n${details.log.join("\n")}\n`;
+    message += `\nCall log:\n${details.log
+      .filter(Boolean)
+      .map((line) => `  - ${line}`)
+      .join("\n")}\n`;
   return message;
 }
 
@@ -674,7 +735,7 @@ const locatorMatchers: MatchersObject = {
     return {
       expression: attached ? "to.be.attached" : "to.be.detached",
       expected: attached ? "attached" : "detached",
-      options: options as Record<string, unknown>,
+      options: timingOptions(options),
       kind: "truthy",
       expectation: attached ? "" : "{ attached: false }",
     };
@@ -697,7 +758,7 @@ const locatorMatchers: MatchersObject = {
           checked: value.checked,
           indeterminate: value.indeterminate,
         },
-        ...value,
+        ...timingOptions(value),
       },
       kind: "truthy",
       expectation: value.indeterminate
@@ -710,7 +771,7 @@ const locatorMatchers: MatchersObject = {
   toBeDisabled: locatorMatcher("toBeDisabled", ([options]) => ({
     expression: "to.be.disabled",
     expected: "disabled",
-    options: options as Record<string, unknown>,
+    options: timingOptions(options),
     kind: "truthy",
     expectation: "",
   })),
@@ -719,7 +780,7 @@ const locatorMatchers: MatchersObject = {
     return {
       expression: editable ? "to.be.editable" : "to.be.readonly",
       expected: editable ? "editable" : "readOnly",
-      options: options as Record<string, unknown>,
+      options: timingOptions(options),
       kind: "truthy",
       expectation: editable ? "" : "{ editable: false }",
     };
@@ -727,7 +788,7 @@ const locatorMatchers: MatchersObject = {
   toBeEmpty: locatorMatcher("toBeEmpty", ([options]) => ({
     expression: "to.be.empty",
     expected: "empty",
-    options: options as Record<string, unknown>,
+    options: timingOptions(options),
     kind: "truthy",
     expectation: "",
   })),
@@ -736,7 +797,7 @@ const locatorMatchers: MatchersObject = {
     return {
       expression: enabled ? "to.be.enabled" : "to.be.disabled",
       expected: enabled ? "enabled" : "disabled",
-      options: options as Record<string, unknown>,
+      options: timingOptions(options),
       kind: "truthy",
       expectation: enabled ? "" : "{ enabled: false }",
     };
@@ -744,14 +805,14 @@ const locatorMatchers: MatchersObject = {
   toBeFocused: locatorMatcher("toBeFocused", ([options]) => ({
     expression: "to.be.focused",
     expected: "focused",
-    options: options as Record<string, unknown>,
+    options: timingOptions(options),
     kind: "truthy",
     expectation: "",
   })),
   toBeHidden: locatorMatcher("toBeHidden", ([options]) => ({
     expression: "to.be.hidden",
     expected: "hidden",
-    options: options as Record<string, unknown>,
+    options: timingOptions(options),
     kind: "truthy",
     expectation: "",
   })),
@@ -759,7 +820,7 @@ const locatorMatchers: MatchersObject = {
     expression: "to.be.in.viewport",
     expected: "in viewport",
     options: {
-      ...(options as Record<string, unknown>),
+      ...timingOptions(options),
       expectedNumber: assertionOptions(options).ratio,
     },
     kind: "truthy",
@@ -770,18 +831,21 @@ const locatorMatchers: MatchersObject = {
     return {
       expression: visible ? "to.be.visible" : "to.be.hidden",
       expected: visible ? "visible" : "hidden",
-      options: options as Record<string, unknown>,
+      options: timingOptions(options),
       kind: "truthy",
       expectation: visible ? "" : "{ visible: false }",
     };
   }),
-  toContainText: locatorMatcher("toContainText", ([expected, options]) =>
-    Array.isArray(expected)
+  toContainText: locatorMatcher("toContainText", ([expected, options]) => {
+    if (!Array.isArray(expected)) assertTextExpected(expected);
+    return Array.isArray(expected)
       ? {
           expression: "to.contain.text.array",
           expected,
           options: {
-            ...(options as Record<string, unknown>),
+            ...timingOptions(options),
+            useInnerText: (options as { useInnerText?: boolean } | undefined)
+              ?.useInnerText,
             expectedText: serializeExpectedTextValues(
               expected as (string | RegExp)[],
               {
@@ -798,7 +862,9 @@ const locatorMatchers: MatchersObject = {
           expression: "to.have.text",
           expected,
           options: {
-            ...(options as Record<string, unknown>),
+            ...timingOptions(options),
+            useInnerText: (options as { useInnerText?: boolean } | undefined)
+              ?.useInnerText,
             expectedText: serializeExpectedTextValues(
               [expected as string | RegExp],
               {
@@ -811,11 +877,20 @@ const locatorMatchers: MatchersObject = {
           kind: "text",
           expectation: "expected",
           matchSubstring: true,
-        }
+        };
+  }),
+  toHaveAccessibleDescription: textMatcher("to.have.accessible.description", {
+    ignoreCase: true,
+    normalizeWhiteSpace: true,
+  }),
+  toHaveAccessibleName: textMatcher("to.have.accessible.name", {
+    ignoreCase: true,
+    normalizeWhiteSpace: true,
+  }),
+  toHaveAccessibleErrorMessage: textMatcher(
+    "to.have.accessible.error.message",
+    { ignoreCase: true, normalizeWhiteSpace: true }
   ),
-  toHaveAccessibleDescription: textMatcher("to.have.accessible.description"),
-  toHaveAccessibleName: textMatcher("to.have.accessible.name"),
-  toHaveAccessibleErrorMessage: textMatcher("to.have.accessible.error.message"),
   toHaveAttribute: locatorMatcher(
     "toHaveAttribute",
     ([name, expected, suppliedOptions]) => {
@@ -831,17 +906,18 @@ const locatorMatchers: MatchersObject = {
           expression: "to.have.attribute",
           expected: "have attribute",
           options: {
-            ...(options as Record<string, unknown>),
+            ...timingOptions(options),
             expressionArg: name,
           },
           kind: "truthy",
           expectation: "",
         };
+      assertTextExpected(expected);
       return {
         expression: "to.have.attribute.value",
         expected,
         options: {
-          ...(options as Record<string, unknown>),
+          ...timingOptions(options),
           expressionArg: name,
           expectedText: serializeExpectedTextValues(
             [expected as string | RegExp],
@@ -868,23 +944,27 @@ const locatorMatchers: MatchersObject = {
     expression: "to.have.count",
     expected,
     options: {
-      ...(options as Record<string, unknown>),
+      ...timingOptions(options),
       expectedNumber: expected,
     },
     kind: "equal",
     expectation: "expected",
   })),
-  toHaveCSS: locatorMatcher("toHaveCSS", ([name, expected, options]) => ({
-    expression: "to.have.css",
-    expected,
-    options: {
-      ...(options as Record<string, unknown>),
-      expressionArg: name,
-      expectedText: serializeExpectedTextValues([expected as string | RegExp]),
-    },
-    kind: "text",
-    expectation: "expected",
-  })),
+  toHaveCSS: locatorMatcher("toHaveCSS", ([name, expected, options]) => {
+    assertTextExpected(expected);
+    return {
+      expression: "to.have.css",
+      expected,
+      options: {
+        ...timingOptions(options),
+        expressionArg: name,
+        pseudo: (options as { pseudo?: string } | undefined)?.pseudo,
+        expectedText: serializeExpectedTextValues([expected]),
+      },
+      kind: "text",
+      expectation: "expected",
+    };
+  }),
   toHaveId: textMatcher("to.have.id"),
   toHaveJSProperty: locatorMatcher(
     "toHaveJSProperty",
@@ -892,7 +972,7 @@ const locatorMatchers: MatchersObject = {
       expression: "to.have.property",
       expected,
       options: {
-        ...(options as Record<string, unknown>),
+        ...timingOptions(options),
         expressionArg: name,
         expectedValue: expected,
       },
@@ -900,17 +980,20 @@ const locatorMatchers: MatchersObject = {
       expectation: "expected",
     })
   ),
-  toHaveRole: textMatcher("to.have.role", (expected) => {
+  toHaveRole: textMatcher("to.have.role", {}, (expected) => {
     if (typeof expected !== "string")
       throw new Error('"role" argument in toHaveRole must be a string');
   }),
-  toHaveText: locatorMatcher("toHaveText", ([expected, options]) =>
-    Array.isArray(expected)
+  toHaveText: locatorMatcher("toHaveText", ([expected, options]) => {
+    if (!Array.isArray(expected)) assertTextExpected(expected);
+    return Array.isArray(expected)
       ? {
           expression: "to.have.text.array",
           expected,
           options: {
-            ...(options as Record<string, unknown>),
+            ...timingOptions(options),
+            useInnerText: (options as { useInnerText?: boolean } | undefined)
+              ?.useInnerText,
             expectedText: serializeExpectedTextValues(
               expected as (string | RegExp)[],
               {
@@ -926,7 +1009,9 @@ const locatorMatchers: MatchersObject = {
           expression: "to.have.text",
           expected,
           options: {
-            ...(options as Record<string, unknown>),
+            ...timingOptions(options),
+            useInnerText: (options as { useInnerText?: boolean } | undefined)
+              ?.useInnerText,
             expectedText: serializeExpectedTextValues(
               [expected as string | RegExp],
               {
@@ -937,14 +1022,14 @@ const locatorMatchers: MatchersObject = {
           },
           kind: "text",
           expectation: "expected",
-        }
-  ),
+        };
+  }),
   toHaveValue: textMatcher("to.have.value"),
   toHaveValues: locatorMatcher("toHaveValues", ([expected, options]) => ({
     expression: "to.have.values",
     expected,
     options: {
-      ...(options as Record<string, unknown>),
+      ...timingOptions(options),
       expectedText: serializeExpectedTextValues(
         expected as (string | RegExp)[]
       ),
@@ -954,37 +1039,48 @@ const locatorMatchers: MatchersObject = {
   })),
   toMatchAriaSnapshot: locatorMatcher(
     "toMatchAriaSnapshot",
-    ([expected, options]) => ({
-      expression: "to.match.aria",
-      expected,
-      options: {
-        ...(options as Record<string, unknown>),
-        expectedValue: expected,
-      },
-      kind: "aria",
-      expectation: "expected",
-    })
+    ([expected, options]) => {
+      if (typeof expected !== "string")
+        throw new Error(
+          "toMatchAriaSnapshot accepts only an inline string in playwright-lite."
+        );
+      const snapshot = dedentAriaSnapshot(expected);
+      return {
+        expression: "to.match.aria",
+        expected: snapshot,
+        options: {
+          ...timingOptions(options),
+          expectedValue: snapshot,
+        },
+        kind: "aria",
+        expectation: "expected",
+      };
+    }
   ),
 };
 
 function textMatcher(
   expression: string,
+  settings: { ignoreCase?: boolean; normalizeWhiteSpace?: boolean } = {},
   validate?: (expected: unknown) => void
 ): RawMatcherFn {
   return locatorMatcher(
     expressionToMatcherName(expression),
     ([expected, options]) => {
+      assertTextExpected(expected);
       validate?.(expected);
       return {
         expression,
         expected,
         options: {
-          ...(options as Record<string, unknown>),
+          ...timingOptions(options),
           expectedText: serializeExpectedTextValues(
             [expected as string | RegExp],
             {
-              ignoreCase: assertionOptions(options).ignoreCase,
-              normalizeWhiteSpace: expression.startsWith("to.have.accessible"),
+              ignoreCase: settings.ignoreCase
+                ? assertionOptions(options).ignoreCase
+                : undefined,
+              normalizeWhiteSpace: settings.normalizeWhiteSpace,
             }
           ),
         },
@@ -1011,12 +1107,13 @@ function classMatcher(
       throw new Error(
         `"expected" argument in ${matcherName} cannot${Array.isArray(expected) ? " contain" : " be"} a RegExp value`
       );
+    if (!Array.isArray(expected)) assertTextExpected(expected);
     return Array.isArray(expected)
       ? {
           expression: arrayExpression,
           expected,
           options: {
-            ...(options as Record<string, unknown>),
+            ...timingOptions(options),
             expectedText: serializeExpectedTextValues(
               expected as (string | RegExp)[]
             ),
@@ -1028,7 +1125,7 @@ function classMatcher(
           expression,
           expected,
           options: {
-            ...(options as Record<string, unknown>),
+            ...timingOptions(options),
             expectedText: serializeExpectedTextValues([
               expected as string | RegExp,
             ]),
