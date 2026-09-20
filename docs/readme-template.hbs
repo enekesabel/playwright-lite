@@ -18,6 +18,26 @@ await page.getByRole("textbox", { name: "Name" }).fill("Ada");
 await page.getByRole("button", { name: "Save" }).click();
 ```
 
+## Assertions
+
+`expect(locator)` supports `toBeAttached`, `toBeChecked`, `toBeDisabled`,
+`toBeEditable`, `toBeEmpty`, `toBeEnabled`, `toBeFocused`, `toBeHidden`,
+`toBeInViewport`, `toBeVisible`, `toContainText`, `toContainClass`,
+`toHaveAccessibleDescription`, `toHaveAccessibleName`,
+`toHaveAccessibleErrorMessage`, `toHaveAttribute`, `toHaveClass`,
+`toHaveCount`, `toHaveCSS`, `toHaveId`, `toHaveJSProperty`, `toHaveRole`,
+`toHaveText`, `toHaveValue`, `toHaveValues`, and the inline string form of
+`toMatchAriaSnapshot`. `toHaveScreenshot` and ARIA snapshot forms that read,
+write, or configure snapshot files are not available.
+
+```ts
+import { createPage, expect } from "@enekesabel/playwright-lite";
+
+const page = createPage();
+await expect(page.getByRole("button", { name: "Save" })).toBeEnabled();
+await expect(page.locator(".notice")).toContainText("Saved");
+```
+
 {{!--
 Runtime-wide constraints of executing inside the current document belong here.
 Do not repeat them in partial API notes or downgrade APIs because of them.
