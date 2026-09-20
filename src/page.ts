@@ -4781,7 +4781,7 @@ function assertCurrentDocumentWaitTimeout(
 function titleMatches(
   title: string,
   match: string | RegExp | URLMatch,
-  ignoreCase = false
+  ignoreCase?: boolean
 ): boolean {
   if (typeof match === "string") {
     const normalizedTitle = normalizeWhiteSpace(title);
@@ -4790,15 +4790,7 @@ function titleMatches(
       ? normalizedTitle.toLocaleLowerCase() === expected.toLocaleLowerCase()
       : normalizedTitle === expected;
   }
-  if (isRegExp(match)) {
-    match.lastIndex = 0;
-    const flags = match.flags.replaceAll("g", "").replaceAll("y", "");
-    const expression = ignoreCase
-      ? new RegExp(match.source, flags.replace("i", "") + "i")
-      : match;
-    expression.lastIndex = 0;
-    return expression.test(title);
-  }
+  if (isRegExp(match)) return regExpMatches(match, title, ignoreCase);
   throw new Error(
     "expected value must be a string or regular expression\n" +
       `Expected has type: ${typeof match}\n` +
@@ -4813,10 +4805,21 @@ function normalizeWhiteSpace(text: string): string {
     .replace(/\s+/g, " ");
 }
 
+function regExpMatches(
+  expression: RegExp,
+  value: string,
+  ignoreCase?: boolean
+): boolean {
+  const flags = new Set(expression.flags);
+  if (ignoreCase === false) flags.delete("i");
+  if (ignoreCase === true) flags.add("i");
+  return new RegExp(expression.source, [...flags].join("")).test(value);
+}
+
 function urlMatches(
   url: string,
   match: URLMatch,
-  ignoreCase = false,
+  ignoreCase?: boolean,
   options: { emptyStringMatches?: boolean } = {}
 ): boolean {
   if (match === "" && options.emptyStringMatches !== false) return true;
@@ -4825,14 +4828,7 @@ function urlMatches(
       resolveGlobToRegexPattern(undefined, match),
       ignoreCase ? "i" : undefined
     ).test(url);
-  if (isRegExp(match)) {
-    const flags = match.flags.replaceAll("g", "").replaceAll("y", "");
-    const expression = ignoreCase
-      ? new RegExp(match.source, flags.replace("i", "") + "i")
-      : match;
-    expression.lastIndex = 0;
-    return expression.test(url);
-  }
+  if (isRegExp(match)) return regExpMatches(match, url, ignoreCase);
   const urlForMatch = ignoreCase ? url.toLocaleLowerCase() : url;
   if (isURLPattern(match)) return match.test(urlForMatch);
   if (typeof match === "function") return match(new URL(urlForMatch));
