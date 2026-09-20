@@ -197,6 +197,20 @@ describe("expect(locator)", () => {
 
     await extended(createPage().locator("#missing")).toHaveText("custom");
   });
+
+  it("does not expose filtered Page matcher collisions on generic values", () => {
+    const extended = browserExpect.extend({
+      toHaveTitle() {
+        return { pass: true, message: () => "custom title" };
+      },
+    });
+    const generic = extended("title");
+    type GenericMatchers = typeof generic;
+    // @ts-expect-error Reserved Page matcher names are not returned as custom matchers.
+    type GenericPageTitle = GenericMatchers["toHaveTitle"];
+    void generic;
+    void (undefined as unknown as GenericPageTitle);
+  });
 });
 
 describe("Page._evaluateExpression", () => {
@@ -642,6 +656,15 @@ describe("Page assertions", () => {
         new RegExp(new URL(original).pathname)
       );
       await browserExpect(page).toHaveURL((url) => url.href === original);
+      await browserExpect(page).not.toHaveURL("");
+      const emptyString = (await browserExpect(page)
+        .toHaveURL("", { timeout: 20 })
+        .catch((error: Error) => error)) as Error;
+      expect(emptyString.message).toContain(
+        'Expected: ""\nReceived: ' +
+          JSON.stringify(original) +
+          "\nTimeout:  20ms"
+      );
 
       const expected = `${original}#ready`;
       const waiting = browserExpect(page).toHaveURL(expected, { timeout: 200 });

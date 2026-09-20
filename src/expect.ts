@@ -319,7 +319,7 @@ export type Expect<ExtendedMatchers = Record<never, never>> = {
     >,
   >(
     matchers: MoreMatchers
-  ): Expect<ExtendedMatchers & MoreMatchers>;
+  ): Expect<ExtendedMatchers & Omit<MoreMatchers, "toHaveTitle" | "toHaveURL">>;
   configure(configuration: {
     message?: string;
     soft?: boolean;

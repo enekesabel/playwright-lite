@@ -594,7 +594,8 @@ export class PageImpl {
           : urlMatches(
               received,
               options.expected as URLMatch,
-              options.ignoreCase
+              options.ignoreCase,
+              { emptyStringMatches: false }
             );
       return { matches, received };
     };
@@ -4798,8 +4799,13 @@ function normalizeWhiteSpace(text: string): string {
     .replace(/\s+/g, " ");
 }
 
-function urlMatches(url: string, match: URLMatch, ignoreCase = false): boolean {
-  if (match === "") return true;
+function urlMatches(
+  url: string,
+  match: URLMatch,
+  ignoreCase = false,
+  options: { emptyStringMatches?: boolean } = {}
+): boolean {
+  if (match === "" && options.emptyStringMatches !== false) return true;
   if (typeof match === "string")
     return new RegExp(
       resolveGlobToRegexPattern(undefined, match),
