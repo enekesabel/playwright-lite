@@ -567,6 +567,26 @@ describe("public expect", () => {
 });
 
 describe("Page assertions", () => {
+  it("does not expose Page matchers on Page-shaped lookalikes", () => {
+    let expectCalled = false;
+    const lookalike = {
+      title: async () => "lookalike",
+      url: () => "https://example.test/",
+      _expect: async () => {
+        expectCalled = true;
+        return { matches: true };
+      },
+    };
+    const matchers = browserExpect(lookalike) as unknown as Record<
+      string,
+      unknown
+    >;
+
+    expect(matchers.toHaveTitle).toBeUndefined();
+    expect(matchers.toHaveURL).toBeUndefined();
+    expect(expectCalled).toBe(false);
+  });
+
   it("supports immediate and retried title assertions", async () => {
     const page = createPage();
     document.title = "Checkout";

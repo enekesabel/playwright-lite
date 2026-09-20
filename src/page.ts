@@ -71,6 +71,10 @@ const DEFAULT_QUERY_TIMEOUT = 0;
 const QUERY_RETRY_DELAY = 50;
 const CURRENT_DOCUMENT_WAIT_POLL_DELAY = 20;
 
+/** Cross-realm brand symbol used to identify this package's Page instances. */
+export const PAGE_BRAND = Symbol.for("playwright-lite:page");
+const PAGE_BRAND_TOKEN = Object.freeze({});
+
 type ActionPoint = { x: number; y: number };
 type ActionDeadline = {
   timeout: number;
@@ -261,6 +265,7 @@ type ActionableInjectedScript = {
 };
 
 export class PageImpl {
+  readonly [PAGE_BRAND] = PAGE_BRAND_TOKEN;
   readonly document: Document;
   readonly window: Window & typeof globalThis;
   readonly keyboard: BrowserKeyboard;
@@ -4053,6 +4058,15 @@ export class PageImpl {
   private get actionableInjected() {
     return this.injected as typeof this.injected & ActionableInjectedScript;
   }
+}
+
+/** Returns true only for Page instances created by this package. */
+export function isPlaywrightLitePage(value: unknown): value is PageImpl {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as Record<symbol, unknown>)[PAGE_BRAND] === PAGE_BRAND_TOKEN
+  );
 }
 
 type WebStorage = Page["localStorage"];

@@ -39,6 +39,7 @@ import {
 import type { Locator } from "@playwright/test";
 import { isPlaywrightLiteLocator, type LocatorImpl } from "./locator";
 import type { Page } from "@playwright/test";
+import { isPlaywrightLitePage } from "./page";
 
 interface AsymmetricMatcher {
   asymmetricMatch(other: unknown): boolean;
@@ -1204,13 +1205,7 @@ function expressionToMatcherName(expression: string): string {
 function isPageExpectationTarget(
   value: unknown
 ): value is PageExpectationTarget {
-  if (typeof value !== "object" || value === null) return false;
-  const target = value as Partial<PageExpectationTarget>;
-  return (
-    typeof target.title === "function" &&
-    typeof target.url === "function" &&
-    typeof target._expect === "function"
-  );
+  return isPlaywrightLitePage(value);
 }
 
 function isRegExp(value: unknown): value is RegExp {
