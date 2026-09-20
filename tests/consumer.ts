@@ -42,6 +42,26 @@ export async function runConsumer() {
   };
   const page: Page = createPage(options);
   const configuredExpect: Expect = expect.configure({ timeout: 100 });
+  const receiverExpect = expect.extend({
+    toHaveAmount(locator: Locator, expected: string) {
+      const isNot: boolean = this.isNot;
+      return {
+        pass: Boolean(locator) && expected.length > 0 && !isNot,
+        message: () => "amount differs",
+      };
+    },
+    toBeANicePage(page: Page) {
+      return { pass: Boolean(page), message: () => "page is not nice" };
+    },
+  });
+  if (false) {
+    receiverExpect(page.getByTestId("name")).toHaveAmount("3");
+    receiverExpect(page).toBeANicePage();
+    // @ts-expect-error Locator-only custom matcher.
+    receiverExpect(page).toHaveAmount("3");
+    // @ts-expect-error Page-only custom matcher.
+    receiverExpect(page.getByTestId("name")).toBeANicePage();
+  }
   configuredExpect({ user: "Ada" }).toEqual({
     user: expect.stringContaining("Ada"),
   });

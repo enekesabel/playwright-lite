@@ -234,6 +234,100 @@ describe("public expect", () => {
     extended.configure({ timeout: 17 })(null).toUseTimeout(17);
   });
 
+  it("expect.extend should be immutable", () => {
+    const calls: string[] = [];
+    const expectFoo = browserExpect.extend({
+      toFoo() {
+        calls.push("foo");
+        return { pass: true, message: () => "" };
+      },
+    });
+    const expectFoo2 = browserExpect.extend({
+      toFoo() {
+        calls.push("foo2");
+        return { pass: true, message: () => "" };
+      },
+    });
+    const expectBar = expectFoo.extend({
+      toBar() {
+        calls.push("bar");
+        return { pass: true, message: () => "" };
+      },
+    });
+
+    expectFoo(undefined).toFoo();
+    expectFoo2(undefined).toFoo();
+    expectBar(undefined).toFoo();
+    expectBar(undefined).toBar();
+
+    expect(calls).toEqual(["foo", "foo2", "foo", "bar"]);
+  });
+
+  it("expect.extend should fall back to legacy behavior", () => {
+    const calls: string[] = [];
+    const legacyExpect = browserExpect.configure({});
+    legacyExpect.extend({
+      toFoo() {
+        calls.push("foo");
+        return { pass: true, message: () => "" };
+      },
+    });
+    legacyExpect.extend({
+      toFoo() {
+        calls.push("foo2");
+        return { pass: true, message: () => "" };
+      },
+    });
+    legacyExpect.extend({
+      toBar() {
+        calls.push("bar");
+        return { pass: true, message: () => "" };
+      },
+    });
+
+    const legacyMatchers = legacyExpect(undefined) as unknown as {
+      toBar(): void;
+      toFoo(): void;
+    };
+    legacyMatchers.toFoo();
+    legacyMatchers.toBar();
+
+    expect(calls).toEqual(["foo2", "bar"]);
+  });
+
+  it("expect.extend should not override builtin matchers through legacy behavior", () => {
+    let customCalls = 0;
+    const legacyExpect = browserExpect.configure({});
+    legacyExpect.extend({
+      toBe() {
+        customCalls++;
+        return { pass: true, message: () => "" };
+      },
+    });
+
+    expect(() => legacyExpect(1).toBe(2)).toThrow(/Expected: 2/);
+    expect(customCalls).toBe(0);
+  });
+
+  it("awaits thenable custom matcher results", async () => {
+    const extended = browserExpect.extend({
+      toBeThenable(received: unknown, expected: unknown) {
+        return {
+          then(
+            resolve: (result: { pass: boolean; message: () => string }) => void
+          ) {
+            resolve({
+              pass: received === expected,
+              message: () => "values differ",
+            });
+          },
+        } as Promise<{ pass: boolean; message: () => string }>;
+      },
+    });
+
+    await extended("same").toBeThenable("same");
+  });
+
   it("polls until success and reports the last failure on timeout", async () => {
     let value = 0;
     await browserExpect
@@ -298,6 +392,47 @@ describe("public expect", () => {
       )({ soft: true })
     ).toThrow(
       "Soft assertions require Playwright Test's failure-reporting context"
+    );
+    browserExpect.configure({ soft: false })(1).toBe(1);
+  });
+
+  it("matches Playwright toThrow stack formatting", () => {
+    const thrown = new Error("boom");
+    thrown.stack =
+      "Error: boom\n    at thrower (example.js:10:2)\n    at caller (caller.js:20:3)";
+
+    let message = "";
+    try {
+      browserExpect(() => {
+        throw thrown;
+      }).toThrow("other");
+    } catch (error) {
+      message = (error as Error).message;
+    }
+
+    expect(message).toBe(
+      'expect(received).toThrow(expected)\n\nExpected substring: "other"\nReceived message:   "boom"\n\n      at thrower (example.js:10:2)\n      at caller (caller.js:20:3)'
+    );
+  });
+
+  it("matches Playwright rejects.toThrow AggregateError formatting", async () => {
+    const first = new Error("first");
+    first.stack = "Error: first\n    at one (one.js:1:2)";
+    const second = new TypeError("second");
+    second.stack = "TypeError: second\n    at two (two.js:3:4)";
+    const aggregate = new AggregateError([first, second], "many");
+    aggregate.stack =
+      "AggregateError: many\n    at aggregate (aggregate.js:5:6)";
+
+    let message = "";
+    try {
+      await browserExpect(Promise.reject(aggregate)).rejects.toThrow("other");
+    } catch (error) {
+      message = (error as Error).message;
+    }
+
+    expect(message).toBe(
+      'expect(received).rejects.toThrow(expected)\n\nExpected substring: "other"\nReceived message:   "many"\n  ● Test suite failed to run\n\n    AggregateError: many\n\n      at aggregate (aggregate.js:5:6)\n\n    Errors contained in AggregateError:\n     first\n\n          at one (one.js:1:2)\n\n     TypeError: second\n\n          at two (two.js:3:4)\n\n'
     );
   });
 });

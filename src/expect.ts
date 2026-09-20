@@ -115,14 +115,18 @@ interface MatcherResult {
 }
 
 type ToUserMatcher<F, R> = F extends (
-  received: unknown,
+  received: any,
   ...args: infer A
 ) => infer M
   ? (...args: A) => M extends PromiseLike<unknown> ? Promise<void> : R
   : never;
 
-type UserMatchers<E, R> = {
-  [K in keyof E]: ToUserMatcher<E[K], R>;
+type UserMatchers<E, R, T> = {
+  [
+    K in keyof E as E[K] extends (received: T, ...args: any[]) => any
+      ? K
+      : never
+  ]: ToUserMatcher<E[K], R>;
 };
 
 type FunctionAssertions = {
@@ -132,17 +136,17 @@ type FunctionAssertions = {
 type Matchers<R, T, ExtendedMatchers> = {
   not: Matchers<R, T, ExtendedMatchers>;
   resolves: Matchers<Promise<void>, Awaited<T>, ExtendedMatchers>;
-  rejects: Matchers<Promise<void>, unknown, ExtendedMatchers>;
+  rejects: Matchers<Promise<void>, any, ExtendedMatchers>;
 } & GenericAssertions<R> &
   (T extends (...args: never[]) => unknown
     ? FunctionAssertions
     : Record<never, never>) &
-  UserMatchers<ExtendedMatchers, R>;
+  UserMatchers<ExtendedMatchers, R, T>;
 
 type PollMatchers<T, ExtendedMatchers> = {
   not: PollMatchers<T, ExtendedMatchers>;
 } & GenericAssertions<Promise<void>> &
-  UserMatchers<ExtendedMatchers, Promise<void>>;
+  UserMatchers<ExtendedMatchers, Promise<void>, T>;
 
 export type Expect<ExtendedMatchers = Record<never, never>> = {
   <T = unknown>(
@@ -159,8 +163,8 @@ export type Expect<ExtendedMatchers = Record<never, never>> = {
       string,
       (
         this: ExpectMatcherState,
-        received: unknown,
-        ...args: never[]
+        received: any,
+        ...args: any[]
       ) => MatcherResult | Promise<MatcherResult>
     >,
   >(
@@ -168,6 +172,7 @@ export type Expect<ExtendedMatchers = Record<never, never>> = {
   ): Expect<ExtendedMatchers & MoreMatchers>;
   configure(configuration: {
     message?: string;
+    soft?: boolean;
     timeout?: number;
   }): Expect<ExtendedMatchers>;
   getState(): object;
@@ -356,7 +361,7 @@ function createExpect(info: ExpectMetaInfo): Expect<any> {
     timeout?: number;
     soft?: boolean;
   }) => {
-    if ("soft" in configuration) throw new Error(SOFT_UNSUPPORTED);
+    if (configuration.soft === true) throw new Error(SOFT_UNSUPPORTED);
     return createExpect({ ...info, ...configuration });
   };
   expectFunction.poll = (
@@ -485,7 +490,7 @@ function callMatcher(
       ? invokePollMatcher(matcherName, info, matcher, actual, args, promise)
       : invokeMatcher(info, matcherName, matcher, actual, args, promise);
   const result = invoke();
-  if (result instanceof Promise) return result.then(finalize);
+  if (isPromise<InternalMatcherResult>(result)) return result.then(finalize);
   finalize(result);
 }
 

@@ -1837,9 +1837,134 @@ const formatReceived = (
 
 const formatStack = (thrown: Thrown | null) => {
   if (thrown === null || !thrown.isError) return "";
-  const [, ...frames] = (thrown.value.stack ?? "").split(/\r?\n/);
-  return frames.length ? `\n${frames.join("\n")}` : "";
+  if (thrown.value instanceof AggregateError)
+    return formatExecError(thrown.value);
+  return formatStackTrace(
+    separateMessageFromStack(thrown.value.stack ?? "").stack
+  );
 };
+
+const STACK_INDENT = "      ";
+const MESSAGE_INDENT = "    ";
+const STACK_PATH_REGEXP = /\s*at.*\(?(:\d*:\d*|native)\)?/;
+const JASMINE_IGNORE =
+  /^\s+at(?:(?:\.jasmine-)|\s+jasmine\.buildExpectationResult)/;
+const JEST_INTERNALS_IGNORE =
+  /^\s+at.*?jest(-.*?)?(\/|\\)(build|node_modules|packages)(\/|\\)/;
+const STACK_FRAME_IGNORES = [
+  /^\s+at <anonymous>.*$/,
+  /^\s+at (new )?Promise \(<anonymous>\).*$/,
+  /^\s+at Generator\.next \(<anonymous>\).*$/,
+  /^\s+at next \(native\).*$/,
+];
+
+const indentAllLines = (lines: string) =>
+  lines.replaceAll(/^(?!$)/gm, MESSAGE_INDENT);
+
+function removeBlankErrorLine(value: string) {
+  return value
+    .split("\n")
+    .filter((line) => !/^Error:?\s*$/.test(line))
+    .join("\n")
+    .trimEnd();
+}
+
+function separateMessageFromStack(content: string) {
+  if (!content) return { message: "", stack: "" };
+  const match = content.match(
+    /^(?:Error: )?([\S\s]*?(?=\n\s*at\s.*:\d*:\d*)|\s*.*)([\S\s]*)$/
+  );
+  if (!match)
+    throw new Error("If you hit this error, the stack parser is buggy.");
+  return {
+    message: removeBlankErrorLine(match[1]),
+    stack: removeBlankErrorLine(match[2]),
+  };
+}
+
+function formatStackTrace(stack: string) {
+  let pathCount = 0;
+  const lines = stack.split(/\n/).filter((line) => {
+    if (!line || STACK_FRAME_IGNORES.some((pattern) => pattern.test(line)))
+      return false;
+    if (!STACK_PATH_REGEXP.test(line)) return true;
+    if (JASMINE_IGNORE.test(line)) return false;
+    if (++pathCount === 1) return true;
+    return !JEST_INTERNALS_IGNORE.test(line);
+  });
+  return lines.length
+    ? `\n${lines
+        .map(
+          (line) =>
+            STACK_INDENT + (STACK_PATH_REGEXP.test(line) ? line.trim() : line)
+        )
+        .join("\n")}`
+    : "";
+}
+
+function formatExecError(error: unknown, noTitle = false): string {
+  if (!error || typeof error === "number") {
+    error = new Error(`Expected an Error, but "${String(error)}" was thrown`);
+    (error as Error).stack = "";
+  }
+
+  let message: string;
+  let stack: string;
+  let cause = "";
+  const subErrors: string[] = [];
+  if (typeof error === "string") {
+    message = "";
+    stack = error;
+  } else {
+    const errorObject = error as Error & {
+      cause?: unknown;
+      errors?: unknown[];
+    };
+    message = errorObject.message;
+    stack =
+      typeof errorObject.stack === "string"
+        ? errorObject.stack
+        : `thrown: ${stringify(errorObject, 3)}`;
+    if ("cause" in errorObject) {
+      const prefix = "\n\nCause:\n";
+      if (
+        typeof errorObject.cause === "string" ||
+        typeof errorObject.cause === "number"
+      ) {
+        cause += `${prefix}${errorObject.cause}`;
+      } else if (
+        isError(errorObject.cause) ||
+        errorObject.cause instanceof Error
+      ) {
+        cause += `${prefix}${formatExecError(errorObject.cause, true)}`;
+      }
+    }
+    if (Array.isArray(errorObject.errors)) {
+      for (const subError of errorObject.errors)
+        subErrors.push(formatExecError(subError, true));
+    }
+  }
+
+  if (cause) cause = indentAllLines(cause);
+  const separated = separateMessageFromStack(stack);
+  stack = separated.stack;
+  if (separated.message.includes(message.trim())) message = separated.message;
+  message = indentAllLines(message);
+  stack = stack ? `\n${formatStackTrace(stack)}` : "";
+  if (!message.trim() && !stack.trim())
+    message = `thrown: ${stringify(error, 3)}`;
+
+  const messageToUse = noTitle
+    ? ` ${message.trim()}`
+    : `Test suite failed to run\n\n${message}`;
+  const title = noTitle ? "" : "  ● ";
+  const subErrorText = subErrors.length
+    ? indentAllLines(
+        `\n\nErrors contained in AggregateError:\n${subErrors.join("\n")}`
+      )
+    : "";
+  return `${title + messageToUse + stack + cause + subErrorText}\n`;
+}
 
 function createMessageAndCause(error: Error) {
   if (error.cause) {
