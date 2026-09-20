@@ -38,6 +38,7 @@ import {
 } from "./expectLibrary";
 import type { Locator } from "@playwright/test";
 import { isPlaywrightLiteLocator, type LocatorImpl } from "./locator";
+import type { Page } from "@playwright/test";
 
 interface AsymmetricMatcher {
   asymmetricMatch(other: unknown): boolean;
@@ -199,6 +200,28 @@ interface LocatorAssertions {
   ): Promise<void>;
 }
 
+type PageURLExpected = Parameters<Page["waitForURL"]>[0];
+
+type PageAssertionOptions = {
+  signal?: AbortSignal;
+  timeout?: number;
+};
+
+type PageURLAssertionOptions = PageAssertionOptions & {
+  ignoreCase?: boolean;
+};
+
+interface PageAssertions {
+  toHaveTitle(
+    expected: string | RegExp,
+    options?: PageAssertionOptions & { ignoreCase?: boolean }
+  ): Promise<void>;
+  toHaveURL(
+    expected: PageURLExpected,
+    options?: PageURLAssertionOptions
+  ): Promise<void>;
+}
+
 interface ExpectMatcherUtils {
   matcherHint(
     matcherName: string,
@@ -218,6 +241,7 @@ interface ExpectMatcherUtils {
   printWithType<T>(name: string, value: T, print: (value: T) => string): string;
   diff(a: unknown, b: unknown): string | null;
   stringify(value: unknown, maxDepth?: number, maxWidth?: number): string;
+  EXPECTED_COLOR(value: string): string;
 }
 
 interface ExpectMatcherState {
@@ -263,6 +287,7 @@ type Matchers<R, T, ExtendedMatchers> = {
   rejects: Matchers<Promise<void>, any, ExtendedMatchers>;
 } & GenericAssertions<R> &
   (T extends Locator ? LocatorAssertions : Record<never, never>) &
+  (T extends Page ? PageAssertions : Record<never, never>) &
   (T extends (...args: never[]) => unknown
     ? FunctionAssertions
     : Record<never, never>) &
@@ -321,6 +346,30 @@ type InternalMatcherResult = SyncExpectationResult & {
   log?: string[];
   name?: string;
   timeout?: number;
+};
+
+type PageExpectationResult = {
+  matches: boolean;
+  received?: { value?: string };
+  timeout?: number;
+  timedOut?: boolean;
+  errorMessage?: string;
+  log?: string[];
+};
+
+type PageExpectationTarget = {
+  title(): Promise<string>;
+  url(): string;
+  _expect(
+    expression: "to.have.title" | "to.have.url",
+    options: {
+      expected: string | RegExp | PageURLExpected;
+      ignoreCase?: boolean;
+      isNot?: boolean;
+      signal?: AbortSignal;
+      timeout?: number;
+    }
+  ): Promise<PageExpectationResult>;
 };
 
 const DEFAULT_EXPECT_TIMEOUT = 5_000;
@@ -1151,6 +1200,165 @@ function expressionToMatcherName(expression: string): string {
   );
 }
 
+function isPageExpectationTarget(
+  value: unknown
+): value is PageExpectationTarget {
+  if (typeof value !== "object" || value === null) return false;
+  const target = value as Partial<PageExpectationTarget>;
+  return (
+    typeof target.title === "function" &&
+    typeof target.url === "function" &&
+    typeof target._expect === "function"
+  );
+}
+
+function isRegExp(value: unknown): value is RegExp {
+  return (
+    value instanceof RegExp ||
+    Object.prototype.toString.call(value) === "[object RegExp]"
+  );
+}
+
+function isURLPattern(value: unknown): boolean {
+  const constructor = (
+    globalThis as { URLPattern?: new (...args: unknown[]) => object }
+  ).URLPattern;
+  return typeof constructor === "function" && value instanceof constructor;
+}
+
+function pageMatcherMessage(
+  context: MatcherContext,
+  matcherName: "toHaveTitle" | "toHaveURL",
+  expected: unknown,
+  result: PageExpectationResult
+): string {
+  const isNot = !!context.isNot;
+  let message = `expect(page)${isNot ? ".not" : ""}.${matcherName}(expected) failed\n\n`;
+  const received = result.received?.value;
+  if (typeof expected === "function" || isURLPattern(expected)) {
+    message += `Expected: predicate to ${isNot ? "fail" : "succeed"}\n`;
+    if (received !== undefined)
+      message += `Received: ${context.utils.printReceived(received)}\n`;
+  } else if (isNot) {
+    message += `Expected: not ${context.utils.printExpected(expected)}\n`;
+    if (received !== undefined)
+      message += `Received: ${context.utils.printReceived(received)}\n`;
+  } else if (result.errorMessage) {
+    message += `Expected: ${context.utils.printExpected(expected)}\n`;
+  } else if (received !== undefined) {
+    message += context.utils.printDiffOrStringify(
+      expected,
+      received,
+      "Expected",
+      "Received",
+      false
+    );
+    message += "\n";
+  } else {
+    message += `Expected: ${context.utils.printExpected(expected)}\n`;
+  }
+  if (result.timedOut) {
+    const timeout =
+      result.timeout ??
+      (context as MatcherContext & { timeout: number }).timeout;
+    message += `Timeout:  ${timeout}ms\n`;
+  }
+  if (result.errorMessage) message += `${result.errorMessage}\n`;
+  if (result.log?.length) message += `\nCall log:\n${result.log.join("\n")}\n`;
+  return message;
+}
+
+function assertPageExpectationTarget(
+  value: unknown,
+  matcherName: "toHaveTitle" | "toHaveURL"
+): asserts value is PageExpectationTarget {
+  if (isPageExpectationTarget(value)) return;
+  throw new Error(
+    `${matcherName} can be only used with Page object, was called with ${String(value)}`
+  );
+}
+
+async function toHaveTitle(
+  this: MatcherContext,
+  page: unknown,
+  expected: string | RegExp,
+  options: PageAssertionOptions & { ignoreCase?: boolean } = {}
+): Promise<MatcherResult> {
+  assertPageExpectationTarget(page, "toHaveTitle");
+  if (typeof expected !== "string" && !isRegExp(expected))
+    throw new Error(
+      pageMatcherMessage(this, "toHaveTitle", expected, {
+        matches: !!this.isNot,
+        errorMessage:
+          `Error: ${this.utils.EXPECTED_COLOR("expected")} value must be a string or regular expression\n` +
+          this.utils.printWithType(
+            "Expected",
+            expected,
+            this.utils.printExpected
+          ),
+      })
+    );
+  const result = await page._expect("to.have.title", {
+    expected,
+    ignoreCase: options.ignoreCase,
+    isNot: !!this.isNot,
+    signal: options.signal,
+    timeout:
+      options.timeout ?? (this as MatcherContext & { timeout: number }).timeout,
+  });
+  return {
+    actual: result.received?.value,
+    expected,
+    message: () => pageMatcherMessage(this, "toHaveTitle", expected, result),
+    name: "toHaveTitle",
+    pass: result.matches,
+  };
+}
+
+async function toHaveURL(
+  this: MatcherContext,
+  page: unknown,
+  expected: PageURLExpected,
+  options: PageURLAssertionOptions = {}
+): Promise<MatcherResult> {
+  assertPageExpectationTarget(page, "toHaveURL");
+  if (
+    typeof expected !== "string" &&
+    !isRegExp(expected) &&
+    !isURLPattern(expected) &&
+    typeof expected !== "function"
+  )
+    throw new Error(
+      pageMatcherMessage(this, "toHaveURL", expected, {
+        matches: !!this.isNot,
+        errorMessage:
+          `Error: ${this.utils.EXPECTED_COLOR("expected")} value must be a string or regular expression\n` +
+          this.utils.printWithType(
+            "Expected",
+            expected,
+            this.utils.printExpected
+          ),
+      })
+    );
+  const result = await page._expect("to.have.url", {
+    expected,
+    ignoreCase: options.ignoreCase,
+    isNot: !!this.isNot,
+    signal: options.signal,
+    timeout:
+      options.timeout ?? (this as MatcherContext & { timeout: number }).timeout,
+  });
+  return {
+    actual: result.received?.value,
+    expected,
+    message: () => pageMatcherMessage(this, "toHaveURL", expected, result),
+    name: "toHaveURL",
+    pass: result.matches,
+  };
+}
+
+const pageMatchers: MatchersObject = { toHaveTitle, toHaveURL };
+
 const allBuiltinMatchers: MatchersObject = {
   ...genericMatchers,
   toThrow: createThrowMatcher("toThrow"),
@@ -1239,7 +1447,7 @@ function createExpect(info: ExpectMetaInfo): Expect<any> {
         );
     }
     for (const [name, matcher] of Object.entries(matchers)) {
-      if (name in allBuiltinMatchers) continue;
+      if (name in allBuiltinMatchers || name in pageMatchers) continue;
       info.userMatchers[name] = matcher;
       const { positive, inverse } = buildCustomAsymmetricMatcher(name, matcher);
       Object.defineProperty(expectFunction, name, {
@@ -1273,9 +1481,12 @@ function createMatchers(
     resolves: { not: {} },
     rejects: { not: {} },
   };
-  const matchers = isLocatorExpectationReceiver(actual)
-    ? { ...allBuiltinMatchers, ...locatorMatchers, ...info.userMatchers }
-    : { ...allBuiltinMatchers, ...info.userMatchers };
+  const builtinMatchers = isPageExpectationTarget(actual)
+    ? { ...allBuiltinMatchers, ...pageMatchers }
+    : isLocatorExpectationReceiver(actual)
+      ? { ...allBuiltinMatchers, ...locatorMatchers }
+      : allBuiltinMatchers;
+  const matchers = { ...builtinMatchers, ...info.userMatchers };
   for (const [name, matcher] of Object.entries({
     ...matchers,
   })) {

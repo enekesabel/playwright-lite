@@ -48,6 +48,14 @@ const expectMemberUrls = new Map([
   ["expect.poll()", "https://playwright.dev/docs/test-assertions#expectpoll"],
   ["toPass()", "https://playwright.dev/docs/test-assertions#expecttopass"],
   [
+    "expect(page).toHaveTitle()",
+    "https://playwright.dev/docs/api/class-pageassertions#page-assertions-to-have-title",
+  ],
+  [
+    "expect(page).toHaveURL()",
+    "https://playwright.dev/docs/api/class-pageassertions#page-assertions-to-have-url",
+  ],
+  [
     "expect.soft()",
     "https://playwright.dev/docs/test-assertions#soft-assertions",
   ],

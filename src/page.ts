@@ -151,6 +151,31 @@ type CurrentDocumentWaitOptions = {
 
 type URLMatch = Parameters<Page["waitForURL"]>[0];
 
+type PageExpectationExpression = "to.have.title" | "to.have.url";
+
+type PageExpectationOptions = {
+  expected: string | RegExp | URLMatch;
+  ignoreCase?: boolean;
+  isNot?: boolean;
+  signal?: AbortSignal;
+  timeout?: number;
+};
+
+type PageExpectationResult = {
+  matches: boolean;
+  received?: { value?: string };
+  timeout?: number;
+  timedOut?: boolean;
+  errorMessage?: string;
+  log?: string[];
+};
+
+type CurrentDocumentObservation =
+  | { completed: true }
+  | { timedOut: true }
+  | { aborted: Error }
+  | { error: unknown };
+
 export type AriaSnapshotOptions = {
   boxes?: boolean;
   depth?: number;
@@ -536,6 +561,101 @@ export class PageImpl {
         ...(lastAttempt.log ?? []),
       ],
     };
+  }
+
+  /**
+   * Page-owned expectation seam for the public page matchers. The matcher
+   * wrapper supplies only the expression and expected value; this method owns
+   * current-document observation, retry timing, cancellation, and the last
+   * received value just like the locator expectation seam above.
+   */
+  async _expect(
+    expression: PageExpectationExpression,
+    options: PageExpectationOptions
+  ): Promise<PageExpectationResult> {
+    const isNot = !!options.isNot;
+    const timeout = expectationTimeout(options.timeout);
+    const signal = options.signal;
+    const log = [
+      `- Expect "${expression === "to.have.title" ? "toHaveTitle" : "toHaveURL"}" with timeout ${timeout}ms`,
+      "- waiting for page",
+    ];
+
+    validateSignal(expression, signal);
+
+    const read = (): { matches: boolean; received: string } => {
+      const received =
+        expression === "to.have.title"
+          ? this.document.title
+          : this.window.location.href;
+      const matches =
+        expression === "to.have.title"
+          ? titleMatches(received, options.expected, options.ignoreCase)
+          : urlMatches(
+              received,
+              options.expected as URLMatch,
+              options.ignoreCase
+            );
+      return { matches, received };
+    };
+
+    if (signal?.aborted)
+      return {
+        matches: isNot,
+        errorMessage: `Error: The assertion was aborted: ${abortReason(signal)}`,
+        log: [log[0], `- operation was aborted: ${abortReason(signal)}`],
+      };
+
+    let last = read();
+    if (last.matches !== isNot)
+      return { matches: !isNot, received: { value: last.received } };
+
+    if (timeout === 0)
+      return {
+        matches: isNot,
+        received: { value: last.received },
+        timeout,
+        timedOut: true,
+        log,
+      };
+
+    let result: PageExpectationResult | undefined;
+    const observation = await this.observeCurrentDocument(
+      () => {
+        last = read();
+        if (last.matches !== isNot) {
+          result = { matches: !isNot, received: { value: last.received } };
+          return true;
+        }
+        return false;
+      },
+      timeout,
+      signal
+    );
+    if (result) return result;
+    if ("aborted" in observation)
+      return {
+        matches: isNot,
+        received: { value: last.received },
+        errorMessage: `Error: The assertion was aborted: ${abortReason(signal!)}`,
+        log: [log[0], `- operation was aborted: ${abortReason(signal!)}`],
+      };
+    if ("timedOut" in observation)
+      return {
+        matches: isNot,
+        received: { value: last.received },
+        timeout,
+        timedOut: true,
+        log,
+      };
+    if ("error" in observation)
+      return {
+        matches: isNot,
+        received: { value: last.received },
+        errorMessage: `Error: ${asError(observation.error).message}`,
+        log,
+      };
+    return { matches: isNot, received: { value: last.received }, log };
   }
 
   private async expectOnce(
@@ -2328,87 +2448,94 @@ export class PageImpl {
     );
     const signal = options.signal;
 
-    await withAbortPrefix(
-      apiName,
-      () =>
-        new Promise<void>((resolve, reject) => {
-          let settled = false;
-          let urlMatched = url === undefined;
-          let timeoutId: number | undefined;
-          let pollId: number | undefined;
+    await withAbortPrefix(apiName, async () => {
+      let urlMatched = url === undefined;
+      const observation = await this.observeCurrentDocument(
+        () => {
+          if (!urlMatched)
+            urlMatched = urlMatches(this.window.location.href, url!);
+          return urlMatched && this.currentDocumentHasLoadState(waitUntil);
+        },
+        timeout,
+        signal
+      );
+      if ("completed" in observation) return;
+      if ("aborted" in observation) throw observation.aborted;
+      if ("error" in observation) throw observation.error;
+      throw new AdapterTimeoutError(
+        `${apiName}: Timeout ${timeout}ms exceeded.`
+      );
+    });
+  }
 
-          const cleanup = () => {
-            this.window.removeEventListener("hashchange", check);
-            this.window.removeEventListener("popstate", check);
-            this.window.removeEventListener("load", check);
-            this.document.removeEventListener("readystatechange", check);
-            signal?.removeEventListener("abort", onAbort);
-            if (timeoutId !== undefined) this.window.clearTimeout(timeoutId);
-            if (pollId !== undefined) this.window.clearTimeout(pollId);
-          };
+  /** Shared current-document event/poll/timeout observer for navigation APIs and Page assertions. */
+  private observeCurrentDocument(
+    check: () => boolean,
+    timeout: number,
+    signal?: AbortSignal
+  ): Promise<CurrentDocumentObservation> {
+    return new Promise((resolve) => {
+      let settled = false;
+      let timeoutId: number | undefined;
+      let pollId: number | undefined;
 
-          const settle = (error?: unknown) => {
-            if (settled) return;
-            settled = true;
-            cleanup();
-            if (error) reject(error);
-            else resolve();
-          };
+      const cleanup = () => {
+        this.window.removeEventListener("hashchange", checkDocument);
+        this.window.removeEventListener("popstate", checkDocument);
+        this.window.removeEventListener("load", checkDocument);
+        this.document.removeEventListener("readystatechange", checkDocument);
+        signal?.removeEventListener("abort", onAbort);
+        if (timeoutId !== undefined) this.window.clearTimeout(timeoutId);
+        if (pollId !== undefined) this.window.clearTimeout(pollId);
+      };
+      const settle = (result: CurrentDocumentObservation) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(result);
+      };
+      const runCheck = () => {
+        try {
+          if (check()) settle({ completed: true });
+          return true;
+        } catch (error) {
+          settle({ error });
+          return false;
+        }
+      };
+      const onAbort = () => {
+        runCheck();
+        if (!settled) settle({ aborted: actionAborted(signal!, true) });
+      };
+      const schedulePoll = () => {
+        if (!settled && pollId === undefined)
+          pollId = this.window.setTimeout(() => {
+            pollId = undefined;
+            checkDocument();
+          }, CURRENT_DOCUMENT_WAIT_POLL_DELAY);
+      };
+      const checkDocument = () => {
+        if (settled) return;
+        if (runCheck()) schedulePoll();
+      };
+      const onTimeout = () => {
+        runCheck();
+        if (!settled) settle({ timedOut: true });
+      };
 
-          const rejectIfStillWaiting = (error: Error) => {
-            check();
-            if (!settled) settle(error);
-          };
+      if (signal?.aborted) {
+        settle({ aborted: actionAborted(signal, false) });
+        return;
+      }
 
-          const onAbort = () =>
-            rejectIfStillWaiting(actionAborted(signal!, true));
-
-          const schedulePoll = () => {
-            if (!settled && pollId === undefined)
-              pollId = this.window.setTimeout(() => {
-                pollId = undefined;
-                check();
-              }, CURRENT_DOCUMENT_WAIT_POLL_DELAY);
-          };
-
-          const check = () => {
-            if (settled) return;
-            try {
-              if (!urlMatched)
-                urlMatched = urlMatches(this.window.location.href, url!);
-              if (urlMatched && this.currentDocumentHasLoadState(waitUntil)) {
-                settle();
-                return;
-              }
-              schedulePoll();
-            } catch (error) {
-              settle(error);
-            }
-          };
-
-          if (signal?.aborted) {
-            settle(actionAborted(signal, false));
-            return;
-          }
-
-          signal?.addEventListener("abort", onAbort, { once: true });
-          this.window.addEventListener("hashchange", check);
-          this.window.addEventListener("popstate", check);
-          this.window.addEventListener("load", check);
-          this.document.addEventListener("readystatechange", check);
-          if (timeout > 0)
-            timeoutId = this.window.setTimeout(
-              () =>
-                rejectIfStillWaiting(
-                  new AdapterTimeoutError(
-                    `${apiName}: Timeout ${timeout}ms exceeded.`
-                  )
-                ),
-              timeout
-            );
-          check();
-        })
-    );
+      signal?.addEventListener("abort", onAbort, { once: true });
+      this.window.addEventListener("hashchange", checkDocument);
+      this.window.addEventListener("popstate", checkDocument);
+      this.window.addEventListener("load", checkDocument);
+      this.document.addEventListener("readystatechange", checkDocument);
+      if (timeout > 0) timeoutId = this.window.setTimeout(onTimeout, timeout);
+      checkDocument();
+    });
   }
 
   private currentDocumentLoadState(name: string, state: string): string {
@@ -4645,13 +4772,48 @@ function assertCurrentDocumentWaitTimeout(
 }
 
 /** Pinned URL matching for the forms usable without a configured baseURL. */
-function urlMatches(url: string, match: URLMatch): boolean {
-  if (match === "") return true;
-  if (typeof match === "string")
-    return new RegExp(resolveGlobToRegexPattern(undefined, match)).test(url);
+function titleMatches(
+  title: string,
+  match: string | RegExp | URLMatch,
+  ignoreCase = false
+): boolean {
+  const normalizedTitle = title.replace(/\s+/g, " ").trim();
+  if (typeof match === "string") {
+    const expected = match.replace(/\s+/g, " ").trim();
+    return ignoreCase
+      ? normalizedTitle.toLocaleLowerCase() === expected.toLocaleLowerCase()
+      : normalizedTitle === expected;
+  }
   if (isRegExp(match)) {
     match.lastIndex = 0;
-    return match.test(url);
+    const flags = match.flags.replaceAll("g", "").replaceAll("y", "");
+    const expression = ignoreCase
+      ? new RegExp(match.source, flags.replace("i", "") + "i")
+      : match;
+    expression.lastIndex = 0;
+    return expression.test(normalizedTitle);
+  }
+  throw new Error(
+    "expected value must be a string or regular expression\n" +
+      `Expected has type: ${typeof match}\n` +
+      `Expected has value: ${String(match)}`
+  );
+}
+
+function urlMatches(url: string, match: URLMatch, ignoreCase = false): boolean {
+  if (match === "") return true;
+  if (typeof match === "string")
+    return new RegExp(
+      resolveGlobToRegexPattern(undefined, match),
+      ignoreCase ? "i" : undefined
+    ).test(url);
+  if (isRegExp(match)) {
+    const flags = match.flags.replaceAll("g", "").replaceAll("y", "");
+    const expression = ignoreCase
+      ? new RegExp(match.source, flags.replace("i", "") + "i")
+      : match;
+    expression.lastIndex = 0;
+    return expression.test(url);
   }
   if (isURLPattern(match)) return match.test(url);
   if (typeof match === "function") return match(new URL(url));
