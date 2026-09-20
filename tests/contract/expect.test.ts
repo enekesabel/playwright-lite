@@ -428,7 +428,8 @@ describe("public expect", () => {
 
   it("expect.extend should not override Page matchers through returned instances", async () => {
     let customCalls = 0;
-    const extended = browserExpect.extend({
+    const isolatedExpect = browserExpect.extend({});
+    const extended = isolatedExpect.extend({
       toHaveTitle() {
         customCalls++;
         return { pass: true, message: () => "custom matcher ran" };
