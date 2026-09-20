@@ -2325,7 +2325,13 @@ export class PageImpl {
             else resolve();
           };
 
-          const onAbort = () => settle(actionAborted(signal!, true));
+          const rejectIfStillWaiting = (error: Error) => {
+            check();
+            if (!settled) settle(error);
+          };
+
+          const onAbort = () =>
+            rejectIfStillWaiting(actionAborted(signal!, true));
 
           const schedulePoll = () => {
             if (!settled && pollId === undefined)
@@ -2365,7 +2371,7 @@ export class PageImpl {
           if (timeout > 0)
             timeoutId = this.window.setTimeout(
               () =>
-                settle(
+                rejectIfStillWaiting(
                   new AdapterTimeoutError(
                     `${apiName}: Timeout ${timeout}ms exceeded.`
                   )

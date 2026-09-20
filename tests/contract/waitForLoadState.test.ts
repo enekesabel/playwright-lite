@@ -72,6 +72,20 @@ describe("Page.waitForLoadState", () => {
     );
   });
 
+  it("lets a reached load state win the final timeout race", async () => {
+    await withReadyState("loading", async () => {
+      const waiting = createPage().waitForLoadState("domcontentloaded", {
+        timeout: 5,
+      });
+      Object.defineProperty(document, "readyState", {
+        configurable: true,
+        value: "interactive",
+      });
+
+      await expect(waiting).resolves.toBeUndefined();
+    });
+  });
+
   it("rejects network idle instead of approximating browser request tracking", async () => {
     await expect(createPage().waitForLoadState("networkidle")).rejects.toThrow(
       "Unsupported state value: networkidle"

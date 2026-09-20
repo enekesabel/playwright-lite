@@ -89,6 +89,20 @@ describe("Page.waitForURL", () => {
     );
   });
 
+  it("lets a matching URL win the final abort race", async () => {
+    originalURL = location.href;
+    const controller = new AbortController();
+    const waiting = createPage().waitForURL("**/*#final", {
+      signal: controller.signal,
+      timeout: 0,
+    });
+
+    history.pushState({}, "", "#final");
+    controller.abort(new Error("stop"));
+
+    await expect(waiting).resolves.toBeUndefined();
+  });
+
   it("rejects unsupported network idle waits", async () => {
     const page = createPage();
     await expect(
