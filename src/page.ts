@@ -12,6 +12,7 @@ import {
 } from "./injected";
 import { AdapterTimeoutError } from "./errors";
 import {
+  rejectUnsupportedOptions,
   validateDelay,
   validateForce,
   validateInteger,
@@ -1821,7 +1822,11 @@ export class PageImpl {
     options: Omit<CurrentDocumentWaitOptions, "waitUntil"> = {}
   ): Promise<void> {
     const waitUntil = this.currentDocumentLoadState("state", state);
-    assertCurrentDocumentWaitOptions("waitForLoadState", options, false);
+    rejectUnsupportedOptions("waitForLoadState", options, [
+      "signal",
+      "timeout",
+    ]);
+    assertCurrentDocumentWaitTimeout("waitForLoadState", options.timeout);
     await this.waitForCurrentDocument(
       "page.waitForLoadState",
       waitUntil,
@@ -1840,7 +1845,12 @@ export class PageImpl {
     url: URLMatch,
     options: CurrentDocumentWaitOptions = {}
   ): Promise<void> {
-    assertCurrentDocumentWaitOptions("waitForURL", options, true);
+    rejectUnsupportedOptions("waitForURL", options, [
+      "signal",
+      "timeout",
+      "waitUntil",
+    ]);
+    assertCurrentDocumentWaitTimeout("waitForURL", options.timeout);
     const waitUntil = this.currentDocumentLoadState(
       "waitUntil",
       options.waitUntil ?? "load"
@@ -2304,6 +2314,7 @@ export class PageImpl {
       () =>
         new Promise<void>((resolve, reject) => {
           let settled = false;
+          let urlMatched = url === undefined;
           let timeoutId: number | undefined;
           let pollId: number | undefined;
 
@@ -2344,11 +2355,9 @@ export class PageImpl {
           const check = () => {
             if (settled) return;
             try {
-              if (
-                (url === undefined ||
-                  urlMatches(this.window.location.href, url)) &&
-                this.currentDocumentHasLoadState(waitUntil)
-              ) {
+              if (!urlMatched)
+                urlMatched = urlMatches(this.window.location.href, url!);
+              if (urlMatched && this.currentDocumentHasLoadState(waitUntil)) {
                 settle();
                 return;
               }
@@ -4603,23 +4612,11 @@ function verifyLoadState(name: string, waitUntil: string): string {
   return waitUntil;
 }
 
-function assertCurrentDocumentWaitOptions(
+function assertCurrentDocumentWaitTimeout(
   method: "waitForLoadState" | "waitForURL",
-  options: CurrentDocumentWaitOptions,
-  allowsWaitUntil: boolean
+  timeout: number | undefined
 ) {
-  for (const [key, value] of Object.entries(options)) {
-    if (value === undefined) continue;
-    if (
-      key !== "signal" &&
-      key !== "timeout" &&
-      !(allowsWaitUntil && key === "waitUntil")
-    )
-      throw new Error(`Unsupported Playwright option: ${method}.${key}`);
-  }
-  validateSignal(method, options.signal);
-  if (options.timeout !== undefined)
-    validateTimeout(options.timeout, `${method} timeout`);
+  if (timeout !== undefined) validateTimeout(timeout, `${method} timeout`);
 }
 
 /** Pinned URL matching for the forms usable without a configured baseURL. */

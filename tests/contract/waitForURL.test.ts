@@ -103,6 +103,33 @@ describe("Page.waitForURL", () => {
     await expect(waiting).resolves.toBeUndefined();
   });
 
+  it("latches a URL predicate match before waiting for lifecycle", async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(document, "readyState");
+    Object.defineProperty(document, "readyState", {
+      configurable: true,
+      value: "loading",
+    });
+    let calls = 0;
+
+    try {
+      const waiting = createPage().waitForURL(() => ++calls === 1, {
+        waitUntil: "domcontentloaded",
+        timeout: 100,
+      });
+      Object.defineProperty(document, "readyState", {
+        configurable: true,
+        value: "interactive",
+      });
+      document.dispatchEvent(new Event("readystatechange"));
+
+      await expect(waiting).resolves.toBeUndefined();
+      expect(calls).toBe(1);
+    } finally {
+      if (descriptor) Object.defineProperty(document, "readyState", descriptor);
+      else delete (document as { readyState?: DocumentReadyState }).readyState;
+    }
+  });
+
   it("rejects unsupported network idle waits", async () => {
     const page = createPage();
     await expect(
