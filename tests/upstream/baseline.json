@@ -551,6 +551,24 @@
       "evidence": "'xpath=/html/body/section' resolves through the XPath engine and Page.$eval returns the element's id."
     },
     {
+      "id": "expect-misc.spec.ts > toHaveTitle > pass",
+      "method": "Page._expect",
+      "matcher": "Page.toHaveTitle",
+      "evidence": "After setting a title with irregular whitespace, the public Page matcher accepts the normalized expected title \"Hello  world\" through the correlated Page.toHaveTitle -> Page._expect path."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveURL > pass",
+      "method": "Page._expect",
+      "matcher": "Page.toHaveURL",
+      "evidence": "After the fixture's native goto establishes the data: document, the public Page matcher verifies that exact current-document URL through the correlated Page.toHaveURL -> Page._expect path; native goto is setup only."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with text > pass",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "The public Locator matcher verifies normalized whitespace, zero-width whitespace, ignoreCase true/false, negation, and soft-hyphen normalization through the correlated Locator.toHaveText -> Locator._expect path."
+    },
+    {
       "id": "jshandle-as-element.spec.ts > should return ElementHandle for TextNodes",
       "method": "JSHandle.asElement",
       "evidence": "A handle to a Text node is an element handle, and passing it back into Page.evaluate reports nodeType TEXT_NODE, so asElement covers every Node and not only Elements. Native setContent only establishes the document; the asserted calls run in the adapter."
@@ -773,7 +791,8 @@
     {
       "id": "locator-is-visible.spec.ts > isVisible and isHidden should work with details",
       "method": "Locator._expect",
-      "evidence": "Assertions verify visible and hidden expectation results with selector details."
+      "evidence": "Assertions verify visible and hidden expectation results with selector details.",
+      "matcher": "Locator.toBeHidden"
     },
     {
       "id": "locator-is-visible.spec.ts > isVisible inside a button",
@@ -788,12 +807,14 @@
     {
       "id": "locator-is-visible.spec.ts > isVisible should be true for element outside view",
       "method": "Locator._expect",
-      "evidence": "Assertions verify an offscreen element is visible and not hidden through locator expectations."
+      "evidence": "Assertions verify an offscreen element is visible and not hidden through locator expectations.",
+      "matcher": "Locator.toBeVisible"
     },
     {
       "id": "locator-is-visible.spec.ts > isVisible should be true for opacity:0",
       "method": "Locator._expect",
-      "evidence": "Assertions verify opacity-zero elements are visible and not hidden through locator expectations."
+      "evidence": "Assertions verify opacity-zero elements are visible and not hidden through locator expectations.",
+      "matcher": "Locator.toBeVisible"
     },
     {
       "id": "locator-is-visible.spec.ts > isVisible with invalid selector should throw",
@@ -943,7 +964,8 @@
     {
       "id": "locator-query.spec.ts > should support has:locator",
       "method": "Locator._expect",
-      "evidence": "Locator._expect verifies the expected counts for has locators, while exact outerHTML assertions identify the world, hello, and partial-text matches."
+      "evidence": "Locator._expect verifies the expected counts for has locators, while exact outerHTML assertions identify the world, hello, and partial-text matches.",
+      "matcher": "Locator.toHaveCount"
     },
     {
       "id": "locator-query.spec.ts > should support locator.and",
@@ -1133,7 +1155,8 @@
     {
       "id": "page-aria-snapshot-ai.spec.ts > should not distill snapshots outside of ai mode",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should not distill snapshots outside of ai mode through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should not distill snapshots outside of ai mode through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot-ai.spec.ts > should not generate refs for elements with pointer-events:none",
@@ -1213,72 +1236,86 @@
     {
       "id": "page-aria-snapshot.spec.ts > check aria-hidden text",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify check aria-hidden text through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify check aria-hidden text through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > match values both against regex and string",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify match values both against regex and string through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify match values both against regex and string through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should allow text nodes",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should allow text nodes through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should allow text nodes through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should be ok with circular ownership",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should be ok with circular ownership through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should be ok with circular ownership through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should concatenate div text with spaces",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should concatenate div text with spaces through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should concatenate div text with spaces through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should concatenate span text",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should concatenate span text through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should concatenate span text through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should concatenate span text 2",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should concatenate span text 2 through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should concatenate span text 2 through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should escape special yaml characters",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should escape special yaml characters through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should escape special yaml characters through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should escape special yaml values",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should escape special yaml values through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should escape special yaml values through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should escape yaml text in text nodes",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should escape yaml text in text nodes through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should escape yaml text in text nodes through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should handle long strings",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should handle long strings through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should handle long strings through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should ignore presentation and none roles",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should ignore presentation and none roles through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should ignore presentation and none roles through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should include new line for block pseudo",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should include new line for block pseudo through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should include new line for block pseudo through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should include pseudo in text",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should include pseudo in text through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should include pseudo in text through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should limit depth",
@@ -1288,7 +1325,8 @@
     {
       "id": "page-aria-snapshot.spec.ts > should normalize whitespace",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should normalize whitespace through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should normalize whitespace through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should not include box when option is omitted",
@@ -1298,12 +1336,14 @@
     {
       "id": "page-aria-snapshot.spec.ts > should not include hidden pseudo in text",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should not include hidden pseudo in text through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should not include hidden pseudo in text through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should not report textarea textContent",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should not report textarea textContent through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should not report textarea textContent through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should not show unhidden children of aria-hidden elements",
@@ -1318,47 +1358,56 @@
     {
       "id": "page-aria-snapshot.spec.ts > should not use on as checkbox value",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should not use on as checkbox value through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should not use on as checkbox value through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should respect aria-owns",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should respect aria-owns through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should respect aria-owns through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should snapshot",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should snapshot through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should snapshot complex",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should snapshot complex through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot complex through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should snapshot details visibility",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should snapshot details visibility through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot details visibility through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should snapshot inner text",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should snapshot inner text through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot inner text through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should snapshot integration",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should snapshot integration through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot integration through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should snapshot list",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should snapshot list through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot list through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should snapshot list with accessible name",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should snapshot list with accessible name through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should snapshot list with accessible name through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should snapshot placeholder when different from the name",
@@ -1378,17 +1427,20 @@
     {
       "id": "page-aria-snapshot.spec.ts > should support multiline text",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should support multiline text through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should support multiline text through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should treat input value as text in templates, but not for checkbox/radio/file",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should treat input value as text in templates, but not for checkbox/radio/file through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should treat input value as text in templates, but not for checkbox/radio/file through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-aria-snapshot.spec.ts > should work with slots",
       "method": "Locator._expect",
-      "evidence": "The unchanged upstream ARIA assertions verify should work with slots through browser-side Locator._expect execution."
+      "evidence": "The unchanged upstream ARIA assertions verify should work with slots through browser-side Locator._expect execution.",
+      "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
       "id": "page-autowaiting-basic.spec.ts > should not stall on JS navigation link",
@@ -2598,7 +2650,8 @@
     {
       "id": "page-strict.spec.ts > should escape tag names",
       "method": "Locator._expect",
-      "evidence": "The expectation resolves strictly through the pinned InjectedScript, so the rejection is its strict mode violation listing both matches with generated locators, including the escaped q\\:template tag name."
+      "evidence": "The expectation resolves strictly through the pinned InjectedScript, so the rejection is its strict mode violation listing both matches with generated locators, including the escaped q\\:template tag name.",
+      "matcher": "Locator.toBeVisible"
     },
     {
       "id": "page-strict.spec.ts > should fail page.$ in strict mode",
@@ -3348,7 +3401,8 @@
     {
       "id": "selectors-misc.spec.ts > should work with >> visible=false",
       "method": "Locator._expect",
-      "evidence": "Assertions verify hidden matching before and after an adapter-routed locator callback mutation."
+      "evidence": "Assertions verify hidden matching before and after an adapter-routed locator callback mutation.",
+      "matcher": "Locator.toHaveCount"
     },
     {
       "id": "selectors-misc.spec.ts > should work with internal:and=",
@@ -3418,7 +3472,8 @@
     {
       "id": "selectors-role.spec.ts > should inherit disabled from the ancestor",
       "method": "Locator._expect",
-      "evidence": "A button inside a span with aria-disabled=\"true\" is reported disabled, while an h1 in the same position is not, so the disabled expectation inherits from ancestors only for roles that can be disabled."
+      "evidence": "A button inside a span with aria-disabled=\"true\" is reported disabled, while an h1 in the same position is not, so the disabled expectation inherits from ancestors only for roles that can be disabled.",
+      "matcher": "Locator.toBeDisabled"
     },
     {
       "id": "selectors-role.spec.ts > should not match scope by default",
@@ -3438,7 +3493,8 @@
     {
       "id": "selectors-role.spec.ts > should support disabled fieldset",
       "method": "Locator._expect",
-      "evidence": "Inside a disabled fieldset, buttons in the first <legend> - including one nested in a div - are reported enabled, while buttons in a second legend, in a nested fieldset, or outside any legend are reported disabled."
+      "evidence": "Soft public assertions verify the second-legend and deep nested buttons are disabled inside disabled fieldsets; correlated Locator.toBeDisabled -> Locator._expect evidence proves the shipped wrapper path.",
+      "matcher": "Locator.toBeDisabled"
     },
     {
       "id": "selectors-role.spec.ts > should support expanded",
@@ -3558,7 +3614,8 @@
     {
       "id": "selectors-text.spec.ts > should work with leading and trailing spaces",
       "method": "Locator._expect",
-      "evidence": "Assertions verify text selectors with leading and trailing spaces remain visible."
+      "evidence": "Assertions verify text selectors with leading and trailing spaces remain visible.",
+      "matcher": "Locator.toBeVisible"
     },
     {
       "id": "selectors-text.spec.ts > should work with paired quotes in the middle of selector",
