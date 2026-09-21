@@ -312,7 +312,8 @@ function adapterMatchers(
   configuration: ExpectConfiguration | undefined,
   genericExpect: typeof baseExpect,
   extendedMatcherNames: ReadonlySet<string>,
-  isNot = false
+  isNot = false,
+  isSoft = configuration?.soft === true
 ): unknown {
   return new Proxy(
     {},
@@ -325,12 +326,14 @@ function adapterMatchers(
             configuration,
             genericExpect,
             extendedMatcherNames,
-            !isNot
+            !isNot,
+            isSoft
           );
         if (typeof prop !== "string") return undefined;
         if (extendedMatcherNames.has(prop))
           return (...args: unknown[]) => {
-            const matchers = genericExpect(
+            const expectation = isSoft ? genericExpect.soft : genericExpect;
+            const matchers = expectation(
               actual,
               messageOrOptions as never
             ) as unknown as Record<string, (...args: unknown[]) => unknown> & {
@@ -338,14 +341,21 @@ function adapterMatchers(
             };
             return (isNot ? matchers.not : matchers)[prop](...args);
           };
-        return (...args: unknown[]) =>
-          runPublicExpectMatcher(actual, {
+        return (...args: unknown[]) => {
+          const publicConfiguration = configuration
+            ? { ...configuration, soft: false }
+            : undefined;
+          const assertion = runPublicExpectMatcher(actual, {
             matcher: prop,
             args,
             isNot,
             messageOrOptions,
-            configuration,
+            configuration: publicConfiguration,
           });
+          return isSoft
+            ? genericExpect.soft(assertion).resolves.toBeUndefined()
+            : assertion;
+        };
       },
     }
   );
@@ -393,7 +403,16 @@ function createCorpusExpect(
         return (
           actual: unknown,
           messageOrOptions?: string | { message?: string }
-        ) => genericExpect.soft(actual, messageOrOptions as never);
+        ) =>
+          isAdapterExpectationTarget(actual)
+            ? adapterMatchers(
+                actual,
+                messageOrOptions,
+                { ...configuration, soft: true },
+                genericExpect,
+                extendedMatcherNames
+              )
+            : genericExpect.soft(actual, messageOrOptions as never);
       return Reflect.get(genericExpect, prop);
     },
   });
