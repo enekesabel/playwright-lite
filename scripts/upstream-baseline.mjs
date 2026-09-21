@@ -199,10 +199,24 @@ function isPublicExpectMethod(method) {
   return method === "Locator._expect" || method === "Page._expect";
 }
 
+function publicExpectOwner(method) {
+  if (method === "Locator._expect") return "Locator";
+  if (method === "Page._expect") return "Page";
+  return undefined;
+}
+
+function matcherMatchesMethodOwner(method, matcher) {
+  const owner = publicExpectOwner(method);
+  return !owner || matcher?.startsWith(`${owner}.`) === true;
+}
+
 function certifiesBrowserMethod(entry, method, matcher) {
+  const owner = publicExpectOwner(method);
   const matcherEvidence = matcher
-    ? entry.execution.expect?.includes(matcher)
-    : !isPublicExpectMethod(method) || !!entry.execution.expect?.length;
+    ? matcherMatchesMethodOwner(method, matcher) &&
+      entry.execution.expect?.includes(matcher)
+    : !owner ||
+      entry.execution.expect?.some((name) => name.startsWith(`${owner}.`));
   return (
     !isOutOfScopeMethod(method) &&
     entry.execution.entered.includes(method) &&
@@ -232,6 +246,10 @@ export function reviewedPromotion(entries, id, method, evidence, matcher) {
   if (isPublicExpectMethod(method) && !matcher)
     throw new Error(
       "Public expect promotions require an explicit matcher name."
+    );
+  if (matcher && !matcherMatchesMethodOwner(method, matcher))
+    throw new Error(
+      "Public expect matcher owner must match the promoted adapter owner."
     );
   if (matcher && !entry.execution.expect?.includes(matcher))
     throw new Error(
