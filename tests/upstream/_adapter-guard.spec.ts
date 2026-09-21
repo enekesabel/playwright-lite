@@ -63,22 +63,41 @@ test("corpus expect enters playwright-lite public matchers for adapter receivers
   );
 });
 
-test("soft adapter assertions do not fall back to native Playwright expect", async ({
+test("corpus expect preserves Playwright Test soft assertions", async ({
   page,
   adapterPage,
 }) => {
   await page.setContent("<h1>hello</h1>");
 
-  await expect(
-    Promise.resolve().then(() =>
-      corpusExpect.soft(adapterPage.locator("h1")).toHaveText("hello")
-    )
-  ).rejects.toThrow(
-    "Soft assertions require Playwright Test's failure-reporting context"
-  );
+  await corpusExpect.soft(adapterPage.locator("h1")).toHaveText("hello");
 
   const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
-  expect(execution.expect).toContain("Locator.toHaveText");
+  expect(execution.entered).toContain("Locator._expect");
+  expect(execution.expect).not.toContain("Locator.toHaveText");
+});
+
+test("extended corpus matchers stay on the generic expectation surface", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<h1>hello</h1>");
+  let calls = 0;
+  const extended = corpusExpect.extend({
+    toBeAdapterReceiver(received: unknown) {
+      calls++;
+      return {
+        pass: (received as { __pwLiteAdapter?: boolean }).__pwLiteAdapter === true,
+        message: () => "expected adapter receiver",
+      };
+    },
+  });
+
+  extended(adapterPage.locator("h1")).toBeAdapterReceiver();
+  extended(adapterPage).toBeAdapterReceiver();
+  expect(calls).toBe(2);
+
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  expect(execution.expect).not.toContain("Locator.toBeAdapterReceiver");
 });
 
 test("public matcher sabotage breaks the promoted expect path", async ({ page }) => {
