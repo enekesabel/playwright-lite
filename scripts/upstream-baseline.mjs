@@ -211,16 +211,13 @@ function matcherMatchesMethodOwner(method, matcher) {
 }
 
 function hasPublicExpectEvidence(entry, method, matcher) {
-  const owner = publicExpectOwner(method);
-  if (!owner) return true;
-  if (matcher)
-    return (
-      matcherMatchesMethodOwner(method, matcher) &&
-      entry.execution.expect?.includes(matcher)
-    );
+  if (!isPublicExpectMethod(method)) return true;
+  if (!matcher) return false;
   return (
-    entry.execution.expect?.some((name) => name.startsWith(`${owner}.`)) ===
-    true
+    matcherMatchesMethodOwner(method, matcher) &&
+    entry.execution.expectPaths?.some(
+      (path) => path.matcher === matcher && path.method === method
+    ) === true
   );
 }
 
@@ -259,7 +256,18 @@ export function reviewedPromotion(entries, id, method, evidence, matcher) {
     throw new Error(
       "Public expect matcher owner must match the promoted adapter owner."
     );
-  if (matcher && !entry.execution.expect?.includes(matcher))
+  if (
+    isPublicExpectMethod(method) &&
+    !hasPublicExpectEvidence(entry, method, matcher)
+  )
+    throw new Error(
+      "Promotion requires matching correlated public expect path evidence."
+    );
+  if (
+    matcher &&
+    !isPublicExpectMethod(method) &&
+    !entry.execution.expect?.includes(matcher)
+  )
     throw new Error(
       "Promotion requires matching public expect matcher execution evidence."
     );
