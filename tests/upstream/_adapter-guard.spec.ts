@@ -61,6 +61,12 @@ test("corpus expect enters playwright-lite public matchers for adapter receivers
   expect(execution.entered).toEqual(
     expect.arrayContaining(["Locator._expect", "Page._expect"])
   );
+  expect(execution.expectPaths).toEqual(
+    expect.arrayContaining([
+      { matcher: "Locator.toHaveText", method: "Locator._expect" },
+      { matcher: "Page.toHaveTitle", method: "Page._expect" },
+    ])
+  );
 });
 
 test("corpus expect preserves Playwright Test soft assertions", async ({
@@ -82,6 +88,42 @@ test("corpus expect preserves Playwright Test soft assertions", async ({
       (name: string) => name === "Locator.toHaveText"
     )
   ).toHaveLength(2);
+});
+
+test("failing soft adapter assertions keep the public matcher error", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<title>hello</title><h1>hello</h1>");
+
+  await corpusExpect.soft(adapterPage.locator("h1")).toHaveText("goodbye");
+  await corpusExpect.soft(adapterPage).toHaveTitle("goodbye");
+
+  const messages = test.info().errors.map((error) => error.message ?? "");
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  const preserved =
+    messages.some((message) =>
+      message.includes("expect(locator).toHaveText(expected) failed")
+    ) &&
+    messages.some((message) =>
+      message.includes("expect(page).toHaveTitle(expected) failed")
+    ) &&
+    messages.every((message) => !message.includes("resolves")) &&
+    execution.expectPaths.some(
+      (path: { matcher: string; method: string }) =>
+        path.matcher === "Locator.toHaveText" &&
+        path.method === "Locator._expect"
+    ) &&
+    execution.expectPaths.some(
+      (path: { matcher: string; method: string }) =>
+        path.matcher === "Page.toHaveTitle" && path.method === "Page._expect"
+    );
+
+  if (!preserved)
+    throw new Error(
+      `Soft public-expect failure was not preserved: ${JSON.stringify(messages)}`
+    );
+  test.fail();
 });
 
 test("extended corpus matchers stay on the generic expectation surface", async ({
