@@ -20,6 +20,8 @@ import { fileURLToPath } from "node:url";
 import {
   createAdapterPage,
   installTestIdAttributeSynchronization,
+  isAdapterExpectationTarget,
+  runPublicExpectMatcher,
 } from "./adapter-bridge";
 import { specNames } from "./corpus";
 import { stableTestId } from "./stableTestId";
@@ -288,27 +290,90 @@ export const test = base.extend<
 
 // ── Expect ──────────────────────────────────────────────────────────
 
-export const expect = baseExpect.extend({
-  toContainYaml(received: string, expected: string) {
-    const trimmed = expected.split("\n").filter((a) => !!a.trim());
-    const maxPrefixLength = Math.min(
-      ...trimmed.map((line) => (line.match(/^\s*/) ?? [""])[0].length)
-    );
-    const trimmedExpected = trimmed
-      .map((line) => line.substring(maxPrefixLength))
-      .join("\n");
-    try {
-      if (this.isNot) expect(received).not.toContain(trimmedExpected);
-      else expect(received).toContain(trimmedExpected);
-      return { pass: !this.isNot, message: () => "" };
-    } catch (e: unknown) {
-      return {
-        pass: this.isNot,
-        message: () => (e instanceof Error ? e.message : String(e)),
-      };
-    }
-  },
-});
+type ExpectConfiguration = {
+  message?: string;
+  timeout?: number;
+  soft?: boolean;
+};
+
+function adapterMatchers(
+  actual: unknown,
+  messageOrOptions: string | { message?: string } | undefined,
+  configuration: ExpectConfiguration | undefined,
+  isNot = false
+): unknown {
+  const target: Record<string, unknown> = {};
+  Object.defineProperty(target, "not", {
+    enumerable: true,
+    value: adapterMatchers(actual, messageOrOptions, configuration, !isNot),
+  });
+  return new Proxy(target, {
+    get(current, prop, receiver) {
+      if (Reflect.has(current, prop)) return Reflect.get(current, prop, receiver);
+      if (typeof prop !== "string") return undefined;
+      return (...args: unknown[]) =>
+        runPublicExpectMatcher(actual, {
+          matcher: prop,
+          args,
+          isNot,
+          messageOrOptions,
+          configuration,
+        });
+    },
+  });
+}
+
+function createCorpusExpect(
+  genericExpect: typeof baseExpect,
+  configuration?: ExpectConfiguration
+): typeof baseExpect {
+  const callable = ((
+    actual: unknown,
+    messageOrOptions?: string | { message?: string }
+  ) =>
+    isAdapterExpectationTarget(actual)
+      ? adapterMatchers(actual, messageOrOptions, configuration)
+      : genericExpect(actual, messageOrOptions as never)) as typeof baseExpect;
+
+  return new Proxy(callable, {
+    get(_target, prop) {
+      if (prop === "configure")
+        return (next: ExpectConfiguration) =>
+          createCorpusExpect(genericExpect.configure(next), {
+            ...configuration,
+            ...next,
+          });
+      if (prop === "extend")
+        return (matchers: Parameters<typeof baseExpect.extend>[0]) =>
+          createCorpusExpect(genericExpect.extend(matchers), configuration);
+      return Reflect.get(genericExpect, prop);
+    },
+  });
+}
+
+export const expect = createCorpusExpect(
+  baseExpect.extend({
+    toContainYaml(received: string, expected: string) {
+      const trimmed = expected.split("\n").filter((a) => !!a.trim());
+      const maxPrefixLength = Math.min(
+        ...trimmed.map((line) => (line.match(/^\s*/) ?? [""])[0].length)
+      );
+      const trimmedExpected = trimmed
+        .map((line) => line.substring(maxPrefixLength))
+        .join("\n");
+      try {
+        if (this.isNot) baseExpect(received).not.toContain(trimmedExpected);
+        else baseExpect(received).toContain(trimmedExpected);
+        return { pass: !this.isNot, message: () => "" };
+      } catch (e: unknown) {
+        return {
+          pass: this.isNot,
+          message: () => (e instanceof Error ? e.message : String(e)),
+        };
+      }
+    },
+  })
+);
 
 // ── Utilities ───────────────────────────────────────────────────────
 
