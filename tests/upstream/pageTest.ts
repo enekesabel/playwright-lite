@@ -317,12 +317,7 @@ function adapterMatchers(
     {
       get(_target, prop) {
         if (prop === "not")
-          return adapterMatchers(
-            actual,
-            messageOrOptions,
-            configuration,
-            !isNot
-          );
+          return adapterMatchers(actual, messageOrOptions, configuration, !isNot);
         if (typeof prop !== "string") return undefined;
         return (...args: unknown[]) =>
           runPublicExpectMatcher(actual, {
