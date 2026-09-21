@@ -351,7 +351,9 @@ describe("reviewed promotion", () => {
       baseline,
       ["expect-to-have-text.spec.ts"]
     );
-    assert.deepEqual(independentEvidence.regressions, [baseline.reviewed[0].id]);
+    assert.deepEqual(independentEvidence.regressions, [
+      baseline.reviewed[0].id,
+    ]);
   });
 
   it("requires public matcher evidence when promoting an expect assertion", () => {
