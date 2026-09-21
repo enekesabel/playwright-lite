@@ -723,6 +723,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
             const current = (window as any).__pwLiteEvidence;
             current.entered.unshift(...prior.entered);
             current.expect.unshift(...(prior.expect ?? []));
+            current.expectPaths.unshift(...(prior.expectPaths ?? []));
             current.failures.unshift(...prior.failures);
           }, previous);
           state.url = await evaluateAdapter<string>(
@@ -1028,9 +1029,17 @@ export async function runPublicExpectMatcher(
               host.__pwLiteDecodeBridgeValue(messageOrOptions)
             );
             try {
-              await (isNot ? matchers.not : matchers)[matcher](
-                ...host.__pwLiteDecodeBridgeValue(args)
-              );
+              const previousMatcher = host.__pwLiteActiveExpectMatcher;
+              let assertion;
+              host.__pwLiteActiveExpectMatcher = recordedName;
+              try {
+                assertion = (isNot ? matchers.not : matchers)[matcher](
+                  ...host.__pwLiteDecodeBridgeValue(args)
+                );
+              } finally {
+                host.__pwLiteActiveExpectMatcher = previousMatcher;
+              }
+              await assertion;
               return { ok: true } as const;
             } catch (error) {
               if (!(error instanceof Error)) throw error;
@@ -1693,7 +1702,12 @@ function initializeAdapterBridge(
   sabotagedMatcher: string | null
 ) {
   const host = window as any;
-  host.__pwLiteEvidence = { entered: [], expect: [], failures: [] };
+  host.__pwLiteEvidence = {
+    entered: [],
+    expect: [],
+    expectPaths: [],
+    failures: [],
+  };
   host.__pwLiteSabotagedMatcher = sabotagedMatcher;
   host.__pwLiteAbortSignals = new Map<string, AbortController>();
   host.__pwLitePendingAborts = new Map<string, unknown>();
@@ -1875,6 +1889,15 @@ function initializeAdapterBridge(
       object[name] = function (...args: unknown[]) {
         const recordedName = `${kind}.${publicName}`;
         host.__pwLiteEvidence.entered.push(recordedName);
+        if (
+          (recordedName === "Locator._expect" ||
+            recordedName === "Page._expect") &&
+          host.__pwLiteActiveExpectMatcher
+        )
+          host.__pwLiteEvidence.expectPaths.push({
+            matcher: host.__pwLiteActiveExpectMatcher,
+            method: recordedName,
+          });
         // Every adapter call the evidence records routes through here, so this
         // is the one place a promotion rerun can withhold a method from the
         // test that claims to prove it.
