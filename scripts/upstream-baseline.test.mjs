@@ -369,6 +369,49 @@ describe("reviewed promotion", () => {
     );
   });
 
+  it("rejects cross-owner public matcher evidence", () => {
+    const id = "expect-misc.spec.ts > owner alignment";
+    const entry = {
+      id,
+      file: "expect-misc.spec.ts",
+      status: "passed",
+      execution: {
+        entered: ["Locator._expect", "Page._expect"],
+        expect: ["Page.toHaveTitle", "Locator.toHaveText"],
+        failures: [],
+      },
+    };
+
+    assert.deepEqual(
+      compareBaseline(
+        [entry],
+        {
+          reviewed: [
+            {
+              id,
+              method: "Locator._expect",
+              matcher: "Page.toHaveTitle",
+              evidence: "wrong owner",
+            },
+          ],
+        },
+        ["expect-misc.spec.ts"]
+      ).regressions,
+      [id]
+    );
+    assert.throws(
+      () =>
+        reviewedPromotion(
+          [entry],
+          id,
+          "Locator._expect",
+          "wrong owner",
+          "Page.toHaveTitle"
+        ),
+      /owner must match/
+    );
+  });
+
   it("records the reviewed assertion", () => {
     assert.deepEqual(
       reviewedPromotion(
