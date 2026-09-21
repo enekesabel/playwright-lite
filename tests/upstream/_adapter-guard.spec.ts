@@ -70,10 +70,18 @@ test("corpus expect preserves Playwright Test soft assertions", async ({
   await page.setContent("<h1>hello</h1>");
 
   await corpusExpect.soft(adapterPage.locator("h1")).toHaveText("hello");
+  await corpusExpect
+    .configure({ soft: true, timeout: 100 })
+    (adapterPage.locator("h1"))
+    .toHaveText("hello");
 
   const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).toContain("Locator._expect");
-  expect(execution.expect).not.toContain("Locator.toHaveText");
+  expect(
+    execution.expect.filter(
+      (name: string) => name === "Locator.toHaveText"
+    )
+  ).toHaveLength(2);
 });
 
 test("extended corpus matchers stay on the generic expectation surface", async ({
@@ -93,8 +101,9 @@ test("extended corpus matchers stay on the generic expectation surface", async (
   });
 
   extended(adapterPage.locator("h1")).toBeAdapterReceiver();
-  extended(adapterPage).toBeAdapterReceiver();
-  expect(calls).toBe(2);
+  extended.configure({ timeout: 17 })(adapterPage).toBeAdapterReceiver();
+  extended.soft(adapterPage.locator("h1")).toBeAdapterReceiver();
+  expect(calls).toBe(3);
 
   const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.expect).not.toContain("Locator.toBeAdapterReceiver");
