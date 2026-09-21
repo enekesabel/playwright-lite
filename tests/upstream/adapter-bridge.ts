@@ -56,6 +56,13 @@ type AdapterPageState = {
   url: string;
   nativeNavigationForSetup?: boolean;
 };
+
+type AdapterPageReference = {
+  realPage: Page;
+  state: AdapterPageState;
+};
+
+const adapterPageReferences = new WeakMap<object, AdapterPageReference>();
 type AdapterTimeoutDefaults = {
   actionTimeout?: number;
   navigationTimeout?: number;
@@ -66,6 +73,9 @@ type AdapterTimeoutDefaults = {
   // in-browser dispatch throws instead of executing, so a promotion rerun can
   // show that the test actually depends on it.
   sabotagedMethod?: string;
+  // Fixture-only public-expect matcher sabotage used by trust guards and
+  // reviewed expect promotion reruns.
+  sabotagedMatcher?: string;
 };
 
 const nativeLocatorReferences = new WeakMap<Page, Map<string, Locator>>();
@@ -158,6 +168,7 @@ function nativeLocatorForChain(realPage: Page, chain: ChainStep[]): Locator {
 // serialization format in production; this only gets proxy chains across the
 // fixture's realPage.evaluate boundary.
 const locatorProxyChains = new WeakMap<object, ChainStep[]>();
+const locatorChainRealPages = new WeakMap<object, Page>();
 type ElementHandleProxyReference = { realPage: Page; id: string };
 const elementHandleProxyReferences = new WeakMap<
   object,
@@ -528,7 +539,7 @@ function buildAdapterBundle(): string {
   cachedBundle = [
     "window.__pwLiteAdapter = (function() {",
     js,
-    "return { createPage: createPage };",
+    "return { createPage: createPage, expect: expect };",
     "})();",
   ].join("\n");
 
@@ -576,7 +587,7 @@ export async function createAdapterPage(
       : "") +
     `\n(${initializeAdapterBridge.toString()})(${JSON.stringify(
       timeoutDefaults.sabotagedMethod ?? null
-    )});`;
+    )}, ${JSON.stringify(timeoutDefaults.sabotagedMatcher ?? null)});`;
 
   // Single init script: on every navigation, inject the adapter bundle
   // and create the adapter page from the current window.
@@ -666,7 +677,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
         return decodeBridgeResult(result.value, realPage, state);
       });
 
-  return new Proxy(realPage, {
+  const proxy = new Proxy(realPage, {
     get(target, prop, receiver) {
       if (typeof prop === "symbol") return Reflect.get(target, prop, receiver);
       if (prop === "__pwLiteAdapter") return true;
@@ -927,6 +938,123 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       return adapterMember(prop);
     },
   }) as Page;
+  adapterPageReferences.set(proxy as unknown as object, { realPage, state });
+  return proxy;
+}
+
+export function isAdapterExpectationTarget(value: unknown): boolean {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    (adapterPageReferences.has(value) || locatorProxyChains.has(value))
+  );
+}
+
+type PublicExpectInvocation = {
+  matcher: string;
+  args: unknown[];
+  isNot?: boolean;
+  messageOrOptions?: string | { message?: string };
+  configuration?: { message?: string; timeout?: number; soft?: boolean };
+};
+
+type SerializedExpectationError = {
+  name: string;
+  message: string;
+  matcherResult?: unknown;
+};
+
+export async function runPublicExpectMatcher(
+  actual: unknown,
+  invocation: PublicExpectInvocation
+): Promise<void> {
+  if (!actual || typeof actual !== "object")
+    throw new TypeError("Public expect bridge requires an adapter Page or Locator.");
+
+  const pageReference = adapterPageReferences.get(actual);
+  const locatorChain = locatorProxyChains.get(actual);
+  const realPage = pageReference?.realPage ?? locatorChainRealPages.get(actual);
+  if (!realPage)
+    throw new TypeError("Public expect bridge received an unknown adapter receiver.");
+
+  const target = pageReference
+    ? { kind: "Page" as const }
+    : {
+        kind: "Locator" as const,
+        chain: encodeBridgeValueForPage(locatorChain, realPage),
+      };
+
+  return withAbortSignalBridge(realPage, invocation.args, async (encodedArgs) => {
+    const result = await evaluateAdapter<
+      | { ok: true }
+      | { ok: false; error: SerializedExpectationError }
+    >(
+      realPage,
+      ({ target: receiver, matcher, args, isNot, messageOrOptions, configuration }) => {
+        const host = window as any;
+        return host.__pwLiteInvokeAdapter(async () => {
+          const actual =
+            receiver.kind === "Page"
+              ? host.__pwLiteAdapterPage
+              : host.__pwLiteReplayAdapterChain(
+                  host.__pwLiteDecodeBridgeValue(receiver.chain)
+                );
+          const recordedName = `${receiver.kind}.${matcher}`;
+          host.__pwLiteEvidence.expect.push(recordedName);
+          if (recordedName === host.__pwLiteSabotagedMatcher)
+            throw new Error(
+              `__pwLiteSabotagedMatcher: ${recordedName} was withheld for promotion review.`
+            );
+
+          const configured = configuration
+            ? host.__pwLiteAdapter.expect.configure(configuration)
+            : host.__pwLiteAdapter.expect;
+          const matchers = configured(
+            actual,
+            host.__pwLiteDecodeBridgeValue(messageOrOptions)
+          );
+          try {
+            await (isNot ? matchers.not : matchers)[matcher](
+              ...host.__pwLiteDecodeBridgeValue(args)
+            );
+            return { ok: true } as const;
+          } catch (error) {
+            if (!(error instanceof Error)) throw error;
+            return {
+              ok: false,
+              error: {
+                name: error.name,
+                message: error.message,
+                matcherResult: (error as any).matcherResult,
+              },
+            } as const;
+          }
+        }, args);
+      },
+      {
+        target,
+        matcher: invocation.matcher,
+        args: encodedArgs,
+        isNot: invocation.isNot,
+        messageOrOptions: encodeBridgeValueForPage(
+          invocation.messageOrOptions,
+          realPage
+        ),
+        configuration: invocation.configuration,
+      }
+    );
+
+    if (!result.ok) {
+      const error = new Error(result.error.message);
+      error.name = result.error.name;
+      if (result.error.matcherResult !== undefined)
+        Object.defineProperty(error, "matcherResult", {
+          configurable: true,
+          value: result.error.matcherResult,
+        });
+      throw error;
+    }
+  });
 }
 
 function createWebStorageProxy(
@@ -1501,6 +1629,7 @@ function createLocatorProxy(
   };
   const proxy = new Proxy({}, handler);
   locatorProxyChains.set(proxy, chain);
+  locatorChainRealPages.set(proxy, realPage);
   return proxy as unknown as Locator;
 }
 
@@ -1544,9 +1673,13 @@ function installBuiltins() {
   };
 }
 
-function initializeAdapterBridge(sabotagedMethod: string | null) {
+function initializeAdapterBridge(
+  sabotagedMethod: string | null,
+  sabotagedMatcher: string | null
+) {
   const host = window as any;
-  host.__pwLiteEvidence = { entered: [], failures: [] };
+  host.__pwLiteEvidence = { entered: [], expect: [], failures: [] };
+  host.__pwLiteSabotagedMatcher = sabotagedMatcher;
   host.__pwLiteAbortSignals = new Map<string, AbortController>();
   host.__pwLitePendingAborts = new Map<string, unknown>();
   const abortReason = (value: any) => {
