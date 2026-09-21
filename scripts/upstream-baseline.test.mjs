@@ -286,6 +286,7 @@ describe("reviewed promotion", () => {
         {
           id: "expect-to-have-text.spec.ts > should work",
           method: "Locator._expect",
+          matcher: "Locator.toHaveText",
           evidence: "historical locator assertion",
         },
       ],
@@ -313,6 +314,12 @@ describe("reviewed promotion", () => {
           execution: {
             entered: ["Locator._expect"],
             expect: ["Locator.toHaveText"],
+            expectPaths: [
+              {
+                matcher: "Locator.toHaveText",
+                method: "Locator._expect",
+              },
+            ],
             failures: [],
           },
         },
@@ -321,6 +328,30 @@ describe("reviewed promotion", () => {
       ["expect-to-have-text.spec.ts"]
     );
     assert.deepEqual(withWrapper.regressions, []);
+
+    const independentEvidence = compareBaseline(
+      [
+        {
+          id: baseline.reviewed[0].id,
+          file: "expect-to-have-text.spec.ts",
+          status: "passed",
+          execution: {
+            entered: ["Locator._expect"],
+            expect: ["Locator.toHaveText"],
+            expectPaths: [
+              {
+                matcher: "Locator.toHaveValue",
+                method: "Locator._expect",
+              },
+            ],
+            failures: [],
+          },
+        },
+      ],
+      baseline,
+      ["expect-to-have-text.spec.ts"]
+    );
+    assert.deepEqual(independentEvidence.regressions, [baseline.reviewed[0].id]);
   });
 
   it("requires public matcher evidence when promoting an expect assertion", () => {
@@ -330,6 +361,12 @@ describe("reviewed promotion", () => {
       execution: {
         entered: ["Locator._expect"],
         expect: ["Locator.toHaveText"],
+        expectPaths: [
+          {
+            matcher: "Locator.toHaveText",
+            method: "Locator._expect",
+          },
+        ],
         failures: [],
       },
     };
@@ -378,6 +415,10 @@ describe("reviewed promotion", () => {
       execution: {
         entered: ["Locator._expect", "Page._expect"],
         expect: ["Page.toHaveTitle", "Locator.toHaveText"],
+        expectPaths: [
+          { matcher: "Page.toHaveTitle", method: "Page._expect" },
+          { matcher: "Locator.toHaveText", method: "Locator._expect" },
+        ],
         failures: [],
       },
     };
