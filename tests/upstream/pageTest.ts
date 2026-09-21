@@ -306,6 +306,20 @@ type ExpectConfiguration = {
   soft?: boolean;
 };
 
+const softFailureReporter = baseExpect.extend({}).extend({
+  __pwLiteReportSoftFailure(_received: unknown, error: Error) {
+    throw error;
+  },
+});
+
+function reportSoftPublicExpectFailure(error: Error): void {
+  (
+    softFailureReporter.soft(undefined) as unknown as {
+      __pwLiteReportSoftFailure(error: Error): void;
+    }
+  ).__pwLiteReportSoftFailure(error);
+}
+
 function adapterMatchers(
   actual: unknown,
   messageOrOptions: string | { message?: string } | undefined,
@@ -353,7 +367,9 @@ function adapterMatchers(
             configuration: publicConfiguration,
           });
           return isSoft
-            ? genericExpect.soft(assertion).resolves.toBeUndefined()
+            ? assertion.catch((error: Error) =>
+                reportSoftPublicExpectFailure(error)
+              )
             : assertion;
         };
       },
