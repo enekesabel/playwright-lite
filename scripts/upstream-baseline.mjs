@@ -537,20 +537,26 @@ function doUpdate(entries) {
   if (args[0] === "--") args.shift();
   if (!args.length)
     throw new Error(
-      "Provide <test-id> <method> [<matcher>] <evidence> promotion arguments."
-    );
-  const width = args.length % 4 === 0 ? 4 : args.length % 3 === 0 ? 3 : 0;
-  if (!width)
-    throw new Error(
-      "Provide promotions as <test-id> <method> <evidence> or <test-id> <method> <matcher> <evidence>."
+      "Provide one or more <test-id> <method> [--matcher <matcher>] <evidence> promotions."
     );
   const promotions = [];
-  for (let index = 0; index < args.length; index += width) {
-    const values = args.slice(index, index + width);
+  for (let index = 0; index < args.length; ) {
+    const id = args[index++];
+    const method = args[index++];
+    if (!id || !method)
+      throw new Error("Each promotion requires a test ID and adapter method.");
+    let matcher;
+    if (args[index] === "--matcher") {
+      matcher = args[index + 1];
+      if (!matcher)
+        throw new Error("--matcher requires a public matcher name.");
+      index += 2;
+    }
+    const evidence = args[index++];
+    if (!evidence)
+      throw new Error("Each promotion requires review evidence.");
     promotions.push(
-      width === 4
-        ? reviewedPromotion(entries, values[0], values[1], values[3], values[2])
-        : reviewedPromotion(entries, values[0], values[1], values[2])
+      reviewedPromotion(entries, id, method, evidence, matcher)
     );
   }
   if (new Set(promotions.map((entry) => entry.id)).size !== promotions.length)
@@ -731,7 +737,7 @@ if (isMain) {
     }
     default:
       console.error(
-        "Usage: upstream-baseline.mjs check [--report <path>] | promote <test-id> <method> [<matcher>] <evidence>"
+        "Usage: upstream-baseline.mjs check [--report <path>] | promote <test-id> <method> [--matcher <matcher>] <evidence>"
       );
       process.exit(1);
   }
