@@ -178,6 +178,7 @@ type KnownFailureFixtures = {
 // other run supplies it.
 type SabotageFixtures = {
   sabotagedMethod: string | undefined;
+  sabotagedMatcher: string | undefined;
 };
 
 export const test = base.extend<
@@ -191,6 +192,7 @@ export const test = base.extend<
   actionTimeout: [undefined, { option: true, box: true }],
   navigationTimeout: [undefined, { option: true, box: true }],
   sabotagedMethod: [undefined, { option: true, box: true }],
+  sabotagedMatcher: [undefined, { option: true, box: true }],
   knownFailure: [
     async ({}, use, testInfo) => {
       if (isKnownFailure(testInfo.titlePath)) testInfo.fail();
@@ -202,7 +204,14 @@ export const test = base.extend<
   // Wraps the real Playwright page with a proxy that routes all
   // compatibility operations through the in-browser adapter.
   page: async (
-    { page, playwright, actionTimeout, navigationTimeout, sabotagedMethod },
+    {
+      page,
+      playwright,
+      actionTimeout,
+      navigationTimeout,
+      sabotagedMethod,
+      sabotagedMatcher,
+    },
     use,
     testInfo
   ) => {
@@ -221,6 +230,7 @@ export const test = base.extend<
         actionTimeout,
         navigationTimeout,
         sabotagedMethod,
+        sabotagedMatcher,
         nativeNavigationForSetup: nativeNavigationForSetupSpecs.has(
           basename(testInfo.file)
         ),
