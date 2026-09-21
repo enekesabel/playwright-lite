@@ -280,6 +280,49 @@ describe("reviewed promotion", () => {
     });
   });
 
+  it("requires public expect evidence for existing _expect baseline entries", () => {
+    const baseline = {
+      reviewed: [
+        {
+          id: "expect-to-have-text.spec.ts > should work",
+          method: "Locator._expect",
+          evidence: "historical locator assertion",
+        },
+      ],
+    };
+    const withoutWrapper = compareBaseline(
+      [
+        {
+          id: baseline.reviewed[0].id,
+          file: "expect-to-have-text.spec.ts",
+          status: "passed",
+          execution: { entered: ["Locator._expect"], failures: [] },
+        },
+      ],
+      baseline,
+      ["expect-to-have-text.spec.ts"]
+    );
+    assert.deepEqual(withoutWrapper.regressions, [baseline.reviewed[0].id]);
+
+    const withWrapper = compareBaseline(
+      [
+        {
+          id: baseline.reviewed[0].id,
+          file: "expect-to-have-text.spec.ts",
+          status: "passed",
+          execution: {
+            entered: ["Locator._expect"],
+            expect: ["Locator.toHaveText"],
+            failures: [],
+          },
+        },
+      ],
+      baseline,
+      ["expect-to-have-text.spec.ts"]
+    );
+    assert.deepEqual(withWrapper.regressions, []);
+  });
+
   it("requires public matcher evidence when promoting an expect assertion", () => {
     const expectEntry = {
       id: "expect-to-have-text.spec.ts > should work",
@@ -304,6 +347,16 @@ describe("reviewed promotion", () => {
         matcher: "Locator.toHaveText",
         evidence: "public toHaveText checks the locator text",
       }
+    );
+    assert.throws(
+      () =>
+        reviewedPromotion(
+          [expectEntry],
+          expectEntry.id,
+          "Locator._expect",
+          "missing matcher"
+        ),
+      /explicit matcher/
     );
     assert.throws(() =>
       reviewedPromotion(
