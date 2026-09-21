@@ -970,13 +970,17 @@ export async function runPublicExpectMatcher(
   invocation: PublicExpectInvocation
 ): Promise<void> {
   if (!actual || typeof actual !== "object")
-    throw new TypeError("Public expect bridge requires an adapter Page or Locator.");
+    throw new TypeError(
+      "Public expect bridge requires an adapter Page or Locator."
+    );
 
   const pageReference = adapterPageReferences.get(actual);
   const locatorChain = locatorProxyChains.get(actual);
   const realPage = pageReference?.realPage ?? locatorChainRealPages.get(actual);
   if (!realPage)
-    throw new TypeError("Public expect bridge received an unknown adapter receiver.");
+    throw new TypeError(
+      "Public expect bridge received an unknown adapter receiver."
+    );
 
   const target = pageReference
     ? { kind: "Page" as const }
@@ -985,13 +989,23 @@ export async function runPublicExpectMatcher(
         chain: encodeBridgeValueForPage(locatorChain, realPage),
       };
 
-  return withAbortSignalBridge(realPage, invocation.args, async (encodedArgs) => {
-    const result = await evaluateAdapter<
-      | { ok: true }
-      | { ok: false; error: SerializedExpectationError }
-    >(
-      realPage,
-      ({ target: receiver, matcher, args, isNot, messageOrOptions, configuration }) => {
+  return withAbortSignalBridge(
+    realPage,
+    invocation.args,
+    async (encodedArgs) => {
+      const result = await evaluateAdapter<
+        | { ok: true }
+        | { ok: false; error: SerializedExpectationError }
+      >(
+        realPage,
+        ({
+          target: receiver,
+          matcher,
+          args,
+          isNot,
+          messageOrOptions,
+          configuration,
+        }) => {
         const host = window as any;
         return host.__pwLiteInvokeAdapter(async () => {
           const actual =
@@ -1041,21 +1055,22 @@ export async function runPublicExpectMatcher(
           invocation.messageOrOptions,
           realPage
         ),
-        configuration: invocation.configuration,
-      }
-    );
+          configuration: invocation.configuration,
+        }
+      );
 
-    if (!result.ok) {
-      const error = new Error(result.error.message);
-      error.name = result.error.name;
-      if (result.error.matcherResult !== undefined)
-        Object.defineProperty(error, "matcherResult", {
-          configurable: true,
-          value: result.error.matcherResult,
-        });
-      throw error;
+      if (!result.ok) {
+        const error = new Error(result.error.message);
+        error.name = result.error.name;
+        if (result.error.matcherResult !== undefined)
+          Object.defineProperty(error, "matcherResult", {
+            configurable: true,
+            value: result.error.matcherResult,
+          });
+        throw error;
+      }
     }
-  });
+  );
 }
 
 function createWebStorageProxy(
