@@ -63,6 +63,8 @@ jobs:
       # vitest runs Chromium in-process for src/**/*.test.ts; headless shell is enough since
       # everything here runs headless.
       - run: pnpm exec playwright install --only-shell chromium
+      - name: Show canonical baseline formatter output
+        run: pnpm exec prettier scripts/upstream-baseline.mjs
       - run: pnpm check
       - name: Pack the verified build
         run: |
