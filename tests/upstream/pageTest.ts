@@ -302,15 +302,18 @@ function adapterMatchers(
   configuration: ExpectConfiguration | undefined,
   isNot = false
 ): unknown {
-  const target: Record<string, unknown> = {};
-  Object.defineProperty(target, "not", {
-    enumerable: true,
-    value: adapterMatchers(actual, messageOrOptions, configuration, !isNot),
-  });
-  return new Proxy(target, {
-    get(current, prop, receiver) {
-      if (Reflect.has(current, prop)) return Reflect.get(current, prop, receiver);
-      if (typeof prop !== "string") return undefined;
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (prop === "not")
+          return adapterMatchers(
+            actual,
+            messageOrOptions,
+            configuration,
+            !isNot
+          );
+        if (typeof prop !== "string") return undefined;
       return (...args: unknown[]) =>
         runPublicExpectMatcher(actual, {
           matcher: prop,
@@ -319,8 +322,9 @@ function adapterMatchers(
           messageOrOptions,
           configuration,
         });
-    },
-  });
+      },
+    }
+  );
 }
 
 function createCorpusExpect(
