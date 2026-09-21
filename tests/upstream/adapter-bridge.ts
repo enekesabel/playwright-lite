@@ -1006,55 +1006,55 @@ export async function runPublicExpectMatcher(
           messageOrOptions,
           configuration,
         }) => {
-        const host = window as any;
-        return host.__pwLiteInvokeAdapter(async () => {
-          const actual =
-            receiver.kind === "Page"
-              ? host.__pwLiteAdapterPage
-              : host.__pwLiteReplayAdapterChain(
-                  host.__pwLiteDecodeBridgeValue(receiver.chain)
-                );
-          const recordedName = `${receiver.kind}.${matcher}`;
-          host.__pwLiteEvidence.expect.push(recordedName);
-          if (recordedName === host.__pwLiteSabotagedMatcher)
-            throw new Error(
-              `__pwLiteSabotagedMatcher: ${recordedName} was withheld for promotion review.`
-            );
+          const host = window as any;
+          return host.__pwLiteInvokeAdapter(async () => {
+            const actual =
+              receiver.kind === "Page"
+                ? host.__pwLiteAdapterPage
+                : host.__pwLiteReplayAdapterChain(
+                    host.__pwLiteDecodeBridgeValue(receiver.chain)
+                  );
+            const recordedName = `${receiver.kind}.${matcher}`;
+            host.__pwLiteEvidence.expect.push(recordedName);
+            if (recordedName === host.__pwLiteSabotagedMatcher)
+              throw new Error(
+                `__pwLiteSabotagedMatcher: ${recordedName} was withheld for promotion review.`
+              );
 
-          const configured = configuration
-            ? host.__pwLiteAdapter.expect.configure(configuration)
-            : host.__pwLiteAdapter.expect;
-          const matchers = configured(
-            actual,
-            host.__pwLiteDecodeBridgeValue(messageOrOptions)
-          );
-          try {
-            await (isNot ? matchers.not : matchers)[matcher](
-              ...host.__pwLiteDecodeBridgeValue(args)
+            const configured = configuration
+              ? host.__pwLiteAdapter.expect.configure(configuration)
+              : host.__pwLiteAdapter.expect;
+            const matchers = configured(
+              actual,
+              host.__pwLiteDecodeBridgeValue(messageOrOptions)
             );
-            return { ok: true } as const;
-          } catch (error) {
-            if (!(error instanceof Error)) throw error;
-            return {
-              ok: false,
-              error: {
-                name: error.name,
-                message: error.message,
-                matcherResult: (error as any).matcherResult,
-              },
-            } as const;
-          }
-        }, args);
-      },
-      {
-        target,
-        matcher: invocation.matcher,
-        args: encodedArgs,
-        isNot: invocation.isNot,
-        messageOrOptions: encodeBridgeValueForPage(
-          invocation.messageOrOptions,
-          realPage
-        ),
+            try {
+              await (isNot ? matchers.not : matchers)[matcher](
+                ...host.__pwLiteDecodeBridgeValue(args)
+              );
+              return { ok: true } as const;
+            } catch (error) {
+              if (!(error instanceof Error)) throw error;
+              return {
+                ok: false,
+                error: {
+                  name: error.name,
+                  message: error.message,
+                  matcherResult: (error as any).matcherResult,
+                },
+              } as const;
+            }
+          }, args);
+        },
+        {
+          target,
+          matcher: invocation.matcher,
+          args: encodedArgs,
+          isNot: invocation.isNot,
+          messageOrOptions: encodeBridgeValueForPage(
+            invocation.messageOrOptions,
+            realPage
+          ),
           configuration: invocation.configuration,
         }
       );
