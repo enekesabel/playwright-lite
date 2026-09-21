@@ -324,14 +324,14 @@ function adapterMatchers(
             !isNot
           );
         if (typeof prop !== "string") return undefined;
-      return (...args: unknown[]) =>
-        runPublicExpectMatcher(actual, {
+        return (...args: unknown[]) =>
+          runPublicExpectMatcher(actual, {
           matcher: prop,
           args,
           isNot,
           messageOrOptions,
-          configuration,
-        });
+            configuration,
+          });
       },
     }
   );
