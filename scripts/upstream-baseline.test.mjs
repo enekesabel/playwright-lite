@@ -253,6 +253,42 @@ describe("reviewed promotion", () => {
     });
   });
 
+  it("requires public matcher evidence when promoting an expect assertion", () => {
+    const expectEntry = {
+      id: "expect-to-have-text.spec.ts > should work",
+      status: "passed",
+      execution: {
+        entered: ["Locator._expect"],
+        expect: ["Locator.toHaveText"],
+        failures: [],
+      },
+    };
+    assert.deepEqual(
+      reviewedPromotion(
+        [expectEntry],
+        expectEntry.id,
+        "Locator._expect",
+        "public toHaveText checks the locator text",
+        "Locator.toHaveText"
+      ),
+      {
+        id: expectEntry.id,
+        method: "Locator._expect",
+        matcher: "Locator.toHaveText",
+        evidence: "public toHaveText checks the locator text",
+      }
+    );
+    assert.throws(() =>
+      reviewedPromotion(
+        [expectEntry],
+        expectEntry.id,
+        "Locator._expect",
+        "wrong matcher",
+        "Locator.toHaveValue"
+      )
+    );
+  });
+
   it("records the reviewed assertion", () => {
     assert.deepEqual(
       reviewedPromotion(
