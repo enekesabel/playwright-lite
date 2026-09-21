@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.0](https://github.com/enekesabel/playwright-lite/compare/v0.3.0...v0.4.0) (2026-09-21)
+
+
+### Features
+
+* add browser expect foundation ([e61a765](https://github.com/enekesabel/playwright-lite/commit/e61a76510084f79759c8e3745394c8480d2e5642))
+* add current-document navigation waits ([b491315](https://github.com/enekesabel/playwright-lite/commit/b4913157f60b2d390ea6dab36f104213bddaf535))
+* add locator assertions ([c642d46](https://github.com/enekesabel/playwright-lite/commit/c642d46425d5ac211c1c54c5ed7971d0f1c25566))
+* add Page title and URL assertions ([#114](https://github.com/enekesabel/playwright-lite/issues/114)) ([5a5880d](https://github.com/enekesabel/playwright-lite/commit/5a5880d5245865fbb8a4ea969c9928d7ad97c05a))
+
 ## [0.3.0](https://github.com/enekesabel/playwright-lite/compare/v0.2.1...v0.3.0) (2026-09-18)
 
 
