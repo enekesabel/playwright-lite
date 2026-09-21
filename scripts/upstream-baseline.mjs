@@ -568,11 +568,8 @@ function doUpdate(entries) {
       index += 2;
     }
     const evidence = args[index++];
-    if (!evidence)
-      throw new Error("Each promotion requires review evidence.");
-    promotions.push(
-      reviewedPromotion(entries, id, method, evidence, matcher)
-    );
+    if (!evidence) throw new Error("Each promotion requires review evidence.");
+    promotions.push(reviewedPromotion(entries, id, method, evidence, matcher));
   }
   if (new Set(promotions.map((entry) => entry.id)).size !== promotions.length)
     throw new Error("Each promoted test ID must be unique.");
