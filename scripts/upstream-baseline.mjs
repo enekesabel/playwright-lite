@@ -210,18 +210,26 @@ function matcherMatchesMethodOwner(method, matcher) {
   return !owner || matcher?.startsWith(`${owner}.`) === true;
 }
 
-function certifiesBrowserMethod(entry, method, matcher) {
+function hasPublicExpectEvidence(entry, method, matcher) {
   const owner = publicExpectOwner(method);
-  const matcherEvidence = matcher
-    ? matcherMatchesMethodOwner(method, matcher) &&
+  if (!owner) return true;
+  if (matcher)
+    return (
+      matcherMatchesMethodOwner(method, matcher) &&
       entry.execution.expect?.includes(matcher)
-    : !owner ||
-      entry.execution.expect?.some((name) => name.startsWith(`${owner}.`));
+    );
+  return (
+    entry.execution.expect?.some((name) => name.startsWith(`${owner}.`)) ===
+    true
+  );
+}
+
+function certifiesBrowserMethod(entry, method, matcher) {
   return (
     !isOutOfScopeMethod(method) &&
     entry.execution.entered.includes(method) &&
     !entry.execution.native?.includes(method) &&
-    matcherEvidence
+    hasPublicExpectEvidence(entry, method, matcher)
   );
 }
 
