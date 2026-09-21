@@ -722,6 +722,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
           await realPage.evaluate((prior) => {
             const current = (window as any).__pwLiteEvidence;
             current.entered.unshift(...prior.entered);
+            current.expect.unshift(...(prior.expect ?? []));
             current.failures.unshift(...prior.failures);
           }, previous);
           state.url = await evaluateAdapter<string>(
