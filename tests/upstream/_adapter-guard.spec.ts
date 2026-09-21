@@ -63,6 +63,24 @@ test("corpus expect enters playwright-lite public matchers for adapter receivers
   );
 });
 
+test("soft adapter assertions do not fall back to native Playwright expect", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<h1>hello</h1>");
+
+  await expect(
+    Promise.resolve().then(() =>
+      corpusExpect.soft(adapterPage.locator("h1")).toHaveText("hello")
+    )
+  ).rejects.toThrow(
+    "Soft assertions require Playwright Test's failure-reporting context"
+  );
+
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  expect(execution.expect).toContain("Locator.toHaveText");
+});
+
 test("public matcher sabotage breaks the promoted expect path", async ({ page }) => {
   const sabotaged = await createAdapterPage(page, {
     sabotagedMatcher: "Locator.toHaveText",
