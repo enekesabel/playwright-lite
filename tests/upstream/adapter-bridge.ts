@@ -994,8 +994,7 @@ export async function runPublicExpectMatcher(
     invocation.args,
     async (encodedArgs) => {
       const result = await evaluateAdapter<
-        | { ok: true }
-        | { ok: false; error: SerializedExpectationError }
+        { ok: true } | { ok: false; error: SerializedExpectationError }
       >(
         realPage,
         ({
