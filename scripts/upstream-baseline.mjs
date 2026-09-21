@@ -159,7 +159,7 @@ export function compareBaseline(entries, baseline, names) {
         !passed.some(
           (entry) =>
             entry.id === review.id &&
-            certifiesBrowserMethod(entry, review.method)
+            certifiesBrowserMethod(entry, review.method, review.matcher)
         )
     )
     .map((review) => review.id);
@@ -195,15 +195,16 @@ function isOutOfScopeMethod(method) {
   return statusFor(owner, member) === "out-of-scope";
 }
 
-function certifiesBrowserMethod(entry, method) {
+function certifiesBrowserMethod(entry, method, matcher) {
   return (
     !isOutOfScopeMethod(method) &&
     entry.execution.entered.includes(method) &&
-    !entry.execution.native?.includes(method)
+    !entry.execution.native?.includes(method) &&
+    (!matcher || entry.execution.expect?.includes(matcher))
   );
 }
 
-export function reviewedPromotion(entries, id, method, evidence) {
+export function reviewedPromotion(entries, id, method, evidence, matcher) {
   const entry = entries.find((entry) => entry.id === id);
   if (isOutOfScopeMethod(method))
     throw new Error(
@@ -221,9 +222,18 @@ export function reviewedPromotion(entries, id, method, evidence) {
     throw new Error(
       "Promotion requires a passing test with matching adapter execution and no recorded transport/dispatch failures."
     );
+  if (matcher && !entry.execution.expect?.includes(matcher))
+    throw new Error(
+      "Promotion requires matching public expect matcher execution evidence."
+    );
   if (!evidence?.trim())
     throw new Error("Explain what the reviewed assertion proves.");
-  return { id, method, evidence: evidence.trim() };
+  return {
+    id,
+    method,
+    ...(matcher ? { matcher } : {}),
+    evidence: evidence.trim(),
+  };
 }
 
 /**
@@ -418,7 +428,7 @@ function runCorpus() {
  * Workers re-evaluate this file, so the method never travels through the
  * environment, where a spec could set it.
  */
-function writeSabotageConfig(method) {
+function writeSabotageConfig(method, matcher) {
   mkdirSync(SABOTAGE_DIR, { recursive: true });
   writeFileSync(
     SABOTAGE_CONFIG_PATH,
@@ -431,7 +441,7 @@ function writeSabotageConfig(method) {
       // testDir and outputDir resolve against this file's directory.
       `  testDir: ${JSON.stringify(resolve(PKG_ROOT, "tests/upstream"))},`,
       `  outputDir: ${JSON.stringify(SABOTAGE_OUTPUT_DIR)},`,
-      `  use: { ...config.use, sabotagedMethod: ${JSON.stringify(method)} },`,
+      `  use: { ...config.use, sabotagedMethod: ${JSON.stringify(method)}, sabotagedMatcher: ${JSON.stringify(matcher ?? null)} },`,
       "};",
     ].join("\n") + "\n"
   );
@@ -460,9 +470,10 @@ export function sabotageGrep(titlePath) {
  * makes the in-browser adapter dispatch for that method throw instead of
  * executing it.
  */
-function runSabotaged(entry, method) {
-  console.log(`\nRerunning ${entry.id} with ${method} sabotaged…`);
-  writeSabotageConfig(method);
+function runSabotaged(entry, method, matcher) {
+  const target = matcher ?? method;
+  console.log(`\nRerunning ${entry.id} with ${target} sabotaged…`);
+  writeSabotageConfig(matcher ? null : method, matcher);
   runPlaywright(
     [
       `--config=${SABOTAGE_CONFIG_PATH}`,
@@ -524,15 +535,24 @@ function doUpdate(entries) {
 
   const args = process.argv.slice(3);
   if (args[0] === "--") args.shift();
-  if (!args.length || args.length % 3)
+  if (!args.length)
     throw new Error(
-      "Provide one or more <test-id> <method> <evidence> triples."
+      "Provide <test-id> <method> [<matcher>] <evidence> promotion arguments."
+    );
+  const width = args.length % 4 === 0 ? 4 : args.length % 3 === 0 ? 3 : 0;
+  if (!width)
+    throw new Error(
+      "Provide promotions as <test-id> <method> <evidence> or <test-id> <method> <matcher> <evidence>."
     );
   const promotions = [];
-  for (let index = 0; index < args.length; index += 3)
+  for (let index = 0; index < args.length; index += width) {
+    const values = args.slice(index, index + width);
     promotions.push(
-      reviewedPromotion(entries, ...args.slice(index, index + 3))
+      width === 4
+        ? reviewedPromotion(entries, values[0], values[1], values[3], values[2])
+        : reviewedPromotion(entries, values[0], values[1], values[2])
     );
+  }
   if (new Set(promotions.map((entry) => entry.id)).size !== promotions.length)
     throw new Error("Each promoted test ID must be unique.");
   const previous = JSON.parse(readFileSync(BASELINE_PATH, "utf8"));
@@ -540,9 +560,11 @@ function doUpdate(entries) {
     throw new Error(
       "Resolve existing baseline regressions before promoting tests."
     );
-  for (const { id, method } of promotions) {
+  for (const { id, method, matcher } of promotions) {
     const entry = entries.find((entry) => entry.id === id);
     sabotageVerdict(runSabotaged(entry, method), id, method);
+    if (matcher)
+      sabotageVerdict(runSabotaged(entry, method, matcher), id, matcher);
   }
   const reviewed = [
     ...previous.reviewed.filter(
@@ -709,7 +731,7 @@ if (isMain) {
     }
     default:
       console.error(
-        "Usage: upstream-baseline.mjs check [--report <path>] | promote <test-id> <method> <evidence>"
+        "Usage: upstream-baseline.mjs check [--report <path>] | promote <test-id> <method> [<matcher>] <evidence>"
       );
       process.exit(1);
   }
