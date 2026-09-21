@@ -310,6 +310,8 @@ function adapterMatchers(
   actual: unknown,
   messageOrOptions: string | { message?: string } | undefined,
   configuration: ExpectConfiguration | undefined,
+  genericExpect: typeof baseExpect,
+  extendedMatcherNames: ReadonlySet<string>,
   isNot = false
 ): unknown {
   return new Proxy(
@@ -321,9 +323,21 @@ function adapterMatchers(
             actual,
             messageOrOptions,
             configuration,
+            genericExpect,
+            extendedMatcherNames,
             !isNot
           );
         if (typeof prop !== "string") return undefined;
+        if (extendedMatcherNames.has(prop))
+          return (...args: unknown[]) => {
+            const matchers = genericExpect(
+              actual,
+              messageOrOptions as never
+            ) as unknown as Record<string, (...args: unknown[]) => unknown> & {
+              not: Record<string, (...args: unknown[]) => unknown>;
+            };
+            return (isNot ? matchers.not : matchers)[prop](...args);
+          };
         return (...args: unknown[]) =>
           runPublicExpectMatcher(actual, {
             matcher: prop,
@@ -339,38 +353,47 @@ function adapterMatchers(
 
 function createCorpusExpect(
   genericExpect: typeof baseExpect,
-  configuration?: ExpectConfiguration
+  configuration?: ExpectConfiguration,
+  extendedMatcherNames: ReadonlySet<string> = new Set()
 ): typeof baseExpect {
   const callable = ((
     actual: unknown,
     messageOrOptions?: string | { message?: string }
   ) =>
     isAdapterExpectationTarget(actual)
-      ? adapterMatchers(actual, messageOrOptions, configuration)
+      ? adapterMatchers(
+          actual,
+          messageOrOptions,
+          configuration,
+          genericExpect,
+          extendedMatcherNames
+        )
       : genericExpect(actual, messageOrOptions as never)) as typeof baseExpect;
 
   return new Proxy(callable, {
     get(_target, prop) {
       if (prop === "configure")
         return (next: ExpectConfiguration) =>
-          createCorpusExpect(genericExpect.configure(next), {
-            ...configuration,
-            ...next,
-          });
+          createCorpusExpect(
+            genericExpect.configure(next),
+            {
+              ...configuration,
+              ...next,
+            },
+            extendedMatcherNames
+          );
       if (prop === "extend")
         return (matchers: Parameters<typeof baseExpect.extend>[0]) =>
-          createCorpusExpect(genericExpect.extend(matchers), configuration);
+          createCorpusExpect(
+            genericExpect.extend(matchers),
+            configuration,
+            new Set([...extendedMatcherNames, ...Object.keys(matchers)])
+          );
       if (prop === "soft")
         return (
           actual: unknown,
           messageOrOptions?: string | { message?: string }
-        ) =>
-          isAdapterExpectationTarget(actual)
-            ? adapterMatchers(actual, messageOrOptions, {
-                ...configuration,
-                soft: true,
-              })
-            : genericExpect.soft(actual, messageOrOptions as never);
+        ) => genericExpect.soft(actual, messageOrOptions as never);
       return Reflect.get(genericExpect, prop);
     },
   });
