@@ -360,6 +360,17 @@ function createCorpusExpect(
       if (prop === "extend")
         return (matchers: Parameters<typeof baseExpect.extend>[0]) =>
           createCorpusExpect(genericExpect.extend(matchers), configuration);
+      if (prop === "soft")
+        return (
+          actual: unknown,
+          messageOrOptions?: string | { message?: string }
+        ) =>
+          isAdapterExpectationTarget(actual)
+            ? adapterMatchers(actual, messageOrOptions, {
+                ...configuration,
+                soft: true,
+              })
+            : genericExpect.soft(actual, messageOrOptions as never);
       return Reflect.get(genericExpect, prop);
     },
   });
