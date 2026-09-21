@@ -242,6 +242,33 @@ describe("reviewed promotion", () => {
         /did not run/
       );
     });
+    it("requires the asserted failure reason when provided", () => {
+      assert.throws(
+        () =>
+          sabotageVerdict(
+            [{ id, status: "failed", error: "some unrelated failure" }],
+            id,
+            "Locator.toHaveText",
+            "__pwLiteSabotagedMatcher: Locator.toHaveText"
+          ),
+        /not for the expected reason/
+      );
+      assert.doesNotThrow(() =>
+        sabotageVerdict(
+          [
+            {
+              id,
+              status: "failed",
+              error:
+                "Error: __pwLiteSabotagedMatcher: Locator.toHaveText was withheld for promotion review.",
+            },
+          ],
+          id,
+          "Locator.toHaveText",
+          "__pwLiteSabotagedMatcher: Locator.toHaveText"
+        )
+      );
+    });
     it("accepts a test that fails once the method is sabotaged", () => {
       assert.doesNotThrow(() =>
         sabotageVerdict(
