@@ -244,7 +244,7 @@ export function reviewedPromotion(entries, id, method, evidence, matcher) {
  *
  * @param {Array} entries  Parsed entries of the sabotaged rerun.
  */
-export function sabotageVerdict(entries, id, method) {
+export function sabotageVerdict(entries, id, method, expectedError) {
   const entry = entries.find((entry) => entry.id === id);
   if (!entry)
     throw new Error(
@@ -257,6 +257,10 @@ export function sabotageVerdict(entries, id, method) {
   if (entry.status === "passed")
     throw new Error(
       `${id} still passes with ${method} sabotaged, so it does not prove ${method}.`
+    );
+  if (expectedError && !entry.error?.includes(expectedError))
+    throw new Error(
+      `${id} failed with ${method} sabotaged, but not for the expected reason: ${expectedError}`
     );
 }
 
@@ -570,7 +574,12 @@ function doUpdate(entries) {
     const entry = entries.find((entry) => entry.id === id);
     sabotageVerdict(runSabotaged(entry, method), id, method);
     if (matcher)
-      sabotageVerdict(runSabotaged(entry, method, matcher), id, matcher);
+      sabotageVerdict(
+        runSabotaged(entry, method, matcher),
+        id,
+        matcher,
+        `__pwLiteSabotagedMatcher: ${matcher}`
+      );
   }
   const reviewed = [
     ...previous.reviewed.filter(
