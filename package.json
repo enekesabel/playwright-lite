@@ -41,7 +41,7 @@
     "upstream:check": "node scripts/upstream-specs.mjs check",
     "generate:injected": "node scripts/generate-injected.mjs",
     "format": "prettier --write .",
-    "format:check": "prettier --write . && git diff --exit-code",
+    "format:check": "prettier --check .",
     "test:package": "node scripts/packed-consumer.mjs",
     "check": "pnpm check:readme && pnpm build && pnpm lint && pnpm typecheck && pnpm upstream:check && pnpm test && pnpm test:evaluation && pnpm test:package && pnpm format:check",
     "test:evaluation": "node scripts/evaluation-parity.mjs",
