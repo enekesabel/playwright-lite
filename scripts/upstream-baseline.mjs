@@ -581,7 +581,7 @@ function doUpdate(entries) {
       "Provide one or more <test-id> <method> [--matcher <matcher>] <evidence> promotions."
     );
   const promotions = [];
-  for (let index = 0; index < args.length; ) {
+  for (let index = 0; index < args.length;) {
     const id = args[index++];
     const method = args[index++];
     if (!id || !method)
