@@ -195,12 +195,19 @@ function isOutOfScopeMethod(method) {
   return statusFor(owner, member) === "out-of-scope";
 }
 
+function isPublicExpectMethod(method) {
+  return method === "Locator._expect" || method === "Page._expect";
+}
+
 function certifiesBrowserMethod(entry, method, matcher) {
+  const matcherEvidence = matcher
+    ? entry.execution.expect?.includes(matcher)
+    : !isPublicExpectMethod(method) || !!entry.execution.expect?.length;
   return (
     !isOutOfScopeMethod(method) &&
     entry.execution.entered.includes(method) &&
     !entry.execution.native?.includes(method) &&
-    (!matcher || entry.execution.expect?.includes(matcher))
+    matcherEvidence
   );
 }
 
@@ -221,6 +228,10 @@ export function reviewedPromotion(entries, id, method, evidence, matcher) {
   )
     throw new Error(
       "Promotion requires a passing test with matching adapter execution and no recorded transport/dispatch failures."
+    );
+  if (isPublicExpectMethod(method) && !matcher)
+    throw new Error(
+      "Public expect promotions require an explicit matcher name."
     );
   if (matcher && !entry.execution.expect?.includes(matcher))
     throw new Error(
