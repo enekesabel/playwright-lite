@@ -14,7 +14,7 @@ import {
   expect,
 } from "@playwright/test";
 import { createAdapterPage } from "./adapter-bridge";
-import { test as corpusTest } from "./pageTest";
+import { test as corpusTest, expect as corpusExpect } from "./pageTest";
 import { TestServer } from "./testServer";
 
 // The promotion rerun withholds its method through the generated configuration
@@ -40,6 +40,126 @@ const test = base.extend<
     });
     await use(proxy);
   },
+});
+
+// ── Public expect trust root ────────────────────────────────────────
+
+test("corpus expect enters playwright-lite public matchers for adapter receivers", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<title>Public expect</title><h1>hello</h1>");
+
+  await corpusExpect(adapterPage.locator("h1")).toHaveText("hello");
+  await corpusExpect(adapterPage).toHaveTitle("Public expect");
+  corpusExpect({ value: 42 }).toEqual({ value: 42 });
+
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  expect(execution.expect).toEqual(
+    expect.arrayContaining(["Locator.toHaveText", "Page.toHaveTitle"])
+  );
+  expect(execution.entered).toEqual(
+    expect.arrayContaining(["Locator._expect", "Page._expect"])
+  );
+  expect(execution.expectPaths).toEqual(
+    expect.arrayContaining([
+      { matcher: "Locator.toHaveText", method: "Locator._expect" },
+      { matcher: "Page.toHaveTitle", method: "Page._expect" },
+    ])
+  );
+});
+
+test("corpus expect preserves Playwright Test soft assertions", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<h1>hello</h1>");
+
+  await corpusExpect.soft(adapterPage.locator("h1")).toHaveText("hello");
+  await corpusExpect
+    .configure({ soft: true, timeout: 100 })
+    (adapterPage.locator("h1"))
+    .toHaveText("hello");
+
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  expect(execution.entered).toContain("Locator._expect");
+  expect(
+    execution.expect.filter(
+      (name: string) => name === "Locator.toHaveText"
+    )
+  ).toHaveLength(2);
+});
+
+test("failing soft adapter assertions keep the public matcher error", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<title>hello</title><h1>hello</h1>");
+
+  await corpusExpect.soft(adapterPage.locator("h1")).toHaveText("goodbye");
+  await corpusExpect.soft(adapterPage).toHaveTitle("goodbye");
+
+  const messages = test.info().errors.map((error) => error.message ?? "");
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  const preserved =
+    messages.some((message) =>
+      message.includes("expect(locator).toHaveText(expected) failed")
+    ) &&
+    messages.some((message) =>
+      message.includes("expect(page).toHaveTitle(expected) failed")
+    ) &&
+    messages.every((message) => !message.includes("resolves")) &&
+    execution.expectPaths.some(
+      (path: { matcher: string; method: string }) =>
+        path.matcher === "Locator.toHaveText" &&
+        path.method === "Locator._expect"
+    ) &&
+    execution.expectPaths.some(
+      (path: { matcher: string; method: string }) =>
+        path.matcher === "Page.toHaveTitle" && path.method === "Page._expect"
+    );
+
+  if (!preserved)
+    throw new Error(
+      `Soft public-expect failure was not preserved: ${JSON.stringify(messages)}`
+    );
+  test.fail();
+});
+
+test("extended corpus matchers stay on the generic expectation surface", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<h1>hello</h1>");
+  let calls = 0;
+  const extended = corpusExpect.extend({
+    toBeAdapterReceiver(received: unknown) {
+      calls++;
+      return {
+        pass: (received as { __pwLiteAdapter?: boolean }).__pwLiteAdapter === true,
+        message: () => "expected adapter receiver",
+      };
+    },
+  });
+
+  extended(adapterPage.locator("h1")).toBeAdapterReceiver();
+  extended.configure({ timeout: 17 })(adapterPage).toBeAdapterReceiver();
+  extended.soft(adapterPage.locator("h1")).toBeAdapterReceiver();
+  expect(calls).toBe(3);
+
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  expect(execution.expect).not.toContain("Locator.toBeAdapterReceiver");
+});
+
+test("public matcher sabotage breaks the promoted expect path", async ({ page }) => {
+  const sabotaged = await createAdapterPage(page, {
+    sabotagedMatcher: "Locator.toHaveText",
+  });
+  await page.setContent("<h1>hello</h1>");
+
+  await expect(
+    corpusExpect(sabotaged.locator("h1")).toHaveText("hello")
+  ).rejects.toThrow("__pwLiteSabotagedMatcher: Locator.toHaveText");
 });
 
 // ── Proxy presence ──────────────────────────────────────────────────

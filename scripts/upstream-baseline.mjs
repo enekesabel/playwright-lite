@@ -159,7 +159,7 @@ export function compareBaseline(entries, baseline, names) {
         !passed.some(
           (entry) =>
             entry.id === review.id &&
-            certifiesBrowserMethod(entry, review.method)
+            certifiesBrowserMethod(entry, review.method, review.matcher)
         )
     )
     .map((review) => review.id);
@@ -195,15 +195,42 @@ function isOutOfScopeMethod(method) {
   return statusFor(owner, member) === "out-of-scope";
 }
 
-function certifiesBrowserMethod(entry, method) {
+function isPublicExpectMethod(method) {
+  return method === "Locator._expect" || method === "Page._expect";
+}
+
+function publicExpectOwner(method) {
+  if (method === "Locator._expect") return "Locator";
+  if (method === "Page._expect") return "Page";
+  return undefined;
+}
+
+function matcherMatchesMethodOwner(method, matcher) {
+  const owner = publicExpectOwner(method);
+  return !owner || matcher?.startsWith(`${owner}.`) === true;
+}
+
+function hasPublicExpectEvidence(entry, method, matcher) {
+  if (!isPublicExpectMethod(method)) return true;
+  if (!matcher) return false;
   return (
-    !isOutOfScopeMethod(method) &&
-    entry.execution.entered.includes(method) &&
-    !entry.execution.native?.includes(method)
+    matcherMatchesMethodOwner(method, matcher) &&
+    entry.execution.expectPaths?.some(
+      (path) => path.matcher === matcher && path.method === method
+    ) === true
   );
 }
 
-export function reviewedPromotion(entries, id, method, evidence) {
+function certifiesBrowserMethod(entry, method, matcher) {
+  return (
+    !isOutOfScopeMethod(method) &&
+    entry.execution.entered.includes(method) &&
+    !entry.execution.native?.includes(method) &&
+    hasPublicExpectEvidence(entry, method, matcher)
+  );
+}
+
+export function reviewedPromotion(entries, id, method, evidence, matcher) {
   const entry = entries.find((entry) => entry.id === id);
   if (isOutOfScopeMethod(method))
     throw new Error(
@@ -221,9 +248,37 @@ export function reviewedPromotion(entries, id, method, evidence) {
     throw new Error(
       "Promotion requires a passing test with matching adapter execution and no recorded transport/dispatch failures."
     );
+  if (isPublicExpectMethod(method) && !matcher)
+    throw new Error(
+      "Public expect promotions require an explicit matcher name."
+    );
+  if (matcher && !matcherMatchesMethodOwner(method, matcher))
+    throw new Error(
+      "Public expect matcher owner must match the promoted adapter owner."
+    );
+  if (
+    isPublicExpectMethod(method) &&
+    !hasPublicExpectEvidence(entry, method, matcher)
+  )
+    throw new Error(
+      "Promotion requires matching correlated public expect path evidence."
+    );
+  if (
+    matcher &&
+    !isPublicExpectMethod(method) &&
+    !entry.execution.expect?.includes(matcher)
+  )
+    throw new Error(
+      "Promotion requires matching public expect matcher execution evidence."
+    );
   if (!evidence?.trim())
     throw new Error("Explain what the reviewed assertion proves.");
-  return { id, method, evidence: evidence.trim() };
+  return {
+    id,
+    method,
+    ...(matcher ? { matcher } : {}),
+    evidence: evidence.trim(),
+  };
 }
 
 /**
@@ -234,7 +289,7 @@ export function reviewedPromotion(entries, id, method, evidence) {
  *
  * @param {Array} entries  Parsed entries of the sabotaged rerun.
  */
-export function sabotageVerdict(entries, id, method) {
+export function sabotageVerdict(entries, id, method, expectedError) {
   const entry = entries.find((entry) => entry.id === id);
   if (!entry)
     throw new Error(
@@ -247,6 +302,10 @@ export function sabotageVerdict(entries, id, method) {
   if (entry.status === "passed")
     throw new Error(
       `${id} still passes with ${method} sabotaged, so it does not prove ${method}.`
+    );
+  if (expectedError && !entry.error?.includes(expectedError))
+    throw new Error(
+      `${id} failed with ${method} sabotaged, but not for the expected reason: ${expectedError}`
     );
 }
 
@@ -418,7 +477,7 @@ function runCorpus() {
  * Workers re-evaluate this file, so the method never travels through the
  * environment, where a spec could set it.
  */
-function writeSabotageConfig(method) {
+function writeSabotageConfig(method, matcher) {
   mkdirSync(SABOTAGE_DIR, { recursive: true });
   writeFileSync(
     SABOTAGE_CONFIG_PATH,
@@ -431,7 +490,7 @@ function writeSabotageConfig(method) {
       // testDir and outputDir resolve against this file's directory.
       `  testDir: ${JSON.stringify(resolve(PKG_ROOT, "tests/upstream"))},`,
       `  outputDir: ${JSON.stringify(SABOTAGE_OUTPUT_DIR)},`,
-      `  use: { ...config.use, sabotagedMethod: ${JSON.stringify(method)} },`,
+      `  use: { ...config.use, sabotagedMethod: ${JSON.stringify(method)}, sabotagedMatcher: ${JSON.stringify(matcher ?? null)} },`,
       "};",
     ].join("\n") + "\n"
   );
@@ -460,9 +519,10 @@ export function sabotageGrep(titlePath) {
  * makes the in-browser adapter dispatch for that method throw instead of
  * executing it.
  */
-function runSabotaged(entry, method) {
-  console.log(`\nRerunning ${entry.id} with ${method} sabotaged…`);
-  writeSabotageConfig(method);
+function runSabotaged(entry, method, matcher) {
+  const target = matcher ?? method;
+  console.log(`\nRerunning ${entry.id} with ${target} sabotaged…`);
+  writeSabotageConfig(matcher ? null : method, matcher);
   runPlaywright(
     [
       `--config=${SABOTAGE_CONFIG_PATH}`,
@@ -524,15 +584,27 @@ function doUpdate(entries) {
 
   const args = process.argv.slice(3);
   if (args[0] === "--") args.shift();
-  if (!args.length || args.length % 3)
+  if (!args.length)
     throw new Error(
-      "Provide one or more <test-id> <method> <evidence> triples."
+      "Provide one or more <test-id> <method> [--matcher <matcher>] <evidence> promotions."
     );
   const promotions = [];
-  for (let index = 0; index < args.length; index += 3)
-    promotions.push(
-      reviewedPromotion(entries, ...args.slice(index, index + 3))
-    );
+  for (let index = 0; index < args.length;) {
+    const id = args[index++];
+    const method = args[index++];
+    if (!id || !method)
+      throw new Error("Each promotion requires a test ID and adapter method.");
+    let matcher;
+    if (args[index] === "--matcher") {
+      matcher = args[index + 1];
+      if (!matcher)
+        throw new Error("--matcher requires a public matcher name.");
+      index += 2;
+    }
+    const evidence = args[index++];
+    if (!evidence) throw new Error("Each promotion requires review evidence.");
+    promotions.push(reviewedPromotion(entries, id, method, evidence, matcher));
+  }
   if (new Set(promotions.map((entry) => entry.id)).size !== promotions.length)
     throw new Error("Each promoted test ID must be unique.");
   const previous = JSON.parse(readFileSync(BASELINE_PATH, "utf8"));
@@ -540,9 +612,16 @@ function doUpdate(entries) {
     throw new Error(
       "Resolve existing baseline regressions before promoting tests."
     );
-  for (const { id, method } of promotions) {
+  for (const { id, method, matcher } of promotions) {
     const entry = entries.find((entry) => entry.id === id);
     sabotageVerdict(runSabotaged(entry, method), id, method);
+    if (matcher)
+      sabotageVerdict(
+        runSabotaged(entry, method, matcher),
+        id,
+        matcher,
+        `__pwLiteSabotagedMatcher: ${matcher}`
+      );
   }
   const reviewed = [
     ...previous.reviewed.filter(
@@ -709,7 +788,7 @@ if (isMain) {
     }
     default:
       console.error(
-        "Usage: upstream-baseline.mjs check [--report <path>] | promote <test-id> <method> <evidence>"
+        "Usage: upstream-baseline.mjs check [--report <path>] | promote <test-id> <method> [--matcher <matcher>] <evidence>"
       );
       process.exit(1);
   }

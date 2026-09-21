@@ -20,6 +20,8 @@ import { fileURLToPath } from "node:url";
 import {
   createAdapterPage,
   installTestIdAttributeSynchronization,
+  isAdapterExpectationTarget,
+  runPublicExpectMatcher,
 } from "./adapter-bridge";
 import { specNames } from "./corpus";
 import { stableTestId } from "./stableTestId";
@@ -176,6 +178,7 @@ type KnownFailureFixtures = {
 // other run supplies it.
 type SabotageFixtures = {
   sabotagedMethod: string | undefined;
+  sabotagedMatcher: string | undefined;
 };
 
 export const test = base.extend<
@@ -189,6 +192,7 @@ export const test = base.extend<
   actionTimeout: [undefined, { option: true, box: true }],
   navigationTimeout: [undefined, { option: true, box: true }],
   sabotagedMethod: [undefined, { option: true, box: true }],
+  sabotagedMatcher: [undefined, { option: true, box: true }],
   knownFailure: [
     async ({}, use, testInfo) => {
       if (isKnownFailure(testInfo.titlePath)) testInfo.fail();
@@ -200,7 +204,14 @@ export const test = base.extend<
   // Wraps the real Playwright page with a proxy that routes all
   // compatibility operations through the in-browser adapter.
   page: async (
-    { page, playwright, actionTimeout, navigationTimeout, sabotagedMethod },
+    {
+      page,
+      playwright,
+      actionTimeout,
+      navigationTimeout,
+      sabotagedMethod,
+      sabotagedMatcher,
+    },
     use,
     testInfo
   ) => {
@@ -219,6 +230,7 @@ export const test = base.extend<
         actionTimeout,
         navigationTimeout,
         sabotagedMethod,
+        sabotagedMatcher,
         nativeNavigationForSetup: nativeNavigationForSetupSpecs.has(
           basename(testInfo.file)
         ),
@@ -288,27 +300,163 @@ export const test = base.extend<
 
 // ── Expect ──────────────────────────────────────────────────────────
 
-export const expect = baseExpect.extend({
-  toContainYaml(received: string, expected: string) {
-    const trimmed = expected.split("\n").filter((a) => !!a.trim());
-    const maxPrefixLength = Math.min(
-      ...trimmed.map((line) => (line.match(/^\s*/) ?? [""])[0].length)
-    );
-    const trimmedExpected = trimmed
-      .map((line) => line.substring(maxPrefixLength))
-      .join("\n");
-    try {
-      if (this.isNot) expect(received).not.toContain(trimmedExpected);
-      else expect(received).toContain(trimmedExpected);
-      return { pass: !this.isNot, message: () => "" };
-    } catch (e: unknown) {
-      return {
-        pass: this.isNot,
-        message: () => (e instanceof Error ? e.message : String(e)),
-      };
-    }
+type ExpectConfiguration = {
+  message?: string;
+  timeout?: number;
+  soft?: boolean;
+};
+
+const softFailureReporter = baseExpect.extend({}).extend({
+  __pwLiteReportSoftFailure(_received: unknown, error: Error) {
+    throw error;
   },
 });
+
+function reportSoftPublicExpectFailure(error: Error): void {
+  (
+    softFailureReporter.soft(undefined) as unknown as {
+      __pwLiteReportSoftFailure(error: Error): void;
+    }
+  ).__pwLiteReportSoftFailure(error);
+}
+
+function adapterMatchers(
+  actual: unknown,
+  messageOrOptions: string | { message?: string } | undefined,
+  configuration: ExpectConfiguration | undefined,
+  genericExpect: typeof baseExpect,
+  extendedMatcherNames: ReadonlySet<string>,
+  isNot = false,
+  isSoft = configuration?.soft === true
+): unknown {
+  return new Proxy(
+    {},
+    {
+      get(_target, prop) {
+        if (prop === "not")
+          return adapterMatchers(
+            actual,
+            messageOrOptions,
+            configuration,
+            genericExpect,
+            extendedMatcherNames,
+            !isNot,
+            isSoft
+          );
+        if (typeof prop !== "string") return undefined;
+        if (extendedMatcherNames.has(prop))
+          return (...args: unknown[]) => {
+            const expectation = isSoft ? genericExpect.soft : genericExpect;
+            const matchers = expectation(
+              actual,
+              messageOrOptions as never
+            ) as unknown as Record<string, (...args: unknown[]) => unknown> & {
+              not: Record<string, (...args: unknown[]) => unknown>;
+            };
+            return (isNot ? matchers.not : matchers)[prop](...args);
+          };
+        return (...args: unknown[]) => {
+          const publicConfiguration = configuration
+            ? { ...configuration, soft: false }
+            : undefined;
+          const assertion = runPublicExpectMatcher(actual, {
+            matcher: prop,
+            args,
+            isNot,
+            messageOrOptions,
+            configuration: publicConfiguration,
+          });
+          return isSoft
+            ? assertion.catch((error: Error) =>
+                reportSoftPublicExpectFailure(error)
+              )
+            : assertion;
+        };
+      },
+    }
+  );
+}
+
+function createCorpusExpect(
+  genericExpect: typeof baseExpect,
+  configuration?: ExpectConfiguration,
+  extendedMatcherNames: ReadonlySet<string> = new Set()
+): typeof baseExpect {
+  const callable = ((
+    actual: unknown,
+    messageOrOptions?: string | { message?: string }
+  ) =>
+    isAdapterExpectationTarget(actual)
+      ? adapterMatchers(
+          actual,
+          messageOrOptions,
+          configuration,
+          genericExpect,
+          extendedMatcherNames
+        )
+      : genericExpect(actual, messageOrOptions as never)) as typeof baseExpect;
+
+  return new Proxy(callable, {
+    get(_target, prop) {
+      if (prop === "configure")
+        return (next: ExpectConfiguration) =>
+          createCorpusExpect(
+            genericExpect.configure(next),
+            {
+              ...configuration,
+              ...next,
+            },
+            extendedMatcherNames
+          );
+      if (prop === "extend")
+        return (matchers: Parameters<typeof baseExpect.extend>[0]) =>
+          createCorpusExpect(
+            genericExpect.extend(matchers),
+            configuration,
+            new Set([...extendedMatcherNames, ...Object.keys(matchers)])
+          );
+      if (prop === "soft")
+        return (
+          actual: unknown,
+          messageOrOptions?: string | { message?: string }
+        ) =>
+          isAdapterExpectationTarget(actual)
+            ? adapterMatchers(
+                actual,
+                messageOrOptions,
+                { ...configuration, soft: true },
+                genericExpect,
+                extendedMatcherNames
+              )
+            : genericExpect.soft(actual, messageOrOptions as never);
+      return Reflect.get(genericExpect, prop);
+    },
+  });
+}
+
+export const expect = createCorpusExpect(
+  baseExpect.extend({
+    toContainYaml(received: string, expected: string) {
+      const trimmed = expected.split("\n").filter((a) => !!a.trim());
+      const maxPrefixLength = Math.min(
+        ...trimmed.map((line) => (line.match(/^\s*/) ?? [""])[0].length)
+      );
+      const trimmedExpected = trimmed
+        .map((line) => line.substring(maxPrefixLength))
+        .join("\n");
+      try {
+        if (this.isNot) baseExpect(received).not.toContain(trimmedExpected);
+        else baseExpect(received).toContain(trimmedExpected);
+        return { pass: !this.isNot, message: () => "" };
+      } catch (e: unknown) {
+        return {
+          pass: this.isNot,
+          message: () => (e instanceof Error ? e.message : String(e)),
+        };
+      }
+    },
+  })
+);
 
 // ── Utilities ───────────────────────────────────────────────────────
 

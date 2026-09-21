@@ -242,6 +242,33 @@ describe("reviewed promotion", () => {
         /did not run/
       );
     });
+    it("requires the asserted failure reason when provided", () => {
+      assert.throws(
+        () =>
+          sabotageVerdict(
+            [{ id, status: "failed", error: "some unrelated failure" }],
+            id,
+            "Locator.toHaveText",
+            "__pwLiteSabotagedMatcher: Locator.toHaveText"
+          ),
+        /not for the expected reason/
+      );
+      assert.doesNotThrow(() =>
+        sabotageVerdict(
+          [
+            {
+              id,
+              status: "failed",
+              error:
+                "Error: __pwLiteSabotagedMatcher: Locator.toHaveText was withheld for promotion review.",
+            },
+          ],
+          id,
+          "Locator.toHaveText",
+          "__pwLiteSabotagedMatcher: Locator.toHaveText"
+        )
+      );
+    });
     it("accepts a test that fails once the method is sabotaged", () => {
       assert.doesNotThrow(() =>
         sabotageVerdict(
@@ -251,6 +278,181 @@ describe("reviewed promotion", () => {
         )
       );
     });
+  });
+
+  it("requires public expect evidence for existing _expect baseline entries", () => {
+    const baseline = {
+      reviewed: [
+        {
+          id: "expect-to-have-text.spec.ts > should work",
+          method: "Locator._expect",
+          matcher: "Locator.toHaveText",
+          evidence: "historical locator assertion",
+        },
+      ],
+    };
+    const withoutWrapper = compareBaseline(
+      [
+        {
+          id: baseline.reviewed[0].id,
+          file: "expect-to-have-text.spec.ts",
+          status: "passed",
+          execution: { entered: ["Locator._expect"], failures: [] },
+        },
+      ],
+      baseline,
+      ["expect-to-have-text.spec.ts"]
+    );
+    assert.deepEqual(withoutWrapper.regressions, [baseline.reviewed[0].id]);
+
+    const withWrapper = compareBaseline(
+      [
+        {
+          id: baseline.reviewed[0].id,
+          file: "expect-to-have-text.spec.ts",
+          status: "passed",
+          execution: {
+            entered: ["Locator._expect"],
+            expect: ["Locator.toHaveText"],
+            expectPaths: [
+              {
+                matcher: "Locator.toHaveText",
+                method: "Locator._expect",
+              },
+            ],
+            failures: [],
+          },
+        },
+      ],
+      baseline,
+      ["expect-to-have-text.spec.ts"]
+    );
+    assert.deepEqual(withWrapper.regressions, []);
+
+    const independentEvidence = compareBaseline(
+      [
+        {
+          id: baseline.reviewed[0].id,
+          file: "expect-to-have-text.spec.ts",
+          status: "passed",
+          execution: {
+            entered: ["Locator._expect"],
+            expect: ["Locator.toHaveText"],
+            expectPaths: [
+              {
+                matcher: "Locator.toHaveValue",
+                method: "Locator._expect",
+              },
+            ],
+            failures: [],
+          },
+        },
+      ],
+      baseline,
+      ["expect-to-have-text.spec.ts"]
+    );
+    assert.deepEqual(independentEvidence.regressions, [
+      baseline.reviewed[0].id,
+    ]);
+  });
+
+  it("requires public matcher evidence when promoting an expect assertion", () => {
+    const expectEntry = {
+      id: "expect-to-have-text.spec.ts > should work",
+      status: "passed",
+      execution: {
+        entered: ["Locator._expect"],
+        expect: ["Locator.toHaveText"],
+        expectPaths: [
+          {
+            matcher: "Locator.toHaveText",
+            method: "Locator._expect",
+          },
+        ],
+        failures: [],
+      },
+    };
+    assert.deepEqual(
+      reviewedPromotion(
+        [expectEntry],
+        expectEntry.id,
+        "Locator._expect",
+        "public toHaveText checks the locator text",
+        "Locator.toHaveText"
+      ),
+      {
+        id: expectEntry.id,
+        method: "Locator._expect",
+        matcher: "Locator.toHaveText",
+        evidence: "public toHaveText checks the locator text",
+      }
+    );
+    assert.throws(
+      () =>
+        reviewedPromotion(
+          [expectEntry],
+          expectEntry.id,
+          "Locator._expect",
+          "missing matcher"
+        ),
+      /explicit matcher/
+    );
+    assert.throws(() =>
+      reviewedPromotion(
+        [expectEntry],
+        expectEntry.id,
+        "Locator._expect",
+        "wrong matcher",
+        "Locator.toHaveValue"
+      )
+    );
+  });
+
+  it("rejects cross-owner public matcher evidence", () => {
+    const id = "expect-misc.spec.ts > owner alignment";
+    const entry = {
+      id,
+      file: "expect-misc.spec.ts",
+      status: "passed",
+      execution: {
+        entered: ["Locator._expect", "Page._expect"],
+        expect: ["Page.toHaveTitle", "Locator.toHaveText"],
+        expectPaths: [
+          { matcher: "Page.toHaveTitle", method: "Page._expect" },
+          { matcher: "Locator.toHaveText", method: "Locator._expect" },
+        ],
+        failures: [],
+      },
+    };
+
+    assert.deepEqual(
+      compareBaseline(
+        [entry],
+        {
+          reviewed: [
+            {
+              id,
+              method: "Locator._expect",
+              matcher: "Page.toHaveTitle",
+              evidence: "wrong owner",
+            },
+          ],
+        },
+        ["expect-misc.spec.ts"]
+      ).regressions,
+      [id]
+    );
+    assert.throws(
+      () =>
+        reviewedPromotion(
+          [entry],
+          id,
+          "Locator._expect",
+          "wrong owner",
+          "Page.toHaveTitle"
+        ),
+      /owner must match/
+    );
   });
 
   it("records the reviewed assertion", () => {
