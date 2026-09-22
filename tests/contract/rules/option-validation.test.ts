@@ -226,8 +226,8 @@ describe("option-validation", () => {
         console.log("two");
       },
       async (page, filter) =>
-        (await page.consoleMessages(filter ? { filter } : undefined)).map(
-          (m) => m.text()
+        (await page.consoleMessages(filter ? { filter } : undefined)).map((m) =>
+          m.text()
         ),
     ],
   ];

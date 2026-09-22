@@ -275,7 +275,13 @@ export class ConsoleObservation {
         : formatConsoleText(args);
     this.emitting = true;
     try {
-      this.emit({ type, args, text, location: captureLocation(), timestamp: Date.now() });
+      this.emit({
+        type,
+        args,
+        text,
+        location: captureLocation(),
+        timestamp: Date.now(),
+      });
     } finally {
       this.emitting = false;
     }

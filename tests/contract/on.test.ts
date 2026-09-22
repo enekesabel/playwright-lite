@@ -291,7 +291,9 @@ describe("Page.on", () => {
     (_method, call, type, text) => {
       const page = consolePage();
       const messages: { type: string; text: string }[] = [];
-      page.on("console", (m) => messages.push({ type: m.type(), text: m.text() }));
+      page.on("console", (m) =>
+        messages.push({ type: m.type(), text: m.text() })
+      );
 
       call();
 
@@ -337,7 +339,9 @@ describe("Page.on", () => {
   it("reports console.timeLog as type log", () => {
     const page = consolePage();
     const messages: { type: string; text: string }[] = [];
-    page.on("console", (m) => messages.push({ type: m.type(), text: m.text() }));
+    page.on("console", (m) =>
+      messages.push({ type: m.type(), text: m.text() })
+    );
 
     console.timeLog("label-only");
 
