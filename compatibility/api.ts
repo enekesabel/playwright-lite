@@ -57,6 +57,13 @@ const outOfScope = (limitations: string): CompatibilityEntry => ({
 export const elementHandleLimitations =
   "Returned `ElementHandle` objects do not implement `contentFrame()`, `ownerFrame()`, `screenshot()`, or `tap()`. Their `$()` ignores `strict`; `click()` does not wait for navigation; `waitForSelector()` rejects `strict`; `evaluate()` rejects `exposeFunctions: true`. A returned `JSHandle` or `ElementHandle` builds its `toString()` preview from the referenced value inside the document instead of reading a browser-process object description: the preview describes the value as it is when the handle is first converted to a string, and a handle to a `Proxy` prints the target's class name, such as `Object`, where Playwright prints `Proxy(Object)`.";
 
+const eventListenerLimitations =
+  "Events: `pageerror`. Other event names are accepted but never fire.";
+const eventRemovalLimitations =
+  "Events: `pageerror`. Other event names are accepted.";
+const waitForEventLimitations =
+  "Events: `pageerror`. Other event names are accepted and time out.";
+
 export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),
   $: partial(
@@ -72,9 +79,7 @@ export const pageLedger = {
     "Uses the pinned Playwright by-value argument and result serializers."
   ),
   addInitScript: undecided(),
-  addListener: partial(
-    "Events: `pageerror`. Other event names are accepted but never fire."
-  ),
+  addListener: partial(eventListenerLimitations),
   addLocatorHandler: undecided(),
   addScriptTag: partial(
     "Rejects `path`, which reads the script from disk. Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
@@ -148,33 +153,21 @@ export const pageLedger = {
   locator: implemented(),
   mainFrame: partial("Returns the same `Page` object, not a `Frame`."),
   mouse: planned("Synthetic functional input only."),
-  off: partial(
-    "Events: `pageerror`. Other event names are accepted but never fire."
-  ),
-  on: partial(
-    "Events: `pageerror`. Other event names are accepted but never fire."
-  ),
-  once: partial(
-    "Events: `pageerror`. Other event names are accepted but never fire."
-  ),
+  off: partial(eventRemovalLimitations),
+  on: partial(eventListenerLimitations),
+  once: partial(eventListenerLimitations),
   opener: undecided(),
   pageErrors: undecided(),
   pause: undecided(),
   pdf: undecided(),
   pickLocator: undecided(),
-  prependListener: partial(
-    "Events: `pageerror`. Other event names are accepted but never fire."
-  ),
+  prependListener: partial(eventListenerLimitations),
   press: implemented(),
   reload: planned(
     "Initiates browser navigation; execution ends on document replacement."
   ),
-  removeAllListeners: partial(
-    "Events: `pageerror`. Other event names are accepted but never fire."
-  ),
-  removeListener: partial(
-    "Events: `pageerror`. Other event names are accepted but never fire."
-  ),
+  removeAllListeners: partial(eventRemovalLimitations),
+  removeListener: partial(eventRemovalLimitations),
   removeLocatorHandler: undecided(),
   request: undecided(),
   requestGC: undecided(),
@@ -206,9 +199,7 @@ export const pageLedger = {
   url: implemented(),
   video: undecided(),
   viewportSize: undecided(),
-  waitForEvent: partial(
-    "Events: `pageerror`. Other event names are accepted but never fire."
-  ),
+  waitForEvent: partial(waitForEventLimitations),
   waitForFunction: partial(
     "The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),

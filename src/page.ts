@@ -1680,15 +1680,18 @@ export class PageImpl {
     this.observePageErrors();
   }
 
+  /**
+   * Playwright raises a throwing or rejecting listener as an unhandled
+   * exception in Node. Here the listener runs inside the page, where escaping
+   * would report it as another page error, so it is logged instead. Listeners
+   * are not awaited, as in the pinned emitter; a returned thenable stays
+   * pending for `removeAllListeners` to settle.
+   */
   private emit(event: string, payload: unknown) {
+    const log = (error: unknown) =>
+      this.window.console.error(`page.on("${event}"): listener failed`, error);
     for (const entry of [...(this.listeners.get(event) ?? [])]) {
       if (entry.once) this.unsubscribe(event, entry);
-      // Playwright raises a throwing or rejecting listener as an unhandled
-      // exception in Node. Here the listener runs inside the page, where
-      // escaping would report it as another page error, so it is logged
-      // instead. Listeners are not awaited, as in the pinned emitter; a
-      // returned thenable stays pending for `removeAllListeners` to settle.
-      const log = (error: unknown) => this.window.console.error(error);
       try {
         const result = entry.listener(payload);
         if (typeof (result as { then?: unknown })?.then === "function")
