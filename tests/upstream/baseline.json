@@ -3,7 +3,7 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 1924,
+  "selectedTestCount": 2002,
   "reviewed": [
     {
       "id": "elementhandle-bounding-box.spec.ts > should force a layout",
@@ -2633,6 +2633,16 @@
       "evidence": "The unchanged test checks empty enumeration, both written values, getItem, selective removal and final clear through the browser sessionStorage wrapper. Native goto establishes the origin and is not certified."
     },
     {
+      "id": "page-network-request.spec.ts > should parse the data if content-type is application/x-www-form-urlencoded; charset=UTF-8",
+      "method": "Page.waitForRequest",
+      "evidence": "With Page.waitForRequest withheld, the sabotage rerun fails this test: waitForRequest('**/post') is what resolves with the POST the document's own fetch sent to that URL after Page.evaluate made it, so the glob matched a real request that reached the server. The postDataJSON() value the test then asserts is read from the fixture's snapshot of that request, taken outside the recorded adapter execution, and is not covered by the rerun."
+    },
+    {
+      "id": "page-network-response.spec.ts > should wait until response completes",
+      "method": "Response.text",
+      "evidence": "The response awaited from waitForEvent('response') reports status 200 while the server has sent only 'hello ', and its text() resolves with 'hello world!' only after the server writes the rest and ends: text() reads the observed fetch's body to its end rather than returning what had arrived with the headers. The test's requestfinished assertion is vacuous here, because the fixture cannot deliver an event to a Node listener; the promoted evidence is the body assertion."
+    },
+    {
       "id": "page-select-option.spec.ts > should select single option by handle",
       "method": "Page.selectOption",
       "evidence": "An ElementHandle to the white <option> selects it and fires input and change with 'white', so a handle value is matched as the option node itself. Native goto only establishes the document."
@@ -2822,6 +2832,16 @@
       "id": "page-wait-for-load-state.spec.ts > should throw for bad state",
       "method": "Page.waitForLoadState",
       "evidence": "The awaited adapter call rejects bad with the pinned state validation message naming load, domcontentloaded, networkidle, and commit."
+    },
+    {
+      "id": "page-wait-for-request.spec.ts > should log the url",
+      "method": "Page.waitForRequest",
+      "evidence": "waitForRequest with a 70-character url and timeout 1000 rejects with a message containing waiting for request \"long-long-…\", the pinned client trimUrl line: the wait reports the url it matched on, trimmed to 50 characters with an ellipsis."
+    },
+    {
+      "id": "page-wait-for-response.spec.ts > should log the url",
+      "method": "Page.waitForResponse",
+      "evidence": "waitForResponse(\"foo.css\") and waitForResponse(/foo.css/i) reject with messages containing waiting for response \"foo.css\" and waiting for response /foo.css/i, so the string form is quoted and the regular-expression form keeps its source and flags, as the pinned trimUrl does."
     },
     {
       "id": "page-wait-for-selector-1.spec.ts > elementHandle.waitForSelector should immediately resolve if node exists",

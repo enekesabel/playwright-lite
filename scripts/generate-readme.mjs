@@ -9,6 +9,7 @@ import {
   locatorLedger,
   expectLedger,
   elementHandleLimitations,
+  networkLimitations,
 } from "../compatibility/api.ts";
 
 const projectRoot = new URL("../", import.meta.url);
@@ -117,6 +118,7 @@ export async function renderReadme(root = projectRoot) {
   const pkg = JSON.parse(packageJson);
   const markdown = Handlebars.compile(template, { strict: true })({
     elementHandleLimitations,
+    networkLimitations,
     playwrightVersion: pkg.devDependencies["@playwright/test"],
     tables: [
       { name: "Expect", rows: rowsFor(undefined, expectLedger, true) },

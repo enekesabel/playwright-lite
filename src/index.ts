@@ -2,6 +2,13 @@ import type { Page, PlaywrightTestOptions } from "@playwright/test";
 
 export { expect } from "./expect";
 export type { Expect } from "./expect";
+/**
+ * The `Request` and `Response` objects the network events and waits report.
+ * They are subsets of Playwright's, carrying only the members the current
+ * document can fill; `createPage` still returns Playwright's own `Page` type,
+ * so annotating with these is opt-in.
+ */
+export type { Request, Response } from "./network";
 
 import { PageImpl } from "./page";
 
