@@ -93,6 +93,7 @@ const nativeNavigationForSetupSpecs = new Set([
   "locator-misc-2.spec.ts",
   "locator-query.spec.ts",
   "matchers.misc.spec.ts",
+  "network-post-data.spec.ts",
   "page-add-locator-handler.spec.ts",
   "page-add-script-tag.spec.ts",
   "page-add-style-tag.spec.ts",
