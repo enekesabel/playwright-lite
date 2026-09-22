@@ -1169,6 +1169,26 @@ test("adapter element handles keep native identity, scope queries, and release b
   expect(execution.entered).toContain("ElementHandle.evaluate");
 });
 
+test("an ElementHandle member inherited from JSHandle is recorded under ElementHandle", async ({
+  page,
+  adapterPage,
+}) => {
+  // getProperty/jsonValue are declared once on AdapterJSHandle and never
+  // overridden on AdapterElementHandle. instrument() must still record a call
+  // to one of them under the subclass's kind, by walking the whole prototype
+  // chain rather than only the handle's own immediate prototype.
+  await page.setContent("<div>inherited</div>");
+  const handle = await adapterPage.$("div");
+  if (!handle) throw new Error("Expected ElementHandle");
+
+  const property = await handle.getProperty("tagName");
+  expect(await property.jsonValue()).toBe("DIV");
+
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  expect(execution.entered).toContain("ElementHandle.getProperty");
+  expect(execution.entered).not.toContain("JSHandle.getProperty");
+});
+
 test("adapter element handles reject references from another adapter context", async ({
   page,
 }) => {
