@@ -12,9 +12,9 @@ export type { Request, Response } from "./network";
 /**
  * The `Dialog` a `dialog` listener receives, a subset of Playwright's own.
  * `createPage` still returns Playwright's own `Page` type, so annotating with
- * this is optional; see [Dialog compatibility](#dialog-compatibility).
+ * this is optional.
  */
-export type { Dialog, DialogType } from "./dialog";
+export type { Dialog } from "./dialog";
 
 import { PageImpl } from "./page";
 

@@ -63,11 +63,13 @@ const networkEventPayload =
   "`request`, `response`, `requestfinished` and `requestfailed` fire for the `fetch()` and `XMLHttpRequest` calls the document makes while a listener is registered; see [Request and Response compatibility](#request-and-response-compatibility).";
 const dialogEventPayload =
   "`dialog` fires for the `window.alert()`, `window.confirm()` and `window.prompt()` calls the document makes while a listener is registered; see [Dialog compatibility](#dialog-compatibility).";
+const dialogWaitForEventPayload =
+  '`dialog` fires for the `window.alert()`, `window.confirm()` and `window.prompt()` calls the document makes while a listener is registered; the dialog must still be settled synchronously in a `dialog` listener, so one resolved from `waitForEvent("dialog")` is already dismissed by the time the promise resolves; see [Dialog compatibility](#dialog-compatibility).';
 const eventNames =
   "`dialog`, `framenavigated`, `pageerror`, `request`, `response`, `requestfinished`, `requestfailed`";
 const eventListenerLimitations = `Events: ${eventNames}. Other event names are accepted but never fire. ${dialogEventPayload} ${framenavigatedPayload} ${networkEventPayload}`;
 const eventRemovalLimitations = `Events: ${eventNames}. Other event names are accepted.`;
-const waitForEventLimitations = `Events: ${eventNames}. Other event names are accepted and time out. ${dialogEventPayload} ${framenavigatedPayload} ${networkEventPayload}`;
+const waitForEventLimitations = `Events: ${eventNames}. Other event names are accepted and time out. ${dialogWaitForEventPayload} ${framenavigatedPayload} ${networkEventPayload}`;
 const networkObservationLimitations =
   "`fetch()` and `XMLHttpRequest` calls of the current document only; see [Request and Response compatibility](#request-and-response-compatibility).";
 
@@ -92,16 +94,16 @@ The members that do exist differ from Playwright's as follows.
 - \`Response.finished()\` resolves once the response body has ended. A \`fetch()\` response body is read and buffered as the response arrives, so that \`body()\`, \`text()\` and \`json()\` can still answer after the document consumed it. An \`XMLHttpRequest\` body is read back from the request once it is done. With the default \`responseType\` the browser has already decoded that body as text, so the three return it re-encoded as UTF-8, and a binary or non-UTF-8 body does not come back byte for byte; Playwright returns the bytes received. They reject when the request set \`responseType\` to \`"json"\` or \`"document"\`, because the browser then keeps only the value it parsed.`;
 
 /** Consumer-facing description of this package's `dialog` event and `Dialog`. */
-export const dialogLimitations = `\`page.on("dialog")\` reports the \`window.alert()\`, \`window.confirm()\` and \`window.prompt()\` calls the current document makes, wrapped as Playwright's \`Dialog\`. Adding the first \`dialog\` listener wraps all three; removing the last one restores them, unless the document replaced one of them itself in the meantime, the same last-resort rule the network wrapper follows. A page you never add a \`dialog\` listener to, or one whose last listener has already been removed, keeps its native \`alert\`/\`confirm\`/\`prompt\` untouched and unobserved.
+export const dialogLimitations = `\`page.on("dialog")\` reports the \`window.alert()\`, \`window.confirm()\` and \`window.prompt()\` calls the current document makes, wrapped as Playwright's \`Dialog\`.
 
-\`Dialog\` has \`type()\`, \`message()\`, \`defaultValue()\`, \`accept()\`, \`dismiss()\` and \`page()\`. The package exports a \`Dialog\` type listing exactly these members; annotating a listener's parameter with it is optional, the same as \`Request\` and \`Response\`. \`beforeunload\` dialogs are never reported: they belong to document replacement, a boundary this package does not cross.
+\`Dialog\` has \`type()\`, \`message()\`, \`defaultValue()\`, \`accept()\`, \`dismiss()\` and \`page()\`. The package exports a \`Dialog\` type listing exactly these members. \`beforeunload\` dialogs are never reported.
 
 The members that do exist differ from Playwright's as follows.
 
 - A dialog is settled synchronously. \`window.alert()\`, \`window.confirm()\` and \`window.prompt()\` block the document's own script until they return, so a \`dialog\` listener must call \`accept()\` or \`dismiss()\` synchronously, before returning control to the wrapped call, for that call to decide the result. Playwright itself settles a dialog whenever the listener eventually calls \`accept()\`/\`dismiss()\`, however later that is.
 - If no listener settles a dialog synchronously, it is dismissed once every listener has run, and the wrapped call returns the dismissed value: \`undefined\` for \`alert()\`, \`false\` for \`confirm()\`, \`null\` for \`prompt()\`. Playwright auto-dismisses only when a page has no \`dialog\` listener at all; here the same auto-dismiss also covers a listener that does not settle the dialog in time.
-- \`accept(value)\`/\`dismiss()\` become the wrapped call's return value: \`undefined\` for \`alert()\`, \`true\`/\`false\` for \`confirm()\`, the given string, or \`defaultValue()\` if \`accept()\` is called without one, or \`null\` for \`prompt()\`.
-- Settling an already-settled dialog throws Playwright's own \`Cannot accept dialog which is already handled!\`/\`Cannot dismiss dialog which is already handled!\` message, rather than rejecting.`;
+- A dialog resolved from \`waitForEvent("dialog")\` is already dismissed by the time the promise resolves, so \`(await page.waitForEvent("dialog")).accept()\` rejects: a dialog can only be settled synchronously, inside a \`dialog\` listener.
+- Pages sharing one window share one dialog settlement: the first \`accept()\`/\`dismiss()\` call, from any of them, wins, and a later one rejects.`;
 
 export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),
