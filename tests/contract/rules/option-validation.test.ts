@@ -3,6 +3,9 @@ import type { Page } from "@playwright/test";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../../src/index";
+import { report, swallowWindowErrors } from "../pageEvents";
+
+swallowWindowErrors();
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -192,6 +195,68 @@ describe("option-validation", () => {
     async (_apiName, run, message) => {
       document.body.innerHTML = targets;
       await expect(run(createPage())).rejects.toThrow(message);
+    }
+  );
+
+  // pageErrors and consoleMessages share the same `filter` rule: an
+  // unsupported value is rejected, and "all" and the default
+  // "since-navigation" return the same entries, since this single-document
+  // adapter never crosses documents within one page's lifetime.
+  const historyFilterCases: [
+    string,
+    (page: Page) => Promise<void>,
+    (page: Page, filter?: "all" | "since-navigation") => Promise<string[]>,
+  ][] = [
+    [
+      "pageErrors",
+      async () => {
+        report(new Error("one"));
+        report(new Error("two"));
+      },
+      async (page, filter) =>
+        (await page.pageErrors(filter ? { filter } : undefined)).map(
+          (e) => e.message
+        ),
+    ],
+    [
+      "consoleMessages",
+      async (page) => {
+        await page.consoleMessages();
+        console.log("one");
+        console.log("two");
+      },
+      async (page, filter) =>
+        (await page.consoleMessages(filter ? { filter } : undefined)).map(
+          (m) => m.text()
+        ),
+    ],
+  ];
+
+  it.each(historyFilterCases)(
+    "%s rejects an unsupported filter value",
+    async (_apiName, seed, read) => {
+      const page = createPage();
+      await seed(page);
+      await expect(read(page, "unknown" as "all")).rejects.toThrow(
+        "filter: expected one of (all|since-navigation)"
+      );
+    }
+  );
+
+  it.each(historyFilterCases)(
+    '%s: filter "all" and the default "since-navigation" return the same entries',
+    async (_apiName, seed, read) => {
+      const page = createPage();
+      await seed(page);
+
+      const [all, sinceNavigation, defaulted] = await Promise.all([
+        read(page, "all"),
+        read(page, "since-navigation"),
+        read(page),
+      ]);
+      expect(all).toEqual(["one", "two"]);
+      expect(sinceNavigation).toEqual(all);
+      expect(defaulted).toEqual(all);
     }
   );
 

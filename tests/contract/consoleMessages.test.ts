@@ -38,30 +38,9 @@ describe("Page.consoleMessages", () => {
     expect(messages[messages.length - 1].text()).toBe("message201");
   });
 
-  it('`filter: "all"` and the default `since-navigation` return the same messages', async () => {
-    const page = createPage();
-    await page.consoleMessages();
-    console.log("one");
-    console.log("two");
-
-    const [all, sinceNavigation, defaulted] = await Promise.all([
-      page.consoleMessages({ filter: "all" }),
-      page.consoleMessages({ filter: "since-navigation" }),
-      page.consoleMessages(),
-    ]);
-    const texts = (messages: Awaited<typeof all>) =>
-      messages.map((m) => m.text());
-    expect(texts(all)).toEqual(["one", "two"]);
-    expect(texts(sinceNavigation)).toEqual(texts(all));
-    expect(texts(defaulted)).toEqual(texts(all));
-  });
-
-  it("rejects an unsupported filter value", async () => {
-    const page = createPage();
-    await expect(
-      page.consoleMessages({ filter: "unknown" as "all" })
-    ).rejects.toThrow("filter: expected one of (all|since-navigation)");
-  });
+  // The `filter` cases (value validation, and the since-navigation/all
+  // equivalence) are shared with pageErrors and live in
+  // rules/option-validation.test.ts.
 
   it("buffers and emits a call once, whether or not a console listener is also subscribed", async () => {
     const page = createPage();
