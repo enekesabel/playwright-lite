@@ -62,7 +62,7 @@ const framenavigatedPayload =
 const networkEventPayload =
   "`request`, `response`, `requestfinished` and `requestfailed` fire for the `fetch()` and `XMLHttpRequest` calls the document makes while a listener is registered; see [Request and Response compatibility](#request-and-response-compatibility).";
 const consoleEventPayload =
-  "`console` fires for the document's own `console.log/debug/info/error/warn/dir/dirxml/table/trace/clear/group/groupCollapsed/groupEnd/assert/profile/profileEnd/count/timeEnd` calls made while a listener is registered. Browser-generated console entries (a failed resource load, a CSP violation report) never call one of those methods, so they are never reported. A `console.*` call made from inside a `console` listener is forwarded to the real method but does not itself fire the event, so a listener that logs cannot trigger itself recursively. `ConsoleMessage.location()` is a best-effort capture from a synthetic stack, not the browser's own call-site data.";
+  "`console` fires for the document's own `console.*` calls made while a listener is registered; see [ConsoleMessage compatibility](#consolemessage-compatibility).";
 const eventNames =
   "`framenavigated`, `pageerror`, `request`, `response`, `requestfinished`, `requestfailed`, `console`";
 const eventListenerLimitations = `Events: ${eventNames}. Other event names are accepted but never fire. ${framenavigatedPayload} ${networkEventPayload} ${consoleEventPayload}`;
@@ -71,7 +71,20 @@ const waitForEventLimitations = `Events: ${eventNames}. Other event names are ac
 const networkObservationLimitations =
   "`fetch()` and `XMLHttpRequest` calls of the current document only; see [Request and Response compatibility](#request-and-response-compatibility).";
 const consoleMessagesLimitations =
-  '`filter: "all"` and the default `"since-navigation"` return the same messages: this single-document adapter never crosses documents within one page\'s lifetime, so nothing ever marks the buffer at a navigation. The buffer holds `console.*` calls made from the first `consoleMessages()` call (or the first `console` listener) onward, not from page creation: a call made before that first subscription is never observed. Browser-generated console entries (a failed resource load, a CSP violation report) are not observed: only the document\'s own `console.*` calls are. `ConsoleMessage.location()` is a best-effort capture from a synthetic stack, not the browser\'s own call-site data.';
+  '`filter: "all"` and the default `"since-navigation"` return the same messages, since nothing ever marks the buffer at a navigation; see [ConsoleMessage compatibility](#consolemessage-compatibility).';
+
+/** Consumer-facing description of this package's `console` event and `ConsoleMessage`. */
+export const consoleMessageLimitations = `\`page.on("console")\` and \`page.consoleMessages()\` report the document's own \`console.log()\`, \`debug()\`, \`info()\`, \`error()\`, \`warn()\`, \`dir()\`, \`dirxml()\`, \`table()\`, \`trace()\`, \`clear()\`, \`group()\`, \`groupCollapsed()\`, \`groupEnd()\`, \`assert()\`, \`profile()\`, \`profileEnd()\`, \`count()\`, \`timeEnd()\` and \`timeLog()\` calls, wrapped as Playwright's \`ConsoleMessage\`.
+
+The members that do exist differ from Playwright's as follows.
+
+- Only a \`console.*\` call made after you first read \`page.on("console")\` or call \`page.consoleMessages()\` is reported; an earlier call is never observed. \`consoleMessages()\` keeps reading calls made after that first read, the same way \`requests()\` does.
+- A browser-generated console entry — a failed resource load, a Content-Security-Policy violation report — never calls a \`console.*\` method, so it is never reported.
+- \`timeEnd()\`, \`timeLog()\` and \`count()\` report only the label the call passed, not the elapsed time or count the browser computes internally.
+- \`ConsoleMessage.text()\`'s object and array previews list their own entries one level deep, each rendered the way this package's own \`JSHandle\` description renders it, rather than the browser's own preview algorithm: no truncation, no sparse-array markers, and a class instance renders as its constructor name rather than listing its members.
+- \`ConsoleMessage.location()\` is reconstructed from the calling script's own stack at the point of the call, not the browser's own recorded call-site data: engine stack-formatting differences and inlining can shift or drop a frame.
+- Wrapping a \`console.*\` method adds a frame of its own to any stack the browser captures while it is wrapped, including DevTools' own call-site link for a logged message and the stack \`console.trace()\` itself prints: both point partway into this package's own code, not only at the calling script.
+- A \`console.*\` call made from inside a \`console\` listener is forwarded to the real method but does not itself fire another \`console\` event, so a listener that logs cannot trigger itself.`;
 
 /** Consumer-facing description of this package's `Request` and `Response`. */
 export const networkLimitations = `\`page.on("request" | "response" | "requestfinished" | "requestfailed")\`, \`page.waitForRequest()\`, \`page.waitForResponse()\` and \`page.requests()\` report the \`fetch()\` and \`XMLHttpRequest\` calls the current document makes while you are subscribed. Images, scripts, stylesheets, \`navigator.sendBeacon\`, \`WebSocket\`, \`EventSource\`, form submissions and navigations are not reported, and neither are \`fetch()\` and \`XMLHttpRequest\` calls made by another realm, by an iframe or by a service worker, nor a \`fetch()\` call started or an \`XMLHttpRequest\` opened before the first subscription.
