@@ -35,6 +35,7 @@ import {
   dialogObservationFor,
   type Dialog,
   type DialogState,
+  type DialogType,
 } from "./dialog";
 import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
@@ -294,6 +295,43 @@ type ActionableInjectedScript = {
   selectText(element: Element): "error:notconnected" | "done";
   dispatchEvent(node: Node, type: string, eventInitObj: object): void;
 };
+
+/**
+ * A `dialog` event payload for one page: a facade over the settlement every
+ * subscribed page shares (`DialogObservation`), so `page()` reports the page
+ * whose listener received it. A real class, not an object literal, so its
+ * members are the payload's own prototype methods.
+ */
+class PageDialog implements Dialog {
+  constructor(
+    private readonly state: DialogState,
+    private readonly owner: PageImpl
+  ) {}
+
+  type(): DialogType {
+    return this.state.type();
+  }
+
+  message(): string {
+    return this.state.message();
+  }
+
+  defaultValue(): string {
+    return this.state.defaultValue();
+  }
+
+  accept(promptText?: string): Promise<void> {
+    return this.state.accept(promptText);
+  }
+
+  dismiss(): Promise<void> {
+    return this.state.dismiss();
+  }
+
+  page(): Page {
+    return this.owner as unknown as Page;
+  }
+}
 
 export class PageImpl {
   readonly [PAGE_BRAND] = PAGE_BRAND_TOKEN;
@@ -1721,19 +1759,8 @@ export class PageImpl {
    */
   private subscribeToDialogs(): () => void {
     return this.dialogs.subscribe((state) => {
-      this.emit("dialog", this.wrapDialog(state));
+      this.emit("dialog", new PageDialog(state, this));
     });
-  }
-
-  private wrapDialog(state: DialogState): Dialog & { page(): Page } {
-    return {
-      type: () => state.type(),
-      message: () => state.message(),
-      defaultValue: () => state.defaultValue(),
-      accept: (promptText?: string) => state.accept(promptText),
-      dismiss: () => state.dismiss(),
-      page: () => this as unknown as Page,
-    };
   }
 
   private async waitForPageEvent(

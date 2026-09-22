@@ -9,6 +9,12 @@ export type { Expect } from "./expect";
  * so annotating with these is opt-in.
  */
 export type { Request, Response } from "./network";
+/**
+ * The `Dialog` a `dialog` listener receives, a subset of Playwright's own.
+ * `createPage` still returns Playwright's own `Page` type, so annotating with
+ * this is optional; see [Dialog compatibility](#dialog-compatibility).
+ */
+export type { Dialog, DialogType } from "./dialog";
 
 import { PageImpl } from "./page";
 

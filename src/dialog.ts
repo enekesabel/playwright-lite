@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { WrappedHostFunction } from "./hostGlobals";
 
 /**
@@ -9,13 +10,19 @@ import { WrappedHostFunction } from "./hostGlobals";
  */
 export type DialogType = "alert" | "confirm" | "prompt";
 
-/** The pinned `client/dialog.ts` members this observation can fill. */
+/**
+ * The pinned `client/dialog.ts` members this observation can fill. Exported
+ * for consumers who want to annotate a `dialog` listener's parameter;
+ * `createPage()` still returns Playwright's own `Page` type, whose `Dialog`
+ * this is a subset of, so annotating with it is optional.
+ */
 export interface Dialog {
   type(): DialogType;
   message(): string;
   defaultValue(): string;
   accept(promptText?: string): Promise<void>;
   dismiss(): Promise<void>;
+  page(): Page;
 }
 
 type NativeAlert = typeof globalThis.alert;
@@ -44,7 +51,7 @@ function alreadyHandled(accepted: boolean): Error {
  * client, but neither awaits anything: the settlement itself happens
  * synchronously in the body, before the returned promise is even observed.
  */
-export class DialogState implements Dialog {
+export class DialogState implements Omit<Dialog, "page"> {
   private handled = false;
   private settlement: Settlement | undefined;
 
