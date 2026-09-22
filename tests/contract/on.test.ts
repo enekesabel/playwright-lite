@@ -316,6 +316,8 @@ describe("Page.on", () => {
         ["x-contract", "yes"],
         ["x-repeated", "one"],
         ["x-repeated", "two"],
+        // The browser drops this forbidden name without an error.
+        ["cookie", "never-sent=1"],
       ],
       body: "hello",
     });
@@ -330,6 +332,7 @@ describe("Page.on", () => {
     // Per XMLHttpRequest, a repeated name appends instead of replacing.
     expect(request.headers()["x-repeated"]).toBe("one, two");
     expect(await request.headerValue("X-Contract")).toBe("yes");
+    expect(request.headers()).not.toHaveProperty("cookie");
     expect(request.failure()).toBe(null);
     expect(request.postData()).toBe("hello");
   });

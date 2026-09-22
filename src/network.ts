@@ -23,7 +23,8 @@ type XhrSend = typeof XMLHttpRequest.prototype.send;
 type OpenedXhr = {
   method: string;
   url: string;
-  headers: Record<string, string>;
+  /** What `setRequestHeader` accepted, before the browser filtered it. */
+  headers: Headers;
   /** Set once `send` reported the request this record describes. */
   sent?: SentXhr;
 };
@@ -551,7 +552,7 @@ export class NetworkObservation {
     this.openedRequests.set(thisArg as XMLHttpRequest, {
       method: normalizeXhrMethod(String(args[0])),
       url: new URL(String(args[1]), this.window.document.baseURI).href,
-      headers: {},
+      headers: new this.window.Headers(),
     });
     return result;
   }
@@ -563,15 +564,9 @@ export class NetworkObservation {
     args: unknown[]
   ): unknown {
     const result = Reflect.apply(original, thisArg, args);
-    const opened = this.openedRequests.get(thisArg as XMLHttpRequest);
-    if (opened) {
-      // Per XMLHttpRequest, setting the same name twice appends to the value
-      // already there instead of replacing it.
-      const name = String(args[0]).toLowerCase();
-      const value = String(args[1]).trim();
-      const set = opened.headers[name];
-      opened.headers[name] = set === undefined ? value : `${set}, ${value}`;
-    }
+    this.openedRequests
+      .get(thisArg as XMLHttpRequest)
+      ?.headers.append(String(args[0]), String(args[1]));
     return result;
   }
 
@@ -600,7 +595,14 @@ export class NetworkObservation {
     const request = new ObservedRequest({
       url: opened.url,
       method: opened.method,
-      headers: { ...opened.headers },
+      // The browser drops forbidden names such as `Cookie` from what is sent,
+      // and a Request applies the same filter and joins repeated names.
+      headers: headersObject(
+        new this.window.Request(this.window.document.baseURI, {
+          method: opened.method,
+          headers: opened.headers,
+        }).headers
+      ),
       resourceType: "xhr",
       // `send` ignores its body for GET and HEAD, so nothing is sent.
       postData:
