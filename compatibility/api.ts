@@ -59,10 +59,33 @@ export const elementHandleLimitations =
 
 const framenavigatedPayload =
   "`framenavigated` fires with the `Page` itself, the object `mainFrame()` returns, up to 20 ms after a same-document URL change. `pushState` and `replaceState` are sampled every 20 ms: several within one interval produce one event, and a URL that changes and changes back within one interval produces none.";
-const eventListenerLimitations = `Events: \`framenavigated\`, \`pageerror\`. Other event names are accepted but never fire. ${framenavigatedPayload}`;
-const eventRemovalLimitations =
-  "Events: `framenavigated`, `pageerror`. Other event names are accepted.";
-const waitForEventLimitations = `Events: \`framenavigated\`, \`pageerror\`. Other event names are accepted and time out. ${framenavigatedPayload}`;
+const networkEventPayload =
+  "`request`, `response`, `requestfinished` and `requestfailed` fire for the `fetch()` calls the document makes while a listener is registered; see [Request and Response compatibility](#request-and-response-compatibility).";
+const eventNames =
+  "`framenavigated`, `pageerror`, `request`, `response`, `requestfinished`, `requestfailed`";
+const eventListenerLimitations = `Events: ${eventNames}. Other event names are accepted but never fire. ${framenavigatedPayload} ${networkEventPayload}`;
+const eventRemovalLimitations = `Events: ${eventNames}. Other event names are accepted. Removing the last network listener restores \`window.fetch\`.`;
+const waitForEventLimitations = `Events: ${eventNames}. Other event names are accepted and time out. ${framenavigatedPayload} ${networkEventPayload}`;
+const networkObservationLimitations =
+  "`fetch()` calls of the current document only; see [Request and Response compatibility](#request-and-response-compatibility).";
+
+/** Consumer-facing description of this package's `Request` and `Response`. */
+export const networkLimitations = `\`page.on("request" | "response" | "requestfinished" | "requestfailed")\`, \`page.waitForRequest()\`, \`page.waitForResponse()\` and \`page.requests()\` report the \`fetch()\` calls the current document makes while you are subscribed. Images, scripts, stylesheets, \`XMLHttpRequest\`, \`navigator.sendBeacon\`, \`WebSocket\`, \`EventSource\`, form submissions and navigations are not reported, and neither are \`fetch()\` calls made by another realm, by an iframe or by a service worker, nor calls that started before the first subscription.
+
+\`Request\` has \`url()\`, \`resourceType()\`, \`method()\`, \`headers()\`, \`headerValue()\`, \`postData()\`, \`postDataBuffer()\`, \`postDataJSON()\`, \`isNavigationRequest()\`, \`failure()\` and \`response()\`. \`allHeaders()\`, \`headersArray()\`, \`frame()\`, \`redirectedFrom()\`, \`redirectedTo()\`, \`serviceWorker()\`, \`sizes()\` and \`timing()\` do not exist on the type.
+
+\`Response\` has \`url()\`, \`status()\`, \`statusText()\`, \`ok()\`, \`headers()\`, \`headerValue()\`, \`body()\`, \`text()\`, \`json()\`, \`finished()\` and \`request()\`. \`allHeaders()\`, \`headersArray()\`, \`headerValues()\`, \`frame()\`, \`fromServiceWorker()\`, \`httpVersion()\`, \`securityDetails()\` and \`serverAddr()\` do not exist on the type.
+
+The members that do exist differ from Playwright's as follows.
+
+- \`resourceType()\` is always \`"fetch"\` and \`isNavigationRequest()\` is always \`false\`.
+- \`Request.headers()\` and \`Request.headerValue()\` report the headers the \`fetch()\` call set, not the headers that went on the wire: \`Cookie\`, \`Origin\`, \`User-Agent\` and the other headers the browser adds are missing. Playwright's \`headerValue()\` reads the wire headers.
+- \`Response.headers()\` and \`Response.headerValue()\` report the headers the browser exposes to the document: \`Set-Cookie\` is never among them, and a cross-origin response exposes only the CORS-safelisted names plus the ones its \`Access-Control-Expose-Headers\` lists.
+- \`postData()\`, \`postDataBuffer()\` and \`postDataJSON()\` read the body only when the \`fetch()\` call passed it as a string, \`URLSearchParams\`, \`ArrayBuffer\` or typed array. A \`Blob\`, \`FormData\` or \`ReadableStream\` body, and a body carried by a \`Request\` argument, report \`null\`.
+- \`postDataBuffer()\` returns a \`Uint8Array\` and \`Response.body()\` resolves with a \`Uint8Array\`, where Playwright returns a Node.js \`Buffer\`.
+- \`failure().errorText\` is the name and message of the error the \`fetch()\` call rejected with, or the reason its \`AbortSignal\` carried, not a \`net::ERR_*\` code.
+- A redirect chain is one request and one response: the request reports the URL the document asked for, the response reports the final URL, and no event is emitted per hop.
+- \`Response.finished()\` resolves once the response body has ended. The response body is read and buffered for every observed response, so that \`body()\`, \`text()\` and \`json()\` can still answer after the document consumed it.`
 
 export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),
@@ -171,7 +194,7 @@ export const pageLedger = {
   removeLocatorHandler: undecided(),
   request: undecided(),
   requestGC: undecided(),
-  requests: undecided(),
+  requests: partial(networkObservationLimitations),
   route: undecided(),
   routeFromHAR: undecided(),
   routeWebSocket: undecided(),
@@ -205,8 +228,8 @@ export const pageLedger = {
   ),
   waitForLoadState: partial("Rejects `networkidle`."),
   waitForNavigation: undecided(),
-  waitForRequest: undecided(),
-  waitForResponse: undecided(),
+  waitForRequest: partial(networkObservationLimitations),
+  waitForResponse: partial(networkObservationLimitations),
   waitForSelector: partial(
     "Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),

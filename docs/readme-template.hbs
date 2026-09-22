@@ -47,6 +47,7 @@ Do not repeat them in partial API notes or downgrade APIs because of them.
 - **Current document only.** No iframe traversal, `Frame`, or `FrameLocator` support.
 - **Navigation ends execution.** `goto()` can start navigation, but replacing the document destroys the JavaScript context running your script. Automation cannot continue across a full-page navigation or reload.
 - **No network-idle observation.** `networkidle` needs browser-wide request tracking, which this current-document runtime does not have.
+- **Observing the network replaces `window.fetch`.** Adding the first `request`, `response`, `requestfinished` or `requestfailed` listener, or the first call to `waitForRequest()`, `waitForResponse()` or `requests()`, installs a wrapper around `window.fetch` that forwards every call unchanged. Removing the last of those listeners puts the original function back, unless the page replaced `window.fetch` itself in the meantime; `requests()` keeps the wrapper installed so its log keeps filling. A page you never subscribe on is left untouched.
 - **Synthetic input.** Input events are not browser-trusted. Native keyboard behavior such as cursor movement, deletion, and focus traversal is not simulated.
 - **No browser control.** No browser launch, browser contexts, or browser-level control over network traffic, downloads, or other tabs.
 - **Content Security Policy still applies.** Evaluation callbacks need dynamic JavaScript evaluation to be allowed by the page's policy; the library does not bypass it.
@@ -97,6 +98,15 @@ only concrete matcher inputs, options, or selection differences.
 ### ElementHandle compatibility
 
 {{{elementHandleLimitations}}}
+
+{{!--
+Owned by `networkLimitations` in compatibility/api.ts: the exact members these
+objects have, the ones absent from their types, and how the present members
+differ from Playwright's. The network ledger rows link here.
+--}}
+### Request and Response compatibility
+
+{{{networkLimitations}}}
 
 ## License
 
