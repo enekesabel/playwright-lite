@@ -58,7 +58,7 @@ export const elementHandleLimitations =
   "Returned `ElementHandle` objects do not implement `contentFrame()`, `ownerFrame()`, `screenshot()`, or `tap()`. Their `$()` ignores `strict`; `click()` does not wait for navigation; `waitForSelector()` rejects `strict`; `evaluate()` rejects `exposeFunctions: true`. A returned `JSHandle` or `ElementHandle` builds its `toString()` preview from the referenced value inside the document instead of reading a browser-process object description: the preview describes the value as it is when the handle is first converted to a string, and a handle to a `Proxy` prints the target's class name, such as `Object`, where Playwright prints `Proxy(Object)`.";
 
 const framenavigatedPayload =
-  "`framenavigated` fires with the `Page` itself, the object `mainFrame()` returns, up to 20 ms after a same-document URL change.";
+  "`framenavigated` fires with the `Page` itself, the object `mainFrame()` returns, up to 20 ms after a same-document URL change. `pushState` and `replaceState` are sampled every 20 ms: several within one interval produce one event, and a URL that changes and changes back within one interval produces none.";
 const eventListenerLimitations = `Events: \`framenavigated\`, \`pageerror\`. Other event names are accepted but never fire. ${framenavigatedPayload}`;
 const eventRemovalLimitations =
   "Events: `framenavigated`, `pageerror`. Other event names are accepted.";
