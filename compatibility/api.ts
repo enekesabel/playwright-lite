@@ -64,7 +64,7 @@ const networkEventPayload =
 const eventNames =
   "`framenavigated`, `pageerror`, `request`, `response`, `requestfinished`, `requestfailed`";
 const eventListenerLimitations = `Events: ${eventNames}. Other event names are accepted but never fire. ${framenavigatedPayload} ${networkEventPayload}`;
-const eventRemovalLimitations = `Events: ${eventNames}. Other event names are accepted. Removing the last network listener restores \`window.fetch\`.`;
+const eventRemovalLimitations = `Events: ${eventNames}. Other event names are accepted.`;
 const waitForEventLimitations = `Events: ${eventNames}. Other event names are accepted and time out. ${framenavigatedPayload} ${networkEventPayload}`;
 const networkObservationLimitations =
   "`fetch()` calls of the current document only; see [Request and Response compatibility](#request-and-response-compatibility).";
@@ -83,7 +83,7 @@ The members that do exist differ from Playwright's as follows.
 - \`resourceType()\` is always \`"fetch"\` and \`isNavigationRequest()\` is always \`false\`.
 - \`Request.headers()\` and \`Request.headerValue()\` report the headers the \`fetch()\` call set, not the headers that went on the wire: \`Cookie\`, \`Origin\`, \`User-Agent\` and the other headers the browser adds are missing. Playwright's \`headerValue()\` reads the wire headers.
 - \`Response.headers()\` and \`Response.headerValue()\` report the headers the browser exposes to the document: \`Set-Cookie\` is never among them, and a cross-origin response exposes only the CORS-safelisted names plus the ones its \`Access-Control-Expose-Headers\` lists.
-- \`postData()\`, \`postDataBuffer()\` and \`postDataJSON()\` read the body only when the \`fetch()\` call passed it as a string, \`URLSearchParams\`, \`ArrayBuffer\` or typed array. A \`Blob\`, \`FormData\` or \`ReadableStream\` body, and a body carried by a \`Request\` argument, report \`null\`.
+- \`postData()\`, \`postDataBuffer()\` and \`postDataJSON()\` answer without waiting, as Playwright's do, so they read the body only in the forms the call can hand over synchronously: a string, \`URLSearchParams\`, an \`ArrayBuffer\` or a typed array. A \`Blob\`, \`FormData\` or \`ReadableStream\` body, and a body carried by a \`Request\` argument, can only be read asynchronously, and report \`null\`.
 - \`postDataBuffer()\` returns a \`Uint8Array\` and \`Response.body()\` resolves with a \`Uint8Array\`, where Playwright returns a Node.js \`Buffer\`.
 - \`failure().errorText\` is the name and message of the error the \`fetch()\` call rejected with, or the reason its \`AbortSignal\` carried, not a \`net::ERR_*\` code.
 - A redirect chain is one request and one response: the request reports the URL the document asked for, the response reports the final URL, and no event is emitted per hop.
