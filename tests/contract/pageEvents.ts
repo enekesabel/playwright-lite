@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, vi } from "vitest";
 
+/** Dispatches `error` as an uncaught window error, the way a thrown error reaches `pageerror`. */
+export const report = (error: unknown) =>
+  window.dispatchEvent(new ErrorEvent("error", { error }));
+
 /**
  * The vitest runner reports a window error as an unhandled test error only
  * while no other `error` listener is registered. Tests that dispatch errors

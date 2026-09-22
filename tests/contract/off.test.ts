@@ -1,13 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../src/index";
-import { swallowWindowErrors } from "./pageEvents";
+import { report, swallowWindowErrors } from "./pageEvents";
 import { assetUrl, contractUrl, restoreFetch } from "./network";
 
 swallowWindowErrors();
-
-const report = (error: unknown) =>
-  window.dispatchEvent(new ErrorEvent("error", { error }));
 
 describe("Page.off", () => {
   it("keeps the window pageerror listeners registered from page creation, independent of subscription", () => {

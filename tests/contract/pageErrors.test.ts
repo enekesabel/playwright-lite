@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
-import { swallowWindowErrors } from "./pageEvents";
+import { report, swallowWindowErrors } from "./pageEvents";
 
 swallowWindowErrors();
-
-const report = (error: unknown) =>
-  window.dispatchEvent(new ErrorEvent("error", { error }));
 
 describe("Page.pageErrors", () => {
   it("returns a snapshot: mutating the result does not affect later reads", async () => {

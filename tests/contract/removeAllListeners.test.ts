@@ -3,15 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import { createPage } from "../../src/index";
 import {
   listenerFailures,
+  report,
   restoreURL,
   swallowWindowErrors,
 } from "./pageEvents";
 
 swallowWindowErrors();
 restoreURL();
-
-const report = (error: unknown) =>
-  window.dispatchEvent(new ErrorEvent("error", { error }));
 
 describe("Page.removeAllListeners", () => {
   it("drops the listeners of one event without touching the window pageerror listeners", () => {

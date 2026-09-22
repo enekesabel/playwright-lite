@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
-import { restoreURL } from "./pageEvents";
+import { report, restoreURL } from "./pageEvents";
 
 restoreURL();
-
-const report = (error: unknown) =>
-  window.dispatchEvent(new ErrorEvent("error", { error }));
 
 describe("Page.waitForEvent", () => {
   it("accepts an unknown event name silently", async () => {
