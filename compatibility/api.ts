@@ -69,12 +69,8 @@ const waitForEventLimitations = `Events: ${eventNames}. Other event names are ac
 const networkObservationLimitations =
   "`fetch()` and `XMLHttpRequest` calls of the current document only; see [Request and Response compatibility](#request-and-response-compatibility).";
 
-/**
- * Reverses the earlier decision to reject `networkidle`: the waits now observe
- * the same `fetch()`/`XMLHttpRequest` calls the network events report.
- */
 const networkIdleLimitations =
-  '`"networkidle"` waits until no `fetch()` or `XMLHttpRequest` call of the current document has been in flight for 500 ms. Only those calls are in flight: images, scripts and stylesheets restart the 500 ms when they finish but never hold it. A call started before the network wrappers were installed is not seen, so a wait started while one is in flight can resolve before it ends. Calls from iframes, workers and other realms are not seen. Each wait resolves 500 ms after it is called at the earliest, where Playwright resolves at once if the document has already reached network idle. See [Runtime boundaries](#runtime-boundaries).';
+  '`"networkidle"` resolves no sooner than 500 ms after the call, even when the document is already idle; see [Runtime boundaries](#runtime-boundaries).';
 
 /** Consumer-facing description of this package's `Request` and `Response`. */
 export const networkLimitations = `\`page.on("request" | "response" | "requestfinished" | "requestfailed")\`, \`page.waitForRequest()\`, \`page.waitForResponse()\` and \`page.requests()\` report the \`fetch()\` and \`XMLHttpRequest\` calls the current document makes while you are subscribed. Images, scripts, stylesheets, \`navigator.sendBeacon\`, \`WebSocket\`, \`EventSource\`, form submissions and navigations are not reported, and neither are \`fetch()\` and \`XMLHttpRequest\` calls made by another realm, by an iframe or by a service worker, nor a \`fetch()\` call started or an \`XMLHttpRequest\` opened before the first subscription.
