@@ -60,17 +60,17 @@ export const elementHandleLimitations =
 const framenavigatedPayload =
   "`framenavigated` fires with the `Page` itself, the object `mainFrame()` returns, up to 20 ms after a same-document URL change. `pushState` and `replaceState` are sampled every 20 ms: several within one interval produce one event, and a URL that changes and changes back within one interval produces none.";
 const networkEventPayload =
-  "`request`, `response`, `requestfinished` and `requestfailed` fire for the `fetch()` calls the document makes while a listener is registered; see [Request and Response compatibility](#request-and-response-compatibility).";
+  "`request`, `response`, `requestfinished` and `requestfailed` fire for the `fetch()` and `XMLHttpRequest` calls the document makes while a listener is registered; see [Request and Response compatibility](#request-and-response-compatibility).";
 const eventNames =
   "`framenavigated`, `pageerror`, `request`, `response`, `requestfinished`, `requestfailed`";
 const eventListenerLimitations = `Events: ${eventNames}. Other event names are accepted but never fire. ${framenavigatedPayload} ${networkEventPayload}`;
 const eventRemovalLimitations = `Events: ${eventNames}. Other event names are accepted.`;
 const waitForEventLimitations = `Events: ${eventNames}. Other event names are accepted and time out. ${framenavigatedPayload} ${networkEventPayload}`;
 const networkObservationLimitations =
-  "`fetch()` calls of the current document only; see [Request and Response compatibility](#request-and-response-compatibility).";
+  "`fetch()` and `XMLHttpRequest` calls of the current document only; see [Request and Response compatibility](#request-and-response-compatibility).";
 
 /** Consumer-facing description of this package's `Request` and `Response`. */
-export const networkLimitations = `\`page.on("request" | "response" | "requestfinished" | "requestfailed")\`, \`page.waitForRequest()\`, \`page.waitForResponse()\` and \`page.requests()\` report the \`fetch()\` calls the current document makes while you are subscribed. Images, scripts, stylesheets, \`XMLHttpRequest\`, \`navigator.sendBeacon\`, \`WebSocket\`, \`EventSource\`, form submissions and navigations are not reported, and neither are \`fetch()\` calls made by another realm, by an iframe or by a service worker, nor calls that started before the first subscription.
+export const networkLimitations = `\`page.on("request" | "response" | "requestfinished" | "requestfailed")\`, \`page.waitForRequest()\`, \`page.waitForResponse()\` and \`page.requests()\` report the \`fetch()\` and \`XMLHttpRequest\` calls the current document makes while you are subscribed. Images, scripts, stylesheets, \`navigator.sendBeacon\`, \`WebSocket\`, \`EventSource\`, form submissions and navigations are not reported, and neither are \`fetch()\` and \`XMLHttpRequest\` calls made by another realm, by an iframe or by a service worker, nor a \`fetch()\` call started or an \`XMLHttpRequest\` opened before the first subscription.
 
 \`Request\` has \`url()\`, \`resourceType()\`, \`method()\`, \`headers()\`, \`headerValue()\`, \`postData()\`, \`postDataBuffer()\`, \`postDataJSON()\`, \`isNavigationRequest()\`, \`failure()\` and \`response()\`. \`allHeaders()\`, \`headersArray()\`, \`frame()\`, \`redirectedFrom()\`, \`redirectedTo()\`, \`serviceWorker()\`, \`sizes()\` and \`timing()\` are not implemented and throw a \`TypeError\` when called.
 
@@ -80,14 +80,14 @@ The package exports \`Request\` and \`Response\` types listing exactly the membe
 
 The members that do exist differ from Playwright's as follows.
 
-- \`resourceType()\` is always \`"fetch"\` and \`isNavigationRequest()\` is always \`false\`.
-- \`Request.headers()\` and \`Request.headerValue()\` report the headers the \`fetch()\` call set, not the headers that went on the wire: \`Cookie\`, \`Origin\`, \`User-Agent\` and the other headers the browser adds are missing. Playwright's \`headerValue()\` reads the wire headers.
+- \`resourceType()\` is \`"fetch"\` or \`"xhr"\`, and \`isNavigationRequest()\` is always \`false\`.
+- \`Request.headers()\` and \`Request.headerValue()\` report the headers the call set — the \`Request\` headers of a \`fetch()\`, the \`setRequestHeader()\` values of an \`XMLHttpRequest\` — not the headers that went on the wire: \`Cookie\`, \`Origin\`, \`User-Agent\` and the other headers the browser adds are missing, as is the \`Content-Type\` an \`XMLHttpRequest\` derives from its \`send()\` body. Playwright's \`headerValue()\` reads the wire headers.
 - \`Response.headers()\` and \`Response.headerValue()\` report the headers the browser exposes to the document: \`Set-Cookie\` is never among them, and a cross-origin response exposes only the CORS-safelisted names plus the ones its \`Access-Control-Expose-Headers\` lists.
-- \`postData()\`, \`postDataBuffer()\` and \`postDataJSON()\` answer without waiting, as Playwright's do, so they read the body only in the forms the call can hand over synchronously: a string, \`URLSearchParams\`, an \`ArrayBuffer\` or a typed array. A \`Blob\`, \`FormData\` or \`ReadableStream\` body, and a body carried by a \`Request\` argument, can only be read asynchronously, and report \`null\`.
+- \`postData()\`, \`postDataBuffer()\` and \`postDataJSON()\` answer without waiting, as Playwright's do, so they read the body only in the forms the call can hand over synchronously: a string, \`URLSearchParams\`, an \`ArrayBuffer\` or a typed array, passed as the \`fetch()\` \`body\` option or as the \`send()\` argument. A \`Blob\`, \`FormData\` or \`ReadableStream\` body, and a body carried by a \`Request\` argument to \`fetch()\`, can only be read asynchronously, and report \`null\`.
 - \`postDataBuffer()\` returns a \`Uint8Array\` and \`Response.body()\` resolves with a \`Uint8Array\`, where Playwright returns a Node.js \`Buffer\`.
-- \`failure().errorText\` is the name and message of the error the \`fetch()\` call rejected with, or the reason its \`AbortSignal\` carried, not a \`net::ERR_*\` code.
+- \`failure().errorText\` is the name and message of the error the \`fetch()\` call rejected with, or the reason its \`AbortSignal\` carried. An \`XMLHttpRequest\` carries no error, so it reports \`XMLHttpRequest:\` followed by the name of the event that ended it: \`error\`, \`timeout\` or \`abort\`. Playwright reports the browser's \`net::ERR_*\` code.
 - A redirect chain is one request and one response: the request reports the URL the document asked for, the response reports the final URL, and no event is emitted per hop.
-- \`Response.finished()\` resolves once the response body has ended. The response body is read and buffered for every observed response, so that \`body()\`, \`text()\` and \`json()\` can still answer after the document consumed it.`;
+- \`Response.finished()\` resolves once the response body has ended. A \`fetch()\` response body is read and buffered as the response arrives, so that \`body()\`, \`text()\` and \`json()\` can still answer after the document consumed it. An \`XMLHttpRequest\` body is read back from the request instead, and the three reject when it set \`responseType\` to \`"json"\` or \`"document"\`, because the browser then keeps only the value it parsed.`;
 
 export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),
