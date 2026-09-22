@@ -2418,11 +2418,6 @@
       "evidence": "The awaited adapter waitForEvent('request') resolves with the request the document's synchronous XMLHttpRequest started inside Page.evaluate, and the assertions read resourceType() 'xhr' and isNavigationRequest() false from the adapter's snapshot of the package's own request object; with Page.waitForEvent withheld, the sabotage rerun fails."
     },
     {
-      "id": "page-expose-function.spec.ts > exposeBinding should work in parallel",
-      "method": "Page.exposeBinding",
-      "evidence": "Two exposeBinding registrations issued concurrently (Promise.all) both install and both remain callable without throwing, proving concurrent registration does not corrupt the shared binding registry."
-    },
-    {
       "id": "page-expose-function.spec.ts > should await returned promise",
       "method": "Page.exposeFunction",
       "evidence": "The exposed function returns a Promise; the Site's await resolves to the promise's value, proving the binding call awaits a returned promise before delivering the result."
@@ -2435,7 +2430,7 @@
     {
       "id": "page-expose-function.spec.ts > should throw for duplicate registrations",
       "method": "Page.exposeFunction",
-      "evidence": "A second exposeFunction call for the same name rejects with the pinned duplicate-name error, prefixed with the calling API name (page.exposeFunction:), matching pinned client._wrapApiCall."
+      "evidence": "A second page.exposeFunction('foo', ...) call rejects with the message 'page.exposeFunction: Function \"foo\" has been already registered', matching the pinned duplicate-name error text and its calling-API-name prefix."
     },
     {
       "id": "page-expose-function.spec.ts > should work",
@@ -2445,17 +2440,12 @@
     {
       "id": "page-expose-function.spec.ts > should work with complex objects",
       "method": "Page.exposeFunction",
-      "evidence": "Plain objects passed as arguments and returned as the result round-trip by value through the by-value serializer."
+      "evidence": "window['complexObject']({x:5},{x:2}) calls the exposed function with two plain-object arguments and the assertion reads result.x === 7 (5+2) from the returned object, proving both arguments and the result round-trip by value."
     },
     {
       "id": "page-expose-function.spec.ts > should work with overridden console object",
       "method": "Page.exposeFunction",
       "evidence": "exposeFunction and the exposed call still work after the Site sets window.console = null, proving the binding path does not depend on console."
-    },
-    {
-      "id": "page-expose-function.spec.ts > should work with setContent",
-      "method": "Page.exposeFunction",
-      "evidence": "window[name] is callable from an inline <script> tag executed via page.setContent, not only from page.evaluate, proving the property is a real window global."
     },
     {
       "id": "page-fill.spec.ts > fill back to back",
