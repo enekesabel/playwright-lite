@@ -346,6 +346,13 @@ type EncodedConsoleMessage = {
     lineNumber: number;
     columnNumber: number;
   };
+  // Whether the reported message's own page() is the adapter page this
+  // bridge created, read from the message itself rather than assumed; see
+  // `__pwLiteStoreConsoleMessage`.
+  page: boolean;
+  // Read from the message itself, not assumed; always null today, since this
+  // observation has no worker realm to report.
+  worker: null;
   // Each element is a handle reference envelope, the same shape
   // `__pwLiteEncodeAdapterResult` gives any other adapter handle.
   args: unknown[];
@@ -357,7 +364,8 @@ type EncodedConsoleMessage = {
  * crosses the boundary and this proxy replays the snapshot; only `args()`
  * still needs a round trip, to turn its stored handle references into the
  * same handle proxies a dedicated route returns. `page()` answers with this
- * test's one Page proxy: every message this bridge observes belongs to it.
+ * test's one Page proxy when the message's own `page()` was that adapter
+ * page (read in the browser, not assumed here), `null` otherwise.
  */
 async function createConsoleMessageProxy(
   realPage: Page,
@@ -373,11 +381,11 @@ async function createConsoleMessageProxy(
     __pwLiteAdapter: true,
     args: () => args,
     location: () => encoded.location,
-    page: () => state.pageProxy,
+    page: () => (encoded.page ? state.pageProxy : null),
     text: () => encoded.text,
     timestamp: () => encoded.timestamp,
     type: () => encoded.type,
-    worker: () => null,
+    worker: () => encoded.worker,
   };
 }
 
@@ -2157,36 +2165,31 @@ function initializeAdapterBridge(
     typeof value.url === "function" &&
     (typeof value.resourceType === "function" ||
       typeof value.status === "function");
-  // A `ConsoleMessage`, told apart from a Request/Response (no `url`) and
-  // from an ElementHandle/JSHandle (no `dispose`) by its own member set.
+  // A `ConsoleMessage`, told apart from a Request/Response (no `url`) by its
+  // own member set, the same minimal way `isNetworkObject` distinguishes a
+  // Request/Response from anything else.
   const isConsoleMessageObject = (value: any) =>
     !!value &&
     typeof value === "object" &&
     typeof value.text === "function" &&
-    typeof value.type === "function" &&
-    typeof value.args === "function" &&
-    typeof value.location === "function" &&
-    typeof value.timestamp === "function" &&
-    typeof value.worker === "function";
+    typeof value.type === "function";
   // Every pinned member is synchronous, so the message is fully snapshotted
   // here, when it crosses the boundary, the way a Request/Response's
-  // synchronous members are. `args()` still needs a round trip on the Node
-  // side to turn each held handle into a proxy, so it travels as the same
-  // handle-reference envelopes `encode` gives any other adapter handle.
+  // synchronous members are. `page()`/`worker()` are read from the message
+  // itself, not assumed: `page` records only whether it was this test's own
+  // adapter page, since a live Page cannot itself cross the boundary.
+  // `args()` still needs a round trip on the Node side to turn each held
+  // handle into a proxy, so it travels as the same handle-reference
+  // envelopes `encode` gives any other adapter handle.
   host.__pwLiteStoreConsoleMessage = function store(value: any): any {
-    const location = value.location();
     return {
       __pwLiteConsoleMessageRef: true,
       type: value.type(),
       text: value.text(),
       timestamp: value.timestamp(),
-      location: {
-        url: location.url,
-        line: location.line,
-        column: location.column,
-        lineNumber: location.lineNumber,
-        columnNumber: location.columnNumber,
-      },
+      location: value.location(),
+      page: value.page() === host.__pwLiteAdapterPage,
+      worker: value.worker(),
       args: host.__pwLiteEncodeAdapterResult(value.args()),
     };
   };
