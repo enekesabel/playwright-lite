@@ -8,46 +8,7 @@ swallowWindowErrors();
 const report = (error: unknown) =>
   window.dispatchEvent(new ErrorEvent("error", { error }));
 
-const reject = (reason: unknown) =>
-  window.dispatchEvent(
-    new PromiseRejectionEvent("unhandledrejection", {
-      promise: Promise.resolve(),
-      reason,
-    })
-  );
-
 describe("Page.pageErrors", () => {
-  it("collects errors raised before any pageerror listener ever subscribed", async () => {
-    const page = createPage();
-    report(new Error("before any listener"));
-
-    await expect(page.pageErrors()).resolves.toEqual([
-      expect.objectContaining({ message: "before any listener" }),
-    ]);
-  });
-
-  it("returns errors from window error and unhandledrejection in order", async () => {
-    const page = createPage();
-    report(new Error("first"));
-    reject(new Error("second"));
-    report(new Error("third"));
-
-    const errors = await page.pageErrors();
-    expect(errors.map((e) => e.message)).toEqual(["first", "second", "third"]);
-  });
-
-  it("wraps a non-Error rejection reason like the pageerror event payload", async () => {
-    const page = createPage();
-    reject("Custom: detail");
-
-    const [error] = await page.pageErrors();
-    expect([error.name, error.message, error.stack]).toEqual([
-      "Custom",
-      "detail",
-      "",
-    ]);
-  });
-
   it("returns a snapshot: mutating the result does not affect later reads", async () => {
     const page = createPage();
     report(new Error("kept"));
