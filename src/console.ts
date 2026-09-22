@@ -116,9 +116,11 @@ export class ObservedConsoleMessage implements ConsoleMessage {
 
 /**
  * Pinned server/chromium/crPage.ts `_onConsoleAPI`: the native `console.*`
- * method name each pinned `ConsoleMessage.type()` value comes from. `time` and
- * `timeLog` are not wrapped: the browser's own `Runtime.consoleAPICalled`
- * never fires for them either, only for the paired `timeEnd`.
+ * method name each pinned `ConsoleMessage.type()` value comes from. `time` is
+ * never wrapped: the browser's own `Runtime.consoleAPICalled` never fires for
+ * it, only for `timeLog` and the paired `timeEnd`. `timeLog` reports as type
+ * `log`, verified against real Chromium; the pinned public `type()` union has
+ * no separate `timeLog` value.
  */
 const CONSOLE_METHOD_TYPES: Readonly<Record<string, ConsoleMessageType>> = {
   log: "log",
@@ -139,7 +141,42 @@ const CONSOLE_METHOD_TYPES: Readonly<Record<string, ConsoleMessageType>> = {
   profileEnd: "profileEnd",
   count: "count",
   timeEnd: "timeEnd",
+  timeLog: "log",
 };
+
+/**
+ * Verified against real Chromium, not documented in the pinned TypeScript
+ * source (the CDP protocol formats console text in the browser process,
+ * which the pinned client only receives already formatted): `group()`,
+ * `groupCollapsed()`, `groupEnd()`, `clear()` and `trace()` always report,
+ * falling back to `console.<method>` when called with no message argument
+ * (`groupEnd()`/`clear()` take none at all, so this is their only text).
+ * `assert`'s own fallback is handled in `observe`, after its condition
+ * argument is dropped, but uses this same "console.<method>" text.
+ */
+const FALLBACK_TEXT_METHODS = new Set([
+  "group",
+  "groupCollapsed",
+  "groupEnd",
+  "clear",
+  "trace",
+  "assert",
+]);
+
+/**
+ * Verified against real Chromium: a bare call (no arguments) to any of these
+ * is never reported at all, unlike the `FALLBACK_TEXT_METHODS` above.
+ */
+const SUPPRESSED_WHEN_EMPTY = new Set([
+  "log",
+  "debug",
+  "info",
+  "error",
+  "warn",
+  "dir",
+  "dirxml",
+  "table",
+]);
 
 /** Pinned server/page.ts `addConsoleMessage`/`consoleMessages` recent bound. */
 export const CONSOLE_MESSAGE_LIMIT = 200;
@@ -245,23 +282,19 @@ export function consoleObservationFor(
  * `WrappedHostFunction`, installed and restored together as one subscription.
  */
 export class ConsoleObservation {
-  private readonly wrappers = new Map<
-    string,
-    WrappedHostFunction<NativeConsoleMethod>
-  >();
-  private readonly subscribers = new Map<Emit, number>();
+  private readonly wrappers: WrappedHostFunction<NativeConsoleMethod>[] = [];
+  private readonly subscribers = new Set<Emit>();
 
   constructor(private readonly window: Window & typeof globalThis) {
     const consoleObject = window.console as unknown as Record<string, unknown>;
     for (const [method, type] of Object.entries(CONSOLE_METHOD_TYPES)) {
       if (typeof consoleObject[method] !== "function") continue;
-      this.wrappers.set(
-        method,
+      this.wrappers.push(
         new WrappedHostFunction<NativeConsoleMethod>(
           consoleObject,
           method,
           (original, thisArg, args) =>
-            this.observe(type, original, thisArg, args)
+            this.observe(type, method, original, thisArg, args)
         )
       );
     }
@@ -269,61 +302,57 @@ export class ConsoleObservation {
 
   /** Reports to `emit` until the returned release is called. */
   subscribe(emit: Emit): () => void {
-    this.subscribers.set(emit, (this.subscribers.get(emit) ?? 0) + 1);
-    const releases = [...this.wrappers.values()].map((wrapper) =>
-      wrapper.subscribe()
-    );
+    this.subscribers.add(emit);
+    const releases = this.wrappers.map((wrapper) => wrapper.subscribe());
     let released = false;
     return () => {
       if (released) return;
       released = true;
-      const held = (this.subscribers.get(emit) ?? 1) - 1;
-      if (held > 0) this.subscribers.set(emit, held);
-      else this.subscribers.delete(emit);
+      this.subscribers.delete(emit);
       for (const release of releases) release();
     };
   }
 
   private emit(call: ConsoleCall) {
-    for (const subscriber of [...this.subscribers.keys()]) subscriber(call);
+    for (const subscriber of [...this.subscribers]) subscriber(call);
   }
 
-  /**
-   * A subscriber runs inside this document, unlike the pinned client's
-   * Node-side listener: one that itself calls a wrapped `console.*` method
-   * (directly, or indirectly by having this observation log a listener
-   * failure through it) would otherwise re-enter `observe`, reporting that
-   * call too, whose subscriber call could do the same, without end. The
-   * pinned client's listener cannot cause this, since it runs in Node and
-   * never reaches the page's `console`. Set for the duration of one
-   * `emit`, so a call still reaches the original method but is not itself
-   * reported while a report for an earlier call is in progress.
-   */
+  /** Guards one `emit` call against the reentrancy `observe` documents. */
   private emitting = false;
 
   /**
-   * Pinned `console.assert`: the browser reports a call only when the
-   * asserted condition is falsy. Every other wrapped method reports on every
-   * call, as the pinned CDP `Runtime.consoleAPICalled` event does.
+   * Pinned `console.assert`: reports only when the asserted condition is
+   * falsy, and drops the condition from the reported arguments. Every
+   * synthesized-fallback and bare-call-suppression rule is verified against
+   * real Chromium; see `FALLBACK_TEXT_METHODS`/`SUPPRESSED_WHEN_EMPTY`.
+   *
+   * A subscriber runs inside this document, unlike the pinned client's
+   * Node-side listener, so one that itself calls a wrapped method (including
+   * indirectly, through this observation's own listener-failure logging)
+   * would otherwise re-enter this method without end; `emitting` guards one
+   * `emit` call against that, forwarding to the original method regardless.
    */
   private observe(
     type: ConsoleMessageType,
+    method: string,
     original: NativeConsoleMethod,
     thisArg: unknown,
     args: unknown[]
   ): unknown {
     const result = Reflect.apply(original, thisArg, args);
-    if (type === "assert" && args[0]) return result;
+    if (method === "assert") {
+      if (args[0]) return result;
+      args = args.slice(1);
+    }
+    if (args.length === 0 && SUPPRESSED_WHEN_EMPTY.has(method)) return result;
     if (this.emitting) return result;
+    const text =
+      args.length === 0 && FALLBACK_TEXT_METHODS.has(method)
+        ? `console.${method}`
+        : formatConsoleText(args);
     this.emitting = true;
     try {
-      this.emit({
-        type,
-        args,
-        text: formatConsoleText(args),
-        location: captureLocation(),
-        timestamp: Date.now(),
-      });
+      this.emit({ type, args, text, location: captureLocation(), timestamp: Date.now() });
     } finally {
       this.emitting = false;
     }
