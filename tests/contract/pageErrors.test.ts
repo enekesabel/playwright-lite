@@ -20,6 +20,15 @@ describe("Page.pageErrors", () => {
     expect(second.map((e) => e.message)).toEqual(["kept"]);
   });
 
+  it("bounds the buffer to the pinned limit, dropping the oldest tenth", async () => {
+    const page = createPage();
+    for (let i = 1; i <= 301; i++) report(new Error(`error${i}`));
+
+    const errors = await page.pageErrors();
+    expect(errors).toHaveLength(181);
+    expect(errors[errors.length - 1].message).toBe("error301");
+  });
+
   it("keeps delivering to pageerror listeners the same as before", async () => {
     const page = createPage();
     report(new Error("pre-subscription"));
