@@ -131,6 +131,11 @@ describe("option-validation", () => {
       /waitForEvent\(\): unsupported Playwright option\(s\): unexpected/,
     ],
     [
+      "removeAllListeners",
+      (page) => page.removeAllListeners("load", { unexpected: true } as any),
+      /removeAllListeners\(\): unsupported Playwright option\(s\): unexpected/,
+    ],
+    [
       "elementHandle.selectText",
       async (page) =>
         (await page.$("#input"))!.selectText({ unexpected: true } as any),

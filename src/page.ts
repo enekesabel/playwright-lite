@@ -157,6 +157,13 @@ type URLMatch = Parameters<Page["waitForURL"]>[0];
 
 type Listener = (...args: unknown[]) => unknown;
 type ListenerEntry = { listener: Listener; once: boolean };
+type PendingListener = {
+  settled: Promise<unknown>;
+  onError: (error: unknown) => void;
+};
+type RemoveAllListenersOptions = {
+  behavior?: "wait" | "ignoreErrors" | "default";
+};
 type EventPredicate = (payload: unknown) => boolean | Promise<boolean>;
 type WaitForEventOptions =
   | EventPredicate
@@ -287,6 +294,7 @@ export class PageImpl {
   private defaultTimeout: number | undefined;
   private defaultNavigationTimeout: number | undefined;
   private readonly listeners = new Map<string, ListenerEntry[]>();
+  private readonly pendingListeners = new Map<string, Set<PendingListener>>();
   private unobservePageErrors: (() => void) | undefined;
 
   constructor(
@@ -1547,14 +1555,46 @@ export class PageImpl {
   }
 
   /**
-   * The pinned `behavior` option waits for listeners still running; listeners
-   * here are called synchronously, so with options there is nothing to await.
+   * Pinned client/eventEmitter.ts: without options the listeners are dropped
+   * synchronously. With options, `wait` awaits the listener promises still
+   * pending at removal and rethrows the first listener error, `ignoreErrors`
+   * swallows those errors, and `default` removes without waiting. The pinned
+   * emitter replaces its rejection handler for good; here the choice applies
+   * to the listeners pending at removal, and later failures are logged again.
    */
-  removeAllListeners(event?: string, options?: object): this | Promise<void> {
+  removeAllListeners(
+    event?: string,
+    options?: RemoveAllListenersOptions
+  ): this | Promise<void> {
     if (event === undefined) this.listeners.clear();
     else this.listeners.delete(event);
     this.observePageErrors();
-    return options ? Promise.resolve() : this;
+    if (!options) return this;
+    const pending =
+      event === undefined
+        ? [...this.pendingListeners.values()].flatMap((set) => [...set])
+        : [...(this.pendingListeners.get(event) ?? [])];
+    return this.settlePendingListeners(pending, options);
+  }
+
+  private async settlePendingListeners(
+    pending: PendingListener[],
+    options: RemoveAllListenersOptions
+  ): Promise<void> {
+    rejectUnsupportedOptions("removeAllListeners", options, ["behavior"]);
+    const behavior = options.behavior ?? "default";
+    if (!["wait", "ignoreErrors", "default"].includes(behavior))
+      throw new TypeError(
+        "behavior: expected one of (wait|ignoreErrors|default)"
+      );
+    if (behavior === "default") return;
+    const errors: unknown[] = [];
+    for (const listener of pending)
+      listener.onError =
+        behavior === "wait" ? (error) => errors.push(error) : () => {};
+    if (behavior !== "wait") return;
+    await Promise.all(pending.map((listener) => listener.settled));
+    if (errors.length) throw errors[0];
   }
 
   /**
@@ -1646,16 +1686,31 @@ export class PageImpl {
       // Playwright raises a throwing or rejecting listener as an unhandled
       // exception in Node. Here the listener runs inside the page, where
       // escaping would report it as another page error, so it is logged
-      // instead. Listeners are not awaited, as in the pinned emitter.
+      // instead. Listeners are not awaited, as in the pinned emitter; a
+      // returned thenable stays pending for `removeAllListeners` to settle.
       const log = (error: unknown) => this.window.console.error(error);
       try {
         const result = entry.listener(payload);
         if (typeof (result as { then?: unknown })?.then === "function")
-          Promise.resolve(result).catch(log);
+          this.trackPendingListener(event, Promise.resolve(result), log);
       } catch (error) {
         log(error);
       }
     }
+  }
+
+  private trackPendingListener(
+    event: string,
+    promise: Promise<unknown>,
+    onError: (error: unknown) => void
+  ) {
+    let set = this.pendingListeners.get(event);
+    if (!set) this.pendingListeners.set(event, (set = new Set()));
+    const pending: PendingListener = { settled: promise, onError };
+    pending.settled = promise
+      .catch((error) => pending.onError(error))
+      .finally(() => set.delete(pending));
+    set.add(pending);
   }
 
   /**
@@ -4692,8 +4747,10 @@ function asError(error: unknown): Error {
  * Pinned crProtocolHelper.ts `exceptionToError` receives a thrown non-Error
  * value as its protocol description (the class name of an object, otherwise
  * `String(value)`), splits it at the first `:` into name and message with
- * `splitErrorMessage`, and has no stack for it. A thrown Error already is the
- * error Playwright would rebuild from its name, message and stack.
+ * `splitErrorMessage`, has no stack for it, and takes the name from the
+ * value's own `name` property when the protocol preview shows one. A thrown
+ * Error already is the error Playwright would rebuild from its name, message
+ * and stack.
  */
 function pageError(thrown: unknown): Error {
   if (thrown instanceof Error) return thrown;
@@ -4708,7 +4765,20 @@ function pageError(thrown: unknown): Error {
       ? description.slice(separator + 2)
       : description
   );
-  error.name = separator !== -1 ? description.slice(0, separator) : "";
+  const named =
+    thrown !== null &&
+    typeof thrown === "object" &&
+    Object.hasOwn(thrown, "name")
+      ? (thrown as { name: unknown }).name
+      : undefined;
+  error.name =
+    named !== undefined
+      ? typeof named === "object" || typeof named === "function"
+        ? "Error"
+        : String(named)
+      : separator !== -1
+        ? description.slice(0, separator)
+        : "";
   error.stack = "";
   return error;
 }
