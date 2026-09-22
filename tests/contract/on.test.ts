@@ -362,11 +362,13 @@ describe("Page.on", () => {
     const first = assetUrl("?xhr-reopened-first");
     const second = assetUrl("?xhr-reopened-second");
     const events: string[] = [];
-    for (const event of ["request", "requestfinished", "requestfailed"] as const)
-      page.on(event, (request) => {
-        const query = new URL(request.url()).search;
-        if (query.startsWith("?xhr-reopened")) events.push(`${event}:${query}`);
-      });
+    const record = (event: string) => (request: { url(): string }) => {
+      const query = new URL(request.url()).search;
+      if (query.startsWith("?xhr-reopened")) events.push(`${event}:${query}`);
+    };
+    page.on("request", record("request"));
+    page.on("requestfinished", record("requestfinished"));
+    page.on("requestfailed", record("requestfailed"));
     const finished = page.waitForEvent("requestfinished", {
       predicate: (request) => request.url() === second,
       timeout: 5_000,
