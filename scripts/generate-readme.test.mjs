@@ -26,7 +26,7 @@ test("README renders API compatibility without repeating runtime boundaries", as
   assert.match(row("ariaSnapshot"), /\|\s*✅\s*\|\s*\|$/u);
   assert.match(row("goto"), /\|\s*⚠️\s*\|.+/u);
   assert.match(row("goBack"), /\|\s*❌\s*\|\s*\|$/u);
-  assert.match(row("addInitScript"), /\|\s*❌\s*\|\s*\|$/u);
+  assert.match(row("close"), /\|\s*❌\s*\|\s*\|$/u);
   assert.match(row("frame"), /\|\s*🚫\s*\|.+/u);
   assert.match(row("[Symbol.asyncDispose]()"), /\|\s*❌\s*\|\s*\|$/u);
   assert.ok(
