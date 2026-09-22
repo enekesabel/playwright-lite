@@ -288,7 +288,6 @@ export class PageImpl {
   private defaultNavigationTimeout: number | undefined;
   private readonly listeners = new Map<string, ListenerEntry[]>();
   private unobservePageErrors: (() => void) | undefined;
-  private listenerError: unknown;
 
   constructor(
     browserWindow: Window & typeof globalThis,
@@ -1524,15 +1523,15 @@ export class PageImpl {
   }
 
   addListener(event: string, listener: Listener): this {
-    return this.subscribe(event, { listener, once: false }, "push");
+    return this.subscribe(event, { listener, once: false }, false);
   }
 
   prependListener(event: string, listener: Listener): this {
-    return this.subscribe(event, { listener, once: false }, "unshift");
+    return this.subscribe(event, { listener, once: false }, true);
   }
 
   once(event: string, listener: Listener): this {
-    return this.subscribe(event, { listener, once: true }, "push");
+    return this.subscribe(event, { listener, once: true }, false);
   }
 
   off(event: string, listener: Listener): this {
@@ -1624,11 +1623,12 @@ export class PageImpl {
   private subscribe(
     event: string,
     entry: ListenerEntry,
-    position: "push" | "unshift"
+    prepend: boolean
   ): this {
     let entries = this.listeners.get(event);
     if (!entries) this.listeners.set(event, (entries = []));
-    entries[position](entry);
+    if (prepend) entries.unshift(entry);
+    else entries.push(entry);
     this.observePageErrors();
     return this;
   }
@@ -1643,11 +1643,17 @@ export class PageImpl {
   private emit(event: string, payload: unknown) {
     for (const entry of [...(this.listeners.get(event) ?? [])]) {
       if (entry.once) this.unsubscribe(event, entry);
+      // Playwright raises a throwing or rejecting listener as an unhandled
+      // exception in Node. Here the listener runs inside the page, where
+      // escaping would report it as another page error, so it is logged
+      // instead. Listeners are not awaited, as in the pinned emitter.
+      const log = (error: unknown) => this.window.console.error(error);
       try {
-        entry.listener(payload);
+        const result = entry.listener(payload);
+        if (typeof (result as { then?: unknown })?.then === "function")
+          Promise.resolve(result).catch(log);
       } catch (error) {
-        this.listenerError = error;
-        throw error;
+        log(error);
       }
     }
   }
@@ -1656,9 +1662,7 @@ export class PageImpl {
    * Playwright receives page errors from the browser process; here they come
    * from `window` `error` and `unhandledrejection` events, listened to only
    * while a `pageerror` listener exists, so the page leaves no trace once it
-   * is unsubscribed. A `pageerror` listener that throws is reported to the
-   * same window as another uncaught error; that one is skipped, since in
-   * Playwright a listener runs outside the page and cannot re-enter it.
+   * is unsubscribed.
    */
   private observePageErrors() {
     const wanted = (this.listeners.get("pageerror")?.length ?? 0) > 0;
@@ -1668,13 +1672,8 @@ export class PageImpl {
       this.unobservePageErrors = undefined;
       return;
     }
-    const onError = (event: ErrorEvent) => {
-      if (event.error !== undefined && event.error === this.listenerError) {
-        this.listenerError = undefined;
-        return;
-      }
+    const onError = (event: ErrorEvent) =>
       this.emit("pageerror", pageError(event.error));
-    };
     const onRejection = (event: PromiseRejectionEvent) =>
       this.emit("pageerror", pageError(event.reason));
     this.window.addEventListener("error", onError);
