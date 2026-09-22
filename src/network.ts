@@ -439,41 +439,38 @@ export class NetworkObservation {
   }
 
   /**
-   * Calls `onIdle` once no observed request has been in flight for 500 ms,
-   * as pinned server/frames.ts fires `networkidle`: the timer starts when the
-   * in-flight set becomes empty and stops when it becomes non-empty. Holding
-   * the returned release subscribes, so the wrappers stay installed until it
-   * is called.
-   *
-   * Only the requests this observation reported are in flight, so one the
-   * document started before anything subscribed never holds the timer. The
-   * completion of any other resource the document loads (an image, a script,
-   * a stylesheet) restarts a running timer, but never holds it: the browser
-   * reports those only once they have ended.
+   * Calls `onIdle` after 500 ms with no observed request in flight, as pinned
+   * server/frames.ts fires `networkidle`. Subscribes until the release is called.
    */
   observeIdle(onIdle: () => void): () => void {
     let timer: number | undefined;
-    let fired = false;
     const stopTimer = () => {
       this.window.clearTimeout(timer);
       timer = undefined;
     };
     const startTimer = () => {
-      if (fired) return;
       timer = this.window.setTimeout(() => {
         timer = undefined;
-        fired = true;
         onIdle();
       }, NETWORK_IDLE_TIMEOUT);
     };
-    const resources = new this.window.PerformanceObserver(() => {
-      if (timer === undefined) return;
+    // Another resource's completion restarts a running timer but never holds
+    // it; the fetch/XHR entries are already accounted for by the observation.
+    const resources = new this.window.PerformanceObserver((list) => {
+      const other = list
+        .getEntriesByType("resource")
+        .some(
+          (entry) =>
+            !["fetch", "xmlhttprequest"].includes(
+              (entry as PerformanceResourceTiming).initiatorType
+            )
+        );
+      if (!other || timer === undefined) return;
       stopTimer();
       startTimer();
     });
     // `emit` has updated the in-flight set before this runs.
-    const release = this.subscribe((event) => {
-      if (event === "response") return;
+    const release = this.subscribe(() => {
       if (this.inflight.size > 0) stopTimer();
       else if (timer === undefined) startTimer();
     });
@@ -487,11 +484,12 @@ export class NetworkObservation {
   }
 
   private emit(event: NetworkEventName, payload: unknown) {
-    const request = payload as Request;
-    if (event === "request" && !isExcludedFromNetworkIdle(request))
-      this.inflight.add(request);
-    else if (event === "requestfinished" || event === "requestfailed")
-      this.inflight.delete(request);
+    // Pinned server/network.ts `_isFavicon` excludes favicons from networkidle.
+    if (event === "request") {
+      const request = payload as Request;
+      if (!request.url().endsWith("/favicon.ico")) this.inflight.add(request);
+    } else if (event === "requestfinished" || event === "requestfailed")
+      this.inflight.delete(payload as Request);
     for (const subscriber of [...this.subscribers.keys()])
       subscriber(event, payload);
   }
@@ -727,16 +725,6 @@ export class NetworkObservation {
       throw error;
     }
   }
-}
-
-/**
- * Pinned server/frames.ts `_isExcludedFromNetworkIdle` excludes favicon
- * requests, which pinned server/network.ts recognises by the URL alone, and
- * `eventsource` requests. An `EventSource` is never observed here, so only
- * the favicon rule has anything to exclude.
- */
-function isExcludedFromNetworkIdle(request: Request): boolean {
-  return request.url().endsWith("/favicon.ico");
 }
 
 /**
