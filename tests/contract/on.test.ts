@@ -357,6 +357,40 @@ describe("Page.on", () => {
     });
   });
 
+  it("reports an XMLHttpRequest opened again while in flight as aborted", async () => {
+    const page = networkPage();
+    const first = assetUrl("?xhr-reopened-first");
+    const second = assetUrl("?xhr-reopened-second");
+    const events: string[] = [];
+    for (const event of ["request", "requestfinished", "requestfailed"] as const)
+      page.on(event, (request) => {
+        const query = new URL(request.url()).search;
+        if (query.startsWith("?xhr-reopened")) events.push(`${event}:${query}`);
+      });
+    const finished = page.waitForEvent("requestfinished", {
+      predicate: (request) => request.url() === second,
+      timeout: 5_000,
+    });
+
+    const xhr = new XMLHttpRequest();
+    const ended = new Promise((resolve) =>
+      xhr.addEventListener("loadend", resolve)
+    );
+    xhr.open("GET", first);
+    xhr.send();
+    xhr.open("GET", second);
+    xhr.send();
+    await ended;
+    await finished;
+
+    expect(events).toEqual([
+      "request:?xhr-reopened-first",
+      "requestfailed:?xhr-reopened-first",
+      "request:?xhr-reopened-second",
+      "requestfinished:?xhr-reopened-second",
+    ]);
+  });
+
   it("reports nothing for a send the platform rejects", () => {
     const page = networkPage();
     const seen: unknown[] = [];

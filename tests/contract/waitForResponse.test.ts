@@ -143,6 +143,18 @@ describe("Page.waitForResponse", () => {
     expect(await response.body()).toBeInstanceOf(Uint8Array);
   });
 
+  it("reads an XMLHttpRequest body only once it has ended", async () => {
+    const page = createPage();
+    const waiting = page.waitForResponse(/\?xhr-early-body$/, {
+      timeout: 5_000,
+    });
+    sendXhr(assetUrl("?xhr-early-body"));
+    const response = await waiting;
+
+    // The response arrives with the headers, before any of the body.
+    expect(await response.text()).toContain("Woof-Woof");
+  });
+
   it("reports that a response body the browser parsed away cannot be read", async () => {
     const page = createPage();
     const waiting = page.waitForResponse(/\?xhr-document$/, {
