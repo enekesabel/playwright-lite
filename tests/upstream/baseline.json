@@ -1965,27 +1965,7 @@
     {
       "id": "page-dialog.spec.ts > should accept the confirm prompt",
       "method": "Page.on",
-      "evidence": "With Page.on sabotaged, page.on('dialog', ...) throws before the listener is registered, so the wrapped confirm() call is never accepted and falls to auto-dismiss: the awaited page.evaluate(() => confirm('boolean?')) resolves false where the test expects true. Page.on is what installs the window.confirm wrapper (DialogObservation.subscribe) that lets Dialog.accept() decide the wrapped call's return value."
-    },
-    {
-      "id": "page-dialog.spec.ts > should dismiss the confirm prompt",
-      "method": "Page.on",
-      "evidence": "page.on('dialog', dialog => dialog.dismiss()) settles the wrapped confirm() call, and the awaited page.evaluate(() => confirm('boolean?')) resolves false, matching expect(result).toBe(false). With Page.on sabotaged, page.on('dialog', ...) throws when registering the listener, so the sabotage rerun fails before the wrapped call can run."
-    },
-    {
-      "id": "page-dialog.spec.ts > should dismiss the prompt",
-      "method": "Page.on",
-      "evidence": "page.on('dialog', dialog => dialog.dismiss()) settles the wrapped prompt() call, and the awaited page.evaluate(() => prompt('question?')) resolves null, matching expect(result).toBe(null). With Page.on sabotaged, page.on('dialog', ...) throws when registering the listener, so the sabotage rerun fails before the wrapped call can run."
-    },
-    {
-      "id": "page-dialog.spec.ts > should handle multiple alerts",
-      "method": "Page.on",
-      "evidence": "page.on('dialog', dialog => void dialog.accept().catch(e => {})) settles three sequential alert() calls the injected script makes during page.setContent(), and page.textContent('p') then reads 'Hello World', proving the wrapped calls returned without blocking script execution. With Page.on sabotaged, page.on('dialog', ...) throws when registering the listener, so the sabotage rerun fails before any alert() call can be observed."
-    },
-    {
-      "id": "page-dialog.spec.ts > should handle multiple confirms",
-      "method": "Page.on",
-      "evidence": "page.on('dialog', dialog => void dialog.accept().catch(e => {})) settles three sequential confirm() calls the injected script makes during page.setContent(), and page.textContent('p') then reads 'Hello World', proving the wrapped calls returned without blocking script execution. With Page.on sabotaged, page.on('dialog', ...) throws when registering the listener, so the sabotage rerun fails before any confirm() call can be observed."
+      "evidence": "page.on('dialog', dialog => void dialog.accept()) settles the wrapped confirm() call, and the awaited page.evaluate(() => confirm('boolean?')) resolves true, the accepted value, not the false a dismissed or auto-dismissed confirm() always returns. With Page.on sabotaged, page.on('dialog', ...) throws before the listener registers, and the sabotage rerun fails."
     },
     {
       "id": "page-dispatchevent.spec.ts > should dispatch drag drop events",
