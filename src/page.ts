@@ -1692,9 +1692,10 @@ export class PageImpl {
   }
 
   /**
-   * Reports the window's `fetch` calls on this page while the subscription
-   * lives. The observation is shared by every `Page` of this window, so the
-   * call is intercepted once; the recent-request log stays per page.
+   * Reports the window's `fetch` and `XMLHttpRequest` calls on this page
+   * while the subscription lives. The observation is shared by every `Page`
+   * of this window, so a call is intercepted once; the recent-request log
+   * stays per page.
    */
   private subscribeToNetwork(): () => void {
     return this.network.subscribe((event, payload) => {
