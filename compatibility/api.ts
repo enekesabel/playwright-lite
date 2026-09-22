@@ -61,13 +61,17 @@ const framenavigatedPayload =
   "`framenavigated` fires with the `Page` itself, the object `mainFrame()` returns, up to 20 ms after a same-document URL change. `pushState` and `replaceState` are sampled every 20 ms: several within one interval produce one event, and a URL that changes and changes back within one interval produces none.";
 const networkEventPayload =
   "`request`, `response`, `requestfinished` and `requestfailed` fire for the `fetch()` calls the document makes while a listener is registered; see [Request and Response compatibility](#request-and-response-compatibility).";
+const consoleEventPayload =
+  "`console` fires for the document's own `console.log/debug/info/error/warn/dir/dirxml/table/trace/clear/group/groupCollapsed/groupEnd/assert/profile/profileEnd/count/timeEnd` calls made while a listener is registered. Browser-generated console entries (a failed resource load, a CSP violation report) never call one of those methods, so they are never reported. `ConsoleMessage.location()` is a best-effort capture from a synthetic stack, not the browser's own call-site data.";
 const eventNames =
-  "`framenavigated`, `pageerror`, `request`, `response`, `requestfinished`, `requestfailed`";
-const eventListenerLimitations = `Events: ${eventNames}. Other event names are accepted but never fire. ${framenavigatedPayload} ${networkEventPayload}`;
+  "`framenavigated`, `pageerror`, `request`, `response`, `requestfinished`, `requestfailed`, `console`";
+const eventListenerLimitations = `Events: ${eventNames}. Other event names are accepted but never fire. ${framenavigatedPayload} ${networkEventPayload} ${consoleEventPayload}`;
 const eventRemovalLimitations = `Events: ${eventNames}. Other event names are accepted.`;
-const waitForEventLimitations = `Events: ${eventNames}. Other event names are accepted and time out. ${framenavigatedPayload} ${networkEventPayload}`;
+const waitForEventLimitations = `Events: ${eventNames}. Other event names are accepted and time out. ${framenavigatedPayload} ${networkEventPayload} ${consoleEventPayload}`;
 const networkObservationLimitations =
   "`fetch()` calls of the current document only; see [Request and Response compatibility](#request-and-response-compatibility).";
+const consoleMessagesLimitations =
+  '`filter: "all"` and the default `"since-navigation"` return the same messages: this single-document adapter never crosses documents within one page\'s lifetime, so nothing ever marks the buffer at a navigation. Browser-generated console entries (a failed resource load, a CSP violation report) are not observed: only the document\'s own `console.*` calls are. `ConsoleMessage.location()` is a best-effort capture from a synthetic stack, not the browser\'s own call-site data.';
 
 /** Consumer-facing description of this package's `Request` and `Response`. */
 export const networkLimitations = `\`page.on("request" | "response" | "requestfinished" | "requestfailed")\`, \`page.waitForRequest()\`, \`page.waitForResponse()\` and \`page.requests()\` report the \`fetch()\` calls the current document makes while you are subscribed. Images, scripts, stylesheets, \`XMLHttpRequest\`, \`navigator.sendBeacon\`, \`WebSocket\`, \`EventSource\`, form submissions and navigations are not reported, and neither are \`fetch()\` calls made by another realm, by an iframe or by a service worker, nor calls that started before the first subscription.
@@ -116,12 +120,12 @@ export const pageLedger = {
   bringToFront: undecided(),
   cancelPickLocator: undecided(),
   check: implemented(),
-  clearConsoleMessages: undecided(),
+  clearConsoleMessages: implemented(),
   clearPageErrors: implemented(),
   click: partial("The action does not wait for navigation."),
   clock: undecided(),
   close: undecided(),
-  consoleMessages: undecided(),
+  consoleMessages: partial(consoleMessagesLimitations),
   content: implemented("Serializes the current controlled document."),
   context: undecided(),
   coverage: undecided(),
