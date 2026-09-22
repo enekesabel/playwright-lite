@@ -141,6 +141,10 @@ function parseRawHeaders(raw: string): Record<string, string> {
  * body itself is gone and reading it reports that instead of inventing bytes.
  */
 async function xhrResponseBody(xhr: XMLHttpRequest): Promise<Uint8Array> {
+  if (xhr.responseType === "json" || xhr.responseType === "document")
+    throw new Error(
+      `Response body is not available: the request set responseType "${xhr.responseType}".`
+    );
   const body: unknown = xhr.response;
   if (typeof body === "string") return new TextEncoder().encode(body);
   if (body === null) return new Uint8Array();
