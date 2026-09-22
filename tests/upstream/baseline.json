@@ -2415,7 +2415,7 @@
     {
       "id": "page-event-request.spec.ts > main resource xhr should have type xhr",
       "method": "Page.waitForEvent",
-      "evidence": "With Page.waitForEvent withheld, the sabotage rerun fails this test: the awaited adapter waitForEvent('request') is what resolves with the request the document's synchronous XMLHttpRequest started inside Page.evaluate, so the event fired for an XHR at all. The resourceType() 'xhr' and isNavigationRequest() false values the test then asserts are read from the fixture's snapshot of that request, taken outside the recorded adapter execution, and are not covered by the rerun."
+      "evidence": "The awaited adapter waitForEvent('request') resolves with the request the document's synchronous XMLHttpRequest started inside Page.evaluate, and the assertions read resourceType() 'xhr' and isNavigationRequest() false from the adapter's snapshot of the package's own request object; with Page.waitForEvent withheld, the sabotage rerun fails."
     },
     {
       "id": "page-fill.spec.ts > fill back to back",
