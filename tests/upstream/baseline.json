@@ -3,7 +3,7 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 2002,
+  "selectedTestCount": 2008,
   "reviewed": [
     {
       "id": "elementhandle-bounding-box.spec.ts > should force a layout",
@@ -2411,6 +2411,11 @@
       "id": "page-event-pageerror.spec.ts > should support an empty Error.name property",
       "method": "Page.waitForEvent",
       "evidence": "After Page.evaluate schedules a throw of an Error whose name was set to the empty string, the awaited adapter waitForEvent('pageerror') resolves with that error and the assertions read name '' and message my-message, so the payload keeps the thrown Error's own name instead of defaulting to Error."
+    },
+    {
+      "id": "page-event-request.spec.ts > main resource xhr should have type xhr",
+      "method": "Page.waitForEvent",
+      "evidence": "With Page.waitForEvent withheld, the sabotage rerun fails this test: the awaited adapter waitForEvent('request') is what resolves with the request the document's synchronous XMLHttpRequest started inside Page.evaluate, so the event fired for an XHR at all. The resourceType() 'xhr' and isNavigationRequest() false values the test then asserts are read from the fixture's snapshot of that request, taken outside the recorded adapter execution, and are not covered by the rerun."
     },
     {
       "id": "page-fill.spec.ts > fill back to back",
