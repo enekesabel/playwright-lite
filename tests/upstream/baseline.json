@@ -2385,7 +2385,7 @@
     {
       "id": "page-event-pageerror.spec.ts > pageErrors should work",
       "method": "Page.pageErrors",
-      "evidence": "After Page.evaluate schedules 301 thrown errors via setTimeout, the awaited adapter Page.pageErrors() call (recorded once, after 301 recorded Page.addPageError pushes) returns the wrapped errors in order; the assertions check at least 100 survived the pinned 200-entry limit and that the last 100 messages equal error201..error300, proving Page.pageErrors() both reads what the always-on window error listener collected since page creation and bounds the buffer to the pinned limit."
+      "evidence": "After Page.evaluate schedules 301 thrown errors via setTimeout, the awaited adapter Page.pageErrors() call (recorded once, after 301 recorded Page.addPageError pushes) returns the wrapped errors in order; the assertions check at least 100 survived the pinned 200-entry limit and that the last 100 messages equal error201..error300, proving Page.pageErrors() reads what the always-on window error listener collected since page creation."
     },
     {
       "id": "page-event-pageerror.spec.ts > should contain the Error.name property",
