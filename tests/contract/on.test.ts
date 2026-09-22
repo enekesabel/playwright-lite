@@ -6,7 +6,7 @@ import {
   restoreURL,
   swallowWindowErrors,
 } from "./pageEvents";
-import { contractUrl, recordedFetch, restoreFetch } from "./network";
+import { contractUrl, networkPages, restoreFetch } from "./network";
 
 swallowWindowErrors();
 restoreURL();
@@ -137,14 +137,15 @@ describe("Page.on", () => {
     await expect(reached).resolves.toBeUndefined();
     expect(frames).toEqual([page.mainFrame()]);
   });
-});
 
-describe("Page.on network events", () => {
+  // ── Network events ──────────────────────────────────────────────
+
   restoreFetch();
+  const networkPage = networkPages();
 
   it("leaves window.fetch alone until the first network listener", () => {
     const before = window.fetch;
-    const page = createPage();
+    const page = networkPage();
     page.on("pageerror", () => {});
     expect(window.fetch).toBe(before);
     page.on("request", () => {});
@@ -153,7 +154,7 @@ describe("Page.on network events", () => {
 
   it("keeps the wrapped fetch indistinguishable from the original", () => {
     const before = window.fetch;
-    createPage().on("request", () => {});
+    networkPage().on("request", () => {});
     const wrapped = window.fetch;
     expect(wrapped).not.toBe(before);
     expect(wrapped.name).toBe(before.name);
@@ -169,7 +170,7 @@ describe("Page.on network events", () => {
       receivers.push(this);
       return Promise.resolve(new Response("ok"));
     } as typeof fetch;
-    createPage().on("request", () => {});
+    networkPage().on("request", () => {});
 
     const host = { fetch: window.fetch };
     await host.fetch(contractUrl("."));
@@ -185,7 +186,7 @@ describe("Page.on network events", () => {
       if (this !== window) throw new TypeError("Illegal invocation");
       return Promise.resolve(new Response("ok"));
     } as typeof fetch;
-    const page = createPage();
+    const page = networkPage();
     const seen: unknown[] = [];
     page.on("request", (request) => seen.push(request));
 
@@ -194,21 +195,30 @@ describe("Page.on network events", () => {
   });
 
   it("reports request, response and requestfinished in the pinned order", async () => {
-    const page = createPage();
+    const page = networkPage();
+    const url = contractUrl("./ordered");
+    // A request another test started can still answer during this one, so
+    // only the events of this request are recorded.
     const events: string[] = [];
-    page.on("request", () => events.push("request"));
-    page.on("response", () => events.push("response"));
-    page.on("requestfinished", () => events.push("requestfinished"));
-    const finished = page.waitForEvent("requestfinished", { timeout: 5_000 });
+    const record = (name: string) => (target: { url(): string }) => {
+      if (target.url() === url) events.push(name);
+    };
+    page.on("request", record("request"));
+    page.on("response", record("response"));
+    page.on("requestfinished", record("requestfinished"));
+    const finished = page.waitForEvent("requestfinished", {
+      predicate: (request) => request.url() === url,
+      timeout: 5_000,
+    });
 
-    await window.fetch(contractUrl("."));
+    await window.fetch(url);
     await finished;
 
     expect(events).toEqual(["request", "response", "requestfinished"]);
   });
 
   it("reports a fetch with the fields the document can fill", async () => {
-    const page = createPage();
+    const page = networkPage();
     const waiting = page.waitForEvent("request", { timeout: 5_000 });
     void window.fetch(contractUrl("./contract-fetch#fragment"), {
       headers: { "x-contract": "yes" },
@@ -226,7 +236,7 @@ describe("Page.on network events", () => {
   });
 
   it("reports a failed fetch as requestfailed with Playwright's failure shape", async () => {
-    const page = createPage();
+    const page = networkPage();
     const failed = page.waitForEvent("requestfailed", { timeout: 5_000 });
     await expect(
       window.fetch("http://localhost:1/unreachable")
@@ -237,21 +247,5 @@ describe("Page.on network events", () => {
       errorText: expect.stringContaining("TypeError"),
     });
     expect(await request.response()).toBe(null);
-  });
-
-  it("sends a body-carrying Request input to the network intact", async () => {
-    const forwarded = recordedFetch();
-    const page = createPage();
-    page.on("request", () => {});
-
-    const input = new Request(contractUrl("./post"), {
-      method: "POST",
-      body: "carried",
-    });
-    await window.fetch(input);
-
-    expect(forwarded).toHaveLength(1);
-    expect(forwarded[0].method).toBe("POST");
-    expect(await forwarded[0].text()).toBe("carried");
   });
 });

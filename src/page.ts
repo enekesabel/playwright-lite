@@ -23,7 +23,11 @@ import {
 import { AdapterElementHandle } from "./elementHandle";
 import {
   NETWORK_EVENTS,
-  NetworkObservation,
+  logLineFor,
+  networkObservationFor,
+  networkPredicate,
+  recordRequest,
+  type NetworkMatch,
   type Request as NetworkRequest,
   type Response as NetworkResponse,
 } from "./network";
@@ -176,8 +180,6 @@ type WaitForEventOptions =
   | { predicate?: EventPredicate; signal?: AbortSignal; timeout?: number };
 
 type NetworkWaitOptions = { signal?: AbortSignal; timeout?: number };
-type NetworkMatch<T> =
-  string | RegExp | ((target: T) => boolean | Promise<boolean>);
 
 type PageExpectationExpression = "to.have.title" | "to.have.url";
 
@@ -308,7 +310,9 @@ export class PageImpl {
   private unobservePageErrors: (() => void) | undefined;
   private unobserveNavigation: (() => void) | undefined;
   private unobserveNetwork: (() => void) | undefined;
-  private readonly network: NetworkObservation;
+  private readonly network: ReturnType<typeof networkObservationFor>;
+  /** Pinned server/page.ts keeps the recent requests per page, not per realm. */
+  private readonly requestLog: NetworkRequest[] = [];
   /**
    * The subscription `requests()` takes. Like the pinned dispatcher, which
    * adds the `request` subscription when the log is first read, it is never
@@ -328,9 +332,7 @@ export class PageImpl {
     this.evaluation = new Evaluation(this);
     this.localStorage = new PageWebStorage(this, "local");
     this.sessionStorage = new PageWebStorage(this, "session");
-    this.network = new NetworkObservation(browserWindow, (event, payload) =>
-      this.emit(event, payload)
-    );
+    this.network = networkObservationFor(browserWindow);
   }
 
   private get injected() {
@@ -1659,7 +1661,7 @@ export class PageImpl {
     rejectUnsupportedOptions("waitForRequest", options, ["signal", "timeout"]);
     return (await this.waitForPageEvent(
       "request",
-      { ...options, predicate: networkPredicate(urlOrPredicate) },
+      { ...options, predicate: networkPredicate(urlOrPredicate, urlMatches) },
       "page.waitForRequest",
       logLineFor("request", urlOrPredicate)
     )) as NetworkRequest;
@@ -1673,7 +1675,7 @@ export class PageImpl {
     rejectUnsupportedOptions("waitForResponse", options, ["signal", "timeout"]);
     return (await this.waitForPageEvent(
       "response",
-      { ...options, predicate: networkPredicate(urlOrPredicate) },
+      { ...options, predicate: networkPredicate(urlOrPredicate, urlMatches) },
       "page.waitForResponse",
       logLineFor("response", urlOrPredicate)
     )) as NetworkResponse;
@@ -1684,8 +1686,21 @@ export class PageImpl {
    * subscription so the log keeps filling once it has been read.
    */
   async requests(): Promise<NetworkRequest[]> {
-    this.retainedNetwork ??= this.network.subscribe();
-    return this.network.requests();
+    this.retainedNetwork ??= this.subscribeToNetwork();
+    return [...this.requestLog];
+  }
+
+  /**
+   * Reports the window's `fetch` calls on this page while the subscription
+   * lives. The observation is shared by every `Page` of this window, so the
+   * call is intercepted once; the recent-request log stays per page.
+   */
+  private subscribeToNetwork(): () => void {
+    return this.network.subscribe((event, payload) => {
+      if (event === "request")
+        recordRequest(this.requestLog, payload as NetworkRequest);
+      this.emit(event, payload);
+    });
   }
 
   private async waitForPageEvent(
@@ -1818,7 +1833,7 @@ export class PageImpl {
     this.unobserveNetwork = this.observeWhileListened(
       NETWORK_EVENTS,
       this.unobserveNetwork,
-      () => this.network.subscribe()
+      () => this.subscribeToNetwork()
     );
   }
 
@@ -5244,38 +5259,6 @@ function regExpMatches(
   if (ignoreCase === false) flags.delete("i");
   if (ignoreCase === true) flags.add("i");
   return new RegExp(expression.source, [...flags].join("")).test(value);
-}
-
-/**
- * Pinned client/page.ts: a string or `RegExp` matches the observed URL, a
- * function is awaited with the `Request`/`Response` itself.
- */
-function networkPredicate<T extends { url(): string }>(
-  urlOrPredicate: NetworkMatch<T>
-): EventPredicate {
-  return async (payload) => {
-    const target = payload as T;
-    if (typeof urlOrPredicate === "function")
-      return await urlOrPredicate(target);
-    return urlMatches(target.url(), urlOrPredicate);
-  };
-}
-
-/** Pinned client/page.ts `trimUrl`, for the line the timeout reports. */
-function logLineFor(event: string, match: unknown): string {
-  if (isRegExp(match))
-    return `waiting for ${event} /${trimStringWithEllipsis(match.source, 50)}/${match.flags}`;
-  if (typeof match === "string")
-    return `waiting for ${event} "${trimStringWithEllipsis(match, 50)}"`;
-  return `waiting for event "${event}"`;
-}
-
-/** Pinned isomorphic/stringUtils.ts `trimStringWithEllipsis`. */
-function trimStringWithEllipsis(input: string, cap: number): string {
-  if (input.length <= cap) return input;
-  const chars = [...input];
-  if (chars.length > cap) return chars.slice(0, cap - 1).join("") + "…";
-  return chars.join("");
 }
 
 function urlMatches(

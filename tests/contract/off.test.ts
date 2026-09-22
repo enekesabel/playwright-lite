@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../src/index";
 import { swallowWindowErrors } from "./pageEvents";
-import { contractUrl, restoreFetch } from "./network";
+import { assetUrl, contractUrl, restoreFetch } from "./network";
 
 swallowWindowErrors();
 
@@ -33,9 +33,9 @@ describe("Page.off", () => {
     expect(first).not.toHaveBeenCalled();
     expect(second).not.toHaveBeenCalled();
   });
-});
 
-describe("Page.off network events", () => {
+  // ── Network events ──────────────────────────────────────────────
+
   restoreFetch();
 
   it("restores window.fetch with the last network listener", () => {
@@ -73,5 +73,32 @@ describe("Page.off network events", () => {
       Response
     );
     expect(calls).toHaveLength(1);
+  });
+
+  it("restores window.fetch only after every page has unsubscribed", async () => {
+    const native = window.fetch;
+    const first = createPage();
+    const second = createPage();
+    const seen: string[] = [];
+    const onFirst = (request: { url(): string }) =>
+      seen.push(`first:${request.url()}`);
+    const onSecond = (request: { url(): string }) =>
+      seen.push(`second:${request.url()}`);
+
+    first.on("request", onFirst);
+    second.on("request", onSecond);
+    expect(window.fetch).not.toBe(native);
+
+    await window.fetch(assetUrl("?shared"));
+
+    first.off("request", onFirst);
+    expect(window.fetch).not.toBe(native);
+    second.off("request", onSecond);
+    expect(window.fetch).toBe(native);
+
+    expect(seen).toEqual([
+      `first:${assetUrl("?shared")}`,
+      `second:${assetUrl("?shared")}`,
+    ]);
   });
 });

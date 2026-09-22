@@ -68,6 +68,10 @@ export interface Response {
 
 type Emit = (event: NetworkEventName, payload: unknown) => void;
 
+/** Pinned client/page.ts `waitForRequest`/`waitForResponse` first argument. */
+export type NetworkMatch<T> =
+  string | RegExp | ((target: T) => boolean | Promise<boolean>);
+
 type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void };
 
 function deferred<T>(): Deferred<T> {
@@ -91,11 +95,11 @@ function headersObject(headers: Headers): Record<string, string> {
 }
 
 /**
- * The request body, when the caller passed it in a form this document can read
- * without consuming the stream the browser is about to send. A `Blob`,
- * `FormData` or `ReadableStream` body, and a body carried by a `Request`
- * argument, are readable only through `clone()`, which resolves after the
- * synchronous `postData()` has already been asked; those report `null`.
+ * The request body, in the forms the caller can hand over synchronously.
+ * `postData()` answers without waiting, as the pinned client's does, and the
+ * call must be forwarded in the same turn; a `Blob`, `FormData` or
+ * `ReadableStream` body, and a body carried by a `Request` argument, can only
+ * be read asynchronously, so those report `null`.
  */
 function readableBody(body: unknown): Uint8Array | null {
   if (typeof body === "string") return new TextEncoder().encode(body);
@@ -271,6 +275,26 @@ class ObservedResponse implements Response {
   }
 }
 
+const observations = new WeakMap<Window, NetworkObservation>();
+
+/**
+ * The one observation of a window's `fetch`. Every `Page` created for the same
+ * window shares it: a second wrapper would wrap the first one's proxy, and
+ * unsubscribing in the order they were installed would then leave that proxy
+ * behind for good.
+ */
+export function networkObservationFor(
+  browserWindow: Window & typeof globalThis
+): NetworkObservation {
+  let observation = observations.get(browserWindow);
+  if (!observation)
+    observations.set(
+      browserWindow,
+      (observation = new NetworkObservation(browserWindow))
+    );
+  return observation;
+}
+
 /**
  * Reports the `fetch` calls the document makes as Playwright's four network
  * events, for as long as something is subscribed.
@@ -278,16 +302,15 @@ class ObservedResponse implements Response {
  * Playwright observes requests in the browser process, so it sees every
  * resource and every realm. This observation replaces `window.fetch`, so it
  * sees this realm's `fetch` calls made after the wrapper was installed, and
- * nothing else.
+ * nothing else. The call is intercepted once and reported to every subscriber.
  */
 export class NetworkObservation {
   private readonly wrapper: WrappedHostFunction<NativeFetch>;
-  private readonly log: Request[] = [];
+  /** How many live subscriptions each subscriber holds, so one release of a
+   * `Page` that subscribed twice does not stop reporting to it. */
+  private readonly subscribers = new Map<Emit, number>();
 
-  constructor(
-    private readonly window: Window & typeof globalThis,
-    private readonly emit: Emit
-  ) {
+  constructor(private readonly window: Window & typeof globalThis) {
     this.wrapper = new WrappedHostFunction(
       window as unknown as Record<string, unknown>,
       "fetch",
@@ -295,13 +318,24 @@ export class NetworkObservation {
     );
   }
 
-  subscribe(): () => void {
-    return this.wrapper.subscribe();
+  /** Reports to `emit` until the returned release is called. */
+  subscribe(emit: Emit): () => void {
+    this.subscribers.set(emit, (this.subscribers.get(emit) ?? 0) + 1);
+    const release = this.wrapper.subscribe();
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      const held = (this.subscribers.get(emit) ?? 1) - 1;
+      if (held > 0) this.subscribers.set(emit, held);
+      else this.subscribers.delete(emit);
+      release();
+    };
   }
 
-  /** Pinned client/page.ts Page.requests: the recent requests, oldest first. */
-  requests(): Request[] {
-    return [...this.log];
+  private emit(event: NetworkEventName, payload: unknown) {
+    for (const subscriber of [...this.subscribers.keys()])
+      subscriber(event, payload);
   }
 
   private observe(
@@ -333,7 +367,6 @@ export class NetworkObservation {
     ]) as Promise<NativeResponse>;
 
     const observed = new ObservedRequest(request, postData);
-    this.record(observed);
     this.emit("request", observed);
     void this.follow(observed, result);
     return result;
@@ -365,13 +398,56 @@ export class NetworkObservation {
     }
     this.emit("requestfinished", request);
   }
+}
 
-  /** Pinned server/page.ts `addNetworkRequest` and its `ensureArrayLimit`. */
-  private record(request: Request) {
-    this.log.push(request);
-    if (this.log.length > REQUEST_LOG_LIMIT)
-      this.log.splice(0, REQUEST_LOG_LIMIT / 10);
-  }
+/**
+ * Appends to a `Page`'s recent-request log, bounded as pinned server/page.ts
+ * `addNetworkRequest` bounds it with `ensureArrayLimit`: once the log passes
+ * the limit, its oldest tenth is dropped.
+ */
+export function recordRequest(log: Request[], request: Request): void {
+  log.push(request);
+  if (log.length > REQUEST_LOG_LIMIT) log.splice(0, REQUEST_LOG_LIMIT / 10);
+}
+
+/**
+ * Pinned client/page.ts: a string or `RegExp` matches the observed URL, a
+ * function is awaited with the `Request`/`Response` itself.
+ */
+export function networkPredicate<T extends { url(): string }>(
+  urlOrPredicate: NetworkMatch<T>,
+  urlMatches: (url: string, match: string | RegExp) => boolean
+): (payload: unknown) => boolean | Promise<boolean> {
+  return async (payload) => {
+    const target = payload as T;
+    if (typeof urlOrPredicate === "function")
+      return await urlOrPredicate(target);
+    return urlMatches(target.url(), urlOrPredicate);
+  };
+}
+
+/** Pinned client/page.ts `trimUrl`, for the line the timeout reports. */
+export function logLineFor(event: string, match: unknown): string {
+  if (isRegExp(match))
+    return `waiting for ${event} /${trimStringWithEllipsis(match.source, 50)}/${match.flags}`;
+  if (typeof match === "string")
+    return `waiting for ${event} "${trimStringWithEllipsis(match, 50)}"`;
+  return `waiting for event "${event}"`;
+}
+
+function isRegExp(value: unknown): value is RegExp {
+  return (
+    value instanceof RegExp ||
+    Object.prototype.toString.call(value) === "[object RegExp]"
+  );
+}
+
+/** Pinned isomorphic/stringUtils.ts `trimStringWithEllipsis`. */
+function trimStringWithEllipsis(input: string, cap: number): string {
+  if (input.length <= cap) return input;
+  const chars = [...input];
+  if (chars.length > cap) return chars.slice(0, cap - 1).join("") + "…";
+  return chars.join("");
 }
 
 /**

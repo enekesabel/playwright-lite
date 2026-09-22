@@ -1,9 +1,9 @@
 import { afterEach } from "vitest";
 
+import { createPage } from "../../src/index";
+
 /**
  * Helpers for the contract tests that observe the document's own `fetch`.
- * Every test restores `window.fetch` itself, so a failing assertion cannot
- * leave the wrapper behind for the next file.
  */
 
 /** Restores `window.fetch` to whatever the suite started with. */
@@ -14,18 +14,26 @@ export function restoreFetch() {
   });
 }
 
+/**
+ * Pages whose listeners are removed after each test. The `fetch` wrapper is
+ * shared by every Page of this window, so a listener a test leaves behind
+ * keeps the wrapper installed for the next one.
+ */
+export function networkPages() {
+  const pages: ReturnType<typeof createPage>[] = [];
+  afterEach(() => {
+    for (const page of pages.splice(0)) page.removeAllListeners();
+  });
+  return () => {
+    const page = createPage();
+    pages.push(page);
+    return page;
+  };
+}
+
 /** A same-origin URL that answers, used where only the URL matters. */
 export const contractUrl = (path: string) => new URL(path, location.href).href;
 
-/**
- * Replaces `window.fetch` with a recorded stand-in before the page wraps it,
- * so a test can read what the wrapper forwarded without a controllable server.
- */
-export function recordedFetch(body = "ok", init?: ResponseInit) {
-  const calls: Request[] = [];
-  window.fetch = ((input: RequestInfo | URL) => {
-    calls.push(input as Request);
-    return Promise.resolve(new Response(body, init));
-  }) as typeof fetch;
-  return calls;
-}
+/** A same-origin asset the test server answers with 200 and a known type. */
+export const assetUrl = (query = "") =>
+  new URL(`/tests/assets/title.html${query}`, location.origin).href;
