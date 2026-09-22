@@ -31,12 +31,7 @@ import {
   type Request as NetworkRequest,
   type Response as NetworkResponse,
 } from "./network";
-import {
-  dialogObservationFor,
-  type Dialog,
-  type DialogState,
-  type DialogType,
-} from "./dialog";
+import { dialogObservationFor, Dialog } from "./dialog";
 import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
 import type { Locator, Page } from "@playwright/test";
@@ -295,43 +290,6 @@ type ActionableInjectedScript = {
   selectText(element: Element): "error:notconnected" | "done";
   dispatchEvent(node: Node, type: string, eventInitObj: object): void;
 };
-
-/**
- * A `dialog` event payload for one page: a facade over the settlement every
- * subscribed page shares (`DialogObservation`), so `page()` reports the page
- * whose listener received it. A real class, not an object literal, so its
- * members are the payload's own prototype methods.
- */
-class PageDialog implements Dialog {
-  constructor(
-    private readonly state: DialogState,
-    private readonly owner: PageImpl
-  ) {}
-
-  type(): DialogType {
-    return this.state.type();
-  }
-
-  message(): string {
-    return this.state.message();
-  }
-
-  defaultValue(): string {
-    return this.state.defaultValue();
-  }
-
-  accept(promptText?: string): Promise<void> {
-    return this.state.accept(promptText);
-  }
-
-  dismiss(): Promise<void> {
-    return this.state.dismiss();
-  }
-
-  page(): Page {
-    return this.owner as unknown as Page;
-  }
-}
 
 export class PageImpl {
   readonly [PAGE_BRAND] = PAGE_BRAND_TOKEN;
@@ -1751,15 +1709,19 @@ export class PageImpl {
     });
   }
 
-  /**
-   * Reports the window's `alert`/`confirm`/`prompt` calls on this page while
-   * the subscription lives. Each subscribed page gets its own `Dialog`
-   * facade over the shared settlement, so `dialog.page()` reports the page
-   * whose listener received it.
-   */
+  /** Reports the window's `alert`/`confirm`/`prompt` calls on this page while the subscription lives. */
   private subscribeToDialogs(): () => void {
-    return this.dialogs.subscribe((state) => {
-      this.emit("dialog", new PageDialog(state, this));
+    return this.dialogs.subscribe((type, message, defaultValue, box) => {
+      this.emit(
+        "dialog",
+        new Dialog(
+          type,
+          message,
+          defaultValue,
+          box,
+          () => this as unknown as Page
+        )
+      );
     });
   }
 
