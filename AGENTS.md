@@ -2,6 +2,8 @@
 
 When implementing Page or Locator behavior, inspect the pinned Playwright implementation and its corresponding tests first. Reuse the pinned browser primitives where available. Explain any remaining behavioral differences in the change report.
 
+`createPage()` returns Playwright's `Page` type unchanged; never narrow, intersect or replace it. Unsupported members stay on the type and fail at runtime (ADR 0001).
+
 Keep copied upstream specs byte-for-byte identical to their pinned source. Change the package harness or runtime when necessary; compatibility operations must execute through the browser adapter.
 
 ## Upstream fixture setup
