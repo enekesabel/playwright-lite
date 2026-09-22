@@ -155,6 +155,13 @@ type CurrentDocumentWaitOptions = {
 
 type URLMatch = Parameters<Page["waitForURL"]>[0];
 
+type Listener = (...args: unknown[]) => unknown;
+type ListenerEntry = { listener: Listener; once: boolean };
+type EventPredicate = (payload: unknown) => boolean | Promise<boolean>;
+type WaitForEventOptions =
+  | EventPredicate
+  | { predicate?: EventPredicate; signal?: AbortSignal; timeout?: number };
+
 type PageExpectationExpression = "to.have.title" | "to.have.url";
 
 type PageExpectationOptions = {
@@ -279,6 +286,9 @@ export class PageImpl {
   private pointerPosition: ActionPoint = { x: 0, y: 0 };
   private defaultTimeout: number | undefined;
   private defaultNavigationTimeout: number | undefined;
+  private readonly listeners = new Map<string, ListenerEntry[]>();
+  private unobservePageErrors: (() => void) | undefined;
+  private listenerError: unknown;
 
   constructor(
     browserWindow: Window & typeof globalThis,
@@ -1500,6 +1510,179 @@ export class PageImpl {
    */
   mainFrame() {
     return this;
+  }
+
+  // ── Events ──────────────────────────────────────────────────────
+
+  /**
+   * Pinned client/eventEmitter.ts is a Node EventEmitter: any event name is
+   * accepted, `once` unsubscribes before it fires, and `removeListener` drops
+   * the most recently added copy of a listener.
+   */
+  on(event: string, listener: Listener): this {
+    return this.addListener(event, listener);
+  }
+
+  addListener(event: string, listener: Listener): this {
+    return this.subscribe(event, { listener, once: false }, "push");
+  }
+
+  prependListener(event: string, listener: Listener): this {
+    return this.subscribe(event, { listener, once: false }, "unshift");
+  }
+
+  once(event: string, listener: Listener): this {
+    return this.subscribe(event, { listener, once: true }, "push");
+  }
+
+  off(event: string, listener: Listener): this {
+    return this.removeListener(event, listener);
+  }
+
+  removeListener(event: string, listener: Listener): this {
+    const entry = this.listeners
+      .get(event)
+      ?.findLast((entry) => entry.listener === listener);
+    if (entry) this.unsubscribe(event, entry);
+    return this;
+  }
+
+  /**
+   * The pinned `behavior` option waits for listeners still running; listeners
+   * here are called synchronously, so with options there is nothing to await.
+   */
+  removeAllListeners(event?: string, options?: object): this | Promise<void> {
+    if (event === undefined) this.listeners.clear();
+    else this.listeners.delete(event);
+    this.observePageErrors();
+    return options ? Promise.resolve() : this;
+  }
+
+  /**
+   * Pinned client/page.ts `_waitForEvent`: a predicate or options argument,
+   * the action timeout, and the listener removed however the wait ends. There
+   * is no browser process here, so no crash or close rejects the wait.
+   */
+  async waitForEvent(
+    event: string,
+    optionsOrPredicate: WaitForEventOptions = {}
+  ): Promise<unknown> {
+    const options =
+      typeof optionsOrPredicate === "function"
+        ? { predicate: optionsOrPredicate }
+        : optionsOrPredicate;
+    rejectUnsupportedOptions("waitForEvent", options, [
+      "predicate",
+      "signal",
+      "timeout",
+    ]);
+    const timeout = this.resolveTimeout(
+      options.timeout,
+      DEFAULT_ACTION_TIMEOUT
+    );
+    const { predicate, signal } = options;
+    return withAbortPrefix(
+      "page.waitForEvent",
+      () =>
+        new Promise((resolve, reject) => {
+          if (signal?.aborted) throw actionAborted(signal, false);
+          let timer: number | undefined;
+          const finish = (done: () => void) => {
+            this.removeListener(event, listener);
+            signal?.removeEventListener("abort", onAbort);
+            this.window.clearTimeout(timer);
+            done();
+          };
+          const listener = async (payload: unknown) => {
+            try {
+              if (predicate && !(await predicate(payload))) return;
+              finish(() => resolve(payload));
+            } catch (error) {
+              finish(() => reject(error));
+            }
+          };
+          const onAbort = () =>
+            finish(() => reject(actionAborted(signal!, true)));
+          this.addListener(event, listener);
+          signal?.addEventListener("abort", onAbort, { once: true });
+          if (timeout > 0)
+            timer = this.window.setTimeout(
+              () =>
+                finish(() =>
+                  reject(
+                    new AdapterTimeoutError(
+                      `page.waitForEvent: Timeout ${timeout}ms exceeded while waiting for event "${event}"`
+                    )
+                  )
+                ),
+              timeout
+            );
+        })
+    );
+  }
+
+  private subscribe(
+    event: string,
+    entry: ListenerEntry,
+    position: "push" | "unshift"
+  ): this {
+    let entries = this.listeners.get(event);
+    if (!entries) this.listeners.set(event, (entries = []));
+    entries[position](entry);
+    this.observePageErrors();
+    return this;
+  }
+
+  private unsubscribe(event: string, entry: ListenerEntry) {
+    const entries = this.listeners.get(event);
+    const index = entries?.indexOf(entry) ?? -1;
+    if (index !== -1) entries!.splice(index, 1);
+    this.observePageErrors();
+  }
+
+  private emit(event: string, payload: unknown) {
+    for (const entry of [...(this.listeners.get(event) ?? [])]) {
+      if (entry.once) this.unsubscribe(event, entry);
+      try {
+        entry.listener(payload);
+      } catch (error) {
+        this.listenerError = error;
+        throw error;
+      }
+    }
+  }
+
+  /**
+   * Playwright receives page errors from the browser process; here they come
+   * from `window` `error` and `unhandledrejection` events, listened to only
+   * while a `pageerror` listener exists, so the page leaves no trace once it
+   * is unsubscribed. A `pageerror` listener that throws is reported to the
+   * same window as another uncaught error; that one is skipped, since in
+   * Playwright a listener runs outside the page and cannot re-enter it.
+   */
+  private observePageErrors() {
+    const wanted = (this.listeners.get("pageerror")?.length ?? 0) > 0;
+    if (wanted === (this.unobservePageErrors !== undefined)) return;
+    if (!wanted) {
+      this.unobservePageErrors!();
+      this.unobservePageErrors = undefined;
+      return;
+    }
+    const onError = (event: ErrorEvent) => {
+      if (event.error !== undefined && event.error === this.listenerError) {
+        this.listenerError = undefined;
+        return;
+      }
+      this.emit("pageerror", pageError(event.error));
+    };
+    const onRejection = (event: PromiseRejectionEvent) =>
+      this.emit("pageerror", pageError(event.reason));
+    this.window.addEventListener("error", onError);
+    this.window.addEventListener("unhandledrejection", onRejection);
+    this.unobservePageErrors = () => {
+      this.window.removeEventListener("error", onError);
+      this.window.removeEventListener("unhandledrejection", onRejection);
+    };
   }
 
   // ── Page compatibility façade ────────────────────────────────────
@@ -4504,6 +4687,31 @@ function actionPoint(
 
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
+}
+
+/**
+ * Pinned crProtocolHelper.ts `exceptionToError` receives a thrown non-Error
+ * value as its protocol description (the class name of an object, otherwise
+ * `String(value)`), splits it at the first `:` into name and message with
+ * `splitErrorMessage`, and has no stack for it. A thrown Error already is the
+ * error Playwright would rebuild from its name, message and stack.
+ */
+function pageError(thrown: unknown): Error {
+  if (thrown instanceof Error) return thrown;
+  const description =
+    thrown !== null && typeof thrown === "object"
+      ? ((thrown as { constructor?: { name?: string } }).constructor?.name ??
+        "Object")
+      : String(thrown);
+  const separator = description.indexOf(":");
+  const error = new Error(
+    separator !== -1 && separator + 2 <= description.length
+      ? description.slice(separator + 2)
+      : description
+  );
+  error.name = separator !== -1 ? description.slice(0, separator) : "";
+  error.stack = "";
+  return error;
 }
 
 function isRetryableActionError(error: unknown): boolean {

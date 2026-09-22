@@ -43,7 +43,10 @@ const planned = (limitations?: string): CompatibilityEntry => ({
   status: "planned",
   ...(limitations ? { limitations } : {}),
 });
-const undecided = (): CompatibilityEntry => ({ status: "undecided" });
+const undecided = (limitations?: string): CompatibilityEntry => ({
+  status: "undecided",
+  ...(limitations ? { limitations } : {}),
+});
 const outOfScope = (limitations: string): CompatibilityEntry => ({
   status: "out-of-scope",
   limitations,
@@ -72,8 +75,8 @@ export const pageLedger = {
     "Uses the pinned Playwright by-value argument and result serializers."
   ),
   addInitScript: undecided(),
-  addListener: planned(
-    "Only console and pageerror are planned; other events remain undecided."
+  addListener: partial(
+    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
   ),
   addLocatorHandler: undecided(),
   addScriptTag: partial(
@@ -86,12 +89,14 @@ export const pageLedger = {
   bringToFront: undecided(),
   cancelPickLocator: undecided(),
   check: implemented(),
-  clearConsoleMessages: undecided(),
+  clearConsoleMessages: undecided(
+    "Waits for the host-global patching decision."
+  ),
   clearPageErrors: undecided(),
   click: partial("The action does not wait for navigation."),
   clock: undecided(),
   close: undecided(),
-  consoleMessages: undecided(),
+  consoleMessages: undecided("Waits for the host-global patching decision."),
   content: implemented("Serializes the current controlled document."),
   context: undecided(),
   coverage: undecided(),
@@ -148,32 +153,32 @@ export const pageLedger = {
   locator: implemented(),
   mainFrame: partial("Returns the same `Page` object, not a `Frame`."),
   mouse: planned("Synthetic functional input only."),
-  off: planned(
-    "Only console and pageerror are planned; other events remain undecided."
+  off: partial(
+    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
   ),
-  on: planned(
-    "Only console and pageerror are planned; other events remain undecided."
+  on: partial(
+    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
   ),
-  once: planned(
-    "Only console and pageerror are planned; other events remain undecided."
+  once: partial(
+    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
   ),
   opener: undecided(),
   pageErrors: undecided(),
   pause: undecided(),
   pdf: undecided(),
   pickLocator: undecided(),
-  prependListener: planned(
-    "Only console and pageerror are planned; other events remain undecided."
+  prependListener: partial(
+    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
   ),
   press: implemented(),
   reload: planned(
     "Initiates browser navigation; execution ends on document replacement."
   ),
-  removeAllListeners: planned(
-    "Only console and pageerror are planned; other events remain undecided."
+  removeAllListeners: partial(
+    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
   ),
-  removeListener: planned(
-    "Only console and pageerror are planned; other events remain undecided."
+  removeListener: partial(
+    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
   ),
   removeLocatorHandler: undecided(),
   request: undecided(),
@@ -206,8 +211,8 @@ export const pageLedger = {
   url: implemented(),
   video: undecided(),
   viewportSize: undecided(),
-  waitForEvent: planned(
-    "Only console and pageerror are planned; other events remain undecided."
+  waitForEvent: partial(
+    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
   ),
   waitForFunction: partial(
     "The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
