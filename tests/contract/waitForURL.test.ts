@@ -130,10 +130,17 @@ describe("Page.waitForURL", () => {
     }
   });
 
-  it("rejects unsupported network idle waits", async () => {
+  it("waits for network idle after the URL matched", async () => {
     const page = createPage();
-    await expect(
-      page.waitForURL(location.href, { waitUntil: "networkidle" })
-    ).rejects.toThrow("Unsupported waitUntil value: networkidle");
+    const waiting = page.waitForURL(location.href, {
+      waitUntil: "networkidle",
+    });
+    const fetched = fetch(
+      new URL("/__delay?ms=100&type=text", location.href)
+    ).then((response) => response.text().then(() => performance.now()));
+
+    await waiting;
+
+    expect(performance.now() - (await fetched)).toBeGreaterThanOrEqual(490);
   });
 });

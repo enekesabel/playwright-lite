@@ -2274,8 +2274,9 @@ export class PageImpl {
    * navigation. Location supplies the browser-side navigation here.
    * Full-document navigation ends this execution; it never resolves with a
    * fabricated Response or destination-ready result in the old document.
-   * Relative URLs use document.baseURI. Custom referer, AbortSignal, and
-   * networkidle are unsupported and rejected before navigation starts.
+   * Relative URLs use document.baseURI. Custom referer and AbortSignal are
+   * unsupported and rejected before navigation starts. networkidle is
+   * observed from the call on, over the document's fetch and XMLHttpRequest.
    */
   async goto(
     url: string,
@@ -2289,8 +2290,6 @@ export class PageImpl {
       "waitUntil",
       options.waitUntil === undefined ? "load" : options.waitUntil
     );
-    if (waitUntil === "networkidle")
-      throw new Error(`Unsupported waitUntil value: ${waitUntil}`);
     const timeout = this.resolveTimeout(
       options.timeout,
       DEFAULT_NAVIGATION_TIMEOUT,
@@ -2317,8 +2316,11 @@ export class PageImpl {
 
     return new Promise<null>((resolve, reject) => {
       let timer: number | undefined;
+      let networkIdle = false;
+      let unobserveNetworkIdle = () => {};
       const settle = (error?: Error) => {
         this.window.clearTimeout(timer);
+        unobserveNetworkIdle();
         this.window.removeEventListener("hashchange", check);
         this.window.removeEventListener("load", check);
         this.document.removeEventListener("readystatechange", check);
@@ -2327,7 +2329,9 @@ export class PageImpl {
       };
       const check = () => {
         if (!sameDocument || this.window.location.href !== target.href) return;
-        if (
+        if (waitUntil === "networkidle") {
+          if (networkIdle) settle();
+        } else if (
           waitUntil === "commit" ||
           this.document.readyState === "complete" ||
           (waitUntil === "domcontentloaded" &&
@@ -2339,6 +2343,11 @@ export class PageImpl {
         this.window.addEventListener("hashchange", check);
         this.window.addEventListener("load", check);
         this.document.addEventListener("readystatechange", check);
+        if (waitUntil === "networkidle")
+          unobserveNetworkIdle = this.network.observeIdle(() => {
+            networkIdle = true;
+            check();
+          });
       }
       // If navigation is blocked or does not replace the document (e.g. 204),
       // time out rather than claiming destination readiness. Zero disables it.
@@ -2371,7 +2380,7 @@ export class PageImpl {
     state = "load",
     options: Omit<CurrentDocumentWaitOptions, "waitUntil"> = {}
   ): Promise<void> {
-    const waitUntil = this.currentDocumentLoadState("state", state);
+    const waitUntil = verifyLoadState("state", state);
     rejectUnsupportedOptions("waitForLoadState", options, [
       "signal",
       "timeout",
@@ -2401,10 +2410,7 @@ export class PageImpl {
       "waitUntil",
     ]);
     assertCurrentDocumentWaitTimeout("waitForURL", options.timeout);
-    const waitUntil = this.currentDocumentLoadState(
-      "waitUntil",
-      options.waitUntil ?? "load"
-    );
+    const waitUntil = verifyLoadState("waitUntil", options.waitUntil ?? "load");
     await this.waitForCurrentDocument(
       "page.waitForURL",
       waitUntil,
@@ -2861,14 +2867,23 @@ export class PageImpl {
 
     await withAbortPrefix(apiName, async () => {
       let urlMatched = url === undefined;
+      let networkIdle = false;
       const observation = await this.observeCurrentDocument(
         () => {
           if (!urlMatched)
             urlMatched = urlMatches(this.window.location.href, url!);
+          if (waitUntil === "networkidle") return urlMatched && networkIdle;
           return urlMatched && this.currentDocumentHasLoadState(waitUntil);
         },
         timeout,
-        signal
+        signal,
+        waitUntil === "networkidle"
+          ? (notify) =>
+              this.network.observeIdle(() => {
+                networkIdle = true;
+                notify();
+              })
+          : undefined
       );
       if ("completed" in observation) return;
       if ("aborted" in observation) throw observation.aborted;
@@ -2879,19 +2894,26 @@ export class PageImpl {
     });
   }
 
-  /** Shared current-document event/poll/timeout observer for navigation APIs and Page assertions. */
+  /**
+   * Shared current-document event/poll/timeout observer for navigation APIs
+   * and Page assertions. `observe` adds a source of change that is started
+   * only once the wait has started and is stopped when it settles.
+   */
   private observeCurrentDocument(
     check: () => boolean,
     timeout: number,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    observe?: (notify: () => void) => () => void
   ): Promise<CurrentDocumentObservation> {
     return new Promise((resolve) => {
       let settled = false;
       let timeoutId: number | undefined;
       let unobserve = () => {};
+      let unobserveExtra = () => {};
 
       const cleanup = () => {
         unobserve();
+        unobserveExtra();
         signal?.removeEventListener("abort", onAbort);
         if (timeoutId !== undefined) this.window.clearTimeout(timeoutId);
       };
@@ -2927,6 +2949,7 @@ export class PageImpl {
 
       signal?.addEventListener("abort", onAbort, { once: true });
       unobserve = this.observeDocument(checkDocument);
+      if (observe) unobserveExtra = observe(checkDocument);
       if (timeout > 0) timeoutId = this.window.setTimeout(onTimeout, timeout);
       checkDocument();
     });
@@ -2970,13 +2993,6 @@ export class PageImpl {
       this.unobserveDocument!();
       this.unobserveDocument = undefined;
     };
-  }
-
-  private currentDocumentLoadState(name: string, state: string): string {
-    const waitUntil = verifyLoadState(name, state);
-    if (waitUntil === "networkidle")
-      throw new Error(`Unsupported ${name} value: ${waitUntil}`);
-    return waitUntil;
   }
 
   private currentDocumentHasLoadState(waitUntil: string): boolean {

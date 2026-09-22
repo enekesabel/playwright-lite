@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { contractUrl, networkPages, sendXhr } from "./network";
 
 function waitForRuntimeLoadState(
   page: ReturnType<typeof createPage>,
@@ -86,12 +87,110 @@ describe("Page.waitForLoadState", () => {
     });
   });
 
-  it("rejects network idle instead of approximating browser request tracking", async () => {
-    await expect(createPage().waitForLoadState("networkidle")).rejects.toThrow(
-      "Unsupported state value: networkidle"
+  const page = networkPages();
+  const cleanups: (() => void)[] = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  // Timers never fire early, but the page may note an end a moment before
+  // the observation does, so the 500 ms bounds allow a few milliseconds.
+  const idleWindow = 490;
+
+  /** A same-origin URL the contract server answers after `ms` milliseconds. */
+  let delayed = 0;
+  const delayedUrl = (ms: number, type: "image" | "text" = "text") =>
+    contractUrl(`/__delay?ms=${ms}&type=${type}&n=${delayed++}`);
+
+  function addImage(src: string) {
+    const image = document.createElement("img");
+    const loaded = new Promise<number>((resolve) =>
+      image.addEventListener("load", () => resolve(performance.now()))
     );
+    image.src = src;
+    document.body.append(image);
+    cleanups.push(() => image.remove());
+    return { image, loaded };
+  }
+
+  it("resolves networkidle 500 ms after the last fetch and XMLHttpRequest ended", async () => {
+    const waiting = page().waitForLoadState("networkidle");
+    const fetched = fetch(delayedUrl(200)).then(() => performance.now());
+    const { ended } = sendXhr(delayedUrl(300));
+    const xhrEnded = ended.then(() => performance.now());
+
+    await waiting;
+    const resolvedAt = performance.now();
+
+    expect(resolvedAt - (await fetched)).toBeGreaterThanOrEqual(idleWindow);
+    expect(resolvedAt - (await xhrEnded)).toBeGreaterThanOrEqual(idleWindow);
+  });
+
+  it("holds networkidle for a fetch reported to an earlier subscriber", async () => {
+    const listening = page();
+    listening.on("request", () => {});
+    const fetched = fetch(delayedUrl(300)).then((response) =>
+      response.text().then(() => performance.now())
+    );
+
+    await page().waitForLoadState("networkidle");
+
+    expect(performance.now() - (await fetched)).toBeGreaterThanOrEqual(
+      idleWindow
+    );
+  });
+
+  it("wraps fetch only while a networkidle wait is pending", async () => {
+    const original = window.fetch;
+    const waiting = page().waitForLoadState("networkidle");
+    expect(window.fetch).not.toBe(original);
+    await waiting;
+    expect(window.fetch).toBe(original);
+
     await expect(
-      waitForRuntimeLoadState(createPage(), "networkidle0")
-    ).rejects.toThrow("Unsupported state value: networkidle");
+      page().waitForLoadState("networkidle", { timeout: 10 })
+    ).rejects.toThrow("Timeout 10ms exceeded");
+    expect(window.fetch).toBe(original);
+
+    const listening = page();
+    listening.on("request", () => {});
+    await listening.waitForLoadState("networkidle");
+    expect(window.fetch).not.toBe(original);
+  });
+
+  it("limitation: only fetch and XMLHttpRequest hold networkidle, so it resolves while a slow image is still loading", async () => {
+    const { image } = addImage(delayedUrl(3_000, "image"));
+
+    await page().waitForLoadState("networkidle");
+
+    expect(image.complete).toBe(false);
+  });
+
+  it("limitation: a fetch started before the first subscription is invisible and does not hold networkidle", async () => {
+    const controller = new AbortController();
+    cleanups.push(() => controller.abort());
+    let settled = false;
+    fetch(delayedUrl(3_000), { signal: controller.signal }).then(
+      () => (settled = true),
+      () => (settled = true)
+    );
+
+    await page().waitForLoadState("networkidle");
+
+    expect(settled).toBe(false);
+  });
+
+  it("limitation: an image completing during the 500 ms window restarts it instead of holding it", async () => {
+    const waiting = page().waitForLoadState("networkidle");
+    const { image, loaded } = addImage(delayedUrl(300, "image"));
+
+    await waiting;
+    const resolvedAt = performance.now();
+
+    await loaded;
+    const [entry] = performance.getEntriesByName(
+      image.src
+    ) as PerformanceResourceTiming[];
+    expect(resolvedAt - entry.responseEnd).toBeGreaterThanOrEqual(idleWindow);
   });
 });
