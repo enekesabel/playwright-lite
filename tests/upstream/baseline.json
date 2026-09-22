@@ -3,7 +3,7 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 2008,
+  "selectedTestCount": 2029,
   "reviewed": [
     {
       "id": "elementhandle-bounding-box.spec.ts > should force a layout",
@@ -2416,6 +2416,41 @@
       "id": "page-event-request.spec.ts > main resource xhr should have type xhr",
       "method": "Page.waitForEvent",
       "evidence": "The awaited adapter waitForEvent('request') resolves with the request the document's synchronous XMLHttpRequest started inside Page.evaluate, and the assertions read resourceType() 'xhr' and isNavigationRequest() false from the adapter's snapshot of the package's own request object; with Page.waitForEvent withheld, the sabotage rerun fails."
+    },
+    {
+      "id": "page-expose-function.spec.ts > exposeBinding should work in parallel",
+      "method": "Page.exposeBinding",
+      "evidence": "Two exposeBinding registrations issued concurrently (Promise.all) both install and both remain callable without throwing, proving concurrent registration does not corrupt the shared binding registry."
+    },
+    {
+      "id": "page-expose-function.spec.ts > should await returned promise",
+      "method": "Page.exposeFunction",
+      "evidence": "The exposed function returns a Promise; the Site's await resolves to the promise's value, proving the binding call awaits a returned promise before delivering the result."
+    },
+    {
+      "id": "page-expose-function.spec.ts > should support throwing \"null\"",
+      "method": "Page.exposeFunction",
+      "evidence": "The exposed function throws null; the Site's caller catches exactly null, proving thrown values (not only Error instances) cross back by value."
+    },
+    {
+      "id": "page-expose-function.spec.ts > should work",
+      "method": "Page.exposeFunction",
+      "evidence": "Calls the exposed function through window[name] inside page.evaluate and gets its return value back by value; the core exposeFunction round trip."
+    },
+    {
+      "id": "page-expose-function.spec.ts > should work with complex objects",
+      "method": "Page.exposeFunction",
+      "evidence": "Plain objects passed as arguments and returned as the result round-trip by value through the by-value serializer."
+    },
+    {
+      "id": "page-expose-function.spec.ts > should work with overridden console object",
+      "method": "Page.exposeFunction",
+      "evidence": "exposeFunction and the exposed call still work after the Site sets window.console = null, proving the binding path does not depend on console."
+    },
+    {
+      "id": "page-expose-function.spec.ts > should work with setContent",
+      "method": "Page.exposeFunction",
+      "evidence": "window[name] is callable from an inline <script> tag executed via page.setContent, not only from page.evaluate, proving the property is a real window global."
     },
     {
       "id": "page-fill.spec.ts > fill back to back",
