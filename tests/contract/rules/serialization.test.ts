@@ -63,11 +63,9 @@ describe("serialization", () => {
       [
         "locator.evaluate",
         () =>
-          page
-            .locator("button")
-            .evaluate((_el, fn: Double) => fn(21), double, {
-              exposeFunctions: true,
-            }),
+          page.locator("button").evaluate((_el, fn: Double) => fn(21), double, {
+            exposeFunctions: true,
+          }),
       ],
       [
         "elementHandle.evaluate",
@@ -94,9 +92,9 @@ describe("serialization", () => {
     ).resolves.toBe(20);
 
     // A function argument still rejects when the option is left off.
-    await expect(
-      page.evaluate((fn: Double) => fn(1), double)
-    ).rejects.toThrow("Attempting to serialize unexpected value");
+    await expect(page.evaluate((fn: Double) => fn(1), double)).rejects.toThrow(
+      "Attempting to serialize unexpected value"
+    );
     await button.dispose();
   });
 });

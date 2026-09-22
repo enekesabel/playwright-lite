@@ -78,7 +78,10 @@ export class PageBindings {
     return name;
   }
 
-  private async callBinding(name: string, ...args: unknown[]): Promise<unknown> {
+  private async callBinding(
+    name: string,
+    ...args: unknown[]
+  ): Promise<unknown> {
     const binding = this.bindings.get(name);
     if (!binding) throw new Error(`Function "${name}" is not exposed`);
     const result = await binding(

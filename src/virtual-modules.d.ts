@@ -69,9 +69,7 @@ declare module "virtual:playwright-lite-evaluation" {
    * name instead of copying it (protocol/serializers.ts,
    * isomorphic/utilityScriptSerializers.ts). */
   type HandleOrValue =
-    | { h: number }
-    | { fn: string }
-    | { fallThrough: unknown };
+    { h: number } | { fn: string } | { fallThrough: unknown };
   export function serializeValue(
     value: unknown,
     handleSerializer: (value: unknown) => HandleOrValue

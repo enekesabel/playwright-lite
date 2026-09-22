@@ -6,7 +6,10 @@ import { createPage } from "../../src/index";
 describe("Page.exposeFunction", () => {
   it("keeps the exposed property callable after dispose(), because this package has no dispose lifecycle", async () => {
     const page = createPage();
-    const disposable = await page.exposeFunction("double", (n: number) => n * 2);
+    const disposable = await page.exposeFunction(
+      "double",
+      (n: number) => n * 2
+    );
     await expect(page.evaluate(() => (window as any).double(21))).resolves.toBe(
       42
     );
@@ -24,7 +27,10 @@ describe("Page.exposeFunction", () => {
 
   it("[Symbol.asyncDispose]() on the returned Disposable is also a no-op", async () => {
     const page = createPage();
-    const disposable = await page.exposeFunction("triple", (n: number) => n * 3);
+    const disposable = await page.exposeFunction(
+      "triple",
+      (n: number) => n * 3
+    );
     await disposable[Symbol.asyncDispose]();
     await expect(page.evaluate(() => (window as any).triple(2))).resolves.toBe(
       6
