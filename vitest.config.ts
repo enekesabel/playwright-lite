@@ -1,7 +1,5 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
-
 import { playwright } from "@vitest/browser-playwright";
-import { defineConfig } from "vitest/config";
+import { defineConfig, type Plugin } from "vitest/config";
 
 import { playwrightInjectedPlugin } from "./build/playwrightInjectedPlugin.ts";
 
@@ -12,35 +10,19 @@ const pixel = Buffer.from(
 );
 
 /**
- * `/__delay?ms=<n>&type=image|text` answers after `n` milliseconds, so a
+ * `/__delay/<ms>/<name>` answers with a GIF after `ms` milliseconds, so a
  * contract test can hold real traffic in flight for a known time.
  */
-function delayedResponsePlugin() {
+function delayedResponsePlugin(): Plugin {
   return {
     name: "playwright-lite-contract-delay",
-    configureServer(server: {
-      middlewares: {
-        use(
-          path: string,
-          handle: (request: IncomingMessage, response: ServerResponse) => void
-        ): void;
-      };
-    }) {
+    configureServer(server) {
       server.middlewares.use("/__delay", (request, response) => {
-        const query = new URL(request.url ?? "", "http://localhost")
-          .searchParams;
-        const image = query.get("type") === "image";
-        setTimeout(
-          () => {
-            response.setHeader("Cache-Control", "no-store");
-            response.setHeader(
-              "Content-Type",
-              image ? "image/gif" : "text/plain"
-            );
-            response.end(image ? pixel : "delayed");
-          },
-          Number(query.get("ms") ?? 0)
-        );
+        const ms = Number(request.url?.split("/")[1] ?? 0);
+        setTimeout(() => {
+          response.setHeader("Content-Type", "image/gif");
+          response.end(pixel);
+        }, ms);
       });
     },
   };

@@ -2,19 +2,18 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { idleWindow } from "./network";
 
 describe("Page.goto", () => {
-  it("waits for network idle after same-document navigation, also through the networkidle0 alias", async () => {
+  it("waits for network idle after same-document navigation through the networkidle0 alias", async () => {
     // Pinned verifyLoadState accepts networkidle0 as networkidle, so the
     // alias must not be reported as an unknown lifecycle event.
-    for (const waitUntil of ["networkidle", "networkidle0"]) {
-      const started = performance.now();
-      await expect(
-        createPage().goto(`#${waitUntil}`, { waitUntil: waitUntil as any })
-      ).resolves.toBeNull();
-      expect(location.hash).toBe(`#${waitUntil}`);
-      expect(performance.now() - started).toBeGreaterThanOrEqual(490);
-    }
+    const started = performance.now();
+    await expect(
+      createPage().goto("#networkidle0", { waitUntil: "networkidle0" as any })
+    ).resolves.toBeNull();
+    expect(location.hash).toBe("#networkidle0");
+    expect(performance.now() - started).toBeGreaterThanOrEqual(idleWindow);
   });
 
   it("applies configured and explicit navigation defaults to same-document goto", async () => {

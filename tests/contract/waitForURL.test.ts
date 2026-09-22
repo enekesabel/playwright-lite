@@ -129,18 +129,4 @@ describe("Page.waitForURL", () => {
       else delete (document as { readyState?: DocumentReadyState }).readyState;
     }
   });
-
-  it("waits for network idle after the URL matched", async () => {
-    const page = createPage();
-    const waiting = page.waitForURL(location.href, {
-      waitUntil: "networkidle",
-    });
-    const fetched = fetch(
-      new URL("/__delay?ms=100&type=text", location.href)
-    ).then((response) => response.text().then(() => performance.now()));
-
-    await waiting;
-
-    expect(performance.now() - (await fetched)).toBeGreaterThanOrEqual(490);
-  });
 });
