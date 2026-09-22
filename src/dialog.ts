@@ -166,8 +166,10 @@ export class DialogObservation {
 
   constructor(private readonly window: Window & typeof globalThis) {
     const holder = window as unknown as Record<string, unknown>;
-    this.alertWrapper = new WrappedHostFunction(holder, "alert", (_o, _t, args) =>
-      this.observe("alert", args)
+    this.alertWrapper = new WrappedHostFunction(
+      holder,
+      "alert",
+      (_o, _t, args) => this.observe("alert", args)
     );
     this.confirmWrapper = new WrappedHostFunction(
       holder,
