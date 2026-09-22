@@ -1884,7 +1884,7 @@ export class PageImpl {
   }
 
   /**
-   * Pinned server/page.ts `_addPageError`: push, then trim to the pinned
+   * Pinned server/page.ts `addPageError`: push, then trim to the pinned
    * limit, then emit. `emit` is a no-op without `pageerror` subscribers.
    */
   private addPageError(error: Error): void {
@@ -4983,8 +4983,10 @@ function pageError(thrown: unknown): Error {
 }
 
 /**
- * Pinned utils.ts `ensureArrayLimit`: once an array exceeds `limit`, drop the
- * oldest tenth rather than trimming on every push.
+ * Pinned server/page.ts `ensureArrayLimit`: once an array exceeds `limit`,
+ * drop the oldest tenth rather than trimming on every push. The pinned
+ * function returns the spliced-off elements; nothing here reads that
+ * return value, so this copy returns void.
  */
 function ensureArrayLimit(array: unknown[], limit: number): void {
   if (array.length > limit) array.splice(0, limit / 10);
