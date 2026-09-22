@@ -1,9 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../src/index";
-import { listenerFailures, swallowWindowErrors } from "./pageEvents";
+import {
+  listenerFailures,
+  restoreURL,
+  swallowWindowErrors,
+} from "./pageEvents";
 
 swallowWindowErrors();
+restoreURL();
 
 const report = (error: unknown) =>
   window.dispatchEvent(new ErrorEvent("error", { error }));
@@ -69,5 +74,66 @@ describe("Page.on", () => {
       [prefix, undefined],
       [prefix, expect.objectContaining({ message: "listener rejected" })],
     ]);
+  });
+
+  const nextNavigation = (page: ReturnType<typeof createPage>) =>
+    page.waitForEvent("framenavigated", { timeout: 500 });
+
+  it("fires framenavigated with the main frame on pushState, replaceState, hash change and back", async () => {
+    const start = location.href;
+    const page = createPage();
+    const frames: unknown[] = [];
+    page.on("framenavigated", (frame) => frames.push(frame));
+
+    let navigated = nextNavigation(page);
+    history.pushState({}, "", "#pushed");
+    await navigated;
+    expect(page.url()).toBe(`${start}#pushed`);
+
+    navigated = nextNavigation(page);
+    history.replaceState({}, "", "#replaced");
+    await navigated;
+    expect(page.url()).toBe(`${start}#replaced`);
+
+    navigated = nextNavigation(page);
+    location.hash = "#hash";
+    await navigated;
+    expect(page.url()).toBe(`${start}#hash`);
+
+    navigated = nextNavigation(page);
+    history.back();
+    await navigated;
+    expect(page.url()).toBe(`${start}#replaced`);
+
+    expect(frames).toHaveLength(4);
+    for (const frame of frames) expect(frame).toBe(page.mainFrame());
+  });
+
+  it("does not fire framenavigated while the URL stays the same", async () => {
+    const page = createPage();
+    const listener = vi.fn();
+    page.on("framenavigated", listener);
+
+    history.replaceState({ changed: true }, "", location.href);
+    await expect(nextNavigation(page)).rejects.toThrow(
+      'Timeout 500ms exceeded while waiting for event "framenavigated"'
+    );
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it("delivers framenavigated to a listener and a concurrent waitForURL alike", async () => {
+    const page = createPage();
+    const frames: unknown[] = [];
+    page.on("framenavigated", (frame) => frames.push(frame));
+    const navigated = nextNavigation(page);
+    const reached = page.waitForURL((url) => url.hash === "#shared", {
+      waitUntil: "commit",
+      timeout: 500,
+    });
+
+    history.pushState({}, "", "#shared");
+    await navigated;
+    await expect(reached).resolves.toBeUndefined();
+    expect(frames).toEqual([page.mainFrame()]);
   });
 });
