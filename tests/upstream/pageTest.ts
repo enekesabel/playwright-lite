@@ -112,6 +112,7 @@ const nativeNavigationForSetupSpecs = new Set([
   "page-evaluate.spec.ts",
   "page-event-network.spec.ts",
   "page-event-request.spec.ts",
+  "page-expose-function.spec.ts",
   "page-filechooser.spec.ts",
   "page-fill.spec.ts",
   "page-history.spec.ts",

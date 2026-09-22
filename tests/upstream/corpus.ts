@@ -88,6 +88,8 @@ export const corpus = {
       "631962849f23aaff9527dc213a5cc3458ba64358bd8444c8b56ff6dac0b23329",
     "page-goto.spec.ts":
       "ed2a8347e94db7da93db3bb95fbbef61e63835cb33e4c470b818343cf03cb945",
+    "page-expose-function.spec.ts":
+      "a7905ced0fd8f39e9c0b80fcdf0e78539310fc9b8bb9e0d6a5c5ca2091d2524f",
     "page-wait-for-function.spec.ts":
       "6dc7c837a47c599511f22727a358d00f3b0aee5139ccdbd3d44af795bca248d5",
     "page-wait-for-request.spec.ts":
