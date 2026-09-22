@@ -21,7 +21,7 @@ import {
   validateString,
 } from "./protocolValidation";
 import { AdapterElementHandle } from "./elementHandle";
-import { bindingsFor, type Binding } from "./bindings";
+import { bindingsFor, type Binding, type BindingOwner } from "./bindings";
 import {
   NETWORK_EVENTS,
   logLineFor,
@@ -313,6 +313,11 @@ export class PageImpl {
   private readonly network: ReturnType<typeof networkObservationFor>;
   /** Pinned server/page.ts `_pageBindings`, shared per window like `network`. */
   readonly bindings: ReturnType<typeof bindingsFor>;
+  /** This page's identity and by-value round trip for its own bindings. */
+  readonly bindingOwner: BindingOwner = {
+    source: { page: this, frame: this },
+    toByValue: (value) => this.evaluation.bindingValue(value),
+  };
   /** Pinned server/page.ts keeps the recent requests per page, not per realm. */
   private readonly requestLog: NetworkRequest[] = [];
   /**
@@ -336,9 +341,7 @@ export class PageImpl {
     this.localStorage = new PageWebStorage(this, "local");
     this.sessionStorage = new PageWebStorage(this, "session");
     this.network = networkObservationFor(browserWindow);
-    this.bindings = bindingsFor(browserWindow, this, (value) =>
-      this.evaluation.bindingValue(value)
-    );
+    this.bindings = bindingsFor(browserWindow);
     this.startPageErrorCollection();
   }
 
@@ -2524,12 +2527,8 @@ export class PageImpl {
     );
   }
 
-  /**
-   * Pinned client/page.ts `exposeFunction`: defines `name` on `window`,
-   * forwarding the pinned by-value round trip both ways. This package has no
-   * dispose lifecycle (see `exposeBinding`): the returned `Disposable`'s
-   * `dispose()` never removes it.
-   */
+  /** Pinned client/page.ts `exposeFunction`: defines `name` on `window`,
+   * forwarding the pinned by-value round trip both ways. */
   async exposeFunction(
     name: string,
     callback: (...args: unknown[]) => unknown
@@ -2541,30 +2540,27 @@ export class PageImpl {
     );
   }
 
-  /**
-   * Pinned client/page.ts `exposeBinding` / server/page.ts `exposeBinding`:
+  /** Pinned client/page.ts `exposeBinding` / server/page.ts `exposeBinding`:
    * defines `name` on `window` with the pinned duplicate-name error; the
    * callback receives `{ page, frame: page }` as `source` (no `context`: this
-   * package has no `BrowserContext`).
-   *
-   * This package has no dispose or close lifecycle. The property stays for
-   * the page's lifetime; the returned `Disposable`'s `dispose()` is a no-op,
-   * never invented. Were a removal ever added, it would follow the shared
-   * `WrappedHostFunction` rule: never touch the property if the Site has
-   * since replaced it.
-   */
+   * package has no `BrowserContext`). */
   async exposeBinding(name: string, callback: Binding): Promise<Disposable> {
     return this.installBinding("page.exposeBinding", name, callback);
   }
 
-  /** Pinned client methods prefix a thrown error with their own API name. */
+  /**
+   * Pinned client methods prefix a thrown error with their own API name. The
+   * returned `Disposable`'s `dispose()` (and `Symbol.asyncDispose`) is a
+   * no-op: this package has no dispose or close lifecycle, so the property
+   * stays on `window` for the page's lifetime (see the ledger).
+   */
   private async installBinding(
     apiName: string,
     name: string,
     callback: Binding
   ): Promise<Disposable> {
     try {
-      this.bindings.expose(name, callback, true);
+      this.bindings.expose(this.bindingOwner, name, callback);
     } catch (error) {
       const result = asError(error);
       result.message = `${apiName}: ${result.message}`;

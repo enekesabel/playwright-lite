@@ -86,6 +86,9 @@ declare module "virtual:playwright-lite-evaluation" {
     value: unknown,
     handles?: unknown[]
   ): unknown;
+  /** Pinned isomorphic/utilityScriptSerializers.ts `kBindingsControllerProperty`/`kFunctionBindingPrefix`. */
+  export const kBindingsControllerProperty: string;
+  export const kFunctionBindingPrefix: string;
   export class UtilityScript {
     constructor(global: Window & typeof globalThis, isUnderTest: boolean);
     evaluate(

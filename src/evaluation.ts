@@ -57,6 +57,7 @@ export class Evaluation {
       if (exposeFunctions && typeof candidate === "function") {
         return {
           fn: this.page.bindings.registerEvaluateCallback(
+            this.page.bindingOwner,
             candidate as (...args: unknown[]) => unknown
           ),
         };
@@ -209,8 +210,12 @@ export class Evaluation {
    * One round trip through the pinned by-value call-argument serializer,
    * resolving this page's handles to their referenced value. `exposeFunction`
    * / `exposeBinding` cross their arguments and result this way: there is no
-   * Node/browser split to serialize across, so a binding call takes one hop,
-   * not the two the pinned client and server each take.
+   * Node/browser split to serialize across, so a binding call takes one hop
+   * (the pinned browser-side `serializeAsCallArgument` alone), not the two
+   * the pinned client and server each take. Unlike `unwrapHandles`, this
+   * skips the protocol-level pass, so a `Window`/`Document`/`Node` argument
+   * still aliases to the pinned `"ref: <Window>"`-style string instead of
+   * losing its identity to the protocol serializer's plain-object walk first.
    */
   bindingValue(value: unknown): unknown {
     const handles: unknown[] = [];
