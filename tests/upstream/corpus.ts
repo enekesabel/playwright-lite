@@ -180,6 +180,8 @@ export const corpus = {
       "f449d8619753aac3224a34e800bb9122e81755f10a1be48eaecf8f9df496394e",
     "page-wait-for-selector-2.spec.ts":
       "47d01298a3062137452c59783bc281e070d77cc83fc05b14041044969c7ae515",
+    "page-event-pageerror.spec.ts":
+      "4b2168208fc753c14bf515b792ab98c7d6274fec316e30ece391c99b014afa45",
     "page-wait-for-url.spec.ts":
       "3a2e5c43e0f03c23338a2af5a8f27592ee31a93d706dc6945bccfd0736ebbfdd",
     "queryselector.spec.ts":
