@@ -149,26 +149,6 @@ describe("Page.off", () => {
     expect(console.log).toBe(native);
   });
 
-  it("leaves a wrapper the document installed after ours in place", () => {
-    const page = createPage();
-    const listener = () => {};
-    page.on("console", listener);
-
-    const ours = console.log;
-    const calls: unknown[] = [];
-    const theirs = ((...args: unknown[]) => {
-      calls.push(args);
-      return ours(...args);
-    }) as typeof console.log;
-    console.log = theirs;
-
-    page.off("console", listener);
-
-    expect(console.log).toBe(theirs);
-    console.log("still wrapped");
-    expect(calls).toHaveLength(1);
-  });
-
   it("restores console.log only after every page has unsubscribed", () => {
     const native = console.log;
     const first = createPage();

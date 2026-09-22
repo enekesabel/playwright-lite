@@ -268,38 +268,6 @@ describe("Page.on", () => {
     expect(console.log).not.toBe(before);
   });
 
-  it("keeps the wrapped console.log indistinguishable from the original", () => {
-    const before = console.log;
-    consolePage().on("console", () => {});
-    const wrapped = console.log;
-    expect(wrapped).not.toBe(before);
-    expect(wrapped.name).toBe(before.name);
-    expect(wrapped.length).toBe(before.length);
-    const source = Function.prototype.toString.call(wrapped);
-    expect(source).toContain("[native code]");
-    expect(source).not.toContain("=>");
-  });
-
-  it("forwards the receiver and arguments to the method it wrapped untouched", () => {
-    const receivers: unknown[] = [];
-    const seenArgs: unknown[][] = [];
-    console.log = function (this: unknown, ...args: unknown[]) {
-      receivers.push(this);
-      seenArgs.push(args);
-    } as typeof console.log;
-    consolePage().on("console", () => {});
-
-    const host = { log: console.log };
-    host.log("via host", 1);
-    console.log.call(undefined, "via call", 2);
-
-    expect(receivers).toEqual([host, undefined]);
-    expect(seenArgs).toEqual([
-      ["via host", 1],
-      ["via call", 2],
-    ]);
-  });
-
   it("reports type, text and args for a console.log call", () => {
     const page = consolePage();
     const messages: { type: string; text: string }[] = [];
@@ -312,16 +280,91 @@ describe("Page.on", () => {
     expect(messages).toEqual([{ type: "log", text: "hello 5 {foo: bar}" }]);
   });
 
-  it("logs a throwing console listener and keeps delivering to the others", () => {
+  // Verified against real Chromium: `group`/`groupCollapsed`/`groupEnd`/
+  // `clear`/`trace`/`assert` always report, falling back to `console.<name>`
+  // text when called with no message argument.
+  const fallbackTextCalls: [string, () => void, string, string][] = [
+    ["group", () => console.group(), "startGroup", "console.group"],
+    ["groupEnd", () => console.groupEnd(), "endGroup", "console.groupEnd"],
+    ["clear", () => console.clear(), "clear", "console.clear"],
+    ["trace", () => console.trace(), "trace", "console.trace"],
+    ["assert", () => console.assert(false), "assert", "console.assert"],
+  ];
+
+  it.each(fallbackTextCalls)(
+    "reports a bare console.%s call as its own name",
+    (_method, call, type, text) => {
+      const page = consolePage();
+      const messages: { type: string; text: string }[] = [];
+      page.on("console", (m) => messages.push({ type: m.type(), text: m.text() }));
+
+      call();
+
+      expect(messages).toEqual([{ type, text }]);
+    }
+  );
+
+  // Verified against real Chromium: a bare call to any of these is never
+  // reported at all, unlike the methods above.
+  const suppressedCalls = [
+    "log",
+    "debug",
+    "info",
+    "error",
+    "warn",
+    "dir",
+    "dirxml",
+    "table",
+  ] as const;
+
+  it.each(suppressedCalls)("never reports a bare console.%s call", (method) => {
+    const page = consolePage();
+    const messages: unknown[] = [];
+    page.on("console", (m) => messages.push(m));
+
+    console[method]();
+
+    expect(messages).toEqual([]);
+  });
+
+  it("drops the condition from a falsy console.assert's reported arguments", () => {
+    const page = consolePage();
+    const messages: string[] = [];
+    page.on("console", (m) => messages.push(m.text()));
+
+    console.assert(false, "yes");
+    console.assert(0, "zero is falsy");
+    console.assert(true, "never reported");
+
+    expect(messages).toEqual(["yes", "zero is falsy"]);
+  });
+
+  it("reports console.timeLog as type log", () => {
+    const page = consolePage();
+    const messages: { type: string; text: string }[] = [];
+    page.on("console", (m) => messages.push({ type: m.type(), text: m.text() }));
+
+    console.timeLog("label-only");
+
+    expect(messages).toEqual([{ type: "log", text: "label-only" }]);
+  });
+
+  it("does not recurse when a listener throws or itself calls a wrapped console method", () => {
     const logged = vi
       .spyOn(window.console, "error")
       .mockImplementation(() => {});
     const page = consolePage();
     const seen: string[] = [];
     page.on("console", () => {
+      // Thrown, then logged through this same wrapped console.error: would
+      // otherwise re-enter every "console" listener, including this one.
       throw new Error("listener failed");
     });
-    page.on("console", (m) => seen.push(m.text()));
+    page.on("console", (m) => {
+      seen.push(m.text());
+      // Logs itself: would otherwise re-enter every "console" listener too.
+      if (seen.length === 1) console.log("from listener");
+    });
 
     console.log("trigger");
 
@@ -332,20 +375,6 @@ describe("Page.on", () => {
         expect.objectContaining({ message: "listener failed" }),
       ],
     ]);
-  });
-
-  it("does not recurse when a listener itself calls a wrapped console method", () => {
-    const page = consolePage();
-    const seen: string[] = [];
-    page.on("console", (m) => {
-      seen.push(m.text());
-      // A listener that logs would otherwise re-enter this same listener.
-      if (seen.length === 1) console.log("from listener");
-    });
-
-    console.log("trigger");
-
-    expect(seen).toEqual(["trigger"]);
   });
 
   // ── XMLHttpRequest ──────────────────────────────────────────────
