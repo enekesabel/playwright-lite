@@ -116,18 +116,10 @@ function stripFragmentFromUrl(url: string): string {
 }
 
 /** `XMLHttpRequest.open` uppercases these method names before they go out. */
-const NORMALIZED_XHR_METHODS = new Set([
-  "DELETE",
-  "GET",
-  "HEAD",
-  "OPTIONS",
-  "POST",
-  "PUT",
-]);
-
 function normalizeXhrMethod(method: string): string {
-  const uppercased = method.toUpperCase();
-  return NORMALIZED_XHR_METHODS.has(uppercased) ? uppercased : method;
+  return /^(delete|get|head|options|post|put)$/i.test(method)
+    ? method.toUpperCase()
+    : method;
 }
 
 /** Parses `getAllResponseHeaders()`, whose names the browser has lowercased. */
@@ -198,50 +190,39 @@ type ObservedRequestInit = {
 };
 
 class ObservedRequest implements Request {
-  private readonly _url: string;
-  private readonly _method: string;
-  private readonly _headers: Record<string, string>;
-  private readonly _resourceType: string;
-  private readonly _postData: Uint8Array | null;
   private readonly _response = deferred<Response | null>();
   private _failureText: string | null = null;
 
-  constructor(init: ObservedRequestInit) {
-    this._url = stripFragmentFromUrl(init.url);
-    this._method = init.method;
-    this._headers = init.headers;
-    this._resourceType = init.resourceType;
-    this._postData = init.postData;
-  }
+  constructor(private readonly _init: ObservedRequestInit) {}
 
   url() {
-    return this._url;
+    return stripFragmentFromUrl(this._init.url);
   }
 
   resourceType() {
-    return this._resourceType;
+    return this._init.resourceType;
   }
 
   method() {
-    return this._method;
+    return this._init.method;
   }
 
   headers() {
-    return { ...this._headers };
+    return { ...this._init.headers };
   }
 
   async headerValue(name: string) {
-    return this._headers[name.toLowerCase()] ?? null;
+    return this._init.headers[name.toLowerCase()] ?? null;
   }
 
   postData() {
-    return this._postData === null
+    return this._init.postData === null
       ? null
-      : new TextDecoder().decode(this._postData);
+      : new TextDecoder().decode(this._init.postData);
   }
 
   postDataBuffer() {
-    return this._postData;
+    return this._init.postData;
   }
 
   /** Pinned client/network.ts Request.postDataJSON. */
@@ -356,18 +337,6 @@ class ObservedResponse implements Response {
   /** Reports that the body has ended, which is what `finished()` waits for. */
   markFinished(): void {
     this._finished.resolve(null);
-  }
-
-  /**
-   * Reads the recorded branch of a `fetch` response to its end. The document
-   * holds the other branch, so an unread recording would buffer the whole body
-   * indefinitely, and reading it is also the only way to learn when the body
-   * ended. An `XMLHttpRequest` buffers its own body, so it reports the end
-   * from its `load` event instead.
-   */
-  async recordBody(): Promise<void> {
-    await this.body();
-    this.markFinished();
   }
 }
 
@@ -524,8 +493,11 @@ export class NetworkObservation {
     }
     request.setResponse(response);
     this.emit("response", response);
+    // Read the recording to its end: an unread one would buffer the body
+    // indefinitely, and reading it is the only way to learn when it ended.
     try {
-      await response.recordBody();
+      await response.body();
+      response.markFinished();
     } catch (error) {
       request.setFailure(failureText(error));
       this.emit("requestfailed", request);
