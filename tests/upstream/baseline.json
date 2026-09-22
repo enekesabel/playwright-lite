@@ -2433,6 +2433,11 @@
       "evidence": "The exposed function throws null; the Site's caller catches exactly null, proving thrown values (not only Error instances) cross back by value."
     },
     {
+      "id": "page-expose-function.spec.ts > should throw for duplicate registrations",
+      "method": "Page.exposeFunction",
+      "evidence": "A second exposeFunction call for the same name rejects with the pinned duplicate-name error, prefixed with the calling API name (page.exposeFunction:), matching pinned client._wrapApiCall."
+    },
+    {
       "id": "page-expose-function.spec.ts > should work",
       "method": "Page.exposeFunction",
       "evidence": "Calls the exposed function through window[name] inside page.evaluate and gets its return value back by value; the core exposeFunction round trip."
