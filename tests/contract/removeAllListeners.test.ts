@@ -1,9 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../src/index";
-import { listenerFailures, swallowWindowErrors } from "./pageEvents";
+import {
+  listenerFailures,
+  restoreURL,
+  swallowWindowErrors,
+} from "./pageEvents";
 
 swallowWindowErrors();
+restoreURL();
 
 const report = (error: unknown) =>
   window.dispatchEvent(new ErrorEvent("error", { error }));
@@ -108,5 +113,19 @@ describe("Page.removeAllListeners", () => {
         behavior: "later" as "wait",
       })
     ).rejects.toThrow("behavior: expected one of (wait|ignoreErrors|default)");
+  });
+
+  it("stops observing navigation with the last framenavigated listener", async () => {
+    const page = createPage();
+    const listener = vi.fn();
+    page.on("framenavigated", listener);
+    await expect(
+      page.waitForURL(() => true, { waitUntil: "commit", timeout: 500 })
+    ).resolves.toBeUndefined();
+
+    expect(page.removeAllListeners("framenavigated")).toBe(page);
+    history.pushState({}, "", "#after");
+    await settleAfter(50);
+    expect(listener).not.toHaveBeenCalled();
   });
 });

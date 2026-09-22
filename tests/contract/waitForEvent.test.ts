@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { restoreURL } from "./pageEvents";
+
+restoreURL();
 
 const report = (error: unknown) =>
   window.dispatchEvent(new ErrorEvent("error", { error }));
@@ -31,5 +34,19 @@ describe("Page.waitForEvent", () => {
     });
     report(new Error("any"));
     await expect(waiting).rejects.toThrow("predicate failed");
+  });
+
+  it("resolves with the main frame once the predicate accepts a framenavigated payload", async () => {
+    const page = createPage();
+    const waiting = page.waitForEvent("framenavigated", {
+      predicate: (frame) => frame.url().endsWith("#second"),
+      timeout: 500,
+    });
+
+    history.pushState({}, "", "#first");
+    await page.waitForEvent("framenavigated", { timeout: 500 });
+    history.pushState({}, "", "#second");
+
+    await expect(waiting).resolves.toBe(page.mainFrame());
   });
 });

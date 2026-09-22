@@ -296,6 +296,9 @@ export class PageImpl {
   private readonly listeners = new Map<string, ListenerEntry[]>();
   private readonly pendingListeners = new Map<string, Set<PendingListener>>();
   private unobservePageErrors: (() => void) | undefined;
+  private unobserveNavigation: (() => void) | undefined;
+  private readonly documentObservers = new Set<() => void>();
+  private unobserveDocument: (() => void) | undefined;
 
   constructor(
     browserWindow: Window & typeof globalThis,
@@ -1568,7 +1571,7 @@ export class PageImpl {
   ): this | Promise<void> {
     if (event === undefined) this.listeners.clear();
     else this.listeners.delete(event);
-    this.observePageErrors();
+    this.observeHost();
     if (!options) return this;
     const pending =
       event === undefined
@@ -1669,7 +1672,7 @@ export class PageImpl {
     if (!entries) this.listeners.set(event, (entries = []));
     if (prepend) entries.unshift(entry);
     else entries.push(entry);
-    this.observePageErrors();
+    this.observeHost();
     return this;
   }
 
@@ -1677,7 +1680,7 @@ export class PageImpl {
     const entries = this.listeners.get(event);
     const index = entries?.indexOf(entry) ?? -1;
     if (index !== -1) entries!.splice(index, 1);
-    this.observePageErrors();
+    this.observeHost();
   }
 
   /**
@@ -1717,26 +1720,63 @@ export class PageImpl {
   }
 
   /**
-   * Playwright receives page errors from the browser process; here they come
-   * from `window` `error` and `unhandledrejection` events, listened to only
-   * while a `pageerror` listener exists, so the page leaves no trace once it
-   * is unsubscribed.
+   * Every event Playwright pushes from the browser process is observed here
+   * on the host only while a listener for it exists, so the page leaves no
+   * trace once it is unsubscribed.
    */
-  private observePageErrors() {
-    const wanted = (this.listeners.get("pageerror")?.length ?? 0) > 0;
-    if (wanted === (this.unobservePageErrors !== undefined)) return;
-    if (!wanted) {
-      this.unobservePageErrors!();
-      this.unobservePageErrors = undefined;
-      return;
-    }
+  private observeHost() {
+    this.unobservePageErrors = this.observeWhileListened(
+      "pageerror",
+      this.unobservePageErrors,
+      () => this.observePageErrors()
+    );
+    this.unobserveNavigation = this.observeWhileListened(
+      "framenavigated",
+      this.unobserveNavigation,
+      () => this.observeNavigation()
+    );
+  }
+
+  private observeWhileListened(
+    event: string,
+    stop: (() => void) | undefined,
+    start: () => () => void
+  ): (() => void) | undefined {
+    const wanted = (this.listeners.get(event)?.length ?? 0) > 0;
+    if (wanted === (stop !== undefined)) return stop;
+    if (wanted) return start();
+    stop!();
+    return undefined;
+  }
+
+  /**
+   * Playwright receives same-document navigations as a browser push
+   * (`Page.navigatedWithinDocument`); here they come from the current-document
+   * observation `waitForURL` uses. Ceiling: the event can arrive up to one
+   * poll tick late, and URL changes within one tick collapse into one event
+   * (none when the URL is back at its previous value).
+   */
+  private observeNavigation(): () => void {
+    let url = this.window.location.href;
+    return this.observeDocument(() => {
+      if (this.window.location.href === url) return;
+      url = this.window.location.href;
+      this.emit("framenavigated", this);
+    });
+  }
+
+  /**
+   * Playwright receives page errors from the browser process; here they come
+   * from `window` `error` and `unhandledrejection` events.
+   */
+  private observePageErrors(): () => void {
     const onError = (event: ErrorEvent) =>
       this.emit("pageerror", pageError(event.error));
     const onRejection = (event: PromiseRejectionEvent) =>
       this.emit("pageerror", pageError(event.reason));
     this.window.addEventListener("error", onError);
     this.window.addEventListener("unhandledrejection", onRejection);
-    this.unobservePageErrors = () => {
+    return () => {
       this.window.removeEventListener("error", onError);
       this.window.removeEventListener("unhandledrejection", onRejection);
     };
@@ -2714,16 +2754,12 @@ export class PageImpl {
     return new Promise((resolve) => {
       let settled = false;
       let timeoutId: number | undefined;
-      let pollId: number | undefined;
+      let unobserve = () => {};
 
       const cleanup = () => {
-        this.window.removeEventListener("hashchange", checkDocument);
-        this.window.removeEventListener("popstate", checkDocument);
-        this.window.removeEventListener("load", checkDocument);
-        this.document.removeEventListener("readystatechange", checkDocument);
+        unobserve();
         signal?.removeEventListener("abort", onAbort);
         if (timeoutId !== undefined) this.window.clearTimeout(timeoutId);
-        if (pollId !== undefined) this.window.clearTimeout(pollId);
       };
       const settle = (result: CurrentDocumentObservation) => {
         if (settled) return;
@@ -2734,26 +2770,16 @@ export class PageImpl {
       const runCheck = () => {
         try {
           if (check()) settle({ completed: true });
-          return true;
         } catch (error) {
           settle({ error });
-          return false;
         }
       };
       const onAbort = () => {
         runCheck();
         if (!settled) settle({ aborted: actionAborted(signal!, true) });
       };
-      const schedulePoll = () => {
-        if (!settled && pollId === undefined)
-          pollId = this.window.setTimeout(() => {
-            pollId = undefined;
-            checkDocument();
-          }, CURRENT_DOCUMENT_WAIT_POLL_DELAY);
-      };
       const checkDocument = () => {
-        if (settled) return;
-        if (runCheck()) schedulePoll();
+        if (!settled) runCheck();
       };
       const onTimeout = () => {
         runCheck();
@@ -2766,13 +2792,50 @@ export class PageImpl {
       }
 
       signal?.addEventListener("abort", onAbort, { once: true });
-      this.window.addEventListener("hashchange", checkDocument);
-      this.window.addEventListener("popstate", checkDocument);
-      this.window.addEventListener("load", checkDocument);
-      this.document.addEventListener("readystatechange", checkDocument);
+      unobserve = this.observeDocument(checkDocument);
       if (timeout > 0) timeoutId = this.window.setTimeout(onTimeout, timeout);
       checkDocument();
     });
+  }
+
+  /**
+   * One set of `hashchange`/`popstate`/`load`/`readystatechange` listeners
+   * plus one 20 ms poll, shared by every current-document consumer
+   * (`waitForURL`, `waitForLoadState`, `expect(page).toHaveURL`,
+   * `expect(page).toHaveTitle`, `framenavigated`) and running only while at
+   * least one observes.
+   */
+  private observeDocument(observer: () => void): () => void {
+    this.documentObservers.add(observer);
+    if (this.documentObservers.size === 1) {
+      const notify = () => {
+        for (const observer of [...this.documentObservers]) observer();
+      };
+      const pollId = this.window.setInterval(
+        notify,
+        CURRENT_DOCUMENT_WAIT_POLL_DELAY
+      );
+      this.window.addEventListener("hashchange", notify);
+      this.window.addEventListener("popstate", notify);
+      this.window.addEventListener("load", notify);
+      this.document.addEventListener("readystatechange", notify);
+      this.unobserveDocument = () => {
+        this.window.clearInterval(pollId);
+        this.window.removeEventListener("hashchange", notify);
+        this.window.removeEventListener("popstate", notify);
+        this.window.removeEventListener("load", notify);
+        this.document.removeEventListener("readystatechange", notify);
+      };
+    }
+    return () => {
+      if (
+        !this.documentObservers.delete(observer) ||
+        this.documentObservers.size
+      )
+        return;
+      this.unobserveDocument!();
+      this.unobserveDocument = undefined;
+    };
   }
 
   private currentDocumentLoadState(name: string, state: string): string {

@@ -22,3 +22,12 @@ export const listenerFailures = (spy: { mock: { calls: unknown[][] } }) =>
   spy.mock.calls.filter(
     ([message]) => typeof message === "string" && message.startsWith("page.on(")
   );
+
+/**
+ * Same-document navigation tests move the runner's own URL; each test is
+ * followed by a return to the URL the suite started at.
+ */
+export function restoreURL() {
+  const original = location.href;
+  afterEach(() => history.replaceState({}, "", original));
+}
