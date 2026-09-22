@@ -85,7 +85,7 @@ The members that do exist differ from Playwright's as follows.
 - \`postDataBuffer()\` returns a \`Uint8Array\` and \`Response.body()\` resolves with a \`Uint8Array\`, where Playwright returns a Node.js \`Buffer\`.
 - \`failure().errorText\` is the name and message of the error the \`fetch()\` call rejected with, or the reason its \`AbortSignal\` carried, not a \`net::ERR_*\` code.
 - A redirect chain is one request and one response: the request reports the URL the document asked for, the response reports the final URL, and no event is emitted per hop.
-- \`Response.finished()\` resolves once the response body has ended. The response body is read and buffered for every observed response, so that \`body()\`, \`text()\` and \`json()\` can still answer after the document consumed it.`
+- \`Response.finished()\` resolves once the response body has ended. The response body is read and buffered for every observed response, so that \`body()\`, \`text()\` and \`json()\` can still answer after the document consumed it.`;
 
 export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),
