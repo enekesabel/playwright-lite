@@ -52,7 +52,7 @@ describe("timeouts", () => {
     expect(clicks).toBe(1);
   });
 
-  it("applies stored default timeouts to queries and waitForFunction", async () => {
+  it("applies stored default timeouts to queries, waitForFunction and waitForEvent", async () => {
     const page = createPage();
     page.setDefaultTimeout(20);
 
