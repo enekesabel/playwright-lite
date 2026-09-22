@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createPage } from "../../src/index";
 import {
   listenerFailures,
+  report,
   restoreURL,
   swallowWindowErrors,
 } from "./pageEvents";
@@ -10,9 +11,6 @@ import { contractUrl, networkPages, restoreFetch } from "./network";
 
 swallowWindowErrors();
 restoreURL();
-
-const report = (error: unknown) =>
-  window.dispatchEvent(new ErrorEvent("error", { error }));
 
 const reject = (reason: unknown) =>
   window.dispatchEvent(

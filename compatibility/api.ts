@@ -117,7 +117,7 @@ export const pageLedger = {
   cancelPickLocator: undecided(),
   check: implemented(),
   clearConsoleMessages: undecided(),
-  clearPageErrors: undecided(),
+  clearPageErrors: implemented(),
   click: partial("The action does not wait for navigation."),
   clock: undecided(),
   close: undecided(),
@@ -182,7 +182,9 @@ export const pageLedger = {
   on: partial(eventListenerLimitations),
   once: partial(eventListenerLimitations),
   opener: undecided(),
-  pageErrors: undecided(),
+  pageErrors: partial(
+    '`filter: "all"` and the default `"since-navigation"` return the same errors: this single-document adapter never crosses documents within one page\'s lifetime, so nothing ever marks the buffer at a navigation.'
+  ),
   pause: undecided(),
   pdf: undecided(),
   pickLocator: undecided(),

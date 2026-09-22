@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
-
-const report = (error: unknown) =>
-  window.dispatchEvent(new ErrorEvent("error", { error }));
+import { report } from "./pageEvents";
 
 describe("Page.once", () => {
   it("fires one time and returns the page", () => {

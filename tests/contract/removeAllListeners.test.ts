@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createPage } from "../../src/index";
 import {
   listenerFailures,
+  report,
   restoreURL,
   swallowWindowErrors,
 } from "./pageEvents";
@@ -10,21 +11,16 @@ import {
 swallowWindowErrors();
 restoreURL();
 
-const report = (error: unknown) =>
-  window.dispatchEvent(new ErrorEvent("error", { error }));
-
 describe("Page.removeAllListeners", () => {
-  it("drops the listeners of one event and stops listening to the window", () => {
-    const removed = vi.spyOn(window, "removeEventListener");
+  it("drops the listeners of one event without touching the window pageerror listeners", () => {
     const page = createPage();
+    const removed = vi.spyOn(window, "removeEventListener");
     const listener = vi.fn();
     page.on("pageerror", listener).on("pageerror", vi.fn());
 
     expect(page.removeAllListeners("pageerror")).toBe(page);
-    expect(removed.mock.calls.map(([type]) => type).sort()).toEqual([
-      "error",
-      "unhandledrejection",
-    ]);
+    // Registered from page creation with no dispose to remove them on.
+    expect(removed).not.toHaveBeenCalled();
     report(new Error("after"));
     expect(listener).not.toHaveBeenCalled();
   });
