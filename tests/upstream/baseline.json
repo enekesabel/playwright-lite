@@ -2375,7 +2375,7 @@
     {
       "id": "page-evaluate.spec.ts > should work with unicode chars",
       "method": "Page.evaluate",
-      "evidence": "An object keyed by '\u4e2d\u6587\u5b57\u7b26' passed as the argument yields 42 when the callback reads that key, so non-ASCII property names survive argument serialization."
+      "evidence": "An object keyed by '中文字符' passed as the argument yields 42 when the callback reads that key, so non-ASCII property names survive argument serialization."
     },
     {
       "id": "page-event-pageerror.spec.ts > should contain the Error.name property",
@@ -2635,7 +2635,7 @@
     {
       "id": "page-network-request.spec.ts > should parse the data if content-type is application/x-www-form-urlencoded; charset=UTF-8",
       "method": "Page.waitForRequest",
-      "evidence": "After Page.evaluate posts foo=bar&baz=123 with content-type application/x-www-form-urlencoded; charset=UTF-8, the request awaited from waitForRequest('**/post') reports postDataJSON() {foo: 'bar', baz: '123'}: the glob matched the fetch the document made, and the body is parsed as form data on the charset-suffixed content type instead of as JSON."
+      "evidence": "With Page.waitForRequest withheld, the sabotage rerun fails this test: waitForRequest('**/post') is what resolves with the POST the document's own fetch sent to that URL after Page.evaluate made it, so the glob matched a real request that reached the server. The postDataJSON() value the test then asserts is read from the fixture's snapshot of that request, taken outside the recorded adapter execution, and is not covered by the rerun."
     },
     {
       "id": "page-network-response.spec.ts > should wait until response completes",
@@ -2836,7 +2836,7 @@
     {
       "id": "page-wait-for-request.spec.ts > should log the url",
       "method": "Page.waitForRequest",
-      "evidence": "waitForRequest with a 70-character url and timeout 1000 rejects with a message containing waiting for request \"long-long-\u2026\", the pinned client trimUrl line: the wait reports the url it matched on, trimmed to 50 characters with an ellipsis."
+      "evidence": "waitForRequest with a 70-character url and timeout 1000 rejects with a message containing waiting for request \"long-long-…\", the pinned client trimUrl line: the wait reports the url it matched on, trimmed to 50 characters with an ellipsis."
     },
     {
       "id": "page-wait-for-response.spec.ts > should log the url",
