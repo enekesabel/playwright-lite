@@ -53,6 +53,7 @@ describe("cancellation", () => {
       ],
       ["page.waitForSelector", (o) => page.waitForSelector("#never", o)],
       ["page.waitForURL", (o) => page.waitForURL("**/*#never", o)],
+      ["page.waitForEvent", (o) => page.waitForEvent("load", o)],
       ["locator.check", (o) => locator().check(o)],
       ["locator.clear", (o) => locator().clear(o)],
       ["locator.click", (o) => locator().click(o)],

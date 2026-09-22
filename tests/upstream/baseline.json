@@ -3,7 +3,7 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 1911,
+  "selectedTestCount": 1924,
   "reviewed": [
     {
       "id": "elementhandle-bounding-box.spec.ts > should force a layout",
@@ -2376,6 +2376,31 @@
       "id": "page-evaluate.spec.ts > should work with unicode chars",
       "method": "Page.evaluate",
       "evidence": "An object keyed by '中文字符' passed as the argument yields 42 when the callback reads that key, so non-ASCII property names survive argument serialization."
+    },
+    {
+      "id": "page-event-pageerror.spec.ts > should contain the Error.name property",
+      "method": "Page.waitForEvent",
+      "evidence": "After Page.evaluate schedules a throw of an Error whose name was set to my-name, the awaited adapter waitForEvent('pageerror') resolves with that error and the assertions read name my-name and message my-message from the payload."
+    },
+    {
+      "id": "page-event-pageerror.spec.ts > should handle object",
+      "method": "Page.waitForEvent",
+      "evidence": "A thrown plain object resolves the awaited adapter waitForEvent('pageerror') with a wrapped Error whose message is the object's class name Object, matching the pinned Chromium description."
+    },
+    {
+      "id": "page-event-pageerror.spec.ts > should handle odd values",
+      "method": "Page.waitForEvent",
+      "evidence": "For each thrown non-Error value null, undefined, 0 and '', the awaited adapter waitForEvent('pageerror') resolves with a wrapped Error whose message is String(value), the pinned exceptionToError mapping of a value without a description."
+    },
+    {
+      "id": "page-event-pageerror.spec.ts > should handle window",
+      "method": "Page.waitForEvent",
+      "evidence": "A thrown window resolves the awaited adapter waitForEvent('pageerror') with a wrapped Error whose message is its class name Window, matching the pinned Chromium description."
+    },
+    {
+      "id": "page-event-pageerror.spec.ts > should support an empty Error.name property",
+      "method": "Page.waitForEvent",
+      "evidence": "After Page.evaluate schedules a throw of an Error whose name was set to the empty string, the awaited adapter waitForEvent('pageerror') resolves with that error and the assertions read name '' and message my-message, so the payload keeps the thrown Error's own name instead of defaulting to Error."
     },
     {
       "id": "page-fill.spec.ts > fill back to back",

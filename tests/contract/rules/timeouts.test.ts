@@ -52,7 +52,7 @@ describe("timeouts", () => {
     expect(clicks).toBe(1);
   });
 
-  it("applies stored default timeouts to queries and waitForFunction", async () => {
+  it("applies stored default timeouts to queries, waitForFunction and waitForEvent", async () => {
     const page = createPage();
     page.setDefaultTimeout(20);
 
@@ -87,6 +87,15 @@ describe("timeouts", () => {
     expect(waitForFunctionError[ADAPTER_TIMEOUT_ERROR]).toBe(true);
     expect(waitForFunctionError.message).toBe(
       "page.waitForFunction: Timeout 20ms exceeded."
+    );
+
+    const waitForEventError = await page
+      .waitForEvent("load")
+      .catch((error) => error);
+    expect(waitForEventError.name).toBe("TimeoutError");
+    expect(waitForEventError[ADAPTER_TIMEOUT_ERROR]).toBe(true);
+    expect(waitForEventError.message).toBe(
+      'page.waitForEvent: Timeout 20ms exceeded while waiting for event "load"'
     );
   });
 });

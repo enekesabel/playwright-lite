@@ -58,6 +58,11 @@ describe("option-validation", () => {
       /waitForURL signal must be an AbortSignal/,
     ],
     [
+      "waitForEvent",
+      (page, options) => page.waitForEvent("load", options as any),
+      /waitForEvent signal must be an AbortSignal/,
+    ],
+    [
       "elementHandle.waitForElementState",
       async (page, options) =>
         (await page.$("#input"))!.waitForElementState(
@@ -119,6 +124,16 @@ describe("option-validation", () => {
       "waitForURL",
       (page) => page.waitForURL(location.href, { unexpected: true } as any),
       /waitForURL\(\): unsupported Playwright option\(s\): unexpected/,
+    ],
+    [
+      "waitForEvent",
+      (page) => page.waitForEvent("load", { unexpected: true } as any),
+      /waitForEvent\(\): unsupported Playwright option\(s\): unexpected/,
+    ],
+    [
+      "removeAllListeners",
+      (page) => page.removeAllListeners("load", { unexpected: true } as any),
+      /removeAllListeners\(\): unsupported Playwright option\(s\): unexpected/,
     ],
     [
       "elementHandle.selectText",
