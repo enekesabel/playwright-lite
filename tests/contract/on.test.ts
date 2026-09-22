@@ -393,6 +393,28 @@ describe("Page.on", () => {
     ]);
   });
 
+  it("reports an XMLHttpRequest the document opens again once it is done as finished", async () => {
+    const page = networkPage();
+    const url = assetUrl("?xhr-polled");
+    const events: string[] = [];
+    page.on("requestfinished", (request) => {
+      if (request.url() === url) events.push("requestfinished");
+    });
+    page.on("requestfailed", (request) => {
+      if (request.url() === url) events.push("requestfailed");
+    });
+
+    const xhr = new XMLHttpRequest();
+    // This handler runs before the observation sees DONE.
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState === xhr.DONE)
+        xhr.open("GET", assetUrl("?xhr-polled-again"));
+    };
+    xhr.open("GET", url);
+    xhr.send();
+    await expect.poll(() => events).toEqual(["requestfinished"]);
+  });
+
   it("reports nothing for a send the platform rejects", () => {
     const page = networkPage();
     const seen: unknown[] = [];

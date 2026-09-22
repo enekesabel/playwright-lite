@@ -24,13 +24,21 @@ type OpenedXhr = {
   method: string;
   url: string;
   headers: Record<string, string>;
-  sent: boolean;
-  /**
-   * Ends the request this record's `send` reported, if it is still in flight.
-   * Opening the same `XMLHttpRequest` again cancels that request without
-   * firing any event on it.
-   */
-  cancel?: () => void;
+  /** Set once `send` reported the request this record describes. */
+  sent?: SentXhr;
+};
+
+/**
+ * Ends a reported request when its `XMLHttpRequest` is opened again. The
+ * document's own `load` handler usually runs before this observation's
+ * listener and may open the `XMLHttpRequest` for the next request, which
+ * discards the body, so the request is settled from its state at that moment.
+ */
+type SentXhr = {
+  /** Called before `open` runs: reports an end whose event was not seen yet. */
+  settleIfDone(): void;
+  /** Called after `open` succeeded, which cancelled a request in flight. */
+  cancel(): void;
 };
 
 /** Pinned client/events.ts Page events this observation emits. */
@@ -536,13 +544,14 @@ export class NetworkObservation {
     thisArg: unknown,
     args: unknown[]
   ): unknown {
+    const previous = this.openedRequests.get(thisArg as XMLHttpRequest)?.sent;
+    previous?.settleIfDone();
     const result = Reflect.apply(original, thisArg, args);
-    this.openedRequests.get(thisArg as XMLHttpRequest)?.cancel?.();
+    previous?.cancel();
     this.openedRequests.set(thisArg as XMLHttpRequest, {
       method: normalizeXhrMethod(String(args[0])),
       url: new URL(String(args[1]), this.window.document.baseURI).href,
       headers: {},
-      sent: false,
     });
     return result;
   }
@@ -587,7 +596,6 @@ export class NetworkObservation {
     const xhr = thisArg as XMLHttpRequest;
     if (!opened || opened.sent || xhr.readyState !== xhr.OPENED)
       return Reflect.apply(original, thisArg, args);
-    opened.sent = true;
 
     const request = new ObservedRequest({
       url: opened.url,
@@ -602,15 +610,12 @@ export class NetworkObservation {
     });
     let response: ObservedResponse | undefined;
     let ended = false;
-    // `xhr.response` holds a partial body until `load`, so reading waits for
-    // the body to end, and rejects once the request failed instead.
-    let bodyEnded!: () => void;
-    let bodyFailed!: (error: Error) => void;
-    const bodyEnd = new Promise<void>((resolve, reject) => {
-      bodyEnded = resolve;
-      bodyFailed = reject;
-    });
-    bodyEnd.catch(() => {});
+    // `xhr.response` holds a partial body until the request is done, and the
+    // next `open` discards it, so the body is taken once when it is done, as
+    // fetch buffers its own. Reading waits for that, and rejects once the
+    // request failed.
+    const body = Promise.withResolvers<Uint8Array>();
+    body.promise.catch(() => {});
     const respond = (): ObservedResponse => {
       if (!response) {
         response = new ObservedResponse(request, {
@@ -618,42 +623,59 @@ export class NetworkObservation {
           status: xhr.status,
           statusText: xhr.statusText,
           headers: parseRawHeaders(xhr.getAllResponseHeaders()),
-          readBody: async () => {
-            await bodyEnd;
-            return await xhrResponseBody(xhr);
-          },
+          readBody: () => body.promise,
         });
         request.setResponse(response);
         this.emit("response", response);
       }
       return response;
     };
+    // Each send's listeners are removed once its request has ended, so a
+    // reused XMLHttpRequest does not collect them.
+    const listeners = new AbortController();
     const fail = (errorText: string) => {
       if (ended) return;
       ended = true;
-      bodyFailed(new Error(errorText));
+      listeners.abort();
+      body.reject(new Error(errorText));
       request.setFailure(errorText);
       this.emit("requestfailed", request);
     };
-    opened.cancel = () => fail("XMLHttpRequest: abort");
-    // Listeners stay on the XMLHttpRequest after it is opened again, so each
-    // one checks that the events are still about the request it reported.
-    const current = () => this.openedRequests.get(xhr) === opened;
-    xhr.addEventListener("readystatechange", () => {
-      if (current() && xhr.readyState === xhr.HEADERS_RECEIVED) respond();
-    });
-    xhr.addEventListener("load", () => {
-      if (ended || !current()) return;
+    const finish = () => {
+      if (ended) return;
       ended = true;
-      bodyEnded();
+      listeners.abort();
+      body.resolve(xhrResponseBody(xhr));
       // A synchronous XMLHttpRequest reports no HEADERS_RECEIVED state, so its
       // response is reported here, still before the request has finished.
       respond().markFinished();
       this.emit("requestfinished", request);
-    });
+    };
+    opened.sent = {
+      // A network error and a timeout both end with status 0, and only the
+      // event not dispatched yet would tell them apart.
+      settleIfDone: () => {
+        if (xhr.readyState !== xhr.DONE) return;
+        if (xhr.status === 0) fail("XMLHttpRequest: error");
+        else finish();
+      },
+      cancel: () => fail("XMLHttpRequest: abort"),
+    };
+    const { signal } = listeners;
+    xhr.addEventListener(
+      "readystatechange",
+      () => {
+        if (xhr.readyState === xhr.HEADERS_RECEIVED) respond();
+        // DONE comes before `load`, whose handlers commonly open the
+        // XMLHttpRequest again; status 0 is a failure, told by its own event.
+        if (xhr.readyState === xhr.DONE && xhr.status !== 0) finish();
+      },
+      { signal }
+    );
+    xhr.addEventListener("load", finish, { signal });
     for (const event of ["error", "timeout", "abort"] as const)
-      xhr.addEventListener(event, () => {
-        if (current()) fail(`XMLHttpRequest: ${event}`);
+      xhr.addEventListener(event, () => fail(`XMLHttpRequest: ${event}`), {
+        signal,
       });
 
     this.emit("request", request);

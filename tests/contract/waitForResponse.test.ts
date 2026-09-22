@@ -155,6 +155,27 @@ describe("Page.waitForResponse", () => {
     expect(await response.text()).toContain("Woof-Woof");
   });
 
+  it("keeps an XMLHttpRequest body after the request is opened again", async () => {
+    const page = createPage();
+    const waiting = page.waitForResponse(/\?xhr-reused$/, { timeout: 5_000 });
+    const xhr = new XMLHttpRequest();
+    // A Site polling with one XMLHttpRequest opens it again from its own
+    // `load` handler, which runs first and discards the body it held.
+    xhr.onload = () => xhr.open("GET", assetUrl("?xhr-reused-again"));
+    const ended = new Promise((resolve) =>
+      xhr.addEventListener("loadend", resolve)
+    );
+    xhr.open("GET", assetUrl("?xhr-reused"));
+    xhr.send();
+    const response = await waiting;
+    await ended;
+
+    expect(await response.finished()).toBe(null);
+    expect(response.request().failure()).toBe(null);
+    expect(xhr.responseText).toBe("");
+    expect(await response.text()).toContain("Woof-Woof");
+  });
+
   it("reports that a response body the browser parsed away cannot be read", async () => {
     const page = createPage();
     const waiting = page.waitForResponse(/\?xhr-document$/, {
