@@ -1270,9 +1270,7 @@ test("proxy page methods do not fall through to real Playwright driver", async (
     await expect(adapterPage.title()).resolves.toBe("");
     await expect(adapterPage.goBack()).rejects.toThrow();
     await expect(adapterPage.screenshot()).rejects.toThrow();
-    await expect(
-      (adapterPage as any).route("**/*", () => {})
-    ).rejects.toThrow();
+    await expect((adapterPage as any).close()).rejects.toThrow();
     expect((page as any).__pwLiteNativeOperations).toEqual([]);
   } finally {
     page.title = originalTitle;
