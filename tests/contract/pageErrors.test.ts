@@ -94,8 +94,6 @@ describe("Page.pageErrors", () => {
     const page = createPage();
     await expect(
       page.pageErrors({ filter: "unknown" as "all" })
-    ).rejects.toThrow(
-      "pageErrors: filter must be one of (all|since-navigation)"
-    );
+    ).rejects.toThrow("filter: expected one of (all|since-navigation)");
   });
 });

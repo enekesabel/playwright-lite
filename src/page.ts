@@ -4993,9 +4993,7 @@ function ensureArrayLimit(array: unknown[], limit: number): void {
 function validatePageErrorsFilter(value: unknown): void {
   if (value === undefined || value === "all" || value === "since-navigation")
     return;
-  throw new TypeError(
-    `pageErrors: filter must be one of (all|since-navigation), got ${JSON.stringify(value)}`
-  );
+  throw new TypeError("filter: expected one of (all|since-navigation)");
 }
 
 function isRetryableActionError(error: unknown): boolean {
