@@ -118,6 +118,7 @@ const nativeNavigationForSetupSpecs = new Set([
   "page-keyboard.spec.ts",
   "page-localstorage.spec.ts",
   "page-mouse.spec.ts",
+  "page-network-idle.spec.ts",
   "page-network-request.spec.ts",
   "page-network-response.spec.ts",
   "page-select-option.spec.ts",
