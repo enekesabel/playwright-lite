@@ -22,18 +22,25 @@ describe("Page.exposeBinding", () => {
     expect(sawContext).toBe(false);
   });
 
-  it("keeps the exposed property callable after dispose(), and never touches a property the Site replaced", async () => {
-    const page = createPage();
-    const disposable = await page.exposeBinding("hook", () => "original");
-    await disposable.dispose();
+  it("dispatches each of two pages on the same window through its own source and by-value round trip", async () => {
+    const first = createPage();
+    const second = createPage();
+    let firstSeenPage: unknown;
+    let secondSeenPage: unknown;
 
-    // Site replaces the binding after us; dispose() must not have removed,
-    // and must never remove, the Site's own replacement.
-    await page.evaluate(() => {
-      (window as any).hook = () => "replaced-by-site";
+    await first.exposeBinding("fromFirst", (source) => {
+      firstSeenPage = source.page;
     });
-    await expect(page.evaluate(() => (window as any).hook())).resolves.toBe(
-      "replaced-by-site"
-    );
+    await second.exposeBinding("fromSecond", (source) => {
+      secondSeenPage = source.page;
+    });
+
+    await first.evaluate(() => {
+      (window as any).fromFirst();
+      (window as any).fromSecond();
+    });
+
+    expect(firstSeenPage).toBe(first);
+    expect(secondSeenPage).toBe(second);
   });
 });

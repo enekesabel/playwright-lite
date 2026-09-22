@@ -232,20 +232,23 @@ describe("Page.evaluate", () => {
     await expect(page.locator("button").evaluate("42")).resolves.toBe(42);
   });
 
-  it("rejects a non-boolean exposeFunctions option", async () => {
+  it("rejects a fifth argument", async () => {
     const page = createPage();
-    await expect(
-      (page as any).evaluate(() => 1, undefined, { exposeFunctions: "yes" })
-    ).rejects.toThrow("exposeFunctions must be a boolean");
     await expect(
       (page as any).evaluate(() => 1, undefined, undefined, 4)
     ).rejects.toThrow("Too many arguments");
   });
 
-  it("rejects function-valued arguments through the stock client serializer", async () => {
+  it("rejects function-valued arguments through the stock client serializer, exposeFunctions left off", async () => {
     const page = createPage();
     await expect(
       page.evaluate((value) => value, { nested: { callback: () => 1 } })
+    ).rejects.toThrow("Attempting to serialize unexpected value");
+    await expect(
+      page.evaluate(
+        (fn: () => number) => fn(),
+        () => 1
+      )
     ).rejects.toThrow("Attempting to serialize unexpected value");
   });
 

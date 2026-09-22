@@ -87,6 +87,32 @@ describe("option-validation", () => {
     }
   );
 
+  const exposeFunctionsActions: [
+    string,
+    (page: Page, options: unknown) => Promise<unknown>,
+  ][] = [
+    [
+      "evaluate",
+      (page, options) => page.evaluate(() => 1, undefined, options as any),
+    ],
+    [
+      "evaluateHandle",
+      (page, options) =>
+        page.evaluateHandle(() => 1, undefined, options as any),
+    ],
+  ];
+
+  it.each(exposeFunctionsActions)(
+    "%s rejects a non-boolean exposeFunctions option",
+    async (apiName, run) => {
+      const page = createPage();
+      await expect(
+        run(page, { exposeFunctions: "yes" }),
+        apiName
+      ).rejects.toThrow("exposeFunctions must be a boolean");
+    }
+  );
+
   const unsupportedActions: [
     string,
     (page: Page) => Promise<unknown>,

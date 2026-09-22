@@ -69,7 +69,7 @@ const waitForEventLimitations = `Events: ${eventNames}. Other event names are ac
 const networkObservationLimitations =
   "`fetch()` and `XMLHttpRequest` calls of the current document only; see [Request and Response compatibility](#request-and-response-compatibility).";
 const exposeFunctionLimitations =
-  "The property stays on `window` for the page's lifetime: this package has no dispose or close lifecycle, so the returned `Disposable`'s `dispose()` does not remove it.";
+  "The property stays on `window` for the page's lifetime: this package has no dispose or close lifecycle, so the returned `Disposable`'s `dispose()` does not remove it. Arguments and the result never cross through `JSON.stringify()`, so a Site that overrides `Array.prototype.toJSON()` does not break the call: it resolves normally, where Playwright's wire protocol rejects with a serialization error.";
 const exposeBindingLimitations = `${exposeFunctionLimitations} The callback's \`source\` argument is \`{ page, frame: page }\`; there is no \`context\`, since this package has no \`BrowserContext\`.`;
 
 /** Consumer-facing description of this package's `Request` and `Response`. */

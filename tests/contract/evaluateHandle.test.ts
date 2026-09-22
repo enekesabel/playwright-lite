@@ -82,10 +82,21 @@ describe("Page.evaluateHandle", () => {
     await expect(
       (page as any).evaluateHandle(() => 1, undefined, [])
     ).rejects.toThrow(/Too many arguments/);
+  });
+
+  it("keeps the argument's functions live for later calls against the returned handle, with exposeFunctions", async () => {
+    const page = createPage();
+    const double = (n: number) => n * 2;
+
+    const handle = await page.evaluateHandle(
+      (fn: (n: number) => number) => ({ call: (n: number) => fn(n) }),
+      double,
+      { exposeFunctions: true }
+    );
     await expect(
-      (page as any).evaluateHandle(() => 1, undefined, {
-        exposeFunctions: "yes",
-      })
-    ).rejects.toThrow("exposeFunctions must be a boolean");
+      handle.evaluate((value: { call: (n: number) => number }) =>
+        value.call(10)
+      )
+    ).resolves.toBe(20);
   });
 });

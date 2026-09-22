@@ -77,24 +77,6 @@ describe("serialization", () => {
     ];
     for (const [apiName, evaluate] of cases)
       await expect(evaluate(), apiName).resolves.toBe(42);
-
-    // page.evaluateHandle keeps the argument's functions live for later calls
-    // against the returned handle.
-    const handle = await page.evaluateHandle(
-      (fn: Double) => ({ call: (n: number) => fn(n) }),
-      double,
-      { exposeFunctions: true }
-    );
-    await expect(
-      handle.evaluate((value: { call: (n: number) => number }) =>
-        value.call(10)
-      )
-    ).resolves.toBe(20);
-
-    // A function argument still rejects when the option is left off.
-    await expect(page.evaluate((fn: Double) => fn(1), double)).rejects.toThrow(
-      "Attempting to serialize unexpected value"
-    );
     await button.dispose();
   });
 });

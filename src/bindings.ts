@@ -74,7 +74,10 @@ export class PageBindings {
   /** Pinned server/page.ts `PageBinding.dispatch`: the result or the thrown
    * error both cross back through the owning page's by-value round trip
    * (`serializeError`/`parseError`'s pinned equivalent). */
-  private async callBinding(name: string, ...args: unknown[]): Promise<unknown> {
+  private async callBinding(
+    name: string,
+    ...args: unknown[]
+  ): Promise<unknown> {
     const entry = this.bindings.get(name);
     if (!entry) throw new Error(`Function "${name}" is not exposed`);
     const { owner, handler } = entry;
@@ -98,6 +101,9 @@ export function bindingsFor(
 ): PageBindings {
   let controller = controllers.get(browserWindow);
   if (!controller)
-    controllers.set(browserWindow, (controller = new PageBindings(browserWindow)));
+    controllers.set(
+      browserWindow,
+      (controller = new PageBindings(browserWindow))
+    );
   return controller;
 }
