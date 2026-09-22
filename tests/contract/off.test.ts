@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../src/index";
 import { report, swallowWindowErrors } from "./pageEvents";
-import { assetUrl, contractUrl, restoreFetch } from "./network";
+import {
+  assetUrl,
+  contractUrl,
+  restoreFetch,
+  restoreXhr,
+  xhrMethods,
+} from "./network";
 
 swallowWindowErrors();
 
@@ -99,5 +105,69 @@ describe("Page.off", () => {
       `first:${assetUrl("?shared")}`,
       `second:${assetUrl("?shared")}`,
     ]);
+  });
+
+  // ── XMLHttpRequest ──────────────────────────────────────────────
+
+  restoreXhr();
+
+  it("restores the XMLHttpRequest methods with the last network listener", () => {
+    const native = xhrMethods();
+    const page = createPage();
+    const listener = () => {};
+
+    page.on("request", listener);
+    for (const name of ["open", "setRequestHeader", "send"] as const)
+      expect(xhrMethods()[name]).not.toBe(native[name]);
+
+    page.off("request", listener);
+    for (const name of ["open", "setRequestHeader", "send"] as const)
+      expect(xhrMethods()[name]).toBe(native[name]);
+  });
+
+  it("restores the XMLHttpRequest methods after a send the platform rejected", () => {
+    const native = xhrMethods();
+    const page = createPage();
+    const listener = () => {};
+    page.on("request", listener);
+
+    // The InvalidStateError must not leave a subscription behind that keeps
+    // the wrappers installed past the last listener.
+    expect(() => new XMLHttpRequest().send()).toThrow(DOMException);
+
+    page.off("request", listener);
+    for (const name of ["open", "setRequestHeader", "send"] as const)
+      expect(xhrMethods()[name]).toBe(native[name]);
+  });
+
+  it("leaves an XMLHttpRequest wrapper the document installed after ours in place", async () => {
+    const page = createPage();
+    const listener = () => {};
+    page.on("request", listener);
+
+    const ours = XMLHttpRequest.prototype.send;
+    const calls: unknown[] = [];
+    XMLHttpRequest.prototype.send = function theirs(
+      this: XMLHttpRequest,
+      body?: XMLHttpRequestBodyInit | null
+    ) {
+      calls.push(body ?? null);
+      return ours.call(this, body);
+    };
+    const theirs = XMLHttpRequest.prototype.send;
+
+    page.off("request", listener);
+
+    expect(XMLHttpRequest.prototype.send).toBe(theirs);
+    const xhr = new XMLHttpRequest();
+    const ended = new Promise((resolve) =>
+      xhr.addEventListener("loadend", resolve)
+    );
+    xhr.open("GET", assetUrl("?theirs"));
+    xhr.send();
+    await ended;
+
+    expect(calls).toEqual([null]);
+    expect(xhr.status).toBe(200);
   });
 });

@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage, type Request } from "../../src/index";
-import { contractUrl, restoreFetch } from "./network";
+import {
+  assetUrl,
+  contractUrl,
+  restoreFetch,
+  restoreXhr,
+  sendXhr,
+} from "./network";
 
 /**
  * The exported `Request` type carries only what the current document can fill.
@@ -97,5 +103,78 @@ describe("Page.waitForRequest", () => {
     await expect(
       page.waitForRequest(() => false, { timeout: 1 })
     ).rejects.toThrow('waiting for event "request"');
+  });
+
+  // ── XMLHttpRequest ──────────────────────────────────────────────
+
+  restoreXhr();
+
+  it("matches an XMLHttpRequest and reads the body send handed over", async () => {
+    const page = createPage();
+    const asText = page.waitForRequest(/\?xhr-text$/, { timeout: 5_000 });
+    const asParams = page.waitForRequest(/\?xhr-params$/, { timeout: 5_000 });
+    const asBytes = page.waitForRequest(
+      (request) => request.url().endsWith("?xhr-bytes"),
+      { timeout: 5_000 }
+    );
+
+    sendXhr(assetUrl("?xhr-text"), {
+      method: "POST",
+      headers: [["content-type", "application/json"]],
+      body: '{"foo":"bar"}',
+    });
+    sendXhr(assetUrl("?xhr-params"), {
+      method: "POST",
+      body: new URLSearchParams({ foo: "bar" }),
+    });
+    sendXhr(assetUrl("?xhr-bytes"), {
+      method: "POST",
+      body: new TextEncoder().encode("bytes"),
+    });
+
+    const text = await asText;
+    expect(text.resourceType()).toBe("xhr");
+    expect(text.postData()).toBe('{"foo":"bar"}');
+    expect(text.postDataJSON()).toEqual({ foo: "bar" });
+    expect((await asParams).postData()).toBe("foo=bar");
+    const bytes = await asBytes;
+    expect(bytes.postData()).toBe("bytes");
+    expect(bytes.postDataBuffer()).toEqual(new TextEncoder().encode("bytes"));
+  });
+
+  it("parses an XMLHttpRequest form-urlencoded body the way the pinned client does", async () => {
+    const page = createPage();
+    const waiting = page.waitForRequest(/\?xhr-form$/, { timeout: 5_000 });
+    sendXhr(assetUrl("?xhr-form"), {
+      method: "POST",
+      headers: [
+        ["content-type", "application/x-www-form-urlencoded; charset=UTF-8"],
+      ],
+      body: "foo=bar&baz=123",
+    });
+
+    expect((await waiting).postDataJSON()).toEqual({ foo: "bar", baz: "123" });
+  });
+
+  it("reports a Blob or FormData XMLHttpRequest body as no post data", async () => {
+    const page = createPage();
+    const asBlob = page.waitForRequest(/\?xhr-blob$/, { timeout: 5_000 });
+    const asFormData = page.waitForRequest(/\?xhr-form-data$/, {
+      timeout: 5_000,
+    });
+
+    sendXhr(assetUrl("?xhr-blob"), {
+      method: "POST",
+      body: new Blob(["blob-contents"]),
+    });
+    const formData = new FormData();
+    formData.set("foo", "bar");
+    sendXhr(assetUrl("?xhr-form-data"), { method: "POST", body: formData });
+
+    // Both can only be read asynchronously, and postData() answers at once.
+    const blob = await asBlob;
+    expect(blob.postData()).toBe(null);
+    expect(blob.postDataBuffer()).toBe(null);
+    expect((await asFormData).postData()).toBe(null);
   });
 });

@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage, type Response } from "../../src/index";
-import { assetUrl, contractUrl, restoreFetch } from "./network";
+import {
+  assetUrl,
+  contractUrl,
+  restoreFetch,
+  restoreXhr,
+  sendXhr,
+} from "./network";
 
 /**
  * The exported `Response` type carries only what the current document can
@@ -109,5 +115,52 @@ describe("Page.waitForResponse", () => {
     await expect(
       page.waitForResponse(() => false, { timeout: 1 })
     ).rejects.toThrow('waiting for event "response"');
+  });
+
+  // ── XMLHttpRequest ──────────────────────────────────────────────
+
+  restoreXhr();
+
+  it("resolves with the response an XMLHttpRequest received", async () => {
+    const page = createPage();
+    const waiting = page.waitForResponse(/\?xhr-response$/, {
+      timeout: 5_000,
+    });
+    const { ended } = sendXhr(assetUrl("?xhr-response"));
+    const response = await waiting;
+
+    expect(response.url()).toBe(assetUrl("?xhr-response"));
+    expect(response.status()).toBe(200);
+    expect(response.statusText()).toBe("OK");
+    expect(response.ok()).toBe(true);
+    expect(response.headers()["content-type"]).toBe("text/html");
+    expect(await response.headerValue("Content-Type")).toBe("text/html");
+    expect(response.request().resourceType()).toBe("xhr");
+
+    expect(await ended).toBe("load");
+    expect(await response.finished()).toBe(null);
+    expect(await response.text()).toContain("Woof-Woof");
+    expect(await response.body()).toBeInstanceOf(Uint8Array);
+  });
+
+  it("reports that a response body the browser parsed away cannot be read", async () => {
+    const page = createPage();
+    const waiting = page.waitForResponse(/\?xhr-document$/, {
+      timeout: 5_000,
+    });
+    const xhr = new XMLHttpRequest();
+    xhr.responseType = "document";
+    const ended = new Promise((resolve) =>
+      xhr.addEventListener("loadend", resolve)
+    );
+    xhr.open("GET", assetUrl("?xhr-document"));
+    xhr.send();
+
+    const response = await waiting;
+    await ended;
+    expect(response.status()).toBe(200);
+    await expect(response.body()).rejects.toThrow(
+      'Response body is not available: the request set responseType "document".'
+    );
   });
 });
