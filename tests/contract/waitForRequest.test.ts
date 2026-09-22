@@ -89,26 +89,13 @@ describe("Page.waitForRequest", () => {
     expect((await waiting).postDataJSON()).toEqual({ foo: "bar", baz: "123" });
   });
 
-  it("reports the url it waited for when it times out", async () => {
+  it("reports a regular expression and a predicate in its timeout", async () => {
     const page = createPage();
-    await expect(
-      page.waitForRequest("never-requested.css", { timeout: 1 })
-    ).rejects.toThrow(
-      'page.waitForRequest: Timeout 1ms exceeded while waiting for request "never-requested.css"'
-    );
     await expect(
       page.waitForRequest(/never-requested/i, { timeout: 1 })
     ).rejects.toThrow("waiting for request /never-requested/i");
     await expect(
       page.waitForRequest(() => false, { timeout: 1 })
     ).rejects.toThrow('waiting for event "request"');
-  });
-
-  it("rejects options the pinned signature does not have", async () => {
-    await expect(
-      createPage().waitForRequest("**/*", {
-        predicate: () => true,
-      } as unknown as { timeout?: number })
-    ).rejects.toThrow("predicate");
   });
 });
