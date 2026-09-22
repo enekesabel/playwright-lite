@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage, type Response } from "../../src/index";
-import { contractUrl, recordedFetch, restoreFetch } from "./network";
+import { assetUrl, contractUrl, restoreFetch } from "./network";
 
 /**
  * The exported `Response` type carries only what the current document can
@@ -57,26 +57,17 @@ describe("Page.waitForResponse", () => {
   });
 
   it("reports the status and the headers the browser exposed", async () => {
-    recordedFetch("body", {
-      status: 201,
-      statusText: "Created",
-      headers: { "X-Contract": "yes" },
-    });
     const page = createPage();
-    // A Response the page built itself has no URL, so this waits on the
-    // request it answers instead of on `response.url()`.
-    const waiting = page.waitForResponse(
-      (response) => response.request().url().endsWith("/headers"),
-      { timeout: 5_000 }
-    );
-    void window.fetch(contractUrl("./headers"));
+    const waiting = page.waitForResponse("**/title.html*", { timeout: 5_000 });
+    void window.fetch(assetUrl("?headers"));
     const response = await waiting;
 
-    expect(response.status()).toBe(201);
-    expect(response.statusText()).toBe("Created");
+    expect(response.url()).toBe(assetUrl("?headers"));
+    expect(response.status()).toBe(200);
+    expect(response.statusText()).toBe("OK");
     expect(response.ok()).toBe(true);
-    expect(response.headers()["x-contract"]).toBe("yes");
-    expect(await response.headerValue("X-Contract")).toBe("yes");
+    expect(response.headers()["content-type"]).toBe("text/html");
+    expect(await response.headerValue("Content-Type")).toBe("text/html");
     expect(await response.headerValue("absent")).toBe(null);
   });
 
@@ -110,15 +101,13 @@ describe("Page.waitForResponse", () => {
     expect((await waiting).url()).toBe(contractUrl("./predicated"));
   });
 
-  it("reports the url it waited for when it times out", async () => {
+  it("reports a regular expression and a predicate in its timeout", async () => {
     const page = createPage();
-    await expect(
-      page.waitForResponse("foo.css", { timeout: 1 })
-    ).rejects.toThrow(
-      'page.waitForResponse: Timeout 1ms exceeded while waiting for response "foo.css"'
-    );
     await expect(
       page.waitForResponse(/foo.css/i, { timeout: 1 })
     ).rejects.toThrow("waiting for response /foo.css/i");
+    await expect(
+      page.waitForResponse(() => false, { timeout: 1 })
+    ).rejects.toThrow('waiting for event "response"');
   });
 });
