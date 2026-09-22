@@ -103,7 +103,9 @@ export const pageLedger = {
   $eval: implemented(
     "Uses the pinned Playwright by-value argument and result serializers."
   ),
-  addInitScript: undecided(),
+  addInitScript: outOfScope(
+    "Registers a script to run before the document's own scripts, which have already run by the time this adapter attaches."
+  ),
   addListener: partial(eventListenerLimitations),
   addLocatorHandler: undecided(),
   addScriptTag: partial(
@@ -113,7 +115,7 @@ export const pageLedger = {
     "Rejects `path`, which reads the stylesheet from disk. Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   ariaSnapshot: implemented("Current document only; no iframe traversal."),
-  bringToFront: undecided(),
+  bringToFront: outOfScope("Browser tab focus control is excluded."),
   cancelPickLocator: undecided(),
   check: implemented(),
   clearConsoleMessages: undecided(),
@@ -123,12 +125,16 @@ export const pageLedger = {
   close: undecided(),
   consoleMessages: undecided(),
   content: implemented("Serializes the current controlled document."),
-  context: undecided(),
-  coverage: undecided(),
+  context: outOfScope(
+    "Refers to the owning browser context, which does not exist in this adapter."
+  ),
+  coverage: outOfScope(
+    "Collecting code coverage requires the browser process."
+  ),
   dblclick: implemented(),
   dispatchEvent: implemented(),
   dragAndDrop: undecided(),
-  emulateMedia: undecided(),
+  emulateMedia: outOfScope("Emulating CSS media features is excluded."),
   evaluate: partial("Rejects `exposeFunctions: true`."),
   evaluateHandle: partial(
     "Rejects `exposeFunctions: true`. The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
@@ -181,12 +187,16 @@ export const pageLedger = {
   off: partial(eventRemovalLimitations),
   on: partial(eventListenerLimitations),
   once: partial(eventListenerLimitations),
-  opener: undecided(),
+  opener: outOfScope(
+    "Refers to another page, outside the single-document boundary."
+  ),
   pageErrors: partial(
     '`filter: "all"` and the default `"since-navigation"` return the same errors: this single-document adapter never crosses documents within one page\'s lifetime, so nothing ever marks the buffer at a navigation.'
   ),
-  pause: undecided(),
-  pdf: undecided(),
+  pause: outOfScope(
+    "Pausing for the Playwright Inspector requires the browser process."
+  ),
+  pdf: outOfScope("Generating a PDF requires the browser process."),
   pickLocator: undecided(),
   prependListener: partial(eventListenerLimitations),
   press: implemented(),
@@ -196,13 +206,19 @@ export const pageLedger = {
   removeAllListeners: partial(eventRemovalLimitations),
   removeListener: partial(eventRemovalLimitations),
   removeLocatorHandler: undecided(),
-  request: undecided(),
-  requestGC: undecided(),
+  request: outOfScope(
+    "Returns Playwright's Node-side API request context, which has no in-document counterpart."
+  ),
+  requestGC: outOfScope(
+    "Forcing garbage collection requires the browser process."
+  ),
   requests: partial(networkObservationLimitations),
-  route: undecided(),
-  routeFromHAR: undecided(),
-  routeWebSocket: undecided(),
-  screencast: undecided(),
+  route: outOfScope("Browser-level network interception is excluded."),
+  routeFromHAR: outOfScope("Browser-level network interception is excluded."),
+  routeWebSocket: outOfScope("Browser-level network interception is excluded."),
+  screencast: outOfScope(
+    "Capturing a screencast requires the browser process."
+  ),
   screenshot: undecided(),
   selectOption: implemented(),
   sessionStorage: implemented("Native current-window Storage only."),
@@ -210,7 +226,9 @@ export const pageLedger = {
   setContent: outOfScope("Document replacement is excluded."),
   setDefaultNavigationTimeout: implemented(),
   setDefaultTimeout: implemented(),
-  setExtraHTTPHeaders: undecided(),
+  setExtraHTTPHeaders: outOfScope(
+    "Browser-level request header configuration is excluded."
+  ),
   setInputFiles: partial(
     "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported. Empty `mimeType` throws instead of inferring a MIME type."
   ),
@@ -221,10 +239,14 @@ export const pageLedger = {
   touchscreen: planned("Synthetic functional input only."),
   type: implemented(),
   uncheck: implemented(),
-  unroute: undecided(),
-  unrouteAll: undecided(),
+  unroute: outOfScope(
+    "Removes handlers registered by `route()`, which is excluded."
+  ),
+  unrouteAll: outOfScope(
+    "Removes handlers registered by `route()`, which is excluded."
+  ),
   url: implemented(),
-  video: undecided(),
+  video: outOfScope("Recording video requires the browser process."),
   viewportSize: undecided(),
   waitForEvent: partial(waitForEventLimitations),
   waitForFunction: partial(
@@ -239,7 +261,9 @@ export const pageLedger = {
   ),
   waitForTimeout: implemented(),
   waitForURL: partial('Rejects `waitUntil: "networkidle"`.'),
-  workers: undecided(),
+  workers: outOfScope(
+    "Worker realms are outside the single-document boundary."
+  ),
 } as const satisfies Ledger<Page>;
 
 export const locatorLedger = {
