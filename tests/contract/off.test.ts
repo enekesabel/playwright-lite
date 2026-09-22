@@ -1,16 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../src/index";
+import { swallowWindowErrors } from "./pageEvents";
 
-// The vitest runner reports a window error as an unhandled test error only
-// while no other `error` listener is registered. This test dispatches an error
-// after the page has unsubscribed, so keep one registered meanwhile.
-const swallow = () => {};
-beforeEach(() => window.addEventListener("error", swallow));
-afterEach(() => {
-  window.removeEventListener("error", swallow);
-  vi.restoreAllMocks();
-});
+swallowWindowErrors();
 
 const report = (error: unknown) =>
   window.dispatchEvent(new ErrorEvent("error", { error }));

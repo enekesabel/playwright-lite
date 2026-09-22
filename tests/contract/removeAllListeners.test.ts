@@ -1,16 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../src/index";
+import { listenerFailures, swallowWindowErrors } from "./pageEvents";
 
-// The vitest runner reports a window error as an unhandled test error only
-// while no other `error` listener is registered. These tests dispatch errors
-// after the page has unsubscribed, so keep one registered meanwhile.
-const swallow = () => {};
-beforeEach(() => window.addEventListener("error", swallow));
-afterEach(() => {
-  window.removeEventListener("error", swallow);
-  vi.restoreAllMocks();
-});
+swallowWindowErrors();
 
 const report = (error: unknown) =>
   window.dispatchEvent(new ErrorEvent("error", { error }));
@@ -48,10 +41,6 @@ describe("Page.removeAllListeners", () => {
     new Promise<void>((resolve, reject) =>
       setTimeout(() => (error ? reject(error) : resolve()), ms)
     );
-  const loggedErrors = (spy: { mock: { calls: unknown[][] } }) =>
-    spy.mock.calls
-      .map(([value]) => value)
-      .filter((value) => !(value instanceof Event));
 
   it("waits for a pending async listener with behavior wait", async () => {
     const page = createPage();
@@ -67,7 +56,9 @@ describe("Page.removeAllListeners", () => {
   });
 
   it("rejects with the pending listener's error with behavior wait", async () => {
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const logged = vi
+      .spyOn(window.console, "error")
+      .mockImplementation(() => {});
     const page = createPage();
     page.on("pageerror", () => settleAfter(10, new Error("slow failure")));
     report(new Error("slow"));
@@ -75,11 +66,13 @@ describe("Page.removeAllListeners", () => {
     await expect(
       page.removeAllListeners(undefined, { behavior: "wait" })
     ).rejects.toThrow("slow failure");
-    expect(loggedErrors(logged)).toEqual([]);
+    expect(listenerFailures(logged)).toEqual([]);
   });
 
   it("swallows a later failure of a pending listener with behavior ignoreErrors", async () => {
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const logged = vi
+      .spyOn(window.console, "error")
+      .mockImplementation(() => {});
     const page = createPage();
     page.on("pageerror", () => settleAfter(10, new Error("ignored")));
     report(new Error("slow"));
@@ -88,19 +81,24 @@ describe("Page.removeAllListeners", () => {
       page.removeAllListeners("pageerror", { behavior: "ignoreErrors" })
     ).resolves.toBeUndefined();
     await settleAfter(30);
-    expect(loggedErrors(logged)).toEqual([]);
+    expect(listenerFailures(logged)).toEqual([]);
   });
 
   it("logs a later failure of a pending listener without a behavior", async () => {
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const logged = vi
+      .spyOn(window.console, "error")
+      .mockImplementation(() => {});
     const page = createPage();
     page.on("pageerror", () => settleAfter(10, new Error("logged")));
     report(new Error("slow"));
 
     expect(page.removeAllListeners("pageerror")).toBe(page);
     await settleAfter(30);
-    expect(loggedErrors(logged)).toEqual([
-      expect.objectContaining({ message: "logged" }),
+    expect(listenerFailures(logged)).toEqual([
+      [
+        'page.on("pageerror"): listener failed',
+        expect.objectContaining({ message: "logged" }),
+      ],
     ]);
   });
 

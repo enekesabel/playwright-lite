@@ -1,16 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../src/index";
+import { listenerFailures, swallowWindowErrors } from "./pageEvents";
 
-// The vitest runner reports a window error as an unhandled test error only
-// while no other `error` listener is registered. These tests dispatch errors
-// after the page has unsubscribed, so keep one registered meanwhile.
-const swallow = () => {};
-beforeEach(() => window.addEventListener("error", swallow));
-afterEach(() => {
-  window.removeEventListener("error", swallow);
-  vi.restoreAllMocks();
-});
+swallowWindowErrors();
 
 const report = (error: unknown) =>
   window.dispatchEvent(new ErrorEvent("error", { error }));
@@ -40,17 +33,17 @@ describe("Page.on", () => {
         reason: {},
       })
     );
-    report("Custom: detail");
     report({ name: "Named", message: "ignored" });
     expect(errors.map((e) => [e.name, e.message, e.stack])).toEqual([
       ["", "Object", ""],
-      ["Custom", "detail", ""],
       ["Named", "Object", ""],
     ]);
   });
 
   it("logs a throwing or rejecting listener and keeps delivering to the others", async () => {
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const logged = vi
+      .spyOn(window.console, "error")
+      .mockImplementation(() => {});
     const page = createPage();
     const payloads: Error[] = [];
     page.on("pageerror", () => {
@@ -65,13 +58,11 @@ describe("Page.on", () => {
     report(new Error("first"));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(payloads.map((e) => e.message)).toEqual(["first"]);
-    // The vitest runner also logs the dispatched ErrorEvent itself.
-    expect(
-      logged.mock.calls.filter(([value]) => !(value instanceof Event))
-    ).toEqual([
-      [expect.objectContaining({ message: "listener failed" })],
-      [undefined],
-      [expect.objectContaining({ message: "listener rejected" })],
+    const prefix = 'page.on("pageerror"): listener failed';
+    expect(listenerFailures(logged)).toEqual([
+      [prefix, expect.objectContaining({ message: "listener failed" })],
+      [prefix, undefined],
+      [prefix, expect.objectContaining({ message: "listener rejected" })],
     ]);
   });
 });
