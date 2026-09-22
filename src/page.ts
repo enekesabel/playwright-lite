@@ -2534,7 +2534,11 @@ export class PageImpl {
     name: string,
     callback: (...args: unknown[]) => unknown
   ): Promise<Disposable> {
-    return this.exposeBinding(name, (_source, ...args) => callback(...args));
+    return this.installBinding(
+      "page.exposeFunction",
+      name,
+      (_source, ...args) => callback(...args)
+    );
   }
 
   /**
@@ -2550,7 +2554,22 @@ export class PageImpl {
    * since replaced it.
    */
   async exposeBinding(name: string, callback: Binding): Promise<Disposable> {
-    this.bindings.expose(name, callback, true);
+    return this.installBinding("page.exposeBinding", name, callback);
+  }
+
+  /** Pinned client methods prefix a thrown error with their own API name. */
+  private async installBinding(
+    apiName: string,
+    name: string,
+    callback: Binding
+  ): Promise<Disposable> {
+    try {
+      this.bindings.expose(name, callback, true);
+    } catch (error) {
+      const result = asError(error);
+      result.message = `${apiName}: ${result.message}`;
+      throw result;
+    }
     return {
       dispose: async () => {},
       [Symbol.asyncDispose]: async () => {},
