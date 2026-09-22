@@ -83,9 +83,9 @@ describe("Page.evaluateHandle", () => {
       (page as any).evaluateHandle(() => 1, undefined, [])
     ).rejects.toThrow(/Too many arguments/);
     await expect(
-      page.evaluateHandle(() => 1, undefined, { exposeFunctions: true })
-    ).rejects.toThrow(
-      "Unsupported Playwright option: evaluate.exposeFunctions"
-    );
+      (page as any).evaluateHandle(() => 1, undefined, {
+        exposeFunctions: "yes",
+      })
+    ).rejects.toThrow("exposeFunctions must be a boolean");
   });
 });

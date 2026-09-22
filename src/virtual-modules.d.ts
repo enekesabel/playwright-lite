@@ -65,11 +65,16 @@ declare module "virtual:playwright-lite-injected" {
 }
 
 declare module "virtual:playwright-lite-evaluation" {
+  /** Pinned `HandleOrValue`: `{ fn }` registers a value as a page binding by
+   * name instead of copying it (protocol/serializers.ts,
+   * isomorphic/utilityScriptSerializers.ts). */
+  type HandleOrValue =
+    | { h: number }
+    | { fn: string }
+    | { fallThrough: unknown };
   export function serializeValue(
     value: unknown,
-    handleSerializer: (
-      value: unknown
-    ) => { h: number } | { fallThrough: unknown }
+    handleSerializer: (value: unknown) => HandleOrValue
   ): unknown;
   export function parseSerializedValue(
     value: unknown,
@@ -77,9 +82,7 @@ declare module "virtual:playwright-lite-evaluation" {
   ): unknown;
   export function serializeAsCallArgument(
     value: unknown,
-    handleSerializer: (
-      value: unknown
-    ) => { h: number } | { fallThrough: unknown }
+    handleSerializer: (value: unknown) => HandleOrValue
   ): unknown;
   export function parseEvaluationResultValue(
     value: unknown,

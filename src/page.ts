@@ -21,6 +21,7 @@ import {
   validateString,
 } from "./protocolValidation";
 import { AdapterElementHandle } from "./elementHandle";
+import { bindingsFor, type Binding } from "./bindings";
 import {
   NETWORK_EVENTS,
   logLineFor,
@@ -33,7 +34,7 @@ import {
 } from "./network";
 import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
-import type { Locator, Page } from "@playwright/test";
+import type { Disposable, Locator, Page } from "@playwright/test";
 import type { ByRoleOptions, LocatorOptions } from "./locator";
 import { LocatorImpl } from "./locator";
 import {
@@ -310,6 +311,8 @@ export class PageImpl {
   private unobserveNavigation: (() => void) | undefined;
   private unobserveNetwork: (() => void) | undefined;
   private readonly network: ReturnType<typeof networkObservationFor>;
+  /** Pinned server/page.ts `_pageBindings`, shared per window like `network`. */
+  readonly bindings: ReturnType<typeof bindingsFor>;
   /** Pinned server/page.ts keeps the recent requests per page, not per realm. */
   private readonly requestLog: NetworkRequest[] = [];
   /**
@@ -333,6 +336,9 @@ export class PageImpl {
     this.localStorage = new PageWebStorage(this, "local");
     this.sessionStorage = new PageWebStorage(this, "session");
     this.network = networkObservationFor(browserWindow);
+    this.bindings = bindingsFor(browserWindow, this, (value) =>
+      this.evaluation.bindingValue(value)
+    );
     this.startPageErrorCollection();
   }
 
@@ -2496,7 +2502,8 @@ export class PageImpl {
     return this._evaluateExpression(
       pageFunction,
       typeof pageFunction === "function",
-      arg
+      arg,
+      options
     );
   }
 
@@ -2511,8 +2518,43 @@ export class PageImpl {
     return this.evaluation.byHandle(
       pageFunction,
       typeof pageFunction === "function",
-      arg
+      arg,
+      undefined,
+      options
     );
+  }
+
+  /**
+   * Pinned client/page.ts `exposeFunction`: defines `name` on `window`,
+   * forwarding the pinned by-value round trip both ways. This package has no
+   * dispose lifecycle (see `exposeBinding`): the returned `Disposable`'s
+   * `dispose()` never removes it.
+   */
+  async exposeFunction(
+    name: string,
+    callback: (...args: unknown[]) => unknown
+  ): Promise<Disposable> {
+    return this.exposeBinding(name, (_source, ...args) => callback(...args));
+  }
+
+  /**
+   * Pinned client/page.ts `exposeBinding` / server/page.ts `exposeBinding`:
+   * defines `name` on `window` with the pinned duplicate-name error; the
+   * callback receives `{ page, frame: page }` as `source` (no `context`: this
+   * package has no `BrowserContext`).
+   *
+   * This package has no dispose or close lifecycle. The property stays for
+   * the page's lifetime; the returned `Disposable`'s `dispose()` is a no-op,
+   * never invented. Were a removal ever added, it would follow the shared
+   * `WrappedHostFunction` rule: never touch the property if the Site has
+   * since replaced it.
+   */
+  async exposeBinding(name: string, callback: Binding): Promise<Disposable> {
+    this.bindings.expose(name, callback, true);
+    return {
+      dispose: async () => {},
+      [Symbol.asyncDispose]: async () => {},
+    };
   }
 
   /** Evaluates through the pinned Playwright UtilityScript. */
@@ -2562,9 +2604,16 @@ export class PageImpl {
   async _evaluateExpression<R>(
     expression: EvaluationFunction<R>,
     isFunction: boolean,
-    arg?: unknown
+    arg?: unknown,
+    options?: EvaluationOptions
   ): Promise<R> {
-    return this.evaluation.byValue(expression, isFunction, arg);
+    return this.evaluation.byValue(
+      expression,
+      isFunction,
+      arg,
+      undefined,
+      options
+    );
   }
 
   /**
@@ -3221,7 +3270,8 @@ export class PageImpl {
       pageFunction,
       typeof pageFunction === "function",
       arg,
-      await this.locatorEvaluationTarget(selector, label, options)
+      await this.locatorEvaluationTarget(selector, label, options),
+      options
     );
   }
 
@@ -3236,7 +3286,8 @@ export class PageImpl {
       pageFunction,
       typeof pageFunction === "function",
       arg,
-      await this.locatorEvaluationTarget(selector, label, options)
+      await this.locatorEvaluationTarget(selector, label, options),
+      options
     );
   }
 
