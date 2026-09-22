@@ -230,28 +230,23 @@ function captureLocation(): ConsoleMessageLocation {
 }
 
 /**
- * Pinned server/chromium/crExecutionContext.ts `renderPreview`, applied to an
- * argument still living in the document rather than a CDP remote object: a
- * string renders bare, a plain object or array lists its own enumerable
- * entries one level deep, and anything else falls back to the same shallow
- * description `JSHandle.toString()` uses.
+ * A shallow, best-effort stand-in for the pinned CDP object-preview
+ * algorithm: a string renders bare; a plain object or array lists its own
+ * entries one level deep, each through `previewValue`; anything else is
+ * `previewValue` itself. This follows this package's own `JSHandle`
+ * description, not V8's preview (no truncation, no sparse-array markers, no
+ * class-instance member listing).
  */
 function formatConsoleArg(value: unknown): string {
-  if (value === undefined) return "undefined";
-  if (value === null) return "null";
   if (typeof value === "string") return value;
-  if (typeof value !== "object") return previewValue(value);
-  const tag = Object.prototype.toString.call(value).slice(8, -1);
-  if (tag === "Date" || tag === "RegExp" || tag === "Error")
-    return previewValue(value);
-  const nested = (item: unknown) =>
-    typeof item === "object" && item !== null
-      ? previewValue(item)
-      : formatConsoleArg(item);
-  if (Array.isArray(value)) return `[${value.map(nested).join(", ")}]`;
-  if (tag === "Object")
+  if (Array.isArray(value)) return `[${value.map(previewValue).join(", ")}]`;
+  if (
+    value !== null &&
+    typeof value === "object" &&
+    Object.prototype.toString.call(value).slice(8, -1) === "Object"
+  )
     return `{${Object.entries(value as Record<string, unknown>)
-      .map(([key, item]) => `${key}: ${nested(item)}`)
+      .map(([key, item]) => `${key}: ${previewValue(item)}`)
       .join(", ")}}`;
   return previewValue(value);
 }
