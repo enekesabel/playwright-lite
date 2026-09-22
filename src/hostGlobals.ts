@@ -47,11 +47,6 @@ export class WrappedHostFunction<T extends HostFunction> {
     };
   }
 
-  /** The function the wrapper forwards to, for tests and diagnostics. */
-  get installed(): boolean {
-    return this.proxy !== undefined;
-  }
-
   private install() {
     const original = this.holder[this.name] as T;
     this.original = original;
