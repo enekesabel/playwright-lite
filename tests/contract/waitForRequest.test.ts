@@ -4,9 +4,9 @@ import { createPage, type Request } from "../../src/index";
 import { contractUrl, restoreFetch } from "./network";
 
 /**
- * `Request` carries only what the current document can fill. The members
- * Playwright fills from the browser's network layer are absent from the type,
- * so reading one is a compile error rather than invented data.
+ * The exported `Request` type carries only what the current document can fill.
+ * `createPage` still returns Playwright's `Page`, so a script that type-checks
+ * against Playwright type-checks here; annotating with this type is opt-in.
  */
 type AbsentOnRequest = Extract<
   keyof Request,
@@ -26,6 +26,17 @@ describe("Page.waitForRequest", () => {
   it("exposes only the members the document can fill", () => {
     const absent: [AbsentOnRequest] extends [never] ? true : false = true;
     expect(absent).toBe(true);
+  });
+
+  it("keeps Playwright's Page type, so an unfilled member compiles and throws", async () => {
+    const page = createPage();
+    const waiting = page.waitForRequest("**/untyped", { timeout: 5_000 });
+    void window.fetch(contractUrl("./untyped"));
+    const request = await waiting;
+
+    // `timing()` is on Playwright's `Request`, so this type-checks. It is not
+    // implemented here, and reports that the way any missing method does.
+    expect(() => request.timing()).toThrow(TypeError);
   });
 
   it("starts observing fetch on the call, before the document fetches", async () => {

@@ -72,9 +72,11 @@ const networkObservationLimitations =
 /** Consumer-facing description of this package's `Request` and `Response`. */
 export const networkLimitations = `\`page.on("request" | "response" | "requestfinished" | "requestfailed")\`, \`page.waitForRequest()\`, \`page.waitForResponse()\` and \`page.requests()\` report the \`fetch()\` calls the current document makes while you are subscribed. Images, scripts, stylesheets, \`XMLHttpRequest\`, \`navigator.sendBeacon\`, \`WebSocket\`, \`EventSource\`, form submissions and navigations are not reported, and neither are \`fetch()\` calls made by another realm, by an iframe or by a service worker, nor calls that started before the first subscription.
 
-\`Request\` has \`url()\`, \`resourceType()\`, \`method()\`, \`headers()\`, \`headerValue()\`, \`postData()\`, \`postDataBuffer()\`, \`postDataJSON()\`, \`isNavigationRequest()\`, \`failure()\` and \`response()\`. \`allHeaders()\`, \`headersArray()\`, \`frame()\`, \`redirectedFrom()\`, \`redirectedTo()\`, \`serviceWorker()\`, \`sizes()\` and \`timing()\` do not exist on the type.
+\`Request\` has \`url()\`, \`resourceType()\`, \`method()\`, \`headers()\`, \`headerValue()\`, \`postData()\`, \`postDataBuffer()\`, \`postDataJSON()\`, \`isNavigationRequest()\`, \`failure()\` and \`response()\`. \`allHeaders()\`, \`headersArray()\`, \`frame()\`, \`redirectedFrom()\`, \`redirectedTo()\`, \`serviceWorker()\`, \`sizes()\` and \`timing()\` are not implemented and throw a \`TypeError\` when called.
 
-\`Response\` has \`url()\`, \`status()\`, \`statusText()\`, \`ok()\`, \`headers()\`, \`headerValue()\`, \`body()\`, \`text()\`, \`json()\`, \`finished()\` and \`request()\`. \`allHeaders()\`, \`headersArray()\`, \`headerValues()\`, \`frame()\`, \`fromServiceWorker()\`, \`httpVersion()\`, \`securityDetails()\` and \`serverAddr()\` do not exist on the type.
+\`Response\` has \`url()\`, \`status()\`, \`statusText()\`, \`ok()\`, \`headers()\`, \`headerValue()\`, \`body()\`, \`text()\`, \`json()\`, \`finished()\` and \`request()\`. \`allHeaders()\`, \`headersArray()\`, \`headerValues()\`, \`frame()\`, \`fromServiceWorker()\`, \`httpVersion()\`, \`securityDetails()\` and \`serverAddr()\` are not implemented and throw a \`TypeError\` when called.
+
+The package exports \`Request\` and \`Response\` types listing exactly the members above. Annotating a value with one of them is optional: \`createPage()\` returns Playwright's own \`Page\`, so code written against Playwright keeps type-checking here.
 
 The members that do exist differ from Playwright's as follows.
 

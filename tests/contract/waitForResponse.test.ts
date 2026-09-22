@@ -4,8 +4,9 @@ import { createPage, type Response } from "../../src/index";
 import { contractUrl, recordedFetch, restoreFetch } from "./network";
 
 /**
- * `Response` carries only what the current document can fill. The members
- * Playwright fills from the browser's network layer are absent from the type.
+ * The exported `Response` type carries only what the current document can
+ * fill. `createPage` still returns Playwright's `Page`, so annotating with
+ * this type is opt-in.
  */
 type AbsentOnResponse = Extract<
   keyof Response,
@@ -25,6 +26,16 @@ describe("Page.waitForResponse", () => {
   it("exposes only the members the document can fill", () => {
     const absent: [AbsentOnResponse] extends [never] ? true : false = true;
     expect(absent).toBe(true);
+  });
+
+  it("keeps Playwright's Page type, so an unfilled member compiles and throws", async () => {
+    const page = createPage();
+    const waiting = page.waitForResponse("**/untyped", { timeout: 5_000 });
+    void window.fetch(contractUrl("./untyped"));
+    const response = await waiting;
+
+    // `allHeaders()` is on Playwright's `Response`, so this type-checks.
+    expect(() => response.allHeaders()).toThrow(TypeError);
   });
 
   it("resolves with the response the document received", async () => {
