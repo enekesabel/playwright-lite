@@ -7,7 +7,13 @@ import {
   restoreURL,
   swallowWindowErrors,
 } from "./pageEvents";
-import { contractUrl, networkPages, restoreFetch } from "./network";
+import {
+  assetUrl,
+  contractUrl,
+  networkPages,
+  restoreFetch,
+  sendXhr,
+} from "./network";
 
 swallowWindowErrors();
 restoreURL();
@@ -245,5 +251,167 @@ describe("Page.on", () => {
       errorText: expect.stringContaining("TypeError"),
     });
     expect(await request.response()).toBe(null);
+  });
+
+  // ── XMLHttpRequest ──────────────────────────────────────────────
+
+  it("reports an XMLHttpRequest as request, response and requestfinished in the pinned order", async () => {
+    const page = networkPage();
+    const url = assetUrl("?xhr-ordered");
+    const events: string[] = [];
+    const record = (name: string) => (target: { url(): string }) => {
+      if (target.url() === url) events.push(name);
+    };
+    page.on("request", record("request"));
+    page.on("response", record("response"));
+    page.on("requestfinished", record("requestfinished"));
+    const finished = page.waitForEvent("requestfinished", {
+      predicate: (request) => request.url() === url,
+      timeout: 5_000,
+    });
+
+    const { ended } = sendXhr(url);
+    expect(await ended).toBe("load");
+    await finished;
+
+    expect(events).toEqual(["request", "response", "requestfinished"]);
+  });
+
+  it("reports an XMLHttpRequest with the fields the document can fill", async () => {
+    const page = networkPage();
+    const waiting = page.waitForEvent("request", { timeout: 5_000 });
+    sendXhr(`${assetUrl("?xhr-fields")}#fragment`, {
+      method: "post",
+      headers: [
+        ["x-contract", "yes"],
+        ["x-repeated", "one"],
+        ["x-repeated", "two"],
+        // The browser drops this forbidden name without an error.
+        ["cookie", "never-sent=1"],
+      ],
+      body: "hello",
+    });
+    const request = await waiting;
+
+    expect(request.url()).toBe(assetUrl("?xhr-fields"));
+    expect(request.resourceType()).toBe("xhr");
+    // `open` was given "post"; XMLHttpRequest uppercases the known methods.
+    expect(request.method()).toBe("POST");
+    expect(request.isNavigationRequest()).toBe(false);
+    expect(request.headers()["x-contract"]).toBe("yes");
+    // Per XMLHttpRequest, a repeated name appends instead of replacing.
+    expect(request.headers()["x-repeated"]).toBe("one, two");
+    expect(await request.headerValue("X-Contract")).toBe("yes");
+    expect(request.headers()).not.toHaveProperty("cookie");
+    expect(request.failure()).toBe(null);
+    expect(request.postData()).toBe("hello");
+  });
+
+  it("reports a failed XMLHttpRequest as requestfailed with Playwright's failure shape", async () => {
+    const page = networkPage();
+    const failed = page.waitForEvent("requestfailed", { timeout: 5_000 });
+    const { ended } = sendXhr("http://localhost:1/unreachable");
+    expect(await ended).toBe("error");
+    const request = await failed;
+
+    expect(request.failure()).toEqual({ errorText: "XMLHttpRequest: error" });
+    expect(await request.response()).toBe(null);
+  });
+
+  it("reports an aborted XMLHttpRequest as requestfailed", async () => {
+    const page = networkPage();
+    const failed = page.waitForEvent("requestfailed", { timeout: 5_000 });
+    const { xhr, ended } = sendXhr(assetUrl("?xhr-aborted"));
+    xhr.abort();
+    expect(await ended).toBe("abort");
+
+    expect((await failed).failure()).toEqual({
+      errorText: "XMLHttpRequest: abort",
+    });
+  });
+
+  it("reports an XMLHttpRequest opened again while in flight as aborted", async () => {
+    const page = networkPage();
+    const first = assetUrl("?xhr-reopened-first");
+    const second = assetUrl("?xhr-reopened-second");
+    const events: string[] = [];
+    const record = (event: string) => (request: { url(): string }) => {
+      const query = new URL(request.url()).search;
+      if (query.startsWith("?xhr-reopened")) events.push(`${event}:${query}`);
+    };
+    page.on("request", record("request"));
+    page.on("requestfinished", record("requestfinished"));
+    page.on("requestfailed", record("requestfailed"));
+    const finished = page.waitForEvent("requestfinished", {
+      predicate: (request) => request.url() === second,
+      timeout: 5_000,
+    });
+
+    const xhr = new XMLHttpRequest();
+    const ended = new Promise((resolve) =>
+      xhr.addEventListener("loadend", resolve)
+    );
+    xhr.open("GET", first);
+    xhr.send();
+    xhr.open("GET", second);
+    xhr.send();
+    await ended;
+    await finished;
+
+    expect(events).toEqual([
+      "request:?xhr-reopened-first",
+      "requestfailed:?xhr-reopened-first",
+      "request:?xhr-reopened-second",
+      "requestfinished:?xhr-reopened-second",
+    ]);
+  });
+
+  it("reports an XMLHttpRequest the document opens again once it is done as finished", async () => {
+    const page = networkPage();
+    const url = assetUrl("?xhr-polled");
+    const events: string[] = [];
+    page.on("requestfinished", (request) => {
+      if (request.url() === url) events.push("requestfinished");
+    });
+    page.on("requestfailed", (request) => {
+      if (request.url() === url) events.push("requestfailed");
+    });
+
+    const xhr = new XMLHttpRequest();
+    // This handler runs before the observation sees DONE.
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState === xhr.DONE)
+        xhr.open("GET", assetUrl("?xhr-polled-again"));
+    };
+    xhr.open("GET", url);
+    xhr.send();
+    await expect.poll(() => events).toEqual(["requestfinished"]);
+  });
+
+  it("reports nothing for a send the platform rejects", () => {
+    const page = networkPage();
+    const seen: unknown[] = [];
+    page.on("request", (request) => seen.push(request));
+
+    // `send` before `open` is the platform's InvalidStateError, and the
+    // wrapper must let it through without reporting a request.
+    expect(() => new XMLHttpRequest().send()).toThrow(DOMException);
+    expect(seen).toEqual([]);
+  });
+
+  it("reports nothing for an XMLHttpRequest opened before the first listener", async () => {
+    const page = networkPage();
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", assetUrl("?xhr-early"));
+    const seen: string[] = [];
+    page.on("request", (request) => seen.push(request.url()));
+
+    const ended = new Promise((resolve) =>
+      xhr.addEventListener("loadend", resolve)
+    );
+    xhr.send();
+    await ended;
+
+    expect(seen).toEqual([]);
   });
 });

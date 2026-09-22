@@ -1,8 +1,8 @@
 import { WrappedHostFunction } from "./hostGlobals";
 
 /**
- * The `fetch` calls the controlled document makes, reported with Playwright's
- * `Request`/`Response` surface.
+ * The `fetch` and `XMLHttpRequest` calls the controlled document makes,
+ * reported with Playwright's `Request`/`Response` surface.
  *
  * `Request` and `Response` carry only the members the current document can
  * fill from the Fetch API. Playwright fills the rest from the browser's
@@ -15,6 +15,32 @@ type NativeResponse = globalThis.Response;
 type NativeFetch = typeof globalThis.fetch;
 type NativeRequestInfo = Parameters<NativeFetch>[0];
 type NativeRequestInit = Parameters<NativeFetch>[1];
+type XhrOpen = typeof XMLHttpRequest.prototype.open;
+type XhrSetRequestHeader = typeof XMLHttpRequest.prototype.setRequestHeader;
+type XhrSend = typeof XMLHttpRequest.prototype.send;
+
+/** What `open` recorded, until `send` turns it into an observed request. */
+type OpenedXhr = {
+  method: string;
+  url: string;
+  /** What `setRequestHeader` accepted, before the browser filtered it. */
+  headers: Headers;
+  /** Set once `send` reported the request this record describes. */
+  sent?: SentXhr;
+};
+
+/**
+ * Ends a reported request when its `XMLHttpRequest` is opened again. The
+ * document's own `load` handler usually runs before this observation's
+ * listener and may open the `XMLHttpRequest` for the next request, which
+ * discards the body, so the request is settled from its state at that moment.
+ */
+type SentXhr = {
+  /** Called before `open` runs: reports an end whose event was not seen yet. */
+  settleIfDone(): void;
+  /** Called after `open` succeeded, which cancelled a request in flight. */
+  cancel(): void;
+};
 
 /** Pinned client/events.ts Page events this observation emits. */
 export const NETWORK_EVENTS = [
@@ -32,17 +58,20 @@ const REQUEST_LOG_LIMIT = 100;
 export interface Request {
   /** The request URL, with the fragment stripped as the pinned server does. */
   url(): string;
-  /** Always `"fetch"`: this observation sees `fetch` calls by construction. */
+  /** `"fetch"` or `"xhr"`: this observation sees only those two, by construction. */
   resourceType(): string;
   method(): string;
-  /** The author-set request headers, as `Request.headers` reports them. */
+  /**
+   * The request headers the caller set: `Request.headers` for a `fetch` call,
+   * `setRequestHeader` for an `XMLHttpRequest`.
+   */
   headers(): Record<string, string>;
   /** Reads `headers()`; a page never sees the headers that went on the wire. */
   headerValue(name: string): Promise<string | null>;
   postData(): string | null;
   postDataBuffer(): Uint8Array | null;
   postDataJSON(): unknown;
-  /** Always `false`: a `fetch` call never navigates the document. */
+  /** Always `false`: neither a `fetch` nor an XHR navigates the document. */
   isNavigationRequest(): boolean;
   failure(): { errorText: string } | null;
   /** Resolves with the response, or `null` once the request has failed. */
@@ -86,6 +115,46 @@ function stripFragmentFromUrl(url: string): string {
   return url.substring(0, url.indexOf("#"));
 }
 
+/** `XMLHttpRequest.open` uppercases these method names before they go out. */
+function normalizeXhrMethod(method: string): string {
+  return /^(delete|get|head|options|post|put)$/i.test(method)
+    ? method.toUpperCase()
+    : method;
+}
+
+/** Parses `getAllResponseHeaders()`, whose names the browser has lowercased. */
+function parseRawHeaders(raw: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+  for (const line of raw.split("\r\n")) {
+    const separator = line.indexOf(":");
+    if (separator < 0) continue;
+    headers[line.slice(0, separator).trim().toLowerCase()] = line
+      .slice(separator + 1)
+      .trim();
+  }
+  return headers;
+}
+
+/**
+ * The bytes an `XMLHttpRequest` kept. A `responseType` of `"json"` or
+ * `"document"` leaves only the value the browser parsed from the body, so the
+ * body itself is gone and reading it reports that instead of inventing bytes.
+ */
+async function xhrResponseBody(xhr: XMLHttpRequest): Promise<Uint8Array> {
+  if (xhr.responseType === "json" || xhr.responseType === "document")
+    throw new Error(
+      `Response body is not available: the request set responseType "${xhr.responseType}".`
+    );
+  const body: unknown = xhr.response;
+  if (typeof body === "string") return new TextEncoder().encode(body);
+  if (body === null) return new Uint8Array();
+  if (body instanceof ArrayBuffer) return new Uint8Array(body);
+  if (body instanceof Blob) return new Uint8Array(await body.arrayBuffer());
+  throw new Error(
+    `Response body is not available: the request set responseType "${xhr.responseType}".`
+  );
+}
+
 function headersObject(headers: Headers): Record<string, string> {
   const result: Record<string, string> = {};
   headers.forEach((value, name) => {
@@ -95,11 +164,12 @@ function headersObject(headers: Headers): Record<string, string> {
 }
 
 /**
- * The request body, in the forms the caller can hand over synchronously.
- * `postData()` answers without waiting, as the pinned client's does, and the
- * call must be forwarded in the same turn; a `Blob`, `FormData` or
- * `ReadableStream` body, and a body carried by a `Request` argument, can only
- * be read asynchronously, so those report `null`.
+ * The request body a `fetch` init or an `XMLHttpRequest.send` argument
+ * carries, in the forms the caller can hand over synchronously. `postData()`
+ * answers without waiting, as the pinned client's does, and the call must be
+ * forwarded in the same turn; a `Blob`, `FormData` or `ReadableStream` body,
+ * and a body carried by a `Request` argument, can only be read
+ * asynchronously, so those report `null`.
  */
 function readableBody(body: unknown): Uint8Array | null {
   if (typeof body === "string") return new TextEncoder().encode(body);
@@ -113,50 +183,50 @@ function readableBody(body: unknown): Uint8Array | null {
   return null;
 }
 
+/** What a `fetch` call or an `XMLHttpRequest` reports about its request. */
+type ObservedRequestInit = {
+  url: string;
+  method: string;
+  /** The headers the caller set, lowercased. */
+  headers: Record<string, string>;
+  resourceType: "fetch" | "xhr";
+  postData: Uint8Array | null;
+};
+
 class ObservedRequest implements Request {
-  private readonly _url: string;
-  private readonly _method: string;
-  private readonly _headers: Record<string, string>;
   private readonly _response = deferred<Response | null>();
   private _failureText: string | null = null;
 
-  constructor(
-    request: NativeRequest,
-    private readonly _postData: Uint8Array | null
-  ) {
-    this._url = stripFragmentFromUrl(request.url);
-    this._method = request.method;
-    this._headers = headersObject(request.headers);
-  }
+  constructor(private readonly _init: ObservedRequestInit) {}
 
   url() {
-    return this._url;
+    return stripFragmentFromUrl(this._init.url);
   }
 
   resourceType() {
-    return "fetch";
+    return this._init.resourceType;
   }
 
   method() {
-    return this._method;
+    return this._init.method;
   }
 
   headers() {
-    return { ...this._headers };
+    return { ...this._init.headers };
   }
 
   async headerValue(name: string) {
-    return this._headers[name.toLowerCase()] ?? null;
+    return this._init.headers[name.toLowerCase()] ?? null;
   }
 
   postData() {
-    return this._postData === null
+    return this._init.postData === null
       ? null
-      : new TextDecoder().decode(this._postData);
+      : new TextDecoder().decode(this._init.postData);
   }
 
   postDataBuffer() {
-    return this._postData;
+    return this._init.postData;
   }
 
   /** Pinned client/network.ts Request.postDataJSON. */
@@ -199,52 +269,56 @@ class ObservedRequest implements Request {
   }
 }
 
+/** What a `fetch` response or an `XMLHttpRequest` reports about its answer. */
+type ObservedResponseInit = {
+  url: string;
+  status: number;
+  statusText: string;
+  /** The response headers the browser exposed to this document, lowercased. */
+  headers: Record<string, string>;
+  /** Reads the response body. Called at most once, and only on demand. */
+  readBody: () => Promise<Uint8Array>;
+};
+
 class ObservedResponse implements Response {
-  private readonly _headers: Record<string, string>;
   private readonly _finished = deferred<null>();
   private _body: Promise<Uint8Array> | undefined;
 
   constructor(
     private readonly _request: ObservedRequest,
-    private readonly _response: NativeResponse,
-    /** A clone taken before the document could consume the body. */
-    private readonly _recording: NativeResponse
-  ) {
-    this._headers = headersObject(_response.headers);
-  }
+    private readonly _init: ObservedResponseInit
+  ) {}
 
   url() {
-    return this._response.url;
+    return this._init.url;
   }
 
   status() {
-    return this._response.status;
+    return this._init.status;
   }
 
   statusText() {
-    return this._response.statusText;
+    return this._init.statusText;
   }
 
   /** Pinned client/network.ts Response.ok, which also counts status 0. */
   ok() {
     return (
-      this._response.status === 0 ||
-      (this._response.status >= 200 && this._response.status <= 299)
+      this._init.status === 0 ||
+      (this._init.status >= 200 && this._init.status <= 299)
     );
   }
 
   headers() {
-    return { ...this._headers };
+    return { ...this._init.headers };
   }
 
   async headerValue(name: string) {
-    return this._headers[name.toLowerCase()] ?? null;
+    return this._init.headers[name.toLowerCase()] ?? null;
   }
 
   async body(): Promise<Uint8Array> {
-    this._body ??= this._recording
-      .arrayBuffer()
-      .then((buffer) => new Uint8Array(buffer));
+    this._body ??= this._init.readBody();
     return await this._body;
   }
 
@@ -264,13 +338,8 @@ class ObservedResponse implements Response {
     return this._request;
   }
 
-  /**
-   * Reads the recorded branch to its end. The document holds the other branch,
-   * so an unread recording would buffer the whole body indefinitely, and
-   * reading it is also the only way to learn when the body ended.
-   */
-  async recordBody(): Promise<void> {
-    await this.body();
+  /** Reports that the body has ended, which is what `finished()` waits for. */
+  markFinished(): void {
     this._finished.resolve(null);
   }
 }
@@ -278,10 +347,10 @@ class ObservedResponse implements Response {
 const observations = new WeakMap<Window, NetworkObservation>();
 
 /**
- * The one observation of a window's `fetch`. Every `Page` created for the same
- * window shares it: a second wrapper would wrap the first one's proxy, and
- * unsubscribing in the order they were installed would then leave that proxy
- * behind for good.
+ * The one observation of a window's `fetch` and `XMLHttpRequest`. Every `Page`
+ * created for the same window shares it: a second wrapper would wrap the first
+ * one's proxy, and unsubscribing in the order they were installed would then
+ * leave that proxy behind for good.
  */
 export function networkObservationFor(
   browserWindow: Window & typeof globalThis
@@ -296,32 +365,58 @@ export function networkObservationFor(
 }
 
 /**
- * Reports the `fetch` calls the document makes as Playwright's four network
- * events, for as long as something is subscribed.
+ * Reports the `fetch` and `XMLHttpRequest` calls the document makes as
+ * Playwright's four network events, for as long as something is subscribed.
  *
  * Playwright observes requests in the browser process, so it sees every
- * resource and every realm. This observation replaces `window.fetch`, so it
- * sees this realm's `fetch` calls made after the wrapper was installed, and
- * nothing else. The call is intercepted once and reported to every subscriber.
+ * resource and every realm. This observation replaces `window.fetch` and
+ * `XMLHttpRequest.prototype.open`, `setRequestHeader` and `send`, so it sees
+ * this realm's `fetch` calls made after the wrappers were installed and its
+ * `XMLHttpRequest`s opened after that, and nothing else. A call is intercepted
+ * once and reported to every subscriber.
  */
 export class NetworkObservation {
-  private readonly wrapper: WrappedHostFunction<NativeFetch>;
+  /**
+   * The host functions this observation replaces. They are installed and
+   * restored together, so one subscription is one decision about the document.
+   */
+  private readonly wrappers: readonly { subscribe(): () => void }[];
   /** How many live subscriptions each subscriber holds, so one release of a
    * `Page` that subscribed twice does not stop reporting to it. */
   private readonly subscribers = new Map<Emit, number>();
+  /** What `open` recorded for an `XMLHttpRequest` this observation saw. */
+  private readonly openedRequests = new WeakMap<XMLHttpRequest, OpenedXhr>();
 
   constructor(private readonly window: Window & typeof globalThis) {
-    this.wrapper = new WrappedHostFunction(
-      window as unknown as Record<string, unknown>,
-      "fetch",
-      (original, thisArg, args) => this.observe(original, thisArg, args)
-    );
+    const xhr = window.XMLHttpRequest.prototype as unknown as Record<
+      string,
+      unknown
+    >;
+    this.wrappers = [
+      new WrappedHostFunction<NativeFetch>(
+        window as unknown as Record<string, unknown>,
+        "fetch",
+        (original, thisArg, args) => this.observeFetch(original, thisArg, args)
+      ),
+      new WrappedHostFunction<XhrOpen>(xhr, "open", (original, thisArg, args) =>
+        this.observeOpen(original, thisArg, args)
+      ),
+      new WrappedHostFunction<XhrSetRequestHeader>(
+        xhr,
+        "setRequestHeader",
+        (original, thisArg, args) =>
+          this.observeSetRequestHeader(original, thisArg, args)
+      ),
+      new WrappedHostFunction<XhrSend>(xhr, "send", (original, thisArg, args) =>
+        this.observeSend(original, thisArg, args)
+      ),
+    ];
   }
 
   /** Reports to `emit` until the returned release is called. */
   subscribe(emit: Emit): () => void {
     this.subscribers.set(emit, (this.subscribers.get(emit) ?? 0) + 1);
-    const release = this.wrapper.subscribe();
+    const releases = this.wrappers.map((wrapper) => wrapper.subscribe());
     let released = false;
     return () => {
       if (released) return;
@@ -329,7 +424,7 @@ export class NetworkObservation {
       const held = (this.subscribers.get(emit) ?? 1) - 1;
       if (held > 0) this.subscribers.set(emit, held);
       else this.subscribers.delete(emit);
-      release();
+      for (const release of releases) release();
     };
   }
 
@@ -338,7 +433,7 @@ export class NetworkObservation {
       subscriber(event, payload);
   }
 
-  private observe(
+  private observeFetch(
     original: NativeFetch,
     thisArg: unknown,
     args: unknown[]
@@ -366,7 +461,13 @@ export class NetworkObservation {
       request,
     ]) as Promise<NativeResponse>;
 
-    const observed = new ObservedRequest(request, postData);
+    const observed = new ObservedRequest({
+      url: request.url,
+      method: request.method,
+      headers: headersObject(request.headers),
+      resourceType: "fetch",
+      postData,
+    });
     this.emit("request", observed);
     void this.follow(observed, result);
     return result;
@@ -381,7 +482,14 @@ export class NetworkObservation {
       const native = await result;
       // Clone before the document can consume the body: the clone tees the
       // stream, so both branches still carry the whole body.
-      response = new ObservedResponse(request, native, native.clone());
+      const recording = native.clone();
+      response = new ObservedResponse(request, {
+        url: native.url,
+        status: native.status,
+        statusText: native.statusText,
+        headers: headersObject(native.headers),
+        readBody: async () => new Uint8Array(await recording.arrayBuffer()),
+      });
     } catch (error) {
       request.setFailure(failureText(error));
       this.emit("requestfailed", request);
@@ -389,14 +497,172 @@ export class NetworkObservation {
     }
     request.setResponse(response);
     this.emit("response", response);
+    // Read the recording to its end: an unread one would buffer the body
+    // indefinitely, and reading it is the only way to learn when it ended.
     try {
-      await response.recordBody();
+      await response.body();
+      response.markFinished();
     } catch (error) {
       request.setFailure(failureText(error));
       this.emit("requestfailed", request);
       return;
     }
     this.emit("requestfinished", request);
+  }
+
+  /**
+   * Records what `open` accepted. Once the original has returned, the receiver
+   * is an `XMLHttpRequest` and the URL resolves against the document base;
+   * `open` has just discarded the headers set before it, which is why the
+   * record starts with none.
+   */
+  private observeOpen(
+    original: XhrOpen,
+    thisArg: unknown,
+    args: unknown[]
+  ): unknown {
+    const previous = this.openedRequests.get(thisArg as XMLHttpRequest)?.sent;
+    previous?.settleIfDone();
+    const result = Reflect.apply(original, thisArg, args);
+    previous?.cancel();
+    this.openedRequests.set(thisArg as XMLHttpRequest, {
+      method: normalizeXhrMethod(String(args[0])),
+      url: new URL(String(args[1]), this.window.document.baseURI).href,
+      headers: new this.window.Headers(),
+    });
+    return result;
+  }
+
+  /** Records a header the original accepted, for `Request.headers`. */
+  private observeSetRequestHeader(
+    original: XhrSetRequestHeader,
+    thisArg: unknown,
+    args: unknown[]
+  ): unknown {
+    const result = Reflect.apply(original, thisArg, args);
+    this.openedRequests
+      .get(thisArg as XMLHttpRequest)
+      ?.headers.append(String(args[0]), String(args[1]));
+    return result;
+  }
+
+  /**
+   * Reports the request this `send` starts and the events it produces.
+   *
+   * The `request` event is emitted before the original runs: a synchronous
+   * `XMLHttpRequest` delivers its `load` while `send` is still on the stack,
+   * so waiting for the original to return would report the response first.
+   *
+   * A `send` the platform is about to reject with `InvalidStateError`, and one
+   * on an `XMLHttpRequest` opened before the wrappers were installed, is
+   * forwarded untouched and reports nothing, so a call that never starts a
+   * request leaves nothing of this observation behind.
+   */
+  private observeSend(
+    original: XhrSend,
+    thisArg: unknown,
+    args: unknown[]
+  ): unknown {
+    const opened = this.openedRequests.get(thisArg as XMLHttpRequest);
+    const xhr = thisArg as XMLHttpRequest;
+    if (!opened || opened.sent || xhr.readyState !== xhr.OPENED)
+      return Reflect.apply(original, thisArg, args);
+
+    const request = new ObservedRequest({
+      url: opened.url,
+      method: opened.method,
+      // The browser drops forbidden names such as `Cookie` from what is sent,
+      // and a Request applies the same filter and joins repeated names.
+      headers: headersObject(
+        new this.window.Request(this.window.document.baseURI, {
+          method: opened.method,
+          headers: opened.headers,
+        }).headers
+      ),
+      resourceType: "xhr",
+      // `send` ignores its body for GET and HEAD, so nothing is sent.
+      postData:
+        opened.method === "GET" || opened.method === "HEAD"
+          ? null
+          : readableBody(args[0]),
+    });
+    let response: ObservedResponse | undefined;
+    let ended = false;
+    // `xhr.response` holds a partial body until the request is done, and the
+    // next `open` discards it, so the body is taken once when it is done, as
+    // fetch buffers its own. Reading waits for that, and rejects once the
+    // request failed.
+    const body = Promise.withResolvers<Uint8Array>();
+    body.promise.catch(() => {});
+    const respond = (): ObservedResponse => {
+      if (!response) {
+        response = new ObservedResponse(request, {
+          url: xhr.responseURL,
+          status: xhr.status,
+          statusText: xhr.statusText,
+          headers: parseRawHeaders(xhr.getAllResponseHeaders()),
+          readBody: () => body.promise,
+        });
+        request.setResponse(response);
+        this.emit("response", response);
+      }
+      return response;
+    };
+    // Each send's listeners are removed once its request has ended, so a
+    // reused XMLHttpRequest does not collect them.
+    const listeners = new AbortController();
+    const fail = (errorText: string) => {
+      if (ended) return;
+      ended = true;
+      listeners.abort();
+      body.reject(new Error(errorText));
+      request.setFailure(errorText);
+      this.emit("requestfailed", request);
+    };
+    const finish = () => {
+      if (ended) return;
+      ended = true;
+      listeners.abort();
+      body.resolve(xhrResponseBody(xhr));
+      // A synchronous XMLHttpRequest reports no HEADERS_RECEIVED state, so its
+      // response is reported here, still before the request has finished.
+      respond().markFinished();
+      this.emit("requestfinished", request);
+    };
+    opened.sent = {
+      // A network error and a timeout both end with status 0, and only the
+      // event not dispatched yet would tell them apart.
+      settleIfDone: () => {
+        if (xhr.readyState !== xhr.DONE) return;
+        if (xhr.status === 0) fail("XMLHttpRequest: error");
+        else finish();
+      },
+      cancel: () => fail("XMLHttpRequest: abort"),
+    };
+    const { signal } = listeners;
+    xhr.addEventListener(
+      "readystatechange",
+      () => {
+        if (xhr.readyState === xhr.HEADERS_RECEIVED) respond();
+        // DONE comes before `load`, whose handlers commonly open the
+        // XMLHttpRequest again; status 0 is a failure, told by its own event.
+        if (xhr.readyState === xhr.DONE && xhr.status !== 0) finish();
+      },
+      { signal }
+    );
+    xhr.addEventListener("load", finish, { signal });
+    for (const event of ["error", "timeout", "abort"] as const)
+      xhr.addEventListener(event, () => fail(`XMLHttpRequest: ${event}`), {
+        signal,
+      });
+
+    this.emit("request", request);
+    try {
+      return Reflect.apply(original, thisArg, args);
+    } catch (error) {
+      fail(failureText(error));
+      throw error;
+    }
   }
 }
 
@@ -453,7 +719,9 @@ function trimStringWithEllipsis(input: string, cap: number): string {
 /**
  * Playwright's `failure().errorText` is the browser's `net::ERR_*` code. A
  * page only sees what `fetch` rejected with: a `TypeError` whose message the
- * browser chooses, or the reason an `AbortSignal` carried.
+ * browser chooses, or the reason an `AbortSignal` carried. An
+ * `XMLHttpRequest` carries no error at all, so it reports the name of the
+ * event that ended it instead.
  */
 function failureText(error: unknown): string {
   return error instanceof Error
