@@ -337,6 +337,16 @@ export class PageImpl {
    * never released: a console log nobody observes cannot be filled later.
    */
   private retainedConsoleMessages: (() => void) | undefined;
+  /**
+   * `consoleMessages()` and the `console` listener path each call
+   * `subscribeToConsole()`, both of which must feed the same buffer and the
+   * same listeners. This counts how many of this page's own callers hold a
+   * subscription, so the underlying `consoleObservation.subscribe()` call
+   * happens once and its one reporting closure is shared, rather than each
+   * caller installing (and reporting through) its own.
+   */
+  private consoleSubscribers = 0;
+  private releaseConsoleSubscription: (() => void) | undefined;
 
   constructor(
     browserWindow: Window & typeof globalThis,
@@ -1723,25 +1733,41 @@ export class PageImpl {
   }
 
   /**
-   * Reports the window's `console.*` calls on this page while the
-   * subscription lives. The observation is shared by every `Page` of this
-   * window; the message (and its `JSHandle` arguments) is built per page, so
-   * `args()` holds this page's handles and `page()` returns this page.
+   * Reports the window's `console.*` calls on this page while at least one
+   * of this page's own callers (a `console` listener, `consoleMessages()`)
+   * still holds the subscription this returns. The observation is shared by
+   * every `Page` of this window, so the call is intercepted once; this page
+   * installs its own single reporting closure on the first caller and shares
+   * it with every later one, so one `console.*` call fills the buffer and
+   * fires the event exactly once, however many of this page's callers are
+   * holding a subscription at the time.
    */
   private subscribeToConsole(): () => void {
-    return this.consoleObservation.subscribe((call: ConsoleCall) => {
-      const message = new ObservedConsoleMessage(
-        this as unknown as Page,
-        call.type,
-        call.args.map((arg) => this.evaluation.handleFor(arg)),
-        call.text,
-        call.location,
-        call.timestamp
+    if (this.consoleSubscribers++ === 0)
+      this.releaseConsoleSubscription = this.consoleObservation.subscribe(
+        (call: ConsoleCall) => {
+          const message = new ObservedConsoleMessage(
+            this as unknown as Page,
+            call.type,
+            call.args.map((arg) => this.evaluation.handleFor(arg)),
+            call.text,
+            call.location,
+            call.timestamp
+          );
+          this.consoleMessagesBuffer.push(message);
+          ensureArrayLimit(this.consoleMessagesBuffer, CONSOLE_MESSAGE_LIMIT);
+          this.emit(CONSOLE_EVENT, message);
+        }
       );
-      this.consoleMessagesBuffer.push(message);
-      ensureArrayLimit(this.consoleMessagesBuffer, CONSOLE_MESSAGE_LIMIT);
-      this.emit(CONSOLE_EVENT, message);
-    });
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      if (--this.consoleSubscribers === 0) {
+        this.releaseConsoleSubscription?.();
+        this.releaseConsoleSubscription = undefined;
+      }
+    };
   }
 
   private async waitForPageEvent(

@@ -63,6 +63,19 @@ describe("Page.consoleMessages", () => {
     ).rejects.toThrow("filter: expected one of (all|since-navigation)");
   });
 
+  it("buffers and emits a call once, whether or not a console listener is also subscribed", async () => {
+    const page = createPage();
+    await page.consoleMessages();
+    const seen: string[] = [];
+    page.on("console", (m) => seen.push(m.text()));
+
+    console.log("once");
+
+    const messages = await page.consoleMessages();
+    expect(messages.map((m) => m.text())).toEqual(["once"]);
+    expect(seen).toEqual(["once"]);
+  });
+
   it("never observes a browser-generated console entry, such as a failed resource load", async () => {
     const page = createPage();
     await page.consoleMessages();
