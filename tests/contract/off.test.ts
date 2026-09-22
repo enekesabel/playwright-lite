@@ -10,24 +10,26 @@ const report = (error: unknown) =>
   window.dispatchEvent(new ErrorEvent("error", { error }));
 
 describe("Page.off", () => {
-  it("stops listening to the window with the last pageerror listener", () => {
+  it("keeps the window pageerror listeners registered from page creation, independent of subscription", () => {
     const added = vi.spyOn(window, "addEventListener");
-    const removed = vi.spyOn(window, "removeEventListener");
+    const page = createPage();
     const types = (spy: typeof added) =>
       spy.mock.calls.map(([type]) => type).sort();
-    const page = createPage();
+    expect(types(added)).toEqual(["error", "unhandledrejection"]);
+
+    const removed = vi.spyOn(window, "removeEventListener");
     const first = vi.fn();
     const second = vi.fn();
 
     page.on("load", () => {});
-    expect(added).not.toHaveBeenCalled();
-
     page.on("pageerror", first).on("pageerror", second);
-    expect(types(added)).toEqual(["error", "unhandledrejection"]);
+    // Subscribing never re-registers: the window listeners already exist.
+    expect(added).toHaveBeenCalledTimes(2);
+
     page.off("pageerror", first);
-    expect(removed).not.toHaveBeenCalled();
     page.off("pageerror", second);
-    expect(types(removed)).toEqual(["error", "unhandledrejection"]);
+    // No dispose exists to remove them on, so they stay registered.
+    expect(removed).not.toHaveBeenCalled();
 
     report(new Error("after"));
     expect(first).not.toHaveBeenCalled();

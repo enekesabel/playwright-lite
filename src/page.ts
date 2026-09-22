@@ -307,7 +307,6 @@ export class PageImpl {
   private defaultNavigationTimeout: number | undefined;
   private readonly listeners = new Map<string, ListenerEntry[]>();
   private readonly pendingListeners = new Map<string, Set<PendingListener>>();
-  private unobservePageErrors: (() => void) | undefined;
   private unobserveNavigation: (() => void) | undefined;
   private unobserveNetwork: (() => void) | undefined;
   private readonly network: ReturnType<typeof networkObservationFor>;
@@ -321,6 +320,7 @@ export class PageImpl {
   private retainedNetwork: (() => void) | undefined;
   private readonly documentObservers = new Set<() => void>();
   private unobserveDocument: (() => void) | undefined;
+  private readonly pageErrorsBuffer: Error[] = [];
 
   constructor(
     browserWindow: Window & typeof globalThis,
@@ -333,6 +333,7 @@ export class PageImpl {
     this.localStorage = new PageWebStorage(this, "local");
     this.sessionStorage = new PageWebStorage(this, "session");
     this.network = networkObservationFor(browserWindow);
+    this.startPageErrorCollection();
   }
 
   private get injected() {
@@ -1815,16 +1816,12 @@ export class PageImpl {
   }
 
   /**
-   * Every event Playwright pushes from the browser process is observed here
-   * on the host only while a listener for it exists, so the page leaves no
-   * trace once it is unsubscribed.
+   * `framenavigated` is observed on the host only while a listener for it
+   * exists, so the page leaves no trace once it is unsubscribed. Page errors
+   * are collected from page creation regardless of `pageerror` subscribers;
+   * see `startPageErrorCollection`.
    */
   private observeHost() {
-    this.unobservePageErrors = this.observeWhileListened(
-      "pageerror",
-      this.unobservePageErrors,
-      () => this.observePageErrors()
-    );
     this.unobserveNavigation = this.observeWhileListened(
       "framenavigated",
       this.unobserveNavigation,
@@ -1868,20 +1865,32 @@ export class PageImpl {
   }
 
   /**
-   * Playwright receives page errors from the browser process; here they come
-   * from `window` `error` and `unhandledrejection` events.
+   * Pinned server/page.ts registers its `error`/`unhandledrejection`
+   * listeners for the page's whole lifetime, not only while a `pageerror`
+   * consumer is subscribed: `pageErrors()` must see errors raised before any
+   * listener existed. These are page-scoped `window` listeners, not a patch
+   * of a host global, so the last-resort rule for patching globals does not
+   * apply. This package has no `Page` dispose/close lifecycle yet (see
+   * `close` in the ledger), so there is nothing to remove them on; they live
+   * for the window's lifetime, same as the page itself.
    */
-  private observePageErrors(): () => void {
+  private startPageErrorCollection(): void {
     const onError = (event: ErrorEvent) =>
-      this.emit("pageerror", pageError(event.error));
+      this.addPageError(pageError(event.error));
     const onRejection = (event: PromiseRejectionEvent) =>
-      this.emit("pageerror", pageError(event.reason));
+      this.addPageError(pageError(event.reason));
     this.window.addEventListener("error", onError);
     this.window.addEventListener("unhandledrejection", onRejection);
-    return () => {
-      this.window.removeEventListener("error", onError);
-      this.window.removeEventListener("unhandledrejection", onRejection);
-    };
+  }
+
+  /**
+   * Pinned server/page.ts `_addPageError`: push, then trim to the pinned
+   * limit, then emit. `emit` is a no-op without `pageerror` subscribers.
+   */
+  private addPageError(error: Error): void {
+    this.pageErrorsBuffer.push(error);
+    ensureArrayLimit(this.pageErrorsBuffer, 200);
+    this.emit("pageerror", error);
   }
 
   // ── Page compatibility façade ────────────────────────────────────
@@ -1889,6 +1898,28 @@ export class PageImpl {
   /** Mirrors pinned Page.title by reading the controlled document title. */
   async title(): Promise<string> {
     return this.document.title;
+  }
+
+  /**
+   * Pinned Page.pageErrors: up to the last 200 uncaught errors, wrapped the
+   * same way as the `pageerror` event payload. Pinned server/page.ts marks
+   * the buffer at the last cross-document navigation and, without `filter:
+   * "all"`, returns only errors after that mark; this single-document
+   * adapter never crosses documents within one page's lifetime (a `goto` to
+   * another document replaces it), so no mark is ever set and both `filter`
+   * values return the same errors, in order, since the page was created.
+   */
+  async pageErrors(options?: {
+    filter?: "all" | "since-navigation";
+  }): Promise<Error[]> {
+    rejectUnsupportedOptions("pageErrors", options, ["filter"]);
+    validatePageErrorsFilter(options?.filter);
+    return this.pageErrorsBuffer.slice();
+  }
+
+  /** Pinned Page.clearPageErrors: empties the buffer `pageErrors()` reads. */
+  async clearPageErrors(): Promise<void> {
+    this.pageErrorsBuffer.length = 0;
   }
 
   setDefaultTimeout(timeout: number): void {
@@ -4949,6 +4980,22 @@ function pageError(thrown: unknown): Error {
         : "";
   error.stack = "";
   return error;
+}
+
+/**
+ * Pinned utils.ts `ensureArrayLimit`: once an array exceeds `limit`, drop the
+ * oldest tenth rather than trimming on every push.
+ */
+function ensureArrayLimit(array: unknown[], limit: number): void {
+  if (array.length > limit) array.splice(0, limit / 10);
+}
+
+function validatePageErrorsFilter(value: unknown): void {
+  if (value === undefined || value === "all" || value === "since-navigation")
+    return;
+  throw new TypeError(
+    `pageErrors: filter must be one of (all|since-navigation), got ${JSON.stringify(value)}`
+  );
 }
 
 function isRetryableActionError(error: unknown): boolean {
