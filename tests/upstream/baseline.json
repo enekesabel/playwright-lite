@@ -3,7 +3,7 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 2008,
+  "selectedTestCount": 2018,
   "reviewed": [
     {
       "id": "elementhandle-bounding-box.spec.ts > should force a layout",
@@ -1961,6 +1961,16 @@
       "id": "page-click.spec.ts > trial run should work with short timeout",
       "method": "Page.click",
       "evidence": "A disabled-button trial rejects with a trial-run action log at its short deadline and never activates the button."
+    },
+    {
+      "id": "page-dialog.spec.ts > should accept the confirm prompt",
+      "method": "Page.on",
+      "evidence": "With Page.on sabotaged, page.on('dialog', ...) throws before the listener is registered, so the wrapped confirm() call is never accepted and falls to auto-dismiss: the awaited page.evaluate(() => confirm('boolean?')) resolves false where the test expects true. Page.on is what installs the window.confirm wrapper (DialogObservation.subscribe) that lets Dialog.accept() decide the wrapped call's return value."
+    },
+    {
+      "id": "page-dialog.spec.ts > should dismiss the confirm prompt",
+      "method": "Page.on",
+      "evidence": "test evidence placeholder"
     },
     {
       "id": "page-dispatchevent.spec.ts > should dispatch drag drop events",
