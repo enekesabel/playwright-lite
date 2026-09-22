@@ -136,6 +136,11 @@ describe("option-validation", () => {
       /pageErrors\(\): unsupported Playwright option\(s\): unexpected/,
     ],
     [
+      "consoleMessages",
+      (page) => page.consoleMessages({ unexpected: true } as any),
+      /consoleMessages\(\): unsupported Playwright option\(s\): unexpected/,
+    ],
+    [
       "removeAllListeners",
       (page) => page.removeAllListeners("load", { unexpected: true } as any),
       /removeAllListeners\(\): unsupported Playwright option\(s\): unexpected/,

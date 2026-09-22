@@ -8,6 +8,7 @@ import {
   swallowWindowErrors,
 } from "./pageEvents";
 import { contractUrl, networkPages, restoreFetch } from "./network";
+import { consolePages, restoreConsole } from "./console";
 
 swallowWindowErrors();
 restoreURL();
@@ -245,5 +246,99 @@ describe("Page.on", () => {
       errorText: expect.stringContaining("TypeError"),
     });
     expect(await request.response()).toBe(null);
+  });
+
+  // ── Console events ──────────────────────────────────────────────
+
+  restoreConsole();
+  const consolePage = consolePages();
+
+  it("leaves console.log alone until the first console listener", () => {
+    const before = console.log;
+    const page = consolePage();
+    page.on("pageerror", () => {});
+    expect(console.log).toBe(before);
+    page.on("console", () => {});
+    expect(console.log).not.toBe(before);
+  });
+
+  it("keeps the wrapped console.log indistinguishable from the original", () => {
+    const before = console.log;
+    consolePage().on("console", () => {});
+    const wrapped = console.log;
+    expect(wrapped).not.toBe(before);
+    expect(wrapped.name).toBe(before.name);
+    expect(wrapped.length).toBe(before.length);
+    const source = Function.prototype.toString.call(wrapped);
+    expect(source).toContain("[native code]");
+    expect(source).not.toContain("=>");
+  });
+
+  it("forwards the receiver and arguments to the method it wrapped untouched", () => {
+    const receivers: unknown[] = [];
+    const seenArgs: unknown[][] = [];
+    console.log = function (this: unknown, ...args: unknown[]) {
+      receivers.push(this);
+      seenArgs.push(args);
+    } as typeof console.log;
+    consolePage().on("console", () => {});
+
+    const host = { log: console.log };
+    host.log("via host", 1);
+    console.log.call(undefined, "via call", 2);
+
+    expect(receivers).toEqual([host, undefined]);
+    expect(seenArgs).toEqual([
+      ["via host", 1],
+      ["via call", 2],
+    ]);
+  });
+
+  it("reports type, text and args for a console.log call", () => {
+    const page = consolePage();
+    const messages: { type: string; text: string }[] = [];
+    page.on("console", (message) => {
+      messages.push({ type: message.type(), text: message.text() });
+    });
+
+    console.log("hello", 5, { foo: "bar" });
+
+    expect(messages).toEqual([{ type: "log", text: "hello 5 {foo: bar}" }]);
+  });
+
+  it("logs a throwing console listener and keeps delivering to the others", () => {
+    const logged = vi
+      .spyOn(window.console, "error")
+      .mockImplementation(() => {});
+    const page = consolePage();
+    const seen: string[] = [];
+    page.on("console", () => {
+      throw new Error("listener failed");
+    });
+    page.on("console", (m) => seen.push(m.text()));
+
+    console.log("trigger");
+
+    expect(seen).toEqual(["trigger"]);
+    expect(listenerFailures(logged)).toEqual([
+      [
+        'page.on("console"): listener failed',
+        expect.objectContaining({ message: "listener failed" }),
+      ],
+    ]);
+  });
+
+  it("does not recurse when a listener itself calls a wrapped console method", () => {
+    const page = consolePage();
+    const seen: string[] = [];
+    page.on("console", (m) => {
+      seen.push(m.text());
+      // A listener that logs would otherwise re-enter this same listener.
+      if (seen.length === 1) console.log("from listener");
+    });
+
+    console.log("trigger");
+
+    expect(seen).toEqual(["trigger"]);
   });
 });
