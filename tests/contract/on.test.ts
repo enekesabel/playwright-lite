@@ -8,6 +8,14 @@ swallowWindowErrors();
 const report = (error: unknown) =>
   window.dispatchEvent(new ErrorEvent("error", { error }));
 
+const reject = (reason: unknown) =>
+  window.dispatchEvent(
+    new PromiseRejectionEvent("unhandledrejection", {
+      promise: Promise.resolve(),
+      reason,
+    })
+  );
+
 describe("Page.on", () => {
   it("accepts an unknown event name silently", () => {
     const page = createPage();
@@ -27,15 +35,12 @@ describe("Page.on", () => {
     const page = createPage();
     const errors: Error[] = [];
     page.on("pageerror", (error) => errors.push(error));
-    window.dispatchEvent(
-      new PromiseRejectionEvent("unhandledrejection", {
-        promise: Promise.resolve(),
-        reason: {},
-      })
-    );
+    reject({});
+    reject("Custom: detail");
     report({ name: "Named", message: "ignored" });
     expect(errors.map((e) => [e.name, e.message, e.stack])).toEqual([
       ["", "Object", ""],
+      ["Custom", "detail", ""],
       ["Named", "Object", ""],
     ]);
   });
