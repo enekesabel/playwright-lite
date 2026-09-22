@@ -31,6 +31,11 @@ import {
   type Request as NetworkRequest,
   type Response as NetworkResponse,
 } from "./network";
+import {
+  dialogObservationFor,
+  type Dialog,
+  type DialogState,
+} from "./dialog";
 import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
 import type { Locator, Page } from "@playwright/test";
@@ -309,7 +314,9 @@ export class PageImpl {
   private readonly pendingListeners = new Map<string, Set<PendingListener>>();
   private unobserveNavigation: (() => void) | undefined;
   private unobserveNetwork: (() => void) | undefined;
+  private unobserveDialogs: (() => void) | undefined;
   private readonly network: ReturnType<typeof networkObservationFor>;
+  private readonly dialogs: ReturnType<typeof dialogObservationFor>;
   /** Pinned server/page.ts keeps the recent requests per page, not per realm. */
   private readonly requestLog: NetworkRequest[] = [];
   /**
@@ -333,6 +340,7 @@ export class PageImpl {
     this.localStorage = new PageWebStorage(this, "local");
     this.sessionStorage = new PageWebStorage(this, "session");
     this.network = networkObservationFor(browserWindow);
+    this.dialogs = dialogObservationFor(browserWindow);
     this.startPageErrorCollection();
   }
 
@@ -1705,6 +1713,29 @@ export class PageImpl {
     });
   }
 
+  /**
+   * Reports the window's `alert`/`confirm`/`prompt` calls on this page while
+   * the subscription lives. Each subscribed page gets its own `Dialog`
+   * facade over the shared settlement, so `dialog.page()` reports the page
+   * whose listener received it.
+   */
+  private subscribeToDialogs(): () => void {
+    return this.dialogs.subscribe((state) => {
+      this.emit("dialog", this.wrapDialog(state));
+    });
+  }
+
+  private wrapDialog(state: DialogState): Dialog & { page(): Page } {
+    return {
+      type: () => state.type(),
+      message: () => state.message(),
+      defaultValue: () => state.defaultValue(),
+      accept: (promptText?: string) => state.accept(promptText),
+      dismiss: () => state.dismiss(),
+      page: () => this as unknown as Page,
+    };
+  }
+
   private async waitForPageEvent(
     event: string,
     options: {
@@ -1832,6 +1863,11 @@ export class PageImpl {
       NETWORK_EVENTS,
       this.unobserveNetwork,
       () => this.subscribeToNetwork()
+    );
+    this.unobserveDialogs = this.observeWhileListened(
+      "dialog",
+      this.unobserveDialogs,
+      () => this.subscribeToDialogs()
     );
   }
 
