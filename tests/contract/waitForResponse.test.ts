@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage, type Response } from "../../src/index";
-import {
-  assetUrl,
-  contractUrl,
-  restoreFetch,
-  restoreXhr,
-  sendXhr,
-} from "./network";
+import { assetUrl, contractUrl, restoreFetch, sendXhr } from "./network";
 
 /**
  * The exported `Response` type carries only what the current document can
@@ -119,8 +113,6 @@ describe("Page.waitForResponse", () => {
 
   // ── XMLHttpRequest ──────────────────────────────────────────────
 
-  restoreXhr();
-
   it("resolves with the response an XMLHttpRequest received", async () => {
     const page = createPage();
     const waiting = page.waitForResponse(/\?xhr-response$/, {
@@ -137,22 +129,12 @@ describe("Page.waitForResponse", () => {
     expect(await response.headerValue("Content-Type")).toBe("text/html");
     expect(response.request().resourceType()).toBe("xhr");
 
+    // The response arrives with the headers, before any of the body, and
+    // reading it waits for the body to end.
+    expect(await response.text()).toContain("Woof-Woof");
     expect(await ended).toBe("load");
     expect(await response.finished()).toBe(null);
-    expect(await response.text()).toContain("Woof-Woof");
     expect(await response.body()).toBeInstanceOf(Uint8Array);
-  });
-
-  it("reads an XMLHttpRequest body only once it has ended", async () => {
-    const page = createPage();
-    const waiting = page.waitForResponse(/\?xhr-early-body$/, {
-      timeout: 5_000,
-    });
-    sendXhr(assetUrl("?xhr-early-body"));
-    const response = await waiting;
-
-    // The response arrives with the headers, before any of the body.
-    expect(await response.text()).toContain("Woof-Woof");
   });
 
   it("keeps an XMLHttpRequest body after the request is opened again", async () => {

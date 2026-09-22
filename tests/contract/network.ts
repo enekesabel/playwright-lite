@@ -45,14 +45,6 @@ export const xhrMethods = () => ({
   send: XMLHttpRequest.prototype.send,
 });
 
-/** Restores the `XMLHttpRequest` methods the suite started with. */
-export function restoreXhr() {
-  const original = xhrMethods();
-  afterEach(() => {
-    Object.assign(XMLHttpRequest.prototype, original);
-  });
-}
-
 /**
  * Sends an `XMLHttpRequest` the way a Site would, and reports the event that
  * ended it, so a test can await the traffic instead of sleeping.

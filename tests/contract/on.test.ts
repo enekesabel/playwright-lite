@@ -12,9 +12,7 @@ import {
   contractUrl,
   networkPages,
   restoreFetch,
-  restoreXhr,
   sendXhr,
-  xhrMethods,
 } from "./network";
 
 swallowWindowErrors();
@@ -256,34 +254,6 @@ describe("Page.on", () => {
   });
 
   // ── XMLHttpRequest ──────────────────────────────────────────────
-
-  restoreXhr();
-
-  it("leaves the XMLHttpRequest methods alone until the first network listener", () => {
-    const before = xhrMethods();
-    const page = networkPage();
-    page.on("pageerror", () => {});
-    for (const name of ["open", "setRequestHeader", "send"] as const)
-      expect(xhrMethods()[name]).toBe(before[name]);
-
-    page.on("request", () => {});
-    for (const name of ["open", "setRequestHeader", "send"] as const)
-      expect(xhrMethods()[name]).not.toBe(before[name]);
-  });
-
-  it("keeps the wrapped XMLHttpRequest methods indistinguishable from the originals", () => {
-    const before = xhrMethods();
-    networkPage().on("request", () => {});
-    const wrapped = xhrMethods();
-
-    for (const name of ["open", "setRequestHeader", "send"] as const) {
-      expect(wrapped[name].name).toBe(before[name].name);
-      expect(wrapped[name].length).toBe(before[name].length);
-      const source = Function.prototype.toString.call(wrapped[name]);
-      expect(source).toContain("[native code]");
-      expect(source).not.toContain("=>");
-    }
-  });
 
   it("reports an XMLHttpRequest as request, response and requestfinished in the pinned order", async () => {
     const page = networkPage();

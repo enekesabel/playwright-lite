@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage, type Request } from "../../src/index";
-import {
-  assetUrl,
-  contractUrl,
-  restoreFetch,
-  restoreXhr,
-  sendXhr,
-} from "./network";
+import { assetUrl, contractUrl, restoreFetch, sendXhr } from "./network";
 
 /**
  * The exported `Request` type carries only what the current document can fill.
@@ -93,8 +87,6 @@ describe("Page.waitForRequest", () => {
   });
 
   // ── Request bodies ──────────────────────────────────────────────
-
-  restoreXhr();
 
   type BodyCase = {
     body: string;
