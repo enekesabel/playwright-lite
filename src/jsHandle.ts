@@ -146,8 +146,12 @@ export class AdapterJSHandle<T = unknown> {
  * the protocol renders as `String(value)`, and an object renders as V8's
  * `RemoteObject.description`. Handles created inside the document carry no
  * remote object, so the description is reconstructed from the value.
+ *
+ * Exported for console message text formatting (`console.ts`), which nests
+ * this shallow description for compound argument properties/elements one
+ * level deep, the way the pinned CDP object preview does.
  */
-function previewValue(value: unknown): string {
+export function previewValue(value: unknown): string {
   if (value === null) return "null";
   if (typeof value === "bigint") return `${value}n`;
   if (typeof value === "function") return String(value);
