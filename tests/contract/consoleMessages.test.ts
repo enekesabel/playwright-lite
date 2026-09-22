@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { consolePages } from "./console";
+import { listenedPages } from "./pageEvents";
 
 describe("Page.consoleMessages", () => {
-  const createPage = consolePages();
+  const createPage = listenedPages();
 
   it("returns nothing before the first call and the console.* calls made after it", async () => {
     const page = createPage();

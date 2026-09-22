@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { consolePages } from "./console";
+import { listenedPages } from "./pageEvents";
 
 describe("Page.clearConsoleMessages", () => {
-  const createPage = consolePages();
+  const createPage = listenedPages();
 
   it("empties the buffer without stopping further collection", async () => {
     const page = createPage();

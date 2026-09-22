@@ -2,19 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../src/index";
 import {
+  listenedPages,
   listenerFailures,
   report,
   restoreURL,
   swallowWindowErrors,
 } from "./pageEvents";
-import {
-  assetUrl,
-  contractUrl,
-  networkPages,
-  restoreFetch,
-  sendXhr,
-} from "./network";
-import { consolePages, restoreConsole } from "./console";
+import { assetUrl, contractUrl, restoreFetch, sendXhr } from "./network";
+import { restoreConsole } from "./console";
 
 swallowWindowErrors();
 restoreURL();
@@ -146,7 +141,7 @@ describe("Page.on", () => {
   // ── Network events ──────────────────────────────────────────────
 
   restoreFetch();
-  const networkPage = networkPages();
+  const networkPage = listenedPages();
 
   it("leaves window.fetch alone until the first network listener", () => {
     const before = window.fetch;
@@ -257,7 +252,7 @@ describe("Page.on", () => {
   // ── Console events ──────────────────────────────────────────────
 
   restoreConsole();
-  const consolePage = consolePages();
+  const consolePage = listenedPages();
 
   it("leaves console.log alone until the first console listener", () => {
     const before = console.log;
