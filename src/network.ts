@@ -594,7 +594,11 @@ export class NetworkObservation {
       method: opened.method,
       headers: { ...opened.headers },
       resourceType: "xhr",
-      postData: readableBody(args[0]),
+      // `send` ignores its body for GET and HEAD, so nothing is sent.
+      postData:
+        opened.method === "GET" || opened.method === "HEAD"
+          ? null
+          : readableBody(args[0]),
     });
     let response: ObservedResponse | undefined;
     let ended = false;
