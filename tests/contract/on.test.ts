@@ -14,6 +14,7 @@ import {
   restoreFetch,
   sendXhr,
 } from "./network";
+import { dialogPages, restoreDialogs } from "./dialog";
 
 swallowWindowErrors();
 restoreURL();
@@ -412,6 +413,32 @@ describe("Page.on", () => {
     xhr.send();
     await ended;
 
+    expect(seen).toEqual([]);
+  });
+
+  // ── Dialog events ──────────────────────────────────────────────
+
+  restoreDialogs();
+  const dialogPage = dialogPages();
+
+  it("dismisses a dialog no listener settles synchronously", () => {
+    dialogPage().on("dialog", () => {
+      // Never calls accept()/dismiss(): the wrapped call must still resolve,
+      // dismissed, once every listener has run.
+    });
+
+    expect(window.confirm("boolean?")).toBe(false);
+    expect(window.prompt("question?")).toBe(null);
+  });
+
+  it("lets a rejected receiver throw before anything is reported", () => {
+    window.alert = function (this: unknown) {
+      if (this !== window) throw new TypeError("Illegal invocation");
+    } as typeof alert;
+    const seen: unknown[] = [];
+    dialogPage().on("dialog", (dialog) => seen.push(dialog));
+
+    expect(() => window.alert.call({}, "hi")).toThrow(TypeError);
     expect(seen).toEqual([]);
   });
 });

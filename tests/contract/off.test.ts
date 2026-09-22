@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createPage } from "../../src/index";
 import { report, swallowWindowErrors } from "./pageEvents";
 import { assetUrl, contractUrl, restoreFetch, xhrMethods } from "./network";
+import { dialogPages } from "./dialog";
 
 swallowWindowErrors();
 
@@ -127,5 +128,27 @@ describe("Page.off", () => {
 
     page.off("request", listener);
     expect(xhrMethods()).toEqual(native);
+  });
+
+  // ── Dialog events ──────────────────────────────────────────────
+
+  const dialogPage = dialogPages();
+
+  it("restores window.alert/confirm/prompt once the last dialog listener leaves", () => {
+    const nativeAlert = window.alert;
+    const nativeConfirm = window.confirm;
+    const nativePrompt = window.prompt;
+    const page = dialogPage();
+    const listener = () => {};
+
+    page.on("dialog", listener);
+    expect(window.alert).not.toBe(nativeAlert);
+    expect(window.confirm).not.toBe(nativeConfirm);
+    expect(window.prompt).not.toBe(nativePrompt);
+
+    page.off("dialog", listener);
+    expect(window.alert).toBe(nativeAlert);
+    expect(window.confirm).toBe(nativeConfirm);
+    expect(window.prompt).toBe(nativePrompt);
   });
 });
