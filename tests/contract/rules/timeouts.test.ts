@@ -97,5 +97,23 @@ describe("timeouts", () => {
     expect(waitForEventError.message).toBe(
       'page.waitForEvent: Timeout 20ms exceeded while waiting for event "load"'
     );
+
+    const waitForRequestError = await page
+      .waitForRequest("**/never")
+      .catch((error) => error);
+    expect(waitForRequestError.name).toBe("TimeoutError");
+    expect(waitForRequestError[ADAPTER_TIMEOUT_ERROR]).toBe(true);
+    expect(waitForRequestError.message).toBe(
+      'page.waitForRequest: Timeout 20ms exceeded while waiting for request "**/never"'
+    );
+
+    const waitForResponseError = await page
+      .waitForResponse("**/never")
+      .catch((error) => error);
+    expect(waitForResponseError.name).toBe("TimeoutError");
+    expect(waitForResponseError[ADAPTER_TIMEOUT_ERROR]).toBe(true);
+    expect(waitForResponseError.message).toBe(
+      'page.waitForResponse: Timeout 20ms exceeded while waiting for response "**/never"'
+    );
   });
 });
