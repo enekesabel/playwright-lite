@@ -158,12 +158,15 @@ type Emit = (call: ConsoleCall) => void;
 type NativeConsoleMethod = (...args: unknown[]) => unknown;
 
 /**
- * Frame markers this module's own call chain adds between the `console.*`
- * call site and the captured stack: the wrapper's `apply` trap, this
- * observation's interceptor, and the frame that reads the stack itself.
- * Skipped so the best-effort location names the Site's call site, not ours.
+ * Frames this module's own call chain adds, above the captured stack, before
+ * the Site's own call site: `captureLocation` itself, `observe`, the
+ * `WrappedHostFunction` interceptor callback, and the `Proxy` `apply` trap. A
+ * bundled `dist/index.mjs` has no `console.ts`/`hostGlobals.ts` frame a
+ * file-path marker could match — verified against the built bundle, where
+ * that approach always named this module's own frame — so this call chain's
+ * fixed depth is skipped instead, which bundling cannot change.
  */
-const INTERNAL_FRAME_MARKERS = ["/hostGlobals.ts", "/console.ts"];
+const INTERNAL_FRAME_COUNT = 4;
 
 const STACK_FRAME = /\(?([^()\s]+):(\d+):(\d+)\)?$/;
 
@@ -178,9 +181,7 @@ const STACK_FRAME = /\(?([^()\s]+):(\d+):(\d+)\)?$/;
 function captureLocation(): ConsoleMessageLocation {
   const stack = new Error().stack;
   if (!stack) return { url: "", lineNumber: 0, columnNumber: 0 };
-  for (const line of stack.split("\n").slice(1)) {
-    if (INTERNAL_FRAME_MARKERS.some((marker) => line.includes(marker)))
-      continue;
+  for (const line of stack.split("\n").slice(1 + INTERNAL_FRAME_COUNT)) {
     const match = STACK_FRAME.exec(line.trim());
     if (!match) continue;
     const lineNumber = Number(match[2]) - 1;

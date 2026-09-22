@@ -69,6 +69,15 @@ export async function runConsumer() {
   await configuredExpect.poll(() => ++observed, { intervals: [0] }).toBe(2);
   const profile = new ProfilePage(page);
   await profile.saveName("Ada");
+  // location() is reconstructed from a captured stack at a fixed frame
+  // offset (dist/index.mjs has no per-module frame a file-path marker could
+  // match), so this call site must resolve to this bundle, not the package's.
+  let consoleLocation: { url: string; lineNumber: number } | undefined;
+  page.on("console", (message) => {
+    if (message.text() === "consumer-console-probe")
+      consoleLocation = message.location();
+  });
+  console.log("consumer-console-probe");
   return {
     exports: Object.keys(publicExports).sort(),
     value: await profile.name.inputValue(),
@@ -79,5 +88,6 @@ export async function runConsumer() {
     snapshot: await page.ariaSnapshot(),
     locatorSnapshot: await profile.save.ariaSnapshot(),
     expectObserved: observed,
+    consoleLocation,
   };
 }
