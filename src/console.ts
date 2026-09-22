@@ -1,6 +1,6 @@
 import { WrappedHostFunction } from "./hostGlobals";
 import { previewValue, type AdapterJSHandle } from "./jsHandle";
-import type { Page } from "@playwright/test";
+import type { JSHandle, Page } from "@playwright/test";
 
 /**
  * The document's `console.*` calls, reported with Playwright's `ConsoleMessage`
@@ -42,10 +42,13 @@ export const CONSOLE_EVENT = "console";
 
 /**
  * Pinned client/consoleMessage.ts `ConsoleMessage`. `worker()` is always
- * `null`: this observation has no worker realm to report.
+ * `null`: this observation has no worker realm to report. `args()` is typed
+ * with Playwright's own `JSHandle`, the way `createPage`'s `Page` types every
+ * other adapter handle it returns, keeping this package's own internal
+ * handle implementation out of this public interface's surface.
  */
 export interface ConsoleMessage {
-  args(): AdapterJSHandle[];
+  args(): JSHandle[];
   location(): {
     url: string;
     line: number;
@@ -75,13 +78,19 @@ export class ObservedConsoleMessage implements ConsoleMessage {
     private readonly _timestamp: number
   ) {}
 
-  args() {
-    return this._args;
+  args(): JSHandle[] {
+    return this._args as unknown as JSHandle[];
   }
 
   location() {
     const { url, lineNumber, columnNumber } = this._location;
-    return { url, line: lineNumber, column: columnNumber, lineNumber, columnNumber };
+    return {
+      url,
+      line: lineNumber,
+      column: columnNumber,
+      lineNumber,
+      columnNumber,
+    };
   }
 
   page() {
@@ -201,8 +210,7 @@ function formatConsoleArg(value: unknown): string {
     typeof item === "object" && item !== null
       ? previewValue(item)
       : formatConsoleArg(item);
-  if (Array.isArray(value))
-    return `[${value.map(nested).join(", ")}]`;
+  if (Array.isArray(value)) return `[${value.map(nested).join(", ")}]`;
   if (tag === "Object")
     return `{${Object.entries(value as Record<string, unknown>)
       .map(([key, item]) => `${key}: ${nested(item)}`)
@@ -280,6 +288,19 @@ export class ConsoleObservation {
   }
 
   /**
+   * A subscriber runs inside this document, unlike the pinned client's
+   * Node-side listener: one that itself calls a wrapped `console.*` method
+   * (directly, or indirectly by having this observation log a listener
+   * failure through it) would otherwise re-enter `observe`, reporting that
+   * call too, whose subscriber call could do the same, without end. The
+   * pinned client's listener cannot cause this, since it runs in Node and
+   * never reaches the page's `console`. Set for the duration of one
+   * `emit`, so a call still reaches the original method but is not itself
+   * reported while a report for an earlier call is in progress.
+   */
+  private emitting = false;
+
+  /**
    * Pinned `console.assert`: the browser reports a call only when the
    * asserted condition is falsy. Every other wrapped method reports on every
    * call, as the pinned CDP `Runtime.consoleAPICalled` event does.
@@ -292,13 +313,19 @@ export class ConsoleObservation {
   ): unknown {
     const result = Reflect.apply(original, thisArg, args);
     if (type === "assert" && args[0]) return result;
-    this.emit({
-      type,
-      args,
-      text: formatConsoleText(args),
-      location: captureLocation(),
-      timestamp: Date.now(),
-    });
+    if (this.emitting) return result;
+    this.emitting = true;
+    try {
+      this.emit({
+        type,
+        args,
+        text: formatConsoleText(args),
+        location: captureLocation(),
+        timestamp: Date.now(),
+      });
+    } finally {
+      this.emitting = false;
+    }
     return result;
   }
 }
