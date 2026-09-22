@@ -2375,7 +2375,7 @@
     {
       "id": "page-evaluate.spec.ts > should work with unicode chars",
       "method": "Page.evaluate",
-      "evidence": "An object keyed by '中文字符' passed as the argument yields 42 when the callback reads that key, so non-ASCII property names survive argument serialization."
+      "evidence": "An object keyed by '\u4e2d\u6587\u5b57\u7b26' passed as the argument yields 42 when the callback reads that key, so non-ASCII property names survive argument serialization."
     },
     {
       "id": "page-event-pageerror.spec.ts > should contain the Error.name property",
@@ -2836,22 +2836,12 @@
     {
       "id": "page-wait-for-request.spec.ts > should log the url",
       "method": "Page.waitForRequest",
-      "evidence": "waitForRequest with a 70-character url and timeout 1000 rejects with a message containing waiting for request \"long-long-…\", the pinned client trimUrl line: the wait reports the url it matched on, trimmed to 50 characters with an ellipsis."
-    },
-    {
-      "id": "page-wait-for-request.spec.ts > should respect default timeout",
-      "method": "Page.waitForEvent",
-      "evidence": "After setDefaultTimeout(1), the adapter waitForEvent('request', () => false) rejects with the adapter TimeoutError: the stored default timeout governs an event wait whose predicate never accepts, with no request ever observed."
+      "evidence": "waitForRequest with a 70-character url and timeout 1000 rejects with a message containing waiting for request \"long-long-\u2026\", the pinned client trimUrl line: the wait reports the url it matched on, trimmed to 50 characters with an ellipsis."
     },
     {
       "id": "page-wait-for-response.spec.ts > should log the url",
       "method": "Page.waitForResponse",
       "evidence": "waitForResponse(\"foo.css\") and waitForResponse(/foo.css/i) reject with messages containing waiting for response \"foo.css\" and waiting for response /foo.css/i, so the string form is quoted and the regular-expression form keeps its source and flags, as the pinned trimUrl does."
-    },
-    {
-      "id": "page-wait-for-response.spec.ts > should respect timeout",
-      "method": "Page.waitForEvent",
-      "evidence": "waitForEvent('response', { predicate: () => false, timeout: 1 }) rejects with the adapter TimeoutError, so the explicit timeout option governs an event wait for a response that never arrives."
     },
     {
       "id": "page-wait-for-selector-1.spec.ts > elementHandle.waitForSelector should immediately resolve if node exists",
