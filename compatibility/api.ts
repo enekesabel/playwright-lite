@@ -43,10 +43,7 @@ const planned = (limitations?: string): CompatibilityEntry => ({
   status: "planned",
   ...(limitations ? { limitations } : {}),
 });
-const undecided = (limitations?: string): CompatibilityEntry => ({
-  status: "undecided",
-  ...(limitations ? { limitations } : {}),
-});
+const undecided = (): CompatibilityEntry => ({ status: "undecided" });
 const outOfScope = (limitations: string): CompatibilityEntry => ({
   status: "out-of-scope",
   limitations,
@@ -76,7 +73,7 @@ export const pageLedger = {
   ),
   addInitScript: undecided(),
   addListener: partial(
-    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
+    "Events: `pageerror`. Other event names are accepted but never fire."
   ),
   addLocatorHandler: undecided(),
   addScriptTag: partial(
@@ -89,14 +86,12 @@ export const pageLedger = {
   bringToFront: undecided(),
   cancelPickLocator: undecided(),
   check: implemented(),
-  clearConsoleMessages: undecided(
-    "Waits for the host-global patching decision."
-  ),
+  clearConsoleMessages: undecided(),
   clearPageErrors: undecided(),
   click: partial("The action does not wait for navigation."),
   clock: undecided(),
   close: undecided(),
-  consoleMessages: undecided("Waits for the host-global patching decision."),
+  consoleMessages: undecided(),
   content: implemented("Serializes the current controlled document."),
   context: undecided(),
   coverage: undecided(),
@@ -154,13 +149,13 @@ export const pageLedger = {
   mainFrame: partial("Returns the same `Page` object, not a `Frame`."),
   mouse: planned("Synthetic functional input only."),
   off: partial(
-    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
+    "Events: `pageerror`. Other event names are accepted but never fire."
   ),
   on: partial(
-    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
+    "Events: `pageerror`. Other event names are accepted but never fire."
   ),
   once: partial(
-    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
+    "Events: `pageerror`. Other event names are accepted but never fire."
   ),
   opener: undecided(),
   pageErrors: undecided(),
@@ -168,17 +163,17 @@ export const pageLedger = {
   pdf: undecided(),
   pickLocator: undecided(),
   prependListener: partial(
-    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
+    "Events: `pageerror`. Other event names are accepted but never fire."
   ),
   press: implemented(),
   reload: planned(
     "Initiates browser navigation; execution ends on document replacement."
   ),
   removeAllListeners: partial(
-    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
+    "Events: `pageerror`. Other event names are accepted but never fire."
   ),
   removeListener: partial(
-    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
+    "Events: `pageerror`. Other event names are accepted but never fire."
   ),
   removeLocatorHandler: undecided(),
   request: undecided(),
@@ -212,7 +207,7 @@ export const pageLedger = {
   video: undecided(),
   viewportSize: undecided(),
   waitForEvent: partial(
-    "`pageerror` is implemented; `framenavigated` is planned; `console` waits for the host-global patching decision."
+    "Events: `pageerror`. Other event names are accepted but never fire."
   ),
   waitForFunction: partial(
     "The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
