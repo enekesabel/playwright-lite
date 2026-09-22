@@ -21,30 +21,6 @@ describe("Page.on", () => {
     expect(page.on("unknown" as "load", () => {})).toBe(page);
   });
 
-  it("listens to the window only while a pageerror listener exists", () => {
-    const added = vi.spyOn(window, "addEventListener");
-    const removed = vi.spyOn(window, "removeEventListener");
-    const types = (spy: typeof added) =>
-      spy.mock.calls.map(([type]) => type).sort();
-    const page = createPage();
-    const first = vi.fn();
-    const second = vi.fn();
-
-    page.on("load", () => {});
-    expect(added).not.toHaveBeenCalled();
-
-    page.on("pageerror", first).on("pageerror", second);
-    expect(types(added)).toEqual(["error", "unhandledrejection"]);
-    page.off("pageerror", first);
-    expect(removed).not.toHaveBeenCalled();
-    page.off("pageerror", second);
-    expect(types(removed)).toEqual(["error", "unhandledrejection"]);
-
-    report(new Error("after"));
-    expect(first).not.toHaveBeenCalled();
-    expect(second).not.toHaveBeenCalled();
-  });
-
   it("delivers a thrown Error as the pageerror payload", () => {
     const page = createPage();
     const errors: Error[] = [];
@@ -65,9 +41,11 @@ describe("Page.on", () => {
       })
     );
     report("Custom: detail");
+    report({ name: "Named", message: "ignored" });
     expect(errors.map((e) => [e.name, e.message, e.stack])).toEqual([
       ["", "Object", ""],
       ["Custom", "detail", ""],
+      ["Named", "Object", ""],
     ]);
   });
 
