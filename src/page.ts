@@ -2316,11 +2316,10 @@ export class PageImpl {
 
     return new Promise<null>((resolve, reject) => {
       let timer: number | undefined;
-      let networkIdle = false;
-      let unobserveNetworkIdle = () => {};
+      const loadState = this.watchLoadState(waitUntil, () => check());
       const settle = (error?: Error) => {
         this.window.clearTimeout(timer);
-        unobserveNetworkIdle();
+        loadState.release();
         this.window.removeEventListener("hashchange", check);
         this.window.removeEventListener("load", check);
         this.document.removeEventListener("readystatechange", check);
@@ -2329,25 +2328,12 @@ export class PageImpl {
       };
       const check = () => {
         if (!sameDocument || this.window.location.href !== target.href) return;
-        if (waitUntil === "networkidle") {
-          if (networkIdle) settle();
-        } else if (
-          waitUntil === "commit" ||
-          this.document.readyState === "complete" ||
-          (waitUntil === "domcontentloaded" &&
-            this.document.readyState === "interactive")
-        )
-          settle();
+        if (loadState.reached()) settle();
       };
       if (sameDocument) {
         this.window.addEventListener("hashchange", check);
         this.window.addEventListener("load", check);
         this.document.addEventListener("readystatechange", check);
-        if (waitUntil === "networkidle")
-          unobserveNetworkIdle = this.network.observeIdle(() => {
-            networkIdle = true;
-            check();
-          });
       }
       // If navigation is blocked or does not replace the document (e.g. 204),
       // time out rather than claiming destination readiness. Zero disables it.
@@ -2867,24 +2853,16 @@ export class PageImpl {
 
     await withAbortPrefix(apiName, async () => {
       let urlMatched = url === undefined;
-      let networkIdle = false;
+      const loadState = this.watchLoadState(waitUntil);
       const observation = await this.observeCurrentDocument(
         () => {
           if (!urlMatched)
             urlMatched = urlMatches(this.window.location.href, url!);
-          if (waitUntil === "networkidle") return urlMatched && networkIdle;
-          return urlMatched && this.currentDocumentHasLoadState(waitUntil);
+          return urlMatched && loadState.reached();
         },
         timeout,
-        signal,
-        waitUntil === "networkidle"
-          ? (notify) =>
-              this.network.observeIdle(() => {
-                networkIdle = true;
-                notify();
-              })
-          : undefined
-      );
+        signal
+      ).finally(loadState.release);
       if ("completed" in observation) return;
       if ("aborted" in observation) throw observation.aborted;
       if ("error" in observation) throw observation.error;
@@ -2894,26 +2872,19 @@ export class PageImpl {
     });
   }
 
-  /**
-   * Shared current-document event/poll/timeout observer for navigation APIs
-   * and Page assertions. `observe` adds a source of change that is started
-   * only once the wait has started and is stopped when it settles.
-   */
+  /** Shared current-document event/poll/timeout observer for navigation APIs and Page assertions. */
   private observeCurrentDocument(
     check: () => boolean,
     timeout: number,
-    signal?: AbortSignal,
-    observe?: (notify: () => void) => () => void
+    signal?: AbortSignal
   ): Promise<CurrentDocumentObservation> {
     return new Promise((resolve) => {
       let settled = false;
       let timeoutId: number | undefined;
       let unobserve = () => {};
-      let unobserveExtra = () => {};
 
       const cleanup = () => {
         unobserve();
-        unobserveExtra();
         signal?.removeEventListener("abort", onAbort);
         if (timeoutId !== undefined) this.window.clearTimeout(timeoutId);
       };
@@ -2949,7 +2920,6 @@ export class PageImpl {
 
       signal?.addEventListener("abort", onAbort, { once: true });
       unobserve = this.observeDocument(checkDocument);
-      if (observe) unobserveExtra = observe(checkDocument);
       if (timeout > 0) timeoutId = this.window.setTimeout(onTimeout, timeout);
       checkDocument();
     });
@@ -2995,13 +2965,31 @@ export class PageImpl {
     };
   }
 
-  private currentDocumentHasLoadState(waitUntil: string): boolean {
-    if (waitUntil === "commit") return true;
-    return (
-      this.document.readyState === "complete" ||
-      (waitUntil === "domcontentloaded" &&
-        this.document.readyState === "interactive")
-    );
+  /**
+   * Whether the document reached `waitUntil`. `networkidle` subscribes to the
+   * network observation until `release`, and calls `onIdle` once reached;
+   * the other states are read from the document's ready state.
+   */
+  private watchLoadState(
+    waitUntil: string,
+    onIdle = () => {}
+  ): { reached(): boolean; release(): void } {
+    if (waitUntil === "networkidle") {
+      let idle = false;
+      const release = this.network.observeIdle(() => {
+        idle = true;
+        onIdle();
+      });
+      return { reached: () => idle, release };
+    }
+    return {
+      reached: () =>
+        waitUntil === "commit" ||
+        this.document.readyState === "complete" ||
+        (waitUntil === "domcontentloaded" &&
+          this.document.readyState === "interactive"),
+      release: () => {},
+    };
   }
 
   private createActionDeadline(timeout?: number): ActionDeadline {
