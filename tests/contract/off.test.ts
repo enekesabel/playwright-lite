@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../src/index";
 import { report, swallowWindowErrors } from "./pageEvents";
-import { assetUrl, contractUrl, restoreFetch } from "./network";
+import { assetUrl, contractUrl, restoreFetch, xhrMethods } from "./network";
 import { restoreConsole } from "./console";
 
 swallowWindowErrors();
@@ -100,6 +100,34 @@ describe("Page.off", () => {
       `first:${assetUrl("?shared")}`,
       `second:${assetUrl("?shared")}`,
     ]);
+  });
+
+  // ── XMLHttpRequest ──────────────────────────────────────────────
+
+  it("restores the XMLHttpRequest methods with the last network listener", () => {
+    const native = xhrMethods();
+    const page = createPage();
+    const listener = () => {};
+
+    page.on("request", listener);
+    expect(xhrMethods()).not.toEqual(native);
+
+    page.off("request", listener);
+    expect(xhrMethods()).toEqual(native);
+  });
+
+  it("restores the XMLHttpRequest methods after a send the platform rejected", () => {
+    const native = xhrMethods();
+    const page = createPage();
+    const listener = () => {};
+    page.on("request", listener);
+
+    // The InvalidStateError must not leave a subscription behind that keeps
+    // the wrappers installed past the last listener.
+    expect(() => new XMLHttpRequest().send()).toThrow(DOMException);
+
+    page.off("request", listener);
+    expect(xhrMethods()).toEqual(native);
   });
 
   // ── Console events ──────────────────────────────────────────────

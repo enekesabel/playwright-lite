@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage, type Response } from "../../src/index";
-import { assetUrl, contractUrl, restoreFetch } from "./network";
+import { assetUrl, contractUrl, restoreFetch, sendXhr } from "./network";
 
 /**
  * The exported `Response` type carries only what the current document can
@@ -109,5 +109,73 @@ describe("Page.waitForResponse", () => {
     await expect(
       page.waitForResponse(() => false, { timeout: 1 })
     ).rejects.toThrow('waiting for event "response"');
+  });
+
+  // ── XMLHttpRequest ──────────────────────────────────────────────
+
+  it("resolves with the response an XMLHttpRequest received", async () => {
+    const page = createPage();
+    const waiting = page.waitForResponse(/\?xhr-response$/, {
+      timeout: 5_000,
+    });
+    const { ended } = sendXhr(assetUrl("?xhr-response"));
+    const response = await waiting;
+
+    expect(response.url()).toBe(assetUrl("?xhr-response"));
+    expect(response.status()).toBe(200);
+    expect(response.statusText()).toBe("OK");
+    expect(response.ok()).toBe(true);
+    expect(response.headers()["content-type"]).toBe("text/html");
+    expect(await response.headerValue("Content-Type")).toBe("text/html");
+    expect(response.request().resourceType()).toBe("xhr");
+
+    // The response arrives with the headers, before any of the body, and
+    // reading it waits for the body to end.
+    expect(await response.text()).toContain("Woof-Woof");
+    expect(await ended).toBe("load");
+    expect(await response.finished()).toBe(null);
+    expect(await response.body()).toBeInstanceOf(Uint8Array);
+  });
+
+  it("keeps an XMLHttpRequest body after the request is opened again", async () => {
+    const page = createPage();
+    const waiting = page.waitForResponse(/\?xhr-reused$/, { timeout: 5_000 });
+    const xhr = new XMLHttpRequest();
+    // A Site polling with one XMLHttpRequest opens it again from its own
+    // `load` handler, which runs first and discards the body it held.
+    xhr.onload = () => xhr.open("GET", assetUrl("?xhr-reused-again"));
+    const ended = new Promise((resolve) =>
+      xhr.addEventListener("loadend", resolve)
+    );
+    xhr.open("GET", assetUrl("?xhr-reused"));
+    xhr.send();
+    const response = await waiting;
+    await ended;
+
+    expect(await response.finished()).toBe(null);
+    expect(response.request().failure()).toBe(null);
+    expect(xhr.responseText).toBe("");
+    expect(await response.text()).toContain("Woof-Woof");
+  });
+
+  it("reports that a response body the browser parsed away cannot be read", async () => {
+    const page = createPage();
+    const waiting = page.waitForResponse(/\?xhr-document$/, {
+      timeout: 5_000,
+    });
+    const xhr = new XMLHttpRequest();
+    xhr.responseType = "document";
+    const ended = new Promise((resolve) =>
+      xhr.addEventListener("loadend", resolve)
+    );
+    xhr.open("GET", assetUrl("?xhr-document"));
+    xhr.send();
+
+    const response = await waiting;
+    await ended;
+    expect(response.status()).toBe(200);
+    await expect(response.body()).rejects.toThrow(
+      'Response body is not available: the request set responseType "document".'
+    );
   });
 });

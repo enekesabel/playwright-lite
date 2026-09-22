@@ -2012,15 +2012,29 @@ function initializeAdapterBridge(
     if (!object || typeof object !== "object" || wrapped.has(object))
       return object;
     wrapped.add(object);
-    const prototype = Object.getPrototypeOf(object);
-    for (const name of Object.getOwnPropertyNames(prototype)) {
-      if (
-        name === "constructor" ||
-        (members && !members.includes(name)) ||
-        typeof Object.getOwnPropertyDescriptor(prototype, name)?.value !==
-          "function"
-      )
-        continue;
+    // Walk the whole prototype chain, up to but not including
+    // Object.prototype, so a member inherited from a base class (e.g.
+    // AdapterElementHandle inheriting AdapterJSHandle.jsonValue) is recorded
+    // under the subclass's kind instead of being skipped because it is not
+    // an own member of the immediate prototype.
+    const names = new Set<string>();
+    for (
+      let prototype = Object.getPrototypeOf(object);
+      prototype && prototype !== Object.prototype;
+      prototype = Object.getPrototypeOf(prototype)
+    ) {
+      for (const name of Object.getOwnPropertyNames(prototype)) {
+        if (
+          name === "constructor" ||
+          (members && !members.includes(name)) ||
+          typeof Object.getOwnPropertyDescriptor(prototype, name)?.value !==
+            "function"
+        )
+          continue;
+        names.add(name);
+      }
+    }
+    for (const name of names) {
       const original = object[name];
       const publicName =
         name === "_evaluateExpression"

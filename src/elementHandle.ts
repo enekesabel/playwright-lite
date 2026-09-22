@@ -1,9 +1,5 @@
-import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
-import {
-  AdapterJSHandle,
-  assertEvaluationOptions,
-  assertMaxArguments,
-} from "./jsHandle";
+import type { EvaluationFunction } from "./evaluation";
+import { AdapterJSHandle, assertMaxArguments } from "./jsHandle";
 import { rejectUnsupportedOptions, validateForce } from "./protocolValidation";
 import type { InputFiles } from "./inputFiles";
 import type { PageImpl, SelectOptionValues } from "./page";
@@ -319,26 +315,6 @@ export class AdapterElementHandle extends AdapterJSHandle<Element> {
       arg,
       this.ownerPage.resolveAllWithinElement(this.requireElement(), selector)
     );
-  }
-
-  override async evaluate<T>(
-    pageFunction: EvaluationFunction<T>,
-    arg?: unknown,
-    options?: EvaluationOptions
-  ): Promise<T> {
-    assertMaxArguments(arguments.length, 3);
-    assertEvaluationOptions(options);
-    return this.ownerPage.evaluation.byValue(
-      pageFunction,
-      typeof pageFunction === "function",
-      arg,
-      this.requireElement()
-    );
-  }
-
-  /** Kept here so releasing a node is attributed to ElementHandle. */
-  override async dispose(): Promise<void> {
-    await super.dispose();
   }
 
   async textContent(): Promise<string | null> {

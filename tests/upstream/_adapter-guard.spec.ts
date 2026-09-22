@@ -1169,6 +1169,26 @@ test("adapter element handles keep native identity, scope queries, and release b
   expect(execution.entered).toContain("ElementHandle.evaluate");
 });
 
+test("an ElementHandle member inherited from JSHandle is recorded under ElementHandle", async ({
+  page,
+  adapterPage,
+}) => {
+  // getProperty/jsonValue are declared once on AdapterJSHandle and never
+  // overridden on AdapterElementHandle. instrument() must still record a call
+  // to one of them under the subclass's kind, by walking the whole prototype
+  // chain rather than only the handle's own immediate prototype.
+  await page.setContent("<div>inherited</div>");
+  const handle = await adapterPage.$("div");
+  if (!handle) throw new Error("Expected ElementHandle");
+
+  const property = await handle.getProperty("tagName");
+  expect(await property.jsonValue()).toBe("DIV");
+
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  expect(execution.entered).toContain("ElementHandle.getProperty");
+  expect(execution.entered).not.toContain("JSHandle.getProperty");
+});
+
 test("adapter element handles reject references from another adapter context", async ({
   page,
 }) => {
@@ -1250,9 +1270,7 @@ test("proxy page methods do not fall through to real Playwright driver", async (
     await expect(adapterPage.title()).resolves.toBe("");
     await expect(adapterPage.goBack()).rejects.toThrow();
     await expect(adapterPage.screenshot()).rejects.toThrow();
-    await expect(
-      (adapterPage as any).route("**/*", () => {})
-    ).rejects.toThrow();
+    await expect((adapterPage as any).close()).rejects.toThrow();
     expect((page as any).__pwLiteNativeOperations).toEqual([]);
   } finally {
     page.title = originalTitle;

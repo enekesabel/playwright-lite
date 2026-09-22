@@ -60,7 +60,7 @@ export const elementHandleLimitations =
 const framenavigatedPayload =
   "`framenavigated` fires with the `Page` itself, the object `mainFrame()` returns, up to 20 ms after a same-document URL change. `pushState` and `replaceState` are sampled every 20 ms: several within one interval produce one event, and a URL that changes and changes back within one interval produces none.";
 const networkEventPayload =
-  "`request`, `response`, `requestfinished` and `requestfailed` fire for the `fetch()` calls the document makes while a listener is registered; see [Request and Response compatibility](#request-and-response-compatibility).";
+  "`request`, `response`, `requestfinished` and `requestfailed` fire for the `fetch()` and `XMLHttpRequest` calls the document makes while a listener is registered; see [Request and Response compatibility](#request-and-response-compatibility).";
 const consoleEventPayload =
   "`console` fires for the document's own `console.log/debug/info/error/warn/dir/dirxml/table/trace/clear/group/groupCollapsed/groupEnd/assert/profile/profileEnd/count/timeEnd` calls made while a listener is registered. Browser-generated console entries (a failed resource load, a CSP violation report) never call one of those methods, so they are never reported. A `console.*` call made from inside a `console` listener is forwarded to the real method but does not itself fire the event, so a listener that logs cannot trigger itself recursively. `ConsoleMessage.location()` is a best-effort capture from a synthetic stack, not the browser's own call-site data.";
 const eventNames =
@@ -69,12 +69,12 @@ const eventListenerLimitations = `Events: ${eventNames}. Other event names are a
 const eventRemovalLimitations = `Events: ${eventNames}. Other event names are accepted.`;
 const waitForEventLimitations = `Events: ${eventNames}. Other event names are accepted and time out. ${framenavigatedPayload} ${networkEventPayload} ${consoleEventPayload}`;
 const networkObservationLimitations =
-  "`fetch()` calls of the current document only; see [Request and Response compatibility](#request-and-response-compatibility).";
+  "`fetch()` and `XMLHttpRequest` calls of the current document only; see [Request and Response compatibility](#request-and-response-compatibility).";
 const consoleMessagesLimitations =
   '`filter: "all"` and the default `"since-navigation"` return the same messages: this single-document adapter never crosses documents within one page\'s lifetime, so nothing ever marks the buffer at a navigation. The buffer holds `console.*` calls made from the first `consoleMessages()` call (or the first `console` listener) onward, not from page creation: a call made before that first subscription is never observed. Browser-generated console entries (a failed resource load, a CSP violation report) are not observed: only the document\'s own `console.*` calls are. `ConsoleMessage.location()` is a best-effort capture from a synthetic stack, not the browser\'s own call-site data.';
 
 /** Consumer-facing description of this package's `Request` and `Response`. */
-export const networkLimitations = `\`page.on("request" | "response" | "requestfinished" | "requestfailed")\`, \`page.waitForRequest()\`, \`page.waitForResponse()\` and \`page.requests()\` report the \`fetch()\` calls the current document makes while you are subscribed. Images, scripts, stylesheets, \`XMLHttpRequest\`, \`navigator.sendBeacon\`, \`WebSocket\`, \`EventSource\`, form submissions and navigations are not reported, and neither are \`fetch()\` calls made by another realm, by an iframe or by a service worker, nor calls that started before the first subscription.
+export const networkLimitations = `\`page.on("request" | "response" | "requestfinished" | "requestfailed")\`, \`page.waitForRequest()\`, \`page.waitForResponse()\` and \`page.requests()\` report the \`fetch()\` and \`XMLHttpRequest\` calls the current document makes while you are subscribed. Images, scripts, stylesheets, \`navigator.sendBeacon\`, \`WebSocket\`, \`EventSource\`, form submissions and navigations are not reported, and neither are \`fetch()\` and \`XMLHttpRequest\` calls made by another realm, by an iframe or by a service worker, nor a \`fetch()\` call started or an \`XMLHttpRequest\` opened before the first subscription.
 
 \`Request\` has \`url()\`, \`resourceType()\`, \`method()\`, \`headers()\`, \`headerValue()\`, \`postData()\`, \`postDataBuffer()\`, \`postDataJSON()\`, \`isNavigationRequest()\`, \`failure()\` and \`response()\`. \`allHeaders()\`, \`headersArray()\`, \`frame()\`, \`redirectedFrom()\`, \`redirectedTo()\`, \`serviceWorker()\`, \`sizes()\` and \`timing()\` are not implemented and throw a \`TypeError\` when called.
 
@@ -84,14 +84,14 @@ The package exports \`Request\` and \`Response\` types listing exactly the membe
 
 The members that do exist differ from Playwright's as follows.
 
-- \`resourceType()\` is always \`"fetch"\` and \`isNavigationRequest()\` is always \`false\`.
-- \`Request.headers()\` and \`Request.headerValue()\` report the headers the \`fetch()\` call set, not the headers that went on the wire: \`Cookie\`, \`Origin\`, \`User-Agent\` and the other headers the browser adds are missing. Playwright's \`headerValue()\` reads the wire headers.
+- \`resourceType()\` is \`"fetch"\` or \`"xhr"\`, and \`isNavigationRequest()\` is always \`false\`.
+- \`Request.headers()\` and \`Request.headerValue()\` report the headers the call set — the \`Request\` headers of a \`fetch()\`, the \`setRequestHeader()\` values of an \`XMLHttpRequest\` — not the headers that went on the wire: \`Cookie\`, \`Origin\`, \`User-Agent\` and the other headers the browser adds are missing, as is the \`Content-Type\` an \`XMLHttpRequest\` derives from its \`send()\` body. Playwright's \`headerValue()\` reads the wire headers.
 - \`Response.headers()\` and \`Response.headerValue()\` report the headers the browser exposes to the document: \`Set-Cookie\` is never among them, and a cross-origin response exposes only the CORS-safelisted names plus the ones its \`Access-Control-Expose-Headers\` lists.
-- \`postData()\`, \`postDataBuffer()\` and \`postDataJSON()\` answer without waiting, as Playwright's do, so they read the body only in the forms the call can hand over synchronously: a string, \`URLSearchParams\`, an \`ArrayBuffer\` or a typed array. A \`Blob\`, \`FormData\` or \`ReadableStream\` body, and a body carried by a \`Request\` argument, can only be read asynchronously, and report \`null\`.
+- \`postData()\`, \`postDataBuffer()\` and \`postDataJSON()\` answer without waiting, as Playwright's do, so they read the body only in the forms the call can hand over synchronously: a string, \`URLSearchParams\`, an \`ArrayBuffer\` or a typed array, passed as the \`fetch()\` \`body\` option or as the \`send()\` argument. A \`Blob\`, \`FormData\` or \`ReadableStream\` body, and a body carried by a \`Request\` argument to \`fetch()\`, can only be read asynchronously, and report \`null\`.
 - \`postDataBuffer()\` returns a \`Uint8Array\` and \`Response.body()\` resolves with a \`Uint8Array\`, where Playwright returns a Node.js \`Buffer\`.
-- \`failure().errorText\` is the name and message of the error the \`fetch()\` call rejected with, or the reason its \`AbortSignal\` carried, not a \`net::ERR_*\` code.
+- \`failure().errorText\` is the name and message of the error the \`fetch()\` call rejected with, or the reason its \`AbortSignal\` carried. An \`XMLHttpRequest\` carries no error, so it reports \`XMLHttpRequest:\` followed by the name of the event that ended it: \`error\`, \`timeout\` or \`abort\`, which is also what an \`XMLHttpRequest\` opened again while in flight reports. Playwright reports the browser's \`net::ERR_*\` code.
 - A redirect chain is one request and one response: the request reports the URL the document asked for, the response reports the final URL, and no event is emitted per hop.
-- \`Response.finished()\` resolves once the response body has ended. The response body is read and buffered for every observed response, so that \`body()\`, \`text()\` and \`json()\` can still answer after the document consumed it.`;
+- \`Response.finished()\` resolves once the response body has ended. A \`fetch()\` response body is read and buffered as the response arrives, so that \`body()\`, \`text()\` and \`json()\` can still answer after the document consumed it. An \`XMLHttpRequest\` body is read back from the request once it is done. With the default \`responseType\` the browser has already decoded that body as text, so the three return it re-encoded as UTF-8, and a binary or non-UTF-8 body does not come back byte for byte; Playwright returns the bytes received. They reject when the request set \`responseType\` to \`"json"\` or \`"document"\`, because the browser then keeps only the value it parsed.`;
 
 export const pageLedger = {
   [Symbol.asyncDispose]: undecided(),
@@ -107,7 +107,9 @@ export const pageLedger = {
   $eval: implemented(
     "Uses the pinned Playwright by-value argument and result serializers."
   ),
-  addInitScript: undecided(),
+  addInitScript: outOfScope(
+    "Registers a script to run before the document's own scripts, which have already run by the time this adapter attaches."
+  ),
   addListener: partial(eventListenerLimitations),
   addLocatorHandler: undecided(),
   addScriptTag: partial(
@@ -117,7 +119,7 @@ export const pageLedger = {
     "Rejects `path`, which reads the stylesheet from disk. Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   ariaSnapshot: implemented("Current document only; no iframe traversal."),
-  bringToFront: undecided(),
+  bringToFront: outOfScope("Browser tab focus control is excluded."),
   cancelPickLocator: undecided(),
   check: implemented(),
   clearConsoleMessages: implemented(),
@@ -127,12 +129,16 @@ export const pageLedger = {
   close: undecided(),
   consoleMessages: partial(consoleMessagesLimitations),
   content: implemented("Serializes the current controlled document."),
-  context: undecided(),
-  coverage: undecided(),
+  context: outOfScope(
+    "Refers to the owning browser context, which does not exist in this adapter."
+  ),
+  coverage: outOfScope(
+    "Collecting code coverage requires the browser process."
+  ),
   dblclick: implemented(),
   dispatchEvent: implemented(),
   dragAndDrop: undecided(),
-  emulateMedia: undecided(),
+  emulateMedia: outOfScope("Emulating CSS media features is excluded."),
   evaluate: partial("Rejects `exposeFunctions: true`."),
   evaluateHandle: partial(
     "Rejects `exposeFunctions: true`. The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
@@ -185,12 +191,16 @@ export const pageLedger = {
   off: partial(eventRemovalLimitations),
   on: partial(eventListenerLimitations),
   once: partial(eventListenerLimitations),
-  opener: undecided(),
+  opener: outOfScope(
+    "Refers to another page, outside the single-document boundary."
+  ),
   pageErrors: partial(
     '`filter: "all"` and the default `"since-navigation"` return the same errors: this single-document adapter never crosses documents within one page\'s lifetime, so nothing ever marks the buffer at a navigation.'
   ),
-  pause: undecided(),
-  pdf: undecided(),
+  pause: outOfScope(
+    "Pausing for the Playwright Inspector requires the browser process."
+  ),
+  pdf: outOfScope("Generating a PDF requires the browser process."),
   pickLocator: undecided(),
   prependListener: partial(eventListenerLimitations),
   press: implemented(),
@@ -200,13 +210,19 @@ export const pageLedger = {
   removeAllListeners: partial(eventRemovalLimitations),
   removeListener: partial(eventRemovalLimitations),
   removeLocatorHandler: undecided(),
-  request: undecided(),
-  requestGC: undecided(),
+  request: outOfScope(
+    "Returns Playwright's Node-side API request context, which has no in-document counterpart."
+  ),
+  requestGC: outOfScope(
+    "Forcing garbage collection requires the browser process."
+  ),
   requests: partial(networkObservationLimitations),
-  route: undecided(),
-  routeFromHAR: undecided(),
-  routeWebSocket: undecided(),
-  screencast: undecided(),
+  route: outOfScope("Browser-level network interception is excluded."),
+  routeFromHAR: outOfScope("Browser-level network interception is excluded."),
+  routeWebSocket: outOfScope("Browser-level network interception is excluded."),
+  screencast: outOfScope(
+    "Capturing a screencast requires the browser process."
+  ),
   screenshot: undecided(),
   selectOption: implemented(),
   sessionStorage: implemented("Native current-window Storage only."),
@@ -214,7 +230,9 @@ export const pageLedger = {
   setContent: outOfScope("Document replacement is excluded."),
   setDefaultNavigationTimeout: implemented(),
   setDefaultTimeout: implemented(),
-  setExtraHTTPHeaders: undecided(),
+  setExtraHTTPHeaders: outOfScope(
+    "Browser-level request header configuration is excluded."
+  ),
   setInputFiles: partial(
     "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported. Empty `mimeType` throws instead of inferring a MIME type."
   ),
@@ -225,10 +243,14 @@ export const pageLedger = {
   touchscreen: planned("Synthetic functional input only."),
   type: implemented(),
   uncheck: implemented(),
-  unroute: undecided(),
-  unrouteAll: undecided(),
+  unroute: outOfScope(
+    "Removes handlers registered by `route()`, which is excluded."
+  ),
+  unrouteAll: outOfScope(
+    "Removes handlers registered by `route()`, which is excluded."
+  ),
   url: implemented(),
-  video: undecided(),
+  video: outOfScope("Recording video requires the browser process."),
   viewportSize: undecided(),
   waitForEvent: partial(waitForEventLimitations),
   waitForFunction: partial(
@@ -243,7 +265,9 @@ export const pageLedger = {
   ),
   waitForTimeout: implemented(),
   waitForURL: partial('Rejects `waitUntil: "networkidle"`.'),
-  workers: undecided(),
+  workers: outOfScope(
+    "Worker realms are outside the single-document boundary."
+  ),
 } as const satisfies Ledger<Page>;
 
 export const locatorLedger = {
