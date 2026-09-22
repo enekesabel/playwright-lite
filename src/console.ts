@@ -1,117 +1,45 @@
 import { WrappedHostFunction } from "./hostGlobals";
 import { previewValue, type AdapterJSHandle } from "./jsHandle";
-import type { JSHandle, Page } from "@playwright/test";
+import type { ConsoleMessage, JSHandle, Page } from "@playwright/test";
 
-/**
- * The document's `console.*` calls, reported with Playwright's `ConsoleMessage`
- * shape.
- *
- * A browser-generated console entry (a failed resource load, a CSP violation
- * report) never calls a `console.*` method, so this observation never sees it;
- * see the `consoleMessages`/`clearConsoleMessages` ledger notes.
- */
-
-export type ConsoleMessageType =
-  | "log"
-  | "debug"
-  | "info"
-  | "error"
-  | "warning"
-  | "dir"
-  | "dirxml"
-  | "table"
-  | "trace"
-  | "clear"
-  | "startGroup"
-  | "startGroupCollapsed"
-  | "endGroup"
-  | "assert"
-  | "profile"
-  | "profileEnd"
-  | "count"
-  | "timeEnd";
-
-export type ConsoleMessageLocation = {
-  url: string;
-  lineNumber: number;
-  columnNumber: number;
-};
+/** The `ConsoleMessage` object the `console` event and `consoleMessages()` report; re-exported from `src/index.ts` as an opt-in annotation. A browser-generated entry (a failed resource load, a CSP report) is never observed, since none calls a `console.*` method. */
+export type { ConsoleMessage };
 
 /** Pinned client/events.ts Page event this observation emits. */
 export const CONSOLE_EVENT = "console";
 
+type ConsoleMessageType = ReturnType<ConsoleMessage["type"]>;
+
 /**
- * Pinned client/consoleMessage.ts `ConsoleMessage`. `worker()` is always
- * `null`: this observation has no worker realm to report. `args()` is typed
- * with Playwright's own `JSHandle`, the way `createPage`'s `Page` types every
- * other adapter handle it returns, keeping this package's own internal
- * handle implementation out of this public interface's surface.
+ * Builds a `ConsoleMessage`, this package's own `JSHandle`s cast to
+ * Playwright's public `JSHandle` the way `createPage`'s `Page` types every
+ * other adapter handle it returns. Built per subscribing `Page`, not inside
+ * `ConsoleObservation`: `args()` must hold that page's own handles, which
+ * only its `Evaluation` can create, and `page()` must return that same page.
  */
-export interface ConsoleMessage {
-  args(): JSHandle[];
-  location(): {
-    url: string;
-    line: number;
-    column: number;
-    lineNumber: number;
-    columnNumber: number;
+export function buildConsoleMessage(
+  page: Page,
+  type: ConsoleMessageType,
+  args: AdapterJSHandle[],
+  text: string,
+  location: ReturnType<typeof captureLocation>,
+  timestamp: number
+): ConsoleMessage {
+  return {
+    args: () => args as unknown as JSHandle[],
+    location: () => ({
+      url: location.url,
+      line: location.lineNumber,
+      column: location.columnNumber,
+      lineNumber: location.lineNumber,
+      columnNumber: location.columnNumber,
+    }),
+    page: () => page,
+    text: () => text,
+    timestamp: () => timestamp,
+    type: () => type,
+    worker: () => null,
   };
-  page(): Page | null;
-  text(): string;
-  timestamp(): number;
-  type(): ConsoleMessageType;
-  worker(): null;
-}
-
-/**
- * Built per subscribing `Page`, not inside `ConsoleObservation`: `args()` must
- * hold this package's own `JSHandle`s, which only the owning page's
- * `Evaluation` can create, and `page()` must return that same page.
- */
-export class ObservedConsoleMessage implements ConsoleMessage {
-  constructor(
-    private readonly _page: Page,
-    private readonly _type: ConsoleMessageType,
-    private readonly _args: AdapterJSHandle[],
-    private readonly _text: string,
-    private readonly _location: ConsoleMessageLocation,
-    private readonly _timestamp: number
-  ) {}
-
-  args(): JSHandle[] {
-    return this._args as unknown as JSHandle[];
-  }
-
-  location() {
-    const { url, lineNumber, columnNumber } = this._location;
-    return {
-      url,
-      line: lineNumber,
-      column: columnNumber,
-      lineNumber,
-      columnNumber,
-    };
-  }
-
-  page() {
-    return this._page;
-  }
-
-  text() {
-    return this._text;
-  }
-
-  timestamp() {
-    return this._timestamp;
-  }
-
-  type() {
-    return this._type;
-  }
-
-  worker() {
-    return null;
-  }
 }
 
 /**
@@ -187,7 +115,7 @@ export type ConsoleCall = {
   args: unknown[];
   /** Pinned client/console.ts: joins each argument's object-preview text. */
   text: string;
-  location: ConsoleMessageLocation;
+  location: ReturnType<typeof captureLocation>;
   timestamp: number;
 };
 
@@ -215,7 +143,7 @@ const STACK_FRAME = /\(?([^()\s]+):(\d+):(\d+)\)?$/;
  * CDP-sourced location, engine stack-formatting differences and inlining can
  * shift or drop a frame.
  */
-function captureLocation(): ConsoleMessageLocation {
+function captureLocation() {
   const stack = new Error().stack;
   if (!stack) return { url: "", lineNumber: 0, columnNumber: 0 };
   for (const line of stack.split("\n").slice(1 + INTERNAL_FRAME_COUNT)) {

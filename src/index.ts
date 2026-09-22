@@ -9,11 +9,7 @@ export type { Expect } from "./expect";
  * so annotating with these is opt-in.
  */
 export type { Request, Response } from "./network";
-/**
- * The `ConsoleMessage` object the `console` event and `consoleMessages()`
- * report. `createPage` still returns Playwright's own `Page` type, so
- * annotating with this is opt-in.
- */
+/** Playwright's `ConsoleMessage`, re-exported for optional annotation; `createPage` still returns Playwright's own `Page` type unchanged. */
 export type { ConsoleMessage } from "./console";
 
 import { PageImpl } from "./page";

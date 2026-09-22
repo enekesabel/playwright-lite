@@ -34,7 +34,7 @@ import {
 import {
   CONSOLE_EVENT,
   CONSOLE_MESSAGE_LIMIT,
-  ObservedConsoleMessage,
+  buildConsoleMessage,
   consoleObservationFor,
   type ConsoleCall,
   type ConsoleMessage,
@@ -1746,7 +1746,7 @@ export class PageImpl {
     if (this.consoleSubscribers++ === 0)
       this.releaseConsoleSubscription = this.consoleObservation.subscribe(
         (call: ConsoleCall) => {
-          const message = new ObservedConsoleMessage(
+          const message = buildConsoleMessage(
             this as unknown as Page,
             call.type,
             call.args.map((arg) => this.evaluation.handleFor(arg)),

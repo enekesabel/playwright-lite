@@ -140,17 +140,7 @@ export class AdapterJSHandle<T = unknown> {
   }
 }
 
-/**
- * Mirrors the handle preview pinned 26a9e47 crExecutionContext.ts:123
- * (`renderPreview`) derives from a Chromium remote object: a value that crosses
- * the protocol renders as `String(value)`, and an object renders as V8's
- * `RemoteObject.description`. Handles created inside the document carry no
- * remote object, so the description is reconstructed from the value.
- *
- * Exported for console message text formatting (`console.ts`), which nests
- * this shallow description for compound argument properties/elements one
- * level deep, the way the pinned CDP object preview does.
- */
+/** Mirrors pinned crExecutionContext.ts `renderPreview` for a value with no remote object: `String(value)`, or a name for an object. Also used by `console.ts`'s argument previews. */
 export function previewValue(value: unknown): string {
   if (value === null) return "null";
   if (typeof value === "bigint") return `${value}n`;
