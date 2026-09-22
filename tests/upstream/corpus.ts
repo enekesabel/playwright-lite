@@ -196,6 +196,14 @@ export const corpus = {
       "e998d21d5d4dd4ae1049904939c27a074148f9ea95bcb5179a50e7b14785ab99",
     "page-event-pageerror.spec.ts":
       "4b2168208fc753c14bf515b792ab98c7d6274fec316e30ece391c99b014afa45",
+    "page-event-request.spec.ts":
+      "f5dfb58a9e1afec301079df0ad81ae30ef7d56c23016b4c54d1da66eb0e8ff14",
+    "page-event-network.spec.ts":
+      "ec571c0479a27d1a0cc302035b25d97415b054c306b7f368cdae0ae16aa91c08",
+    "page-network-request.spec.ts":
+      "dc1f63c851a27c9c008a6eabdbff6da8571e202f03606b77a38d33da6e02a17a",
+    "page-network-response.spec.ts":
+      "b642e2eb0431df091b39615c2df1000ff0b1f4b531344a6c956d4d85740b0062",
   },
 } as const;
 

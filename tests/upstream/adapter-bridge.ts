@@ -25,6 +25,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ADAPTER_DIST_PATH = resolve(__dirname, "../../dist/index.mjs");
 const LOCATOR_CHAIN_PAYLOAD = "__pwLiteLocatorChain";
 const ELEMENT_HANDLE_REF_PAYLOAD = "__pwLiteElementHandleRef";
+const NETWORK_REF_PAYLOAD = "__pwLiteNetworkRef";
+const NETWORK_BYTES_PAYLOAD = "__pwLiteNetworkBytes";
 const ABORT_SIGNAL_PAYLOAD = "__pwLiteAbortSignal";
 const FUNCTION_SOURCE_PAYLOAD = "__pwLiteFunctionSource";
 const TYPED_ARRAY_PAYLOAD = "__pwLiteTypedArray";
@@ -308,12 +310,92 @@ async function decodeBridgeResult(
       value.map((item) => decodeBridgeResult(item, realPage, state))
     );
   if (!value || typeof value !== "object") return value;
+  if (
+    typeof (value as Record<string, unknown>)[NETWORK_REF_PAYLOAD] === "string"
+  )
+    return createNetworkProxy(realPage, state, value as EncodedNetworkObject);
   const reference = (value as Record<string, unknown>)[
     ELEMENT_HANDLE_REF_PAYLOAD
   ];
   return typeof reference === "string"
     ? createElementHandleProxy(realPage, state, reference)
     : value;
+}
+
+type EncodedNetworkObject = {
+  [NETWORK_REF_PAYLOAD]: string;
+  kind: "Request" | "Response";
+  snapshot: Record<string, { value?: unknown } | { error: string }>;
+  request?: EncodedNetworkObject;
+};
+
+/**
+ * Republishes a Request or Response the adapter reported.
+ *
+ * Playwright's Request and Response answer most members synchronously, which
+ * no `realPage.evaluate` round trip can do, so the browser side snapshots
+ * those members when it stores the object and this proxy replays the
+ * snapshot. Members that are asynchronous in Playwright too round-trip to the
+ * live object. The snapshot is taken when the object crosses the boundary, so
+ * a value that changes afterwards, such as `failure()` between `request` and
+ * `requestfailed`, is the value at the event that delivered it.
+ */
+function createNetworkProxy(
+  realPage: Page,
+  state: AdapterPageState,
+  encoded: EncodedNetworkObject
+): object {
+  const request = encoded.request
+    ? createNetworkProxy(realPage, state, encoded.request)
+    : undefined;
+  const invoke = async (member: string, args: unknown[]) =>
+    decodeBridgeResult(
+      await evaluateAdapter(
+        realPage,
+        ({ id, kind, member: name, args: a }) => {
+          const host = window as any;
+          return host.__pwLiteInvokeAdapter(async () =>
+            host.__pwLiteEncodeAdapterResult(
+              await host.__pwLiteNetworkCall(id, kind, name, a)
+            )
+          );
+        },
+        {
+          id: encoded[NETWORK_REF_PAYLOAD],
+          kind: encoded.kind,
+          member,
+          args: encodeBridgeValueForPage(args, realPage) as unknown[],
+        }
+      ),
+      realPage,
+      state
+    );
+
+  return new Proxy(
+    {},
+    {
+      get(_, prop) {
+        if (typeof prop === "symbol" || prop === "then") return undefined;
+        if (prop === "__pwLiteAdapter") return true;
+        if (prop === "request" && request) return () => request;
+        if (Object.hasOwn(encoded.snapshot, prop)) {
+          const recorded = encoded.snapshot[prop];
+          return () => {
+            if ("error" in recorded) throw new Error(recorded.error);
+            return decodeNetworkValue(recorded.value);
+          };
+        }
+        return (...args: unknown[]) => invoke(prop, args);
+      },
+    }
+  );
+}
+
+/** Byte payloads travel as plain arrays; the adapter returns typed arrays. */
+function decodeNetworkValue(value: unknown): unknown {
+  if (!value || typeof value !== "object") return value;
+  const bytes = (value as Record<string, unknown>)[NETWORK_BYTES_PAYLOAD];
+  return Array.isArray(bytes) ? Uint8Array.from(bytes as number[]) : value;
 }
 
 function serializableAbortReason(reason: unknown): unknown {
@@ -1971,8 +2053,79 @@ function initializeAdapterBridge(
   // ElementHandle, and one that answers `null` is a JSHandle, so the execution
   // evidence keeps the names the dedicated routes give. Locator.highlight's
   // disposable has `dispose` alone, so it stays with its own route.
+  // A Request or Response the adapter reported. Playwright answers most of
+  // their members synchronously, which no evaluation round trip can do, so
+  // those members are read here, when the object crosses the boundary, and
+  // replayed on the Node side. Reading them is bookkeeping, not a call the
+  // test made, so it stays out of the execution evidence.
+  const networkSyncMembers: Record<string, readonly string[]> = {
+    Request: [
+      "url",
+      "resourceType",
+      "method",
+      "headers",
+      "postData",
+      "postDataBuffer",
+      "postDataJSON",
+      "isNavigationRequest",
+      "failure",
+    ],
+    Response: ["url", "status", "statusText", "ok", "headers"],
+  };
+  host.__pwLiteNetworkObjects = new Map<string, any>();
+  const encodeNetworkValue = (value: any) =>
+    value instanceof Uint8Array
+      ? { __pwLiteNetworkBytes: Array.from(value) }
+      : value;
+  const isNetworkObject = (value: any) =>
+    !!value &&
+    typeof value === "object" &&
+    typeof value.url === "function" &&
+    (typeof value.resourceType === "function" ||
+      typeof value.status === "function");
+  host.__pwLiteStoreNetworkObject = function store(value: any): any {
+    const kind =
+      typeof value.resourceType === "function" ? "Request" : "Response";
+    const id = `${handleContext}:network-${++nextElementHandleId}`;
+    host.__pwLiteNetworkObjects.set(id, value);
+    const snapshot: Record<string, any> = {};
+    for (const member of networkSyncMembers[kind]) {
+      try {
+        snapshot[member] = { value: encodeNetworkValue(value[member]()) };
+      } catch (error) {
+        snapshot[member] = {
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }
+    return {
+      __pwLiteNetworkRef: id,
+      kind,
+      snapshot,
+      request: kind === "Response" ? store(value.request()) : undefined,
+    };
+  };
+  host.__pwLiteNetworkCall = function call(
+    id: string,
+    kind: string,
+    member: string,
+    args: any[]
+  ) {
+    const target = host.__pwLiteNetworkObjects.get(id);
+    if (!target) throw new Error(`Unknown adapter ${kind}: ${id}`);
+    const recorded = `${kind}.${member}`;
+    host.__pwLiteEvidence.entered.push(recorded);
+    if (recorded === sabotagedMethod)
+      throw new Error(
+        `__pwLiteSabotagedMethod: ${recorded} was withheld for promotion review.`
+      );
+    if (typeof target[member] !== "function")
+      throw new TypeError(`__pwLiteAdapter${kind}.${member} is not a function`);
+    return target[member](...host.__pwLiteDecodeBridgeValue(args));
+  };
   host.__pwLiteEncodeAdapterResult = function encode(value: any): any {
     if (Array.isArray(value)) return value.map(encode);
+    if (isNetworkObject(value)) return host.__pwLiteStoreNetworkObject(value);
     if (
       !value ||
       typeof value !== "object" ||
