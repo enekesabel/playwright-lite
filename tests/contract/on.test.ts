@@ -6,6 +6,7 @@ import {
   restoreURL,
   swallowWindowErrors,
 } from "./pageEvents";
+import { contractUrl, recordedFetch, restoreFetch } from "./network";
 
 swallowWindowErrors();
 restoreURL();
@@ -135,5 +136,122 @@ describe("Page.on", () => {
     await navigated;
     await expect(reached).resolves.toBeUndefined();
     expect(frames).toEqual([page.mainFrame()]);
+  });
+});
+
+describe("Page.on network events", () => {
+  restoreFetch();
+
+  it("leaves window.fetch alone until the first network listener", () => {
+    const before = window.fetch;
+    const page = createPage();
+    page.on("pageerror", () => {});
+    expect(window.fetch).toBe(before);
+    page.on("request", () => {});
+    expect(window.fetch).not.toBe(before);
+  });
+
+  it("keeps the wrapped fetch indistinguishable from the original", () => {
+    const before = window.fetch;
+    createPage().on("request", () => {});
+    const wrapped = window.fetch;
+    expect(wrapped).not.toBe(before);
+    expect(wrapped.name).toBe(before.name);
+    expect(wrapped.length).toBe(before.length);
+    const source = Function.prototype.toString.call(wrapped);
+    expect(source).toContain("[native code]");
+    expect(source).not.toContain("=>");
+  });
+
+  it("forwards the receiver to the function it wrapped", async () => {
+    const receivers: unknown[] = [];
+    window.fetch = function (this: unknown) {
+      receivers.push(this);
+      return Promise.resolve(new Response("ok"));
+    } as typeof fetch;
+    createPage().on("request", () => {});
+
+    const host = { fetch: window.fetch };
+    await host.fetch(contractUrl("."));
+    await window.fetch.call(undefined, contractUrl("."));
+
+    expect(receivers).toEqual([host, undefined]);
+  });
+
+  it("lets a rejected receiver throw before anything is reported", () => {
+    // Chromium's own `fetch` ignores its receiver, so the stand-in supplies
+    // the Web IDL check whose TypeError must still reach the caller.
+    window.fetch = function (this: unknown) {
+      if (this !== window) throw new TypeError("Illegal invocation");
+      return Promise.resolve(new Response("ok"));
+    } as typeof fetch;
+    const page = createPage();
+    const seen: unknown[] = [];
+    page.on("request", (request) => seen.push(request));
+
+    expect(() => window.fetch.call({}, contractUrl("."))).toThrow(TypeError);
+    expect(seen).toEqual([]);
+  });
+
+  it("reports request, response and requestfinished in the pinned order", async () => {
+    const page = createPage();
+    const events: string[] = [];
+    page.on("request", () => events.push("request"));
+    page.on("response", () => events.push("response"));
+    page.on("requestfinished", () => events.push("requestfinished"));
+    const finished = page.waitForEvent("requestfinished", { timeout: 5_000 });
+
+    await window.fetch(contractUrl("."));
+    await finished;
+
+    expect(events).toEqual(["request", "response", "requestfinished"]);
+  });
+
+  it("reports a fetch with the fields the document can fill", async () => {
+    const page = createPage();
+    const waiting = page.waitForEvent("request", { timeout: 5_000 });
+    void window.fetch(contractUrl("./contract-fetch#fragment"), {
+      headers: { "x-contract": "yes" },
+    });
+    const request = await waiting;
+
+    expect(request.url()).toBe(contractUrl("./contract-fetch"));
+    expect(request.resourceType()).toBe("fetch");
+    expect(request.method()).toBe("GET");
+    expect(request.isNavigationRequest()).toBe(false);
+    expect(request.headers()["x-contract"]).toBe("yes");
+    expect(await request.headerValue("X-Contract")).toBe("yes");
+    expect(request.failure()).toBe(null);
+    expect(request.postData()).toBe(null);
+  });
+
+  it("reports a failed fetch as requestfailed with Playwright's failure shape", async () => {
+    const page = createPage();
+    const failed = page.waitForEvent("requestfailed", { timeout: 5_000 });
+    await expect(
+      window.fetch("http://localhost:1/unreachable")
+    ).rejects.toThrow();
+    const request = await failed;
+
+    expect(request.failure()).toEqual({
+      errorText: expect.stringContaining("TypeError"),
+    });
+    expect(await request.response()).toBe(null);
+  });
+
+  it("sends a body-carrying Request input to the network intact", async () => {
+    const forwarded = recordedFetch();
+    const page = createPage();
+    page.on("request", () => {});
+
+    const input = new Request(contractUrl("./post"), {
+      method: "POST",
+      body: "carried",
+    });
+    await window.fetch(input);
+
+    expect(forwarded).toHaveLength(1);
+    expect(forwarded[0].method).toBe("POST");
+    expect(await forwarded[0].text()).toBe("carried");
   });
 });

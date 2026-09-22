@@ -21,6 +21,12 @@ import {
   validateString,
 } from "./protocolValidation";
 import { AdapterElementHandle } from "./elementHandle";
+import {
+  NETWORK_EVENTS,
+  NetworkObservation,
+  type Request as NetworkRequest,
+  type Response as NetworkResponse,
+} from "./network";
 import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
 import type { Locator, Page } from "@playwright/test";
@@ -169,6 +175,10 @@ type WaitForEventOptions =
   | EventPredicate
   | { predicate?: EventPredicate; signal?: AbortSignal; timeout?: number };
 
+type NetworkWaitOptions = { signal?: AbortSignal; timeout?: number };
+type NetworkMatch<T> =
+  string | RegExp | ((target: T) => boolean | Promise<boolean>);
+
 type PageExpectationExpression = "to.have.title" | "to.have.url";
 
 type PageExpectationOptions = {
@@ -297,6 +307,14 @@ export class PageImpl {
   private readonly pendingListeners = new Map<string, Set<PendingListener>>();
   private unobservePageErrors: (() => void) | undefined;
   private unobserveNavigation: (() => void) | undefined;
+  private unobserveNetwork: (() => void) | undefined;
+  private readonly network: NetworkObservation;
+  /**
+   * The subscription `requests()` takes. Like the pinned dispatcher, which
+   * adds the `request` subscription when the log is first read, it is never
+   * released: a request log nobody observes cannot be filled later.
+   */
+  private retainedNetwork: (() => void) | undefined;
   private readonly documentObservers = new Set<() => void>();
   private unobserveDocument: (() => void) | undefined;
 
@@ -310,6 +328,9 @@ export class PageImpl {
     this.evaluation = new Evaluation(this);
     this.localStorage = new PageWebStorage(this, "local");
     this.sessionStorage = new PageWebStorage(this, "session");
+    this.network = new NetworkObservation(browserWindow, (event, payload) =>
+      this.emit(event, payload)
+    );
   }
 
   private get injected() {
@@ -1618,13 +1639,72 @@ export class PageImpl {
       "signal",
       "timeout",
     ]);
+    return await this.waitForPageEvent(
+      event,
+      options,
+      "page.waitForEvent",
+      `waiting for event "${event}"`
+    );
+  }
+
+  /**
+   * Pinned client/page.ts `waitForRequest`: a string or `RegExp` is matched
+   * with the same `urlMatches` `waitForURL` uses, and a function is awaited as
+   * a predicate on the `Request` itself.
+   */
+  async waitForRequest(
+    urlOrPredicate: NetworkMatch<NetworkRequest>,
+    options: NetworkWaitOptions = {}
+  ): Promise<NetworkRequest> {
+    rejectUnsupportedOptions("waitForRequest", options, ["signal", "timeout"]);
+    return (await this.waitForPageEvent(
+      "request",
+      { ...options, predicate: networkPredicate(urlOrPredicate) },
+      "page.waitForRequest",
+      logLineFor("request", urlOrPredicate)
+    )) as NetworkRequest;
+  }
+
+  /** Pinned client/page.ts `waitForResponse`, matched like `waitForRequest`. */
+  async waitForResponse(
+    urlOrPredicate: NetworkMatch<NetworkResponse>,
+    options: NetworkWaitOptions = {}
+  ): Promise<NetworkResponse> {
+    rejectUnsupportedOptions("waitForResponse", options, ["signal", "timeout"]);
+    return (await this.waitForPageEvent(
+      "response",
+      { ...options, predicate: networkPredicate(urlOrPredicate) },
+      "page.waitForResponse",
+      logLineFor("response", urlOrPredicate)
+    )) as NetworkResponse;
+  }
+
+  /**
+   * Pinned client/page.ts `requests`, which also starts the `request`
+   * subscription so the log keeps filling once it has been read.
+   */
+  async requests(): Promise<NetworkRequest[]> {
+    this.retainedNetwork ??= this.network.subscribe();
+    return this.network.requests();
+  }
+
+  private async waitForPageEvent(
+    event: string,
+    options: {
+      predicate?: EventPredicate;
+      signal?: AbortSignal;
+      timeout?: number;
+    },
+    apiName: string,
+    logLine: string
+  ): Promise<unknown> {
     const timeout = this.resolveTimeout(
       options.timeout,
       DEFAULT_ACTION_TIMEOUT
     );
     const { predicate, signal } = options;
     return withAbortPrefix(
-      "page.waitForEvent",
+      apiName,
       () =>
         new Promise((resolve, reject) => {
           if (signal?.aborted) throw actionAborted(signal, false);
@@ -1653,7 +1733,7 @@ export class PageImpl {
                 finish(() =>
                   reject(
                     new AdapterTimeoutError(
-                      `page.waitForEvent: Timeout ${timeout}ms exceeded while waiting for event "${event}"`
+                      `${apiName}: Timeout ${timeout}ms exceeded while ${logLine}`
                     )
                   )
                 ),
@@ -1735,14 +1815,21 @@ export class PageImpl {
       this.unobserveNavigation,
       () => this.observeNavigation()
     );
+    this.unobserveNetwork = this.observeWhileListened(
+      NETWORK_EVENTS,
+      this.unobserveNetwork,
+      () => this.network.subscribe()
+    );
   }
 
   private observeWhileListened(
-    event: string,
+    events: string | readonly string[],
     stop: (() => void) | undefined,
     start: () => () => void
   ): (() => void) | undefined {
-    const wanted = (this.listeners.get(event)?.length ?? 0) > 0;
+    const wanted = (typeof events === "string" ? [events] : events).some(
+      (event) => (this.listeners.get(event)?.length ?? 0) > 0
+    );
     if (wanted === (stop !== undefined)) return stop;
     if (wanted) return start();
     stop!();
@@ -5157,6 +5244,38 @@ function regExpMatches(
   if (ignoreCase === false) flags.delete("i");
   if (ignoreCase === true) flags.add("i");
   return new RegExp(expression.source, [...flags].join("")).test(value);
+}
+
+/**
+ * Pinned client/page.ts: a string or `RegExp` matches the observed URL, a
+ * function is awaited with the `Request`/`Response` itself.
+ */
+function networkPredicate<T extends { url(): string }>(
+  urlOrPredicate: NetworkMatch<T>
+): EventPredicate {
+  return async (payload) => {
+    const target = payload as T;
+    if (typeof urlOrPredicate === "function")
+      return await urlOrPredicate(target);
+    return urlMatches(target.url(), urlOrPredicate);
+  };
+}
+
+/** Pinned client/page.ts `trimUrl`, for the line the timeout reports. */
+function logLineFor(event: string, match: unknown): string {
+  if (isRegExp(match))
+    return `waiting for ${event} /${trimStringWithEllipsis(match.source, 50)}/${match.flags}`;
+  if (typeof match === "string")
+    return `waiting for ${event} "${trimStringWithEllipsis(match, 50)}"`;
+  return `waiting for event "${event}"`;
+}
+
+/** Pinned isomorphic/stringUtils.ts `trimStringWithEllipsis`. */
+function trimStringWithEllipsis(input: string, cap: number): string {
+  if (input.length <= cap) return input;
+  const chars = [...input];
+  if (chars.length > cap) return chars.slice(0, cap - 1).join("") + "…";
+  return chars.join("");
 }
 
 function urlMatches(
