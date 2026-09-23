@@ -52,6 +52,9 @@ export const NETWORK_EVENTS = [
 
 export type NetworkEventName = (typeof NETWORK_EVENTS)[number];
 
+/** Pinned server/frames.ts `_startNetworkIdleTimer`: the quiet period. */
+const NETWORK_IDLE_TIMEOUT = 500;
+
 /** Pinned server/page.ts `addNetworkRequest`: the recent-request bound. */
 const REQUEST_LOG_LIMIT = 100;
 
@@ -386,6 +389,12 @@ export class NetworkObservation {
   private readonly subscribers = new Map<Emit, number>();
   /** What `open` recorded for an `XMLHttpRequest` this observation saw. */
   private readonly openedRequests = new WeakMap<XMLHttpRequest, OpenedXhr>();
+  /**
+   * The reported requests that count for network idle and have not ended.
+   * Kept while anything is subscribed, so a `networkidle` wait also sees the
+   * requests reported to an earlier subscriber; emptied with the last one.
+   */
+  private readonly inflight = new Set<Request>();
 
   constructor(private readonly window: Window & typeof globalThis) {
     const xhr = window.XMLHttpRequest.prototype as unknown as Record<
@@ -424,11 +433,63 @@ export class NetworkObservation {
       const held = (this.subscribers.get(emit) ?? 1) - 1;
       if (held > 0) this.subscribers.set(emit, held);
       else this.subscribers.delete(emit);
+      if (this.subscribers.size === 0) this.inflight.clear();
       for (const release of releases) release();
     };
   }
 
+  /**
+   * Calls `onIdle` after 500 ms with no observed request in flight, as pinned
+   * server/frames.ts fires `networkidle`. Subscribes until the release is called.
+   */
+  observeIdle(onIdle: () => void): () => void {
+    let timer: number | undefined;
+    const stopTimer = () => {
+      this.window.clearTimeout(timer);
+      timer = undefined;
+    };
+    const startTimer = () => {
+      timer = this.window.setTimeout(() => {
+        timer = undefined;
+        onIdle();
+      }, NETWORK_IDLE_TIMEOUT);
+    };
+    // Another resource's completion restarts a running timer but never holds
+    // it; the fetch/XHR entries are already accounted for by the observation.
+    const resources = new this.window.PerformanceObserver((list) => {
+      const other = list
+        .getEntriesByType("resource")
+        .some(
+          (entry) =>
+            !["fetch", "xmlhttprequest"].includes(
+              (entry as PerformanceResourceTiming).initiatorType
+            )
+        );
+      if (!other || timer === undefined) return;
+      stopTimer();
+      startTimer();
+    });
+    // `emit` has updated the in-flight set before this runs.
+    const release = this.subscribe(() => {
+      if (this.inflight.size > 0) stopTimer();
+      else if (timer === undefined) startTimer();
+    });
+    resources.observe({ type: "resource" });
+    if (this.inflight.size === 0) startTimer();
+    return () => {
+      resources.disconnect();
+      stopTimer();
+      release();
+    };
+  }
+
   private emit(event: NetworkEventName, payload: unknown) {
+    // Pinned server/network.ts `_isFavicon` excludes favicons from networkidle.
+    if (event === "request") {
+      const request = payload as Request;
+      if (!request.url().endsWith("/favicon.ico")) this.inflight.add(request);
+    } else if (event === "requestfinished" || event === "requestfailed")
+      this.inflight.delete(payload as Request);
     for (const subscriber of [...this.subscribers.keys()])
       subscriber(event, payload);
   }
