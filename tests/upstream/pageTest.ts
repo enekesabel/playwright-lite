@@ -107,6 +107,7 @@ const nativeNavigationForSetupSpecs = new Set([
   "page-click-timeout-3.spec.ts",
   "page-click-timeout-4.spec.ts",
   "page-click.spec.ts",
+  "page-dialog.spec.ts",
   "page-dispatchevent.spec.ts",
   "page-drag.spec.ts",
   "page-evaluate.spec.ts",

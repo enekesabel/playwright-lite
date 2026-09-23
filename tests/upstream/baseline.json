@@ -3,7 +3,7 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 2062,
+  "selectedTestCount": 2072,
   "reviewed": [
     {
       "id": "elementhandle-bounding-box.spec.ts > should force a layout",
@@ -1961,6 +1961,16 @@
       "id": "page-click.spec.ts > trial run should work with short timeout",
       "method": "Page.click",
       "evidence": "A disabled-button trial rejects with a trial-run action log at its short deadline and never activates the button."
+    },
+    {
+      "id": "page-dialog.spec.ts > should accept the confirm prompt",
+      "method": "Page.on",
+      "evidence": "page.on('dialog', dialog => void dialog.accept()) settles the wrapped confirm() call, and the awaited page.evaluate(() => confirm('boolean?')) resolves true, the accepted value, not the false a dismissed or auto-dismissed confirm() always returns. With Page.on sabotaged, page.on('dialog', ...) throws before the listener registers, and the sabotage rerun fails."
+    },
+    {
+      "id": "page-dialog.spec.ts > should allow accepting prompts @smoke",
+      "method": "Page.on",
+      "evidence": "The listener checks type 'prompt', defaultValue 'yes.' and message 'question?' with the bound public expect, then accept('answer!'); the Node assertion reads 'answer!' back from prompt(), a value neither Playwright's native auto-dismiss (null) nor an accept without the text (the default 'yes.') can produce, proving Dialog.accept(promptText) becomes prompt()'s return value."
     },
     {
       "id": "page-dispatchevent.spec.ts > should dispatch drag drop events",

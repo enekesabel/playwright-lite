@@ -32,6 +32,7 @@ import {
   type Request as NetworkRequest,
   type Response as NetworkResponse,
 } from "./network";
+import { dialogObservationFor, Dialog } from "./dialog";
 import {
   CONSOLE_EVENT,
   CONSOLE_MESSAGE_LIMIT,
@@ -318,7 +319,9 @@ export class PageImpl {
   private readonly pendingListeners = new Map<string, Set<PendingListener>>();
   private unobserveNavigation: (() => void) | undefined;
   private unobserveNetwork: (() => void) | undefined;
+  private unobserveDialogs: (() => void) | undefined;
   private readonly network: ReturnType<typeof networkObservationFor>;
+  private readonly dialogs: ReturnType<typeof dialogObservationFor>;
   /** Pinned server/page.ts `_pageBindings`, shared per window like `network`. */
   readonly bindings: ReturnType<typeof bindingsFor>;
   /** This page's identity and by-value round trip for its own bindings. */
@@ -367,6 +370,7 @@ export class PageImpl {
     this.localStorage = new PageWebStorage(this, "local");
     this.sessionStorage = new PageWebStorage(this, "session");
     this.network = networkObservationFor(browserWindow);
+    this.dialogs = dialogObservationFor(browserWindow);
     this.bindings = bindingsFor(browserWindow);
     this.consoleObservation = consoleObservationFor(browserWindow);
     this.startPageErrorCollection();
@@ -1741,6 +1745,22 @@ export class PageImpl {
     });
   }
 
+  /** Reports the window's `alert`/`confirm`/`prompt` calls on this page while the subscription lives. */
+  private subscribeToDialogs(): () => void {
+    return this.dialogs.subscribe((type, message, defaultValue, box) => {
+      this.emit(
+        "dialog",
+        new Dialog(
+          type,
+          message,
+          defaultValue,
+          box,
+          () => this as unknown as Page
+        )
+      );
+    });
+  }
+
   /**
    * Reports the window's `console.*` calls on this page while at least one
    * of this page's own callers (a `console` listener, `consoleMessages()`)
@@ -1906,6 +1926,11 @@ export class PageImpl {
       NETWORK_EVENTS,
       this.unobserveNetwork,
       () => this.subscribeToNetwork()
+    );
+    this.unobserveDialogs = this.observeWhileListened(
+      "dialog",
+      this.unobserveDialogs,
+      () => this.subscribeToDialogs()
     );
     this.unobserveConsole = this.observeWhileListened(
       CONSOLE_EVENT,

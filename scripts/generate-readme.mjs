@@ -10,6 +10,7 @@ import {
   expectLedger,
   elementHandleLimitations,
   networkLimitations,
+  dialogLimitations,
   consoleMessageLimitations,
 } from "../compatibility/api.ts";
 
@@ -120,6 +121,7 @@ export async function renderReadme(root = projectRoot) {
   const markdown = Handlebars.compile(template, { strict: true })({
     elementHandleLimitations,
     networkLimitations,
+    dialogLimitations,
     consoleMessageLimitations,
     playwrightVersion: pkg.devDependencies["@playwright/test"],
     tables: [
