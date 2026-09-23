@@ -1090,7 +1090,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
     },
   }) as Page;
   adapterPageReferences.set(proxy as unknown as object, { realPage, state });
-  state.pageProxy = proxy;
+  state.pageProxy ??= proxy;
   return proxy;
 }
 
