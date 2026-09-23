@@ -46,8 +46,8 @@ Do not repeat them in partial API notes or downgrade APIs because of them.
 
 - **Current document only.** No iframe traversal, `Frame`, or `FrameLocator` support.
 - **Navigation ends execution.** `goto()` can start navigation, but replacing the document destroys the JavaScript context running your script. Automation cannot continue across a full-page navigation or reload.
-- **No network-idle observation.** `networkidle` needs browser-wide request tracking, which this current-document runtime does not have.
-- **Observing the network replaces `window.fetch` and three `XMLHttpRequest` methods.** Adding the first `request`, `response`, `requestfinished` or `requestfailed` listener, or the first call to `waitForRequest()`, `waitForResponse()` or `requests()`, installs wrappers around `window.fetch` and `XMLHttpRequest.prototype.open`, `setRequestHeader` and `send` that forward every call unchanged. Removing the last of those listeners puts each original function back, unless the page replaced that function itself in the meantime; `requests()` keeps the wrappers installed so its log keeps filling. A page you never subscribe on is left untouched.
+- **Observing the network or console replaces `window.fetch`, three `XMLHttpRequest` methods, and `console.*`.** Adding the first `request`, `response`, `requestfinished` or `requestfailed` listener, the first call to `waitForRequest()`, `waitForResponse()` or `requests()`, or a `networkidle` wait, installs wrappers around `window.fetch` and `XMLHttpRequest.prototype.open`, `setRequestHeader` and `send`. Adding the first `console` listener, or the first call to `consoleMessages()`, wraps every `console.*` method Playwright's `ConsoleMessage` covers. Every wrapper forwards calls unchanged. Removing the last listener for a given kind puts its original functions back, unless the page replaced one of them itself in the meantime; `requests()` and `consoleMessages()` keep their wrappers installed so their logs keep filling, and a `networkidle` wait holds the network wrappers until it ends. A page you never subscribe on is left untouched.
+- **Network idle counts only `fetch()` and `XMLHttpRequest`.** Playwright documents `networkidle` as "**DISCOURAGED** consider operation to be finished when there are no network connections for at least `500` ms. Don't use this method for testing, rely on web assertions to assess readiness instead." Here, `waitForLoadState("networkidle")` and `waitUntil: "networkidle"` resolve once no `fetch()` or `XMLHttpRequest` call of the current document has been in flight for 500 ms, excluding `/favicon.ico` requests as Playwright does. When an image, script, stylesheet or other resource finishes loading, the 500 ms starts over, but a resource still loading never holds it. The end of each call and resource is noticed a few milliseconds late, so a wait can resolve slightly more than 500 ms after it. A call started before the wrappers above were installed is not seen, so a wait started while such a call is in flight can resolve before it ends. Calls from iframes, workers and other realms are not seen.
 - **Observing dialogs replaces `window.alert`, `window.confirm` and `window.prompt`.** Adding the first `dialog` listener wraps all three; removing the last one restores them, unless the page replaced one of them itself in the meantime. A page you never add a `dialog` listener to is left untouched, so a page relying on the browser's own modal keeps working. See [Dialog compatibility](#dialog-compatibility) for how a wrapped dialog is settled.
 - **Synthetic input.** Input events are not browser-trusted. Native keyboard behavior such as cursor movement, deletion, and focus traversal is not simulated.
 - **No browser control.** No browser launch, browser contexts, or browser-level control over network traffic, downloads, or other tabs.
@@ -117,6 +117,15 @@ on/off/waitForEvent ledger rows link here.
 ### Dialog compatibility
 
 {{{dialogLimitations}}}
+
+{{!--
+Owned by `consoleMessageLimitations` in compatibility/api.ts: the console
+methods reported, how they differ from Playwright's ConsoleMessage, and the
+reentrancy rule. The console ledger rows link here.
+--}}
+### ConsoleMessage compatibility
+
+{{{consoleMessageLimitations}}}
 
 ## License
 

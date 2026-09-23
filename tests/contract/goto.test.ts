@@ -1,15 +1,19 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- the timer spy forwards arbitrary setTimeout arguments, and the alias case passes a waitUntil value the typings reject */
+/* eslint-disable @typescript-eslint/no-explicit-any -- the timer spy forwards arbitrary setTimeout arguments, and the networkidle0 alias is a waitUntil value the typings reject */
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { idleWindow } from "./network";
 
 describe("Page.goto", () => {
-  it("resolves the networkidle0 alias before rejecting it as unsupported", async () => {
+  it("waits for network idle after same-document navigation through the networkidle0 alias", async () => {
     // Pinned verifyLoadState accepts networkidle0 as networkidle, so the
     // alias must not be reported as an unknown lifecycle event.
+    const started = performance.now();
     await expect(
-      createPage().goto("#alias", { waitUntil: "networkidle0" as any })
-    ).rejects.toThrow("Unsupported waitUntil value: networkidle");
+      createPage().goto("#networkidle0", { waitUntil: "networkidle0" as any })
+    ).resolves.toBeNull();
+    expect(location.hash).toBe("#networkidle0");
+    expect(performance.now() - started).toBeGreaterThanOrEqual(idleWindow);
   });
 
   it("applies configured and explicit navigation defaults to same-document goto", async () => {

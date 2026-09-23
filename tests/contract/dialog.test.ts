@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { dialogPages } from "./dialog";
+import { listenedPages } from "./pageEvents";
 
 describe("Dialog", () => {
-  const dialogPage = dialogPages();
+  const dialogPage = listenedPages();
 
   it("returns dialog.accept(value) to the document's prompt() call", () => {
     const page = dialogPage();

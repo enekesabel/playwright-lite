@@ -1,20 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createPage } from "../../src/index";
+import { createPage, type ConsoleMessage } from "../../src/index";
 import {
+  listenedPages,
   listenerFailures,
   report,
   restoreURL,
   swallowWindowErrors,
 } from "./pageEvents";
-import {
-  assetUrl,
-  contractUrl,
-  networkPages,
-  restoreFetch,
-  sendXhr,
-} from "./network";
-import { dialogPages, restoreDialogs } from "./dialog";
+import { assetUrl, contractUrl, restoreFetch, sendXhr } from "./network";
+import { restoreConsole } from "./console";
+import { restoreDialogs } from "./dialog";
 
 swallowWindowErrors();
 restoreURL();
@@ -146,7 +142,7 @@ describe("Page.on", () => {
   // ── Network events ──────────────────────────────────────────────
 
   restoreFetch();
-  const networkPage = networkPages();
+  const networkPage = listenedPages();
 
   it("leaves window.fetch alone until the first network listener", () => {
     const before = window.fetch;
@@ -252,6 +248,174 @@ describe("Page.on", () => {
       errorText: expect.stringContaining("TypeError"),
     });
     expect(await request.response()).toBe(null);
+  });
+
+  // ── Console events ──────────────────────────────────────────────
+
+  restoreConsole();
+  const consolePage = listenedPages();
+
+  it("leaves console.log alone until the first console listener", () => {
+    const before = console.log;
+    const page = consolePage();
+    page.on("pageerror", () => {});
+    expect(console.log).toBe(before);
+    page.on("console", () => {});
+    expect(console.log).not.toBe(before);
+  });
+
+  it("reports type, text and args for a console.log call", async () => {
+    const page = consolePage();
+    const messages: ConsoleMessage[] = [];
+    page.on("console", (message) => messages.push(message));
+
+    console.log("hello", 5, { foo: "bar" });
+
+    expect(messages.map((m) => [m.type(), m.text()])).toEqual([
+      ["log", "hello 5 {foo: bar}"],
+    ]);
+    expect(
+      await Promise.all(messages[0].args().map((arg) => arg.jsonValue()))
+    ).toEqual(["hello", 5, { foo: "bar" }]);
+  });
+
+  it("previews an accessor without calling it, and leaves the call's result alone", () => {
+    // Stands in for the native method, whose own result must come back
+    // unchanged; the test runner's console would itself read the getter.
+    vi.spyOn(console, "log").mockImplementation(
+      () => "native result" as unknown as void
+    );
+    const page = consolePage();
+    const texts: string[] = [];
+    page.on("console", (m) => texts.push(m.text()));
+    const getter = vi.fn(() => {
+      throw new Error("boom");
+    });
+    class Tagged {
+      get [Symbol.toStringTag]() {
+        return getter();
+      }
+    }
+    const value = { y: 1, tagged: new Tagged() };
+    Object.defineProperty(value, "x", { get: getter, enumerable: true });
+    Object.defineProperty(value, "w", { set: () => {}, enumerable: true });
+
+    const result = console.log(value);
+
+    expect(result).toBe("native result");
+    expect(getter).not.toHaveBeenCalled();
+    // Verified against real Chromium: an accessor previews as `undefined`, a
+    // setter-only property is left out, and an object whose
+    // `Symbol.toStringTag` is an accessor is named by its constructor.
+    expect(texts).toEqual(["{y: 1, tagged: Tagged, x: undefined}"]);
+  });
+
+  // Verified against real Chromium: `group`/`groupCollapsed`/`groupEnd`/
+  // `clear`/`trace`/`assert` always report, falling back to `console.<name>`
+  // as both the text and the one argument when called with no message.
+  const fallbackTextCalls: [string, () => void, string, string][] = [
+    ["group", () => console.group(), "startGroup", "console.group"],
+    [
+      "groupCollapsed",
+      () => console.groupCollapsed(),
+      "startGroupCollapsed",
+      "console.groupCollapsed",
+    ],
+    ["groupEnd", () => console.groupEnd(), "endGroup", "console.groupEnd"],
+    ["clear", () => console.clear(), "clear", "console.clear"],
+    ["trace", () => console.trace(), "trace", "console.trace"],
+    ["assert", () => console.assert(false), "assert", "console.assert"],
+  ];
+
+  it.each(fallbackTextCalls)(
+    "reports a bare console.%s call as its own name",
+    async (_method, call, type, text) => {
+      const page = consolePage();
+      const messages: ConsoleMessage[] = [];
+      page.on("console", (m) => messages.push(m));
+
+      call();
+
+      expect(messages.map((m) => [m.type(), m.text()])).toEqual([[type, text]]);
+      expect(
+        await Promise.all(messages[0].args().map((arg) => arg.jsonValue()))
+      ).toEqual([text]);
+    }
+  );
+
+  // Verified against real Chromium: a bare call to any of these is never
+  // reported at all, unlike the methods above.
+  const suppressedCalls = [
+    "log",
+    "debug",
+    "info",
+    "error",
+    "warn",
+    "dir",
+    "dirxml",
+    "table",
+  ] as const;
+
+  it.each(suppressedCalls)("never reports a bare console.%s call", (method) => {
+    const page = consolePage();
+    const messages: unknown[] = [];
+    page.on("console", (m) => messages.push(m));
+
+    console[method]();
+
+    expect(messages).toEqual([]);
+  });
+
+  it("drops the condition from a falsy console.assert's reported arguments", () => {
+    const page = consolePage();
+    const messages: string[] = [];
+    page.on("console", (m) => messages.push(m.text()));
+
+    console.assert(false, "yes");
+    console.assert(0, "zero is falsy");
+    console.assert(true, "never reported");
+
+    expect(messages).toEqual(["yes", "zero is falsy"]);
+  });
+
+  it("reports console.timeLog as type log", () => {
+    const page = consolePage();
+    const messages: { type: string; text: string }[] = [];
+    page.on("console", (m) =>
+      messages.push({ type: m.type(), text: m.text() })
+    );
+
+    console.timeLog("label-only");
+
+    expect(messages).toEqual([{ type: "log", text: "label-only" }]);
+  });
+
+  it("does not recurse when a listener throws or itself calls a wrapped console method", () => {
+    const logged = vi
+      .spyOn(window.console, "error")
+      .mockImplementation(() => {});
+    const page = consolePage();
+    const seen: string[] = [];
+    page.on("console", () => {
+      // Thrown, then logged through this same wrapped console.error: would
+      // otherwise re-enter every "console" listener, including this one.
+      throw new Error("listener failed");
+    });
+    page.on("console", (m) => {
+      seen.push(m.text());
+      // Logs itself: would otherwise re-enter every "console" listener too.
+      if (seen.length === 1) console.log("from listener");
+    });
+
+    console.log("trigger");
+
+    expect(seen).toEqual(["trigger"]);
+    expect(listenerFailures(logged)).toEqual([
+      [
+        'page.on("console"): listener failed',
+        expect.objectContaining({ message: "listener failed" }),
+      ],
+    ]);
   });
 
   // ── XMLHttpRequest ──────────────────────────────────────────────
@@ -419,7 +583,7 @@ describe("Page.on", () => {
   // ── Dialog events ──────────────────────────────────────────────
 
   restoreDialogs();
-  const dialogPage = dialogPages();
+  const dialogPage = listenedPages();
 
   it("dismisses a dialog no listener settles synchronously", () => {
     dialogPage().on("dialog", () => {

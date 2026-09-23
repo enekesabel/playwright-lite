@@ -129,11 +129,4 @@ describe("Page.waitForURL", () => {
       else delete (document as { readyState?: DocumentReadyState }).readyState;
     }
   });
-
-  it("rejects unsupported network idle waits", async () => {
-    const page = createPage();
-    await expect(
-      page.waitForURL(location.href, { waitUntil: "networkidle" })
-    ).rejects.toThrow("Unsupported waitUntil value: networkidle");
-  });
 });

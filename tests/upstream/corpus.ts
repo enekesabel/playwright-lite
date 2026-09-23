@@ -88,6 +88,8 @@ export const corpus = {
       "631962849f23aaff9527dc213a5cc3458ba64358bd8444c8b56ff6dac0b23329",
     "page-goto.spec.ts":
       "ed2a8347e94db7da93db3bb95fbbef61e63835cb33e4c470b818343cf03cb945",
+    "page-expose-function.spec.ts":
+      "a7905ced0fd8f39e9c0b80fcdf0e78539310fc9b8bb9e0d6a5c5ca2091d2524f",
     "page-wait-for-function.spec.ts":
       "6dc7c837a47c599511f22727a358d00f3b0aee5139ccdbd3d44af795bca248d5",
     "page-wait-for-request.spec.ts":
@@ -204,10 +206,14 @@ export const corpus = {
       "dc1f63c851a27c9c008a6eabdbff6da8571e202f03606b77a38d33da6e02a17a",
     "page-network-response.spec.ts":
       "b642e2eb0431df091b39615c2df1000ff0b1f4b531344a6c956d4d85740b0062",
+    "page-event-console.spec.ts":
+      "15c82fa4c01de1dc8c11edaa342d414ac4a710c89c28f584705620e7075e3dfb",
     "network-post-data.spec.ts":
       "d59d9947f1231cdaf2114f7032853cf777991ab18aeab840bb2115d821b46bcd",
     "page-dialog.spec.ts":
       "b758da2196bf60d560528fc77eec6dfef23e191de9211fb0e6570909a61e0d7f",
+    "page-network-idle.spec.ts":
+      "be5cea8a33c9413dbe9347d8cf1370ffbc119128d5c7aa53478a2c9165172242",
   },
 } as const;
 

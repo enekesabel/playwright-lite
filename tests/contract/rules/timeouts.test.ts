@@ -116,4 +116,25 @@ describe("timeouts", () => {
       'page.waitForResponse: Timeout 20ms exceeded while waiting for response "**/never"'
     );
   });
+
+  it("applies the navigation timeout to networkidle waits", async () => {
+    // Network idle takes at least 500 ms, so 20 ms always runs out first.
+    const page = createPage({ navigationTimeout: 20 });
+    const waits: [string, () => Promise<unknown>][] = [
+      ["page.waitForLoadState", () => page.waitForLoadState("networkidle")],
+      [
+        "page.waitForURL",
+        () => page.waitForURL(location.href, { waitUntil: "networkidle" }),
+      ],
+      [
+        "page.goto",
+        () => page.goto("#networkidle-timeout", { waitUntil: "networkidle" }),
+      ],
+    ];
+
+    for (const [apiName, wait] of waits)
+      await expect(wait(), apiName).rejects.toThrow(
+        `${apiName}: Timeout 20ms exceeded.`
+      );
+  });
 });

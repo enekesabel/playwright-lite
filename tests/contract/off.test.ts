@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../src/index";
-import { report, swallowWindowErrors } from "./pageEvents";
+import { listenedPages, report, swallowWindowErrors } from "./pageEvents";
 import { assetUrl, contractUrl, restoreFetch, xhrMethods } from "./network";
-import { dialogPages } from "./dialog";
+import { restoreConsole } from "./console";
 
 swallowWindowErrors();
 
@@ -132,7 +132,7 @@ describe("Page.off", () => {
 
   // ── Dialog events ──────────────────────────────────────────────
 
-  const dialogPage = dialogPages();
+  const dialogPage = listenedPages();
 
   it("restores window.alert/confirm/prompt once the last dialog listener leaves", () => {
     const nativeAlert = window.alert;
@@ -150,5 +150,46 @@ describe("Page.off", () => {
     expect(window.alert).toBe(nativeAlert);
     expect(window.confirm).toBe(nativeConfirm);
     expect(window.prompt).toBe(nativePrompt);
+  });
+
+  // ── Console events ──────────────────────────────────────────────
+
+  restoreConsole();
+
+  it("restores console.log with the last console listener", () => {
+    const native = console.log;
+    const page = createPage();
+    const first = () => {};
+    const second = () => {};
+
+    page.on("console", first);
+    expect(console.log).not.toBe(native);
+    page.once("console", second);
+    page.off("console", first);
+    expect(console.log).not.toBe(native);
+    page.off("console", second);
+    expect(console.log).toBe(native);
+  });
+
+  it("restores console.log only after every page has unsubscribed", () => {
+    const native = console.log;
+    const first = createPage();
+    const second = createPage();
+    const seen: string[] = [];
+    const onFirst = (m: { text(): string }) => seen.push(`first:${m.text()}`);
+    const onSecond = (m: { text(): string }) => seen.push(`second:${m.text()}`);
+
+    first.on("console", onFirst);
+    second.on("console", onSecond);
+    expect(console.log).not.toBe(native);
+
+    console.log("shared");
+
+    first.off("console", onFirst);
+    expect(console.log).not.toBe(native);
+    second.off("console", onSecond);
+    expect(console.log).toBe(native);
+
+    expect(seen).toEqual(["first:shared", "second:shared"]);
   });
 });

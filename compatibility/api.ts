@@ -55,7 +55,7 @@ const outOfScope = (limitations: string): CompatibilityEntry => ({
  * browser runtime.
  */
 export const elementHandleLimitations =
-  "Returned `ElementHandle` objects do not implement `contentFrame()`, `ownerFrame()`, `screenshot()`, or `tap()`. Their `$()` ignores `strict`; `click()` does not wait for navigation; `waitForSelector()` rejects `strict`; `evaluate()` rejects `exposeFunctions: true`. A returned `JSHandle` or `ElementHandle` builds its `toString()` preview from the referenced value inside the document instead of reading a browser-process object description: the preview describes the value as it is when the handle is first converted to a string, and a handle to a `Proxy` prints the target's class name, such as `Object`, where Playwright prints `Proxy(Object)`.";
+  "Returned `ElementHandle` objects do not implement `contentFrame()`, `ownerFrame()`, `screenshot()`, or `tap()`. Their `$()` ignores `strict`; `click()` does not wait for navigation; `waitForSelector()` rejects `strict`. A returned `JSHandle` or `ElementHandle` builds its `toString()` preview from the referenced value inside the document instead of reading a browser-process object description: the preview describes the value as it is when the handle is first converted to a string, and a handle to a `Proxy` prints the target's class name, such as `Object`, where Playwright prints `Proxy(Object)`.";
 
 const framenavigatedPayload =
   "`framenavigated` fires with the `Page` itself, the object `mainFrame()` returns, up to 20 ms after a same-document URL change. `pushState` and `replaceState` are sampled every 20 ms: several within one interval produce one event, and a URL that changes and changes back within one interval produces none.";
@@ -65,13 +65,37 @@ const dialogEventPayload =
   "`dialog` fires for the `window.alert()`, `window.confirm()` and `window.prompt()` calls the document makes while a listener is registered; see [Dialog compatibility](#dialog-compatibility).";
 const dialogWaitForEventPayload =
   '`dialog` fires for the `window.alert()`, `window.confirm()` and `window.prompt()` calls the document makes while a listener is registered; the dialog must still be settled synchronously in a `dialog` listener, so one resolved from `waitForEvent("dialog")` is already dismissed by the time the promise resolves; see [Dialog compatibility](#dialog-compatibility).';
+const consoleEventPayload =
+  "`console` fires for the document's own `console.*` calls made while a listener is registered; see [ConsoleMessage compatibility](#consolemessage-compatibility).";
 const eventNames =
-  "`dialog`, `framenavigated`, `pageerror`, `request`, `response`, `requestfinished`, `requestfailed`";
-const eventListenerLimitations = `Events: ${eventNames}. Other event names are accepted but never fire. ${dialogEventPayload} ${framenavigatedPayload} ${networkEventPayload}`;
+  "`dialog`, `framenavigated`, `pageerror`, `request`, `response`, `requestfinished`, `requestfailed`, `console`";
+const eventListenerLimitations = `Events: ${eventNames}. Other event names are accepted but never fire. ${dialogEventPayload} ${framenavigatedPayload} ${networkEventPayload} ${consoleEventPayload}`;
 const eventRemovalLimitations = `Events: ${eventNames}. Other event names are accepted.`;
-const waitForEventLimitations = `Events: ${eventNames}. Other event names are accepted and time out. ${dialogWaitForEventPayload} ${framenavigatedPayload} ${networkEventPayload}`;
+const waitForEventLimitations = `Events: ${eventNames}. Other event names are accepted and time out. ${dialogWaitForEventPayload} ${framenavigatedPayload} ${networkEventPayload} ${consoleEventPayload}`;
 const networkObservationLimitations =
   "`fetch()` and `XMLHttpRequest` calls of the current document only; see [Request and Response compatibility](#request-and-response-compatibility).";
+const exposeFunctionLimitations =
+  "If the Site has replaced the property, the returned `Disposable`'s `dispose()` leaves the Site's value on `window`, where Playwright deletes it. Arguments and the result never cross through `JSON.stringify()`, so a Site that overrides `Array.prototype.toJSON()` does not break the call: it resolves normally, where Playwright's wire protocol rejects with a serialization error.";
+const exposeBindingLimitations = `${exposeFunctionLimitations} The callback's \`source\` argument is \`{ page, frame: page }\`; there is no \`context\`, since this package has no \`BrowserContext\`.`;
+const consoleMessagesLimitations =
+  '`filter: "all"` and the default `"since-navigation"` return the same messages, since nothing ever marks the buffer at a navigation; see [ConsoleMessage compatibility](#consolemessage-compatibility).';
+
+/** Consumer-facing description of this package's `console` event and `ConsoleMessage`. */
+export const consoleMessageLimitations = `\`page.on("console")\` and \`page.consoleMessages()\` report the document's own \`console.log()\`, \`debug()\`, \`info()\`, \`error()\`, \`warn()\`, \`dir()\`, \`dirxml()\`, \`table()\`, \`trace()\`, \`clear()\`, \`group()\`, \`groupCollapsed()\`, \`groupEnd()\`, \`assert()\`, \`profile()\`, \`profileEnd()\`, \`count()\`, \`timeEnd()\` and \`timeLog()\` calls, wrapped as Playwright's \`ConsoleMessage\`.
+
+The members that do exist differ from Playwright's as follows.
+
+- Only a \`console.*\` call made after you first read \`page.on("console")\` or call \`page.consoleMessages()\` is reported; an earlier call is never observed. \`consoleMessages()\` keeps reading calls made after that first read, the same way \`requests()\` does.
+- A browser-generated console entry — a failed resource load, a Content-Security-Policy violation report — never calls a \`console.*\` method, so it is never reported.
+- \`timeEnd()\`, \`timeLog()\` and \`count()\` report only the label the call passed, not the elapsed time or count the browser computes internally.
+- \`ConsoleMessage.text()\`'s object and array previews list their own entries one level deep, each rendered the way this package's own \`JSHandle\` description renders it, rather than the browser's own preview algorithm: no truncation, no sparse-array markers, and a class instance passed directly as an argument lists its own members (\`{a: 1}\`) where Playwright prints its constructor name (\`Foo\`).
+- Building a \`text()\` preview never calls the page's getters, but it does run a \`Proxy\` argument's traps, which the browser's own preview never does. A trap that throws leaves that argument previewed as \`Object\`, and a revoked \`Proxy\` argument stops the message from being reported; the \`console.*\` call itself returns and behaves as it does unobserved.
+- \`ConsoleMessage.location()\` is reconstructed from the calling script's own stack at the point of the call, not the browser's own recorded call-site data: engine stack-formatting differences and inlining can shift or drop a frame.
+- Wrapping a \`console.*\` method adds a frame of its own to any stack the browser captures while it is wrapped, including DevTools' own call-site link for a logged message and the stack \`console.trace()\` itself prints: both point partway into this package's own code, not only at the calling script.
+- A \`console.*\` call made from inside a \`console\` listener is forwarded to the real method but does not itself fire another \`console\` event, so a listener that logs cannot trigger itself.`;
+
+const networkIdleLimitations =
+  '`"networkidle"` resolves no sooner than 500 ms after the call, even when the document is already idle; see [Runtime boundaries](#runtime-boundaries).';
 
 /** Consumer-facing description of this package's `Request` and `Response`. */
 export const networkLimitations = `\`page.on("request" | "response" | "requestfinished" | "requestfailed")\`, \`page.waitForRequest()\`, \`page.waitForResponse()\` and \`page.requests()\` report the \`fetch()\` and \`XMLHttpRequest\` calls the current document makes while you are subscribed. Images, scripts, stylesheets, \`navigator.sendBeacon\`, \`WebSocket\`, \`EventSource\`, form submissions and navigations are not reported, and neither are \`fetch()\` and \`XMLHttpRequest\` calls made by another realm, by an iframe or by a service worker, nor a \`fetch()\` call started or an \`XMLHttpRequest\` opened before the first subscription.
@@ -135,12 +159,12 @@ export const pageLedger = {
   bringToFront: outOfScope("Browser tab focus control is excluded."),
   cancelPickLocator: undecided(),
   check: implemented(),
-  clearConsoleMessages: undecided(),
+  clearConsoleMessages: implemented(),
   clearPageErrors: implemented(),
   click: partial("The action does not wait for navigation."),
   clock: undecided(),
   close: undecided(),
-  consoleMessages: undecided(),
+  consoleMessages: partial(consoleMessagesLimitations),
   content: implemented("Serializes the current controlled document."),
   context: outOfScope(
     "Refers to the owning browser context, which does not exist in this adapter."
@@ -151,13 +175,15 @@ export const pageLedger = {
   dblclick: implemented(),
   dispatchEvent: implemented(),
   dragAndDrop: undecided(),
-  emulateMedia: outOfScope("Emulating CSS media features is excluded."),
-  evaluate: partial("Rejects `exposeFunctions: true`."),
-  evaluateHandle: partial(
-    "Rejects `exposeFunctions: true`. The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
+  emulateMedia: undecided(),
+  evaluate: implemented(
+    "Uses the pinned Playwright by-value argument and result serializers."
   ),
-  exposeBinding: undecided(),
-  exposeFunction: undecided(),
+  evaluateHandle: partial(
+    "The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
+  ),
+  exposeBinding: partial(exposeBindingLimitations),
+  exposeFunction: partial(exposeFunctionLimitations),
   fill: implemented(),
   focus: implemented(),
   frame: outOfScope("Iframe realms are outside the single-document boundary."),
@@ -180,7 +206,8 @@ export const pageLedger = {
     "Initiates browser navigation; execution ends on document replacement."
   ),
   goto: partial(
-    'Does not return a `Response`; resolves to `null` only for same-document hash navigation. Relative URLs use `document.baseURI`, not a configured Playwright `baseURL`. Rejects `referer`, `signal`, and `waitUntil: "networkidle"`.'
+    "Does not return a `Response`; resolves to `null` only for same-document hash navigation. Relative URLs use `document.baseURI`, not a configured Playwright `baseURL`. Rejects `referer` and `signal`. " +
+      networkIdleLimitations
   ),
   hideHighlight: implemented("Clears highlights in the current document."),
   hover: implemented(),
@@ -269,7 +296,7 @@ export const pageLedger = {
   waitForFunction: partial(
     "The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
-  waitForLoadState: partial("Rejects `networkidle`."),
+  waitForLoadState: partial(networkIdleLimitations),
   waitForNavigation: undecided(),
   waitForRequest: partial(networkObservationLimitations),
   waitForResponse: partial(networkObservationLimitations),
@@ -277,7 +304,7 @@ export const pageLedger = {
     "Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   waitForTimeout: implemented(),
-  waitForURL: partial('Rejects `waitUntil: "networkidle"`.'),
+  waitForURL: partial(networkIdleLimitations),
   workers: outOfScope(
     "Worker realms are outside the single-document boundary."
   ),
@@ -316,12 +343,14 @@ export const locatorLedger = {
   elementHandles: partial(
     "Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
-  evaluate: partial("Rejects `exposeFunctions: true`."),
+  evaluate: implemented(
+    "Uses the pinned Playwright by-value argument and result serializers."
+  ),
   evaluateAll: implemented(
     "Uses the pinned Playwright by-value argument and result serializers."
   ),
   evaluateHandle: partial(
-    "Rejects `exposeFunctions: true`. The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
+    "The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   fill: implemented(),
   filter: implemented(),

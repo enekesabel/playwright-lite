@@ -100,6 +100,31 @@ test("highlight transports the actual returned disposable, its symbols and its e
   expect((page as any).__pwLiteNativeOperations).toEqual([]);
 });
 
+for (const member of ["exposeFunction", "exposeBinding"] as const) {
+  test(`${member} transports the actual returned disposable, its symbols and its errors`, async ({ page, adapterPage }) => {
+    await page.evaluate((name) => {
+      const host = window as any;
+      host.disposalCalls = [];
+      let calls = 0;
+      host.__pwLiteAdapterPage[name] = async () => ({
+        async dispose() {
+          host.disposalCalls.push(`dispose:${++calls}`);
+          if (calls === 1) throw new Error("disposal failed");
+        },
+        async [Symbol.asyncDispose]() { host.disposalCalls.push("symbol"); },
+      });
+    }, member);
+    const disposable = await adapterPage[member]("compute", () => 0);
+    await expect(disposable.dispose()).rejects.toThrow("disposal failed");
+    await disposable.dispose();
+    await disposable[Symbol.asyncDispose]();
+    expect(await page.evaluate(() => (window as any).disposalCalls)).toEqual([
+      "dispose:1", "dispose:2", "symbol",
+    ]);
+    expect((page as any).__pwLiteNativeOperations).toEqual([]);
+  });
+}
+
 test("all ElementHandle creation paths preserve synchronous asElement identity", async ({ page, adapterPage }) => {
   const root = (await adapterPage.$("div"))!;
   const handles = [

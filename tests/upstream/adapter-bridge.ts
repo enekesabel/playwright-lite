@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   errors as playwrightErrors,
+  type Disposable,
   type Locator,
   type Page,
   type Playwright,
@@ -27,6 +28,7 @@ const LOCATOR_CHAIN_PAYLOAD = "__pwLiteLocatorChain";
 const ELEMENT_HANDLE_REF_PAYLOAD = "__pwLiteElementHandleRef";
 const NETWORK_REF_PAYLOAD = "__pwLiteNetworkRef";
 const NETWORK_BYTES_PAYLOAD = "__pwLiteNetworkBytes";
+const CONSOLE_MESSAGE_REF_PAYLOAD = "__pwLiteConsoleMessageRef";
 const ABORT_SIGNAL_PAYLOAD = "__pwLiteAbortSignal";
 const FUNCTION_SOURCE_PAYLOAD = "__pwLiteFunctionSource";
 const TYPED_ARRAY_PAYLOAD = "__pwLiteTypedArray";
@@ -57,6 +59,11 @@ type ChainStep = [string, unknown[]];
 type AdapterPageState = {
   url: string;
   nativeNavigationForSetup?: boolean;
+  // Set once `createPageProxy` has built this test's Page proxy. A
+  // `ConsoleMessage.page()` republishes this reference rather than building
+  // a new one, since every message this test observes belongs to the one
+  // page the adapter bridge creates.
+  pageProxy?: Page;
 };
 
 type AdapterPageReference = {
@@ -314,12 +321,73 @@ async function decodeBridgeResult(
     typeof (value as Record<string, unknown>)[NETWORK_REF_PAYLOAD] === "string"
   )
     return createNetworkProxy(realPage, state, value as EncodedNetworkObject);
+  if ((value as Record<string, unknown>)[CONSOLE_MESSAGE_REF_PAYLOAD] === true)
+    return createConsoleMessageProxy(
+      realPage,
+      state,
+      value as EncodedConsoleMessage
+    );
   const reference = (value as Record<string, unknown>)[
     ELEMENT_HANDLE_REF_PAYLOAD
   ];
   return typeof reference === "string"
     ? createElementHandleProxy(realPage, state, reference)
     : value;
+}
+
+type EncodedConsoleMessage = {
+  [CONSOLE_MESSAGE_REF_PAYLOAD]: true;
+  type: string;
+  text: string;
+  timestamp: number;
+  location: {
+    url: string;
+    line: number;
+    column: number;
+    lineNumber: number;
+    columnNumber: number;
+  };
+  // Whether the reported message's own page() is the adapter page this
+  // bridge created, read from the message itself rather than assumed; see
+  // `__pwLiteStoreConsoleMessage`.
+  page: boolean;
+  // Read from the message itself, not assumed; always null today, since this
+  // observation has no worker realm to report.
+  worker: null;
+  // Each element is a handle reference envelope, the same shape
+  // `__pwLiteEncodeAdapterResult` gives any other adapter handle.
+  args: unknown[];
+};
+
+/**
+ * Republishes a `ConsoleMessage` the adapter reported. Every pinned member is
+ * synchronous, so the browser side snapshots them all when the message
+ * crosses the boundary and this proxy replays the snapshot; only `args()`
+ * still needs a round trip, to turn its stored handle references into the
+ * same handle proxies a dedicated route returns. `page()` answers with this
+ * test's one Page proxy when the message's own `page()` was that adapter
+ * page (read in the browser, not assumed here), `null` otherwise.
+ */
+async function createConsoleMessageProxy(
+  realPage: Page,
+  state: AdapterPageState,
+  encoded: EncodedConsoleMessage
+): Promise<object> {
+  const args = (await decodeBridgeResult(
+    encoded.args,
+    realPage,
+    state
+  )) as unknown[];
+  return {
+    __pwLiteAdapter: true,
+    args: () => args,
+    location: () => encoded.location,
+    page: () => (encoded.page ? state.pageProxy : null),
+    text: () => encoded.text,
+    timestamp: () => encoded.timestamp,
+    type: () => encoded.type,
+    worker: () => encoded.worker,
+  };
 }
 
 type EncodedNetworkObject = {
@@ -889,6 +957,35 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
         };
       }
 
+      // The returned Disposable's members cannot cross realPage.evaluate:
+      // keep the adapter's own object in the browser and route its disposal
+      // there. The callback travels as source, like any bridged function.
+      if (prop === "exposeFunction" || prop === "exposeBinding") {
+        return async (...args: unknown[]) => {
+          const id = await evaluateAdapter<string>(
+            realPage,
+            ({ member, args: a }) => {
+              const host = window as any;
+              return host.__pwLiteInvokeAdapter(
+                async () =>
+                  host.__pwLiteStoreElementHandle(
+                    await host.__pwLiteAdapterPage[member](
+                      ...host.__pwLiteDecodeBridgeValue(a)
+                    ),
+                    "Disposable"
+                  ),
+                a
+              );
+            },
+            {
+              member: prop,
+              args: encodeBridgeValueForPage(args, realPage) as unknown[],
+            }
+          );
+          return createDisposableProxy(realPage, id);
+        };
+      }
+
       // ── Callback transport ─────────────────────────────────────────
       // Functions cannot cross realPage.evaluate. Reconstruct the selected
       // upstream callback shape in the browser, then invoke PageImpl's public
@@ -1023,6 +1120,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
     },
   }) as Page;
   adapterPageReferences.set(proxy as unknown as object, { realPage, state });
+  state.pageProxy ??= proxy;
   return proxy;
 }
 
@@ -1461,10 +1559,12 @@ async function createElementHandleProxy(
   return proxy;
 }
 
-function createHighlightDisposableProxy(
-  realPage: Page,
-  id: string
-): Awaited<ReturnType<Locator["highlight"]>> {
+/**
+ * Republishes a `Disposable` an adapter member returned (`Locator.highlight`,
+ * `Page.exposeFunction`, `Page.exposeBinding`). Its members cannot cross
+ * `realPage.evaluate`, so the browser side stores the adapter's own object.
+ */
+function createDisposableProxy(realPage: Page, id: string): Disposable {
   // Retain the returned object for this fixture's document lifetime. Both
   // disposal paths execute on it, including repeated calls and exceptions.
   const invoke = (asyncDispose: boolean) =>
@@ -1599,7 +1699,7 @@ function createLocatorProxy(
               options: encodeBridgeValueForPage(options, realPage),
             }
           );
-          return createHighlightDisposableProxy(realPage, id);
+          return createDisposableProxy(realPage, id);
         };
       }
 
@@ -2069,8 +2169,9 @@ function initializeAdapterBridge(
   // two kinds are told apart the way Playwright's own API does it, by what
   // `asElement()` answers: a handle that answers with itself is an
   // ElementHandle, and one that answers `null` is a JSHandle, so the execution
-  // evidence keeps the names the dedicated routes give. Locator.highlight's
-  // disposable has `dispose` alone, so it stays with its own route.
+  // evidence keeps the names the dedicated routes give. A Disposable
+  // (Locator.highlight, Page.exposeFunction, Page.exposeBinding) has
+  // `dispose` alone, so it stays with its own route.
   // A Request or Response the adapter reported. Playwright answers most of
   // their members synchronously, which no evaluation round trip can do, so
   // those members are read here, when the object crosses the boundary, and
@@ -2101,6 +2202,34 @@ function initializeAdapterBridge(
     typeof value.url === "function" &&
     (typeof value.resourceType === "function" ||
       typeof value.status === "function");
+  // A `ConsoleMessage`, told apart from a Request/Response (no `url`) by its
+  // own member set, the same minimal way `isNetworkObject` distinguishes a
+  // Request/Response from anything else.
+  const isConsoleMessageObject = (value: any) =>
+    !!value &&
+    typeof value === "object" &&
+    typeof value.text === "function" &&
+    typeof value.type === "function";
+  // Every pinned member is synchronous, so the message is fully snapshotted
+  // here, when it crosses the boundary, the way a Request/Response's
+  // synchronous members are. `page()`/`worker()` are read from the message
+  // itself, not assumed: `page` records only whether it was this test's own
+  // adapter page, since a live Page cannot itself cross the boundary.
+  // `args()` still needs a round trip on the Node side to turn each held
+  // handle into a proxy, so it travels as the same handle-reference
+  // envelopes `encode` gives any other adapter handle.
+  host.__pwLiteStoreConsoleMessage = function store(value: any): any {
+    return {
+      __pwLiteConsoleMessageRef: true,
+      type: value.type(),
+      text: value.text(),
+      timestamp: value.timestamp(),
+      location: value.location(),
+      page: value.page() === host.__pwLiteAdapterPage,
+      worker: value.worker(),
+      args: host.__pwLiteEncodeAdapterResult(value.args()),
+    };
+  };
   host.__pwLiteStoreNetworkObject = function store(value: any): any {
     const kind =
       typeof value.resourceType === "function" ? "Request" : "Response";
@@ -2144,6 +2273,8 @@ function initializeAdapterBridge(
   host.__pwLiteEncodeAdapterResult = function encode(value: any): any {
     if (Array.isArray(value)) return value.map(encode);
     if (isNetworkObject(value)) return host.__pwLiteStoreNetworkObject(value);
+    if (isConsoleMessageObject(value))
+      return host.__pwLiteStoreConsoleMessage(value);
     if (
       !value ||
       typeof value !== "object" ||

@@ -11,6 +11,7 @@ import {
   elementHandleLimitations,
   networkLimitations,
   dialogLimitations,
+  consoleMessageLimitations,
 } from "../compatibility/api.ts";
 
 const projectRoot = new URL("../", import.meta.url);
@@ -121,6 +122,7 @@ export async function renderReadme(root = projectRoot) {
     elementHandleLimitations,
     networkLimitations,
     dialogLimitations,
+    consoleMessageLimitations,
     playwrightVersion: pkg.devDependencies["@playwright/test"],
     tables: [
       { name: "Expect", rows: rowsFor(undefined, expectLedger, true) },

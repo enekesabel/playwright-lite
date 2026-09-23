@@ -15,8 +15,6 @@ export function assertEvaluationOptions(options?: EvaluationOptions): void {
     (typeof options !== "object" || options === null || Array.isArray(options))
   )
     throw new Error(invalidArguments);
-  if (options?.exposeFunctions === true)
-    throw new Error("Unsupported Playwright option: evaluate.exposeFunctions");
   if (
     options?.exposeFunctions !== undefined &&
     typeof options.exposeFunctions !== "boolean"
@@ -70,7 +68,8 @@ export class AdapterJSHandle<T = unknown> {
       pageFunction,
       typeof pageFunction === "function",
       arg,
-      this
+      this,
+      options
     );
   }
 
@@ -85,7 +84,8 @@ export class AdapterJSHandle<T = unknown> {
       pageFunction,
       typeof pageFunction === "function",
       arg,
-      this
+      this,
+      options
     );
   }
 
@@ -140,20 +140,14 @@ export class AdapterJSHandle<T = unknown> {
   }
 }
 
-/**
- * Mirrors the handle preview pinned 26a9e47 crExecutionContext.ts:123
- * (`renderPreview`) derives from a Chromium remote object: a value that crosses
- * the protocol renders as `String(value)`, and an object renders as V8's
- * `RemoteObject.description`. Handles created inside the document carry no
- * remote object, so the description is reconstructed from the value.
- */
-function previewValue(value: unknown): string {
+/** Mirrors pinned crExecutionContext.ts `renderPreview` for a value with no remote object: `String(value)`, or a name for an object. Also used by `console.ts`'s argument previews. */
+export function previewValue(value: unknown): string {
   if (value === null) return "null";
   if (typeof value === "bigint") return `${value}n`;
   if (typeof value === "function") return String(value);
   if (typeof value !== "object")
     return Object.is(value, -0) ? "-0" : String(value);
-  const tag = Object.prototype.toString.call(value).slice(8, -1);
+  const tag = tagOf(value);
   if (tag === "Date" || tag === "RegExp") return String(value);
   if (tag === "Error") return (value as Error).stack || String(value);
   const name = tag === "Object" ? constructorName(value) : tag;
@@ -164,8 +158,40 @@ function previewValue(value: unknown): string {
   return name;
 }
 
+/**
+ * V8 names an object without running page code, verified against real
+ * Chromium: a `Symbol.toStringTag` or `constructor` accessor is never called.
+ * These lookups read descriptors along the prototype chain instead; a Proxy's
+ * traps still run, as nothing in the document can inspect one without them.
+ */
+export function tagOf(value: object): string {
+  const descriptor = findDescriptor(value, Symbol.toStringTag);
+  // `Object.prototype.toString` would call the accessor; V8 falls back to
+  // the constructor name, which `previewValue` does for the "Object" tag.
+  if (descriptor && !("value" in descriptor)) return "Object";
+  return Object.prototype.toString.call(value).slice(8, -1);
+}
+
 function constructorName(value: object): string {
-  return (
-    (value as { constructor?: { name?: string } }).constructor?.name || "Object"
-  );
+  const constructor = findDescriptor(value, "constructor")?.value;
+  const name =
+    typeof constructor === "function"
+      ? findDescriptor(constructor, "name")?.value
+      : undefined;
+  return (typeof name === "string" && name) || "Object";
+}
+
+function findDescriptor(
+  value: object,
+  key: PropertyKey
+): PropertyDescriptor | undefined {
+  for (
+    let owner: object | null = value;
+    owner;
+    owner = Object.getPrototypeOf(owner)
+  ) {
+    const descriptor = Object.getOwnPropertyDescriptor(owner, key);
+    if (descriptor) return descriptor;
+  }
+  return undefined;
 }
