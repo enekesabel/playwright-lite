@@ -166,8 +166,9 @@ function captureLocation() {
  * algorithm: a string renders bare; a plain object or array lists its own
  * entries one level deep, each through `previewValue`; anything else is
  * `previewValue` itself. This follows this package's own `JSHandle`
- * description, not V8's preview (no truncation, no sparse-array markers, no
- * class-instance member listing).
+ * description, not V8's preview: no truncation, no sparse-array markers, and
+ * a class instance passed directly lists its own members (`{a: 1}`) where
+ * Playwright prints its constructor name (`Foo`).
  *
  * Like V8's preview, verified against real Chromium, it never calls the
  * Site's code: entries are read from property descriptors, an accessor
