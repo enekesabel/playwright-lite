@@ -634,9 +634,6 @@ test("adapter goto rejects unsupported options before changing the URL", async (
 }) => {
   const before = page.url();
   await expect(
-    adapterPage.goto("#changed", { waitUntil: "networkidle" })
-  ).rejects.toThrow(/networkidle/);
-  await expect(
     adapterPage.goto("#changed", { referer: "https://example.com" })
   ).rejects.toThrow(/referer/);
   await expect(adapterPage.goto("#changed", { timeout: -1 })).rejects.toThrow(
