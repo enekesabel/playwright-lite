@@ -1968,6 +1968,11 @@
       "evidence": "page.on('dialog', dialog => void dialog.accept()) settles the wrapped confirm() call, and the awaited page.evaluate(() => confirm('boolean?')) resolves true, the accepted value, not the false a dismissed or auto-dismissed confirm() always returns. With Page.on sabotaged, page.on('dialog', ...) throws before the listener registers, and the sabotage rerun fails."
     },
     {
+      "id": "page-dialog.spec.ts > should allow accepting prompts @smoke",
+      "method": "Page.on",
+      "evidence": "The listener checks type 'prompt', defaultValue 'yes.' and message 'question?' with the bound public expect, then accept('answer!'); the Node assertion reads 'answer!' back from prompt(), a value neither Playwright's native auto-dismiss (null) nor an accept without the text (the default 'yes.') can produce, proving Dialog.accept(promptText) becomes prompt()'s return value."
+    },
+    {
       "id": "page-dispatchevent.spec.ts > should dispatch drag drop events",
       "method": "Page.dispatchEvent",
       "evidence": "A DataTransfer handle inside eventInit is unwrapped to the DataTransfer object, so the dispatched dragstart and drop share one transfer and the source really moves into the target. Native goto only establishes the document."
