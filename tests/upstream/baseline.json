@@ -3,7 +3,7 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 2029,
+  "selectedTestCount": 2062,
   "reviewed": [
     {
       "id": "elementhandle-bounding-box.spec.ts > should force a layout",
@@ -2376,6 +2376,11 @@
       "id": "page-evaluate.spec.ts > should work with unicode chars",
       "method": "Page.evaluate",
       "evidence": "An object keyed by '中文字符' passed as the argument yields 42 when the callback reads that key, so non-ASCII property names survive argument serialization."
+    },
+    {
+      "id": "page-event-console.spec.ts > should have timestamp",
+      "method": "Page.waitForEvent",
+      "evidence": "After Page.evaluate calls console.log('timestamp test'), the awaited adapter waitForEvent('console') resolves with a ConsoleMessage whose timestamp() falls inside the surrounding wall-clock window, proving Page.waitForEvent delivers the console event with an accurate timestamp."
     },
     {
       "id": "page-event-pageerror.spec.ts > clearPageErrors should work",
