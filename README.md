@@ -316,6 +316,7 @@ The members that do exist differ from Playwright's as follows.
 
 - A dialog is settled synchronously. `window.alert()`, `window.confirm()` and `window.prompt()` block the document's own script until they return, so a `dialog` listener must call `accept()` or `dismiss()` synchronously, before returning control to the wrapped call, for that call to decide the result. Playwright itself settles a dialog whenever the listener eventually calls `accept()`/`dismiss()`, however later that is.
 - If no listener settles a dialog synchronously, it is dismissed once every listener has run, and the wrapped call returns the dismissed value: `undefined` for `alert()`, `false` for `confirm()`, `null` for `prompt()`. Playwright auto-dismisses only when a page has no `dialog` listener at all; here the same auto-dismiss also covers a listener that does not settle the dialog in time.
+- With no `dialog` listener, the page is left untouched: the browser shows its own dialog and the page waits for a person, where Playwright dismisses it.
 - A dialog resolved from `waitForEvent("dialog")` is already dismissed by the time the promise resolves, so `(await page.waitForEvent("dialog")).accept()` rejects: a dialog can only be settled synchronously, inside a `dialog` listener.
 - Pages sharing one window share one dialog settlement: the first `accept()`/`dismiss()` call, from any of them, wins, and a later one rejects.
 
