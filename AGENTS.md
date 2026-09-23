@@ -48,7 +48,10 @@ argument as its source and rebuilds it in the browser, normalizing a method
 shorthand the way the pinned server normalizes a page function. The rebuilt
 function has no Node closure: a test whose callback must run in Node
 (`exposeFunction`, event handlers) still fails, in the adapter rather than in the
-bridge. Values the pinned protocol serializer understands — `Date`, `URL`,
+bridge. The one name the bridge binds in that scope is `expect`, which resolves
+to the adapter's public expect, so an event handler can assert with its generic
+matchers; a failing assertion there is still only logged by the package's
+listener rule. Values the pinned protocol serializer understands — `Date`, `URL`,
 `Error`, `RegExp`, typed arrays — travel unchanged; every other object travels as
 its own enumerable properties, which is that serializer's object branch. A live
 Playwright driver object obtained from an out-of-scope native member is the one
