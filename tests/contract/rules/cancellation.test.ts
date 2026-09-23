@@ -51,8 +51,14 @@ describe("cancellation", () => {
           };
         },
       ],
+      ["page.waitForLoadState", (o) => page.waitForLoadState("networkidle", o)],
       ["page.waitForSelector", (o) => page.waitForSelector("#never", o)],
       ["page.waitForURL", (o) => page.waitForURL("**/*#never", o)],
+      [
+        "page.waitForURL",
+        (o) =>
+          page.waitForURL(location.href, { ...o, waitUntil: "networkidle" }),
+      ],
       ["page.waitForEvent", (o) => page.waitForEvent("load", o)],
       ["page.waitForRequest", (o) => page.waitForRequest("**/never", o)],
       ["page.waitForResponse", (o) => page.waitForResponse("**/never", o)],
