@@ -1011,6 +1011,56 @@ test("function arguments reach the adapter as functions with their source", asyn
   ).rejects.toThrow("Attempting to serialize unexpected value");
 });
 
+test("a page.on listener asserts with the adapter's public expect", async ({
+  page,
+  adapterPage,
+}) => {
+  const listenerFailures: string[] = [];
+  page.on("console", (message) => {
+    if (message.text().includes("listener failed"))
+      listenerFailures.push(message.text());
+  });
+  const listener = (error: Error) => {
+    expect(error.message).toBe("expected");
+    (window as any).__pwLiteAssertedMessage = error.message;
+  };
+  adapterPage.on("pageerror", listener);
+  const assertedMessage = () =>
+    page.evaluate(() => (window as any).__pwLiteAssertedMessage ?? null);
+  const throwInPage = (message: string) =>
+    page.evaluate((m) => {
+      setTimeout(() => {
+        throw new Error(m);
+      });
+    }, message);
+
+  // The rebuilt listener keeps the caller's source for the adapter.
+  await expect(
+    page.evaluate(
+      (source) =>
+        String((window as any).__pwLiteReconstructFunction(source)),
+      listener.toString()
+    )
+  ).resolves.toBe(listener.toString());
+
+  // Passing: the assertion runs and the listener continues past it.
+  await throwInPage("expected");
+  await expect.poll(assertedMessage).toBe("expected");
+  expect(listenerFailures).toEqual([]);
+
+  // Failing: the adapter's matcher throws, so the listener stops before its
+  // next statement and the package logs the failure instead of rethrowing it.
+  await page.evaluate(() => delete (window as any).__pwLiteAssertedMessage);
+  await throwInPage("unexpected");
+  await expect.poll(() => listenerFailures.length).toBe(1);
+  // ExpectationError is the package's matcher failure, not a ReferenceError
+  // for an unbound `expect`.
+  expect(listenerFailures[0]).toContain(
+    "listener failed ExpectationError: expect(received).toBe(expected)"
+  );
+  await expect(assertedMessage()).resolves.toBeNull();
+});
+
 test("evaluateHandle, getProperty and getProperties republish the adapter's own handles", async ({
   page,
   adapterPage,
