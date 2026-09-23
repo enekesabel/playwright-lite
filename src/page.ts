@@ -31,6 +31,14 @@ import {
   type Request as NetworkRequest,
   type Response as NetworkResponse,
 } from "./network";
+import {
+  CONSOLE_EVENT,
+  CONSOLE_MESSAGE_LIMIT,
+  buildConsoleMessage,
+  consoleObservationFor,
+  type ConsoleCall,
+  type ConsoleMessage,
+} from "./console";
 import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
 import type { Locator, Page } from "@playwright/test";
@@ -321,6 +329,24 @@ export class PageImpl {
   private readonly documentObservers = new Set<() => void>();
   private unobserveDocument: (() => void) | undefined;
   private readonly pageErrorsBuffer: Error[] = [];
+  private unobserveConsole: (() => void) | undefined;
+  private readonly consoleObservation: ReturnType<typeof consoleObservationFor>;
+  private readonly consoleMessagesBuffer: ConsoleMessage[] = [];
+  /**
+   * The subscription `consoleMessages()` takes. Like `retainedNetwork`, it is
+   * never released: a console log nobody observes cannot be filled later.
+   */
+  private retainedConsoleMessages: (() => void) | undefined;
+  /**
+   * `consoleMessages()` and the `console` listener path each call
+   * `subscribeToConsole()`, both of which must feed the same buffer and the
+   * same listeners. This counts how many of this page's own callers hold a
+   * subscription, so the underlying `consoleObservation.subscribe()` call
+   * happens once and its one reporting closure is shared, rather than each
+   * caller installing (and reporting through) its own.
+   */
+  private consoleSubscribers = 0;
+  private releaseConsoleSubscription: (() => void) | undefined;
 
   constructor(
     browserWindow: Window & typeof globalThis,
@@ -333,6 +359,7 @@ export class PageImpl {
     this.localStorage = new PageWebStorage(this, "local");
     this.sessionStorage = new PageWebStorage(this, "session");
     this.network = networkObservationFor(browserWindow);
+    this.consoleObservation = consoleObservationFor(browserWindow);
     this.startPageErrorCollection();
   }
 
@@ -1705,6 +1732,44 @@ export class PageImpl {
     });
   }
 
+  /**
+   * Reports the window's `console.*` calls on this page while at least one
+   * of this page's own callers (a `console` listener, `consoleMessages()`)
+   * still holds the subscription this returns. The observation is shared by
+   * every `Page` of this window, so the call is intercepted once; this page
+   * installs its own single reporting closure on the first caller and shares
+   * it with every later one, so one `console.*` call fills the buffer and
+   * fires the event exactly once, however many of this page's callers are
+   * holding a subscription at the time.
+   */
+  private subscribeToConsole(): () => void {
+    if (this.consoleSubscribers++ === 0)
+      this.releaseConsoleSubscription = this.consoleObservation.subscribe(
+        (call: ConsoleCall) => {
+          const message = buildConsoleMessage(
+            this as unknown as Page,
+            call.type,
+            call.args.map((arg) => this.evaluation.handleFor(arg)),
+            call.text,
+            call.location,
+            call.timestamp
+          );
+          this.consoleMessagesBuffer.push(message);
+          ensureArrayLimit(this.consoleMessagesBuffer, CONSOLE_MESSAGE_LIMIT);
+          this.emit(CONSOLE_EVENT, message);
+        }
+      );
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      if (--this.consoleSubscribers === 0) {
+        this.releaseConsoleSubscription?.();
+        this.releaseConsoleSubscription = undefined;
+      }
+    };
+  }
+
   private async waitForPageEvent(
     event: string,
     options: {
@@ -1833,6 +1898,11 @@ export class PageImpl {
       this.unobserveNetwork,
       () => this.subscribeToNetwork()
     );
+    this.unobserveConsole = this.observeWhileListened(
+      CONSOLE_EVENT,
+      this.unobserveConsole,
+      () => this.subscribeToConsole()
+    );
   }
 
   private observeWhileListened(
@@ -1914,13 +1984,36 @@ export class PageImpl {
     filter?: "all" | "since-navigation";
   }): Promise<Error[]> {
     rejectUnsupportedOptions("pageErrors", options, ["filter"]);
-    validatePageErrorsFilter(options?.filter);
+    validateHistoryFilter(options?.filter);
     return this.pageErrorsBuffer.slice();
   }
 
   /** Pinned Page.clearPageErrors: empties the buffer `pageErrors()` reads. */
   async clearPageErrors(): Promise<void> {
     this.pageErrorsBuffer.length = 0;
+  }
+
+  /**
+   * Pinned Page.consoleMessages: up to the last 200 `console.*` calls,
+   * wrapped the same way as the `console` event payload. Starts the
+   * `console` subscription so the buffer keeps filling once it has been
+   * read, like `requests()`. Reads the same `since-navigation` equivalence
+   * as `pageErrors`: this single-document adapter never crosses documents
+   * within one page's lifetime, so both `filter` values return the same
+   * messages, in order, since the subscription began.
+   */
+  async consoleMessages(options?: {
+    filter?: "all" | "since-navigation";
+  }): Promise<ConsoleMessage[]> {
+    rejectUnsupportedOptions("consoleMessages", options, ["filter"]);
+    validateHistoryFilter(options?.filter);
+    this.retainedConsoleMessages ??= this.subscribeToConsole();
+    return this.consoleMessagesBuffer.slice();
+  }
+
+  /** Pinned Page.clearConsoleMessages: empties the buffer `consoleMessages()` reads. */
+  async clearConsoleMessages(): Promise<void> {
+    this.consoleMessagesBuffer.length = 0;
   }
 
   setDefaultTimeout(timeout: number): void {
@@ -4997,7 +5090,8 @@ function ensureArrayLimit(array: unknown[], limit: number): void {
   if (array.length > limit) array.splice(0, limit / 10);
 }
 
-function validatePageErrorsFilter(value: unknown): void {
+/** Shared by `pageErrors` and `consoleMessages`, whose `filter` is identical. */
+function validateHistoryFilter(value: unknown): void {
   if (value === undefined || value === "all" || value === "since-navigation")
     return;
   throw new TypeError("filter: expected one of (all|since-navigation)");

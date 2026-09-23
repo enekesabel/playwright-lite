@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
-import { delayedUrl, idleWindow, networkPages, sendXhr } from "./network";
+import { delayedUrl, idleWindow, sendXhr } from "./network";
+import { listenedPages } from "./pageEvents";
 
 function waitForRuntimeLoadState(
   page: ReturnType<typeof createPage>,
@@ -87,7 +88,7 @@ describe("Page.waitForLoadState", () => {
     });
   });
 
-  const page = networkPages();
+  const page = listenedPages();
   const cleanups: (() => void)[] = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();

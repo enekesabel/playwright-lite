@@ -1,5 +1,24 @@
 import { afterEach, beforeEach, vi } from "vitest";
 
+import { createPage } from "../../src/index";
+
+/**
+ * Pages whose listeners are removed after each test. A wrapper is shared by
+ * every Page of this window, so a listener a test leaves behind keeps it
+ * installed for the next one.
+ */
+export function listenedPages() {
+  const pages: ReturnType<typeof createPage>[] = [];
+  afterEach(() => {
+    for (const page of pages.splice(0)) page.removeAllListeners();
+  });
+  return () => {
+    const page = createPage();
+    pages.push(page);
+    return page;
+  };
+}
+
 /** Dispatches `error` as an uncaught window error, the way a thrown error reaches `pageerror`. */
 export const report = (error: unknown) =>
   window.dispatchEvent(new ErrorEvent("error", { error }));

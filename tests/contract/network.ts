@@ -1,7 +1,5 @@
 import { afterEach } from "vitest";
 
-import { createPage } from "../../src/index";
-
 /**
  * Helpers for the contract tests that observe the document's own `fetch`.
  */
@@ -12,23 +10,6 @@ export function restoreFetch() {
   afterEach(() => {
     window.fetch = original;
   });
-}
-
-/**
- * Pages whose listeners are removed after each test. The `fetch` wrapper is
- * shared by every Page of this window, so a listener a test leaves behind
- * keeps the wrapper installed for the next one.
- */
-export function networkPages() {
-  const pages: ReturnType<typeof createPage>[] = [];
-  afterEach(() => {
-    for (const page of pages.splice(0)) page.removeAllListeners();
-  });
-  return () => {
-    const page = createPage();
-    pages.push(page);
-    return page;
-  };
 }
 
 /** A same-origin URL that answers, used where only the URL matters. */

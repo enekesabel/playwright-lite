@@ -212,6 +212,19 @@ try {
     assert.match(observed.snapshot, /button "Save"/);
     assert.match(observed.locatorSnapshot, /button "Save"/);
     assert.equal(observed.expectObserved, 2);
+    // location() is reconstructed from a fixed stack-frame offset past this
+    // package's own call chain. The consumer bundle also contains the
+    // package's own bundled code at some other line, so a same-file check
+    // alone cannot tell a correct call site from the package's own frame;
+    // this instead locates the probe call's actual line in the built bundle
+    // and requires an exact match.
+    const bundleLines = readFileSync(bundlePath, "utf8").split("\n");
+    const probeLine = bundleLines.findIndex((line) =>
+      line.includes('console.log("consumer-console-probe")')
+    );
+    assert.ok(probeLine >= 0, "probe call not found in the built bundle");
+    assert.equal(observed.consoleLocation?.url, bundlePath);
+    assert.equal(observed.consoleLocation?.lineNumber, probeLine);
   }
 
   console.log(

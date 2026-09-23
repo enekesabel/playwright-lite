@@ -110,6 +110,7 @@ const nativeNavigationForSetupSpecs = new Set([
   "page-dispatchevent.spec.ts",
   "page-drag.spec.ts",
   "page-evaluate.spec.ts",
+  "page-event-console.spec.ts",
   "page-event-network.spec.ts",
   "page-event-request.spec.ts",
   "page-filechooser.spec.ts",
