@@ -37,7 +37,15 @@ export class Evaluation {
     return (this.utility ??= new UtilityScript(this.page.window, false));
   }
 
-  private argument(value: unknown) {
+  /**
+   * `exposeFunctions` registers each function nested in `value` as a binding
+   * (pinned client/jsHandle.ts `serializeArgumentWithCallbacks`) instead of
+   * letting the protocol serializer reject it; its generated name survives
+   * the value copy and is what the pinned UtilityScript's own serializer
+   * (`serializeAsCallArgument`) recognizes to re-emit `{ fn }` for the
+   * reconstructed callable the page function receives.
+   */
+  private argument(value: unknown, exposeFunctions = false) {
     // Preserve handle wrappers across the client/server value copy, then let
     // the utility serializer replace them with the controlled browser objects.
     const references: unknown[] = [];
@@ -45,6 +53,14 @@ export class Evaluation {
       if (candidate instanceof AdapterJSHandle) {
         references.push(candidate);
         return { h: references.length - 1 };
+      }
+      if (exposeFunctions && typeof candidate === "function") {
+        return {
+          fn: this.page.bindings.registerEvaluateCallback(
+            this.page.bindingOwner,
+            candidate as (...args: unknown[]) => unknown
+          ),
+        };
       }
       return { fallThrough: candidate };
     });
@@ -77,9 +93,17 @@ export class Evaluation {
     expression: EvaluationFunction<R>,
     isFunction: boolean,
     arg?: unknown,
-    target?: EvaluationTarget
+    target?: EvaluationTarget,
+    options?: EvaluationOptions
   ): Promise<R> {
-    const result = await this.run(expression, isFunction, true, arg, target);
+    const result = await this.run(
+      expression,
+      isFunction,
+      true,
+      arg,
+      target,
+      options?.exposeFunctions
+    );
     return protocolResult(parseEvaluationResultValue(result)) as R;
   }
 
@@ -92,10 +116,18 @@ export class Evaluation {
     expression: EvaluationFunction,
     isFunction: boolean,
     arg?: unknown,
-    target?: EvaluationTarget
+    target?: EvaluationTarget,
+    options?: EvaluationOptions
   ): Promise<AdapterJSHandle> {
     return this.handleFor(
-      await this.run(expression, isFunction, false, arg, target)
+      await this.run(
+        expression,
+        isFunction,
+        false,
+        arg,
+        target,
+        options?.exposeFunctions
+      )
     );
   }
 
@@ -104,10 +136,11 @@ export class Evaluation {
     isFunction: boolean,
     returnByValue: boolean,
     arg: unknown,
-    target: EvaluationTarget | undefined
+    target: EvaluationTarget | undefined,
+    exposeFunctions?: boolean
   ): Promise<unknown> {
     const normalized = normalizeExpression(String(expression), isFunction);
-    const { serialized, handles } = this.argument(arg);
+    const { serialized, handles } = this.argument(arg, exposeFunctions);
     const parameters = [serialized];
     if (target !== undefined) {
       handles.push(
@@ -171,6 +204,29 @@ export class Evaluation {
     return protocolResult(
       parseEvaluationResultValue(this.script.jsonValue(true, value))
     ) as T;
+  }
+
+  /**
+   * One round trip through the pinned by-value call-argument serializer,
+   * resolving this page's handles to their referenced value. `exposeFunction`
+   * / `exposeBinding` cross their arguments and result this way: there is no
+   * Node/browser split to serialize across, so a binding call takes one hop
+   * (the pinned browser-side `serializeAsCallArgument` alone), not the two
+   * the pinned client and server each take. Unlike `unwrapHandles`, this
+   * skips the protocol-level pass, so a `Window`/`Document`/`Node` argument
+   * still aliases to the pinned `"ref: <Window>"`-style string instead of
+   * losing its identity to the protocol serializer's plain-object walk first.
+   */
+  bindingValue(value: unknown): unknown {
+    const handles: unknown[] = [];
+    const serialized = serializeAsCallArgument(value, (candidate) => {
+      if (candidate instanceof AdapterJSHandle) {
+        handles.push(candidate.valueForEvaluation(this));
+        return { h: handles.length - 1 };
+      }
+      return { fallThrough: candidate };
+    });
+    return parseEvaluationResultValue(serialized, handles);
   }
 }
 

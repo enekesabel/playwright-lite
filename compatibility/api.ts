@@ -55,7 +55,7 @@ const outOfScope = (limitations: string): CompatibilityEntry => ({
  * browser runtime.
  */
 export const elementHandleLimitations =
-  "Returned `ElementHandle` objects do not implement `contentFrame()`, `ownerFrame()`, `screenshot()`, or `tap()`. Their `$()` ignores `strict`; `click()` does not wait for navigation; `waitForSelector()` rejects `strict`; `evaluate()` rejects `exposeFunctions: true`. A returned `JSHandle` or `ElementHandle` builds its `toString()` preview from the referenced value inside the document instead of reading a browser-process object description: the preview describes the value as it is when the handle is first converted to a string, and a handle to a `Proxy` prints the target's class name, such as `Object`, where Playwright prints `Proxy(Object)`.";
+  "Returned `ElementHandle` objects do not implement `contentFrame()`, `ownerFrame()`, `screenshot()`, or `tap()`. Their `$()` ignores `strict`; `click()` does not wait for navigation; `waitForSelector()` rejects `strict`. A returned `JSHandle` or `ElementHandle` builds its `toString()` preview from the referenced value inside the document instead of reading a browser-process object description: the preview describes the value as it is when the handle is first converted to a string, and a handle to a `Proxy` prints the target's class name, such as `Object`, where Playwright prints `Proxy(Object)`.";
 
 const framenavigatedPayload =
   "`framenavigated` fires with the `Page` itself, the object `mainFrame()` returns, up to 20 ms after a same-document URL change. `pushState` and `replaceState` are sampled every 20 ms: several within one interval produce one event, and a URL that changes and changes back within one interval produces none.";
@@ -70,6 +70,9 @@ const eventRemovalLimitations = `Events: ${eventNames}. Other event names are ac
 const waitForEventLimitations = `Events: ${eventNames}. Other event names are accepted and time out. ${framenavigatedPayload} ${networkEventPayload} ${consoleEventPayload}`;
 const networkObservationLimitations =
   "`fetch()` and `XMLHttpRequest` calls of the current document only; see [Request and Response compatibility](#request-and-response-compatibility).";
+const exposeFunctionLimitations =
+  "If the Site has replaced the property, the returned `Disposable`'s `dispose()` leaves the Site's value on `window`, where Playwright deletes it. Arguments and the result never cross through `JSON.stringify()`, so a Site that overrides `Array.prototype.toJSON()` does not break the call: it resolves normally, where Playwright's wire protocol rejects with a serialization error.";
+const exposeBindingLimitations = `${exposeFunctionLimitations} The callback's \`source\` argument is \`{ page, frame: page }\`; there is no \`context\`, since this package has no \`BrowserContext\`.`;
 const consoleMessagesLimitations =
   '`filter: "all"` and the default `"since-navigation"` return the same messages, since nothing ever marks the buffer at a navigation; see [ConsoleMessage compatibility](#consolemessage-compatibility).';
 
@@ -155,13 +158,15 @@ export const pageLedger = {
   dblclick: implemented(),
   dispatchEvent: implemented(),
   dragAndDrop: undecided(),
-  emulateMedia: outOfScope("Emulating CSS media features is excluded."),
-  evaluate: partial("Rejects `exposeFunctions: true`."),
-  evaluateHandle: partial(
-    "Rejects `exposeFunctions: true`. The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
+  emulateMedia: undecided(),
+  evaluate: implemented(
+    "Uses the pinned Playwright by-value argument and result serializers."
   ),
-  exposeBinding: undecided(),
-  exposeFunction: undecided(),
+  evaluateHandle: partial(
+    "The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
+  ),
+  exposeBinding: partial(exposeBindingLimitations),
+  exposeFunction: partial(exposeFunctionLimitations),
   fill: implemented(),
   focus: implemented(),
   frame: outOfScope("Iframe realms are outside the single-document boundary."),
@@ -321,12 +326,14 @@ export const locatorLedger = {
   elementHandles: partial(
     "Returned `ElementHandle` methods and options differ; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
-  evaluate: partial("Rejects `exposeFunctions: true`."),
+  evaluate: implemented(
+    "Uses the pinned Playwright by-value argument and result serializers."
+  ),
   evaluateAll: implemented(
     "Uses the pinned Playwright by-value argument and result serializers."
   ),
   evaluateHandle: partial(
-    "Rejects `exposeFunctions: true`. The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
+    "The returned handle previews differently; see [ElementHandle compatibility](#elementhandle-compatibility)."
   ),
   fill: implemented(),
   filter: implemented(),

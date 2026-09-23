@@ -3,7 +3,7 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 2041,
+  "selectedTestCount": 2062,
   "reviewed": [
     {
       "id": "elementhandle-bounding-box.spec.ts > should force a layout",
@@ -2421,6 +2421,36 @@
       "id": "page-event-request.spec.ts > main resource xhr should have type xhr",
       "method": "Page.waitForEvent",
       "evidence": "The awaited adapter waitForEvent('request') resolves with the request the document's synchronous XMLHttpRequest started inside Page.evaluate, and the assertions read resourceType() 'xhr' and isNavigationRequest() false from the adapter's snapshot of the package's own request object; with Page.waitForEvent withheld, the sabotage rerun fails."
+    },
+    {
+      "id": "page-expose-function.spec.ts > should await returned promise",
+      "method": "Page.exposeFunction",
+      "evidence": "The exposed function returns a Promise; the Site's await resolves to the promise's value, proving the binding call awaits a returned promise before delivering the result."
+    },
+    {
+      "id": "page-expose-function.spec.ts > should support throwing \"null\"",
+      "method": "Page.exposeFunction",
+      "evidence": "The exposed function throws null; the Site's caller catches exactly null, proving thrown values (not only Error instances) cross back by value."
+    },
+    {
+      "id": "page-expose-function.spec.ts > should throw for duplicate registrations",
+      "method": "Page.exposeFunction",
+      "evidence": "A second page.exposeFunction('foo', ...) call rejects with the message 'page.exposeFunction: Function \"foo\" has been already registered', matching the pinned duplicate-name error text and its calling-API-name prefix."
+    },
+    {
+      "id": "page-expose-function.spec.ts > should work",
+      "method": "Page.exposeFunction",
+      "evidence": "Calls the exposed function through window[name] inside page.evaluate and gets its return value back by value; the core exposeFunction round trip."
+    },
+    {
+      "id": "page-expose-function.spec.ts > should work with complex objects",
+      "method": "Page.exposeFunction",
+      "evidence": "window['complexObject']({x:5},{x:2}) calls the exposed function with two plain-object arguments and the assertion reads result.x === 7 (5+2) from the returned object, proving both arguments and the result round-trip by value."
+    },
+    {
+      "id": "page-expose-function.spec.ts > should work with overridden console object",
+      "method": "Page.exposeFunction",
+      "evidence": "exposeFunction and the exposed call still work after the Site sets window.console = null, proving the binding path does not depend on console."
     },
     {
       "id": "page-fill.spec.ts > fill back to back",

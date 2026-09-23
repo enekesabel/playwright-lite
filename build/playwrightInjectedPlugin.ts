@@ -47,7 +47,7 @@ export function playwrightInjectedPlugin() {
             expectedUtilitySha256
           ),
           "const LiteUtilityScript = module.exports.UtilityScript();",
-          "export { LiteUtilityScript as UtilityScript, serializeAsCallArgument, parseEvaluationResultValue, serializeValue, parseSerializedValue };",
+          "export { LiteUtilityScript as UtilityScript, serializeAsCallArgument, parseEvaluationResultValue, serializeValue, parseSerializedValue, kBindingsControllerProperty, kFunctionBindingPrefix };",
         ].join("\n");
       }
       if (id !== resolvedInjectedId) return;

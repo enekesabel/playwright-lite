@@ -15,8 +15,6 @@ export function assertEvaluationOptions(options?: EvaluationOptions): void {
     (typeof options !== "object" || options === null || Array.isArray(options))
   )
     throw new Error(invalidArguments);
-  if (options?.exposeFunctions === true)
-    throw new Error("Unsupported Playwright option: evaluate.exposeFunctions");
   if (
     options?.exposeFunctions !== undefined &&
     typeof options.exposeFunctions !== "boolean"
@@ -70,7 +68,8 @@ export class AdapterJSHandle<T = unknown> {
       pageFunction,
       typeof pageFunction === "function",
       arg,
-      this
+      this,
+      options
     );
   }
 
@@ -85,7 +84,8 @@ export class AdapterJSHandle<T = unknown> {
       pageFunction,
       typeof pageFunction === "function",
       arg,
-      this
+      this,
+      options
     );
   }
 

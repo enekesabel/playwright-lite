@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   errors as playwrightErrors,
+  type Disposable,
   type Locator,
   type Page,
   type Playwright,
@@ -956,6 +957,35 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
         };
       }
 
+      // The returned Disposable's members cannot cross realPage.evaluate:
+      // keep the adapter's own object in the browser and route its disposal
+      // there. The callback travels as source, like any bridged function.
+      if (prop === "exposeFunction" || prop === "exposeBinding") {
+        return async (...args: unknown[]) => {
+          const id = await evaluateAdapter<string>(
+            realPage,
+            ({ member, args: a }) => {
+              const host = window as any;
+              return host.__pwLiteInvokeAdapter(
+                async () =>
+                  host.__pwLiteStoreElementHandle(
+                    await host.__pwLiteAdapterPage[member](
+                      ...host.__pwLiteDecodeBridgeValue(a)
+                    ),
+                    "Disposable"
+                  ),
+                a
+              );
+            },
+            {
+              member: prop,
+              args: encodeBridgeValueForPage(args, realPage) as unknown[],
+            }
+          );
+          return createDisposableProxy(realPage, id);
+        };
+      }
+
       // ── Callback transport ─────────────────────────────────────────
       // Functions cannot cross realPage.evaluate. Reconstruct the selected
       // upstream callback shape in the browser, then invoke PageImpl's public
@@ -1529,10 +1559,12 @@ async function createElementHandleProxy(
   return proxy;
 }
 
-function createHighlightDisposableProxy(
-  realPage: Page,
-  id: string
-): Awaited<ReturnType<Locator["highlight"]>> {
+/**
+ * Republishes a `Disposable` an adapter member returned (`Locator.highlight`,
+ * `Page.exposeFunction`, `Page.exposeBinding`). Its members cannot cross
+ * `realPage.evaluate`, so the browser side stores the adapter's own object.
+ */
+function createDisposableProxy(realPage: Page, id: string): Disposable {
   // Retain the returned object for this fixture's document lifetime. Both
   // disposal paths execute on it, including repeated calls and exceptions.
   const invoke = (asyncDispose: boolean) =>
@@ -1667,7 +1699,7 @@ function createLocatorProxy(
               options: encodeBridgeValueForPage(options, realPage),
             }
           );
-          return createHighlightDisposableProxy(realPage, id);
+          return createDisposableProxy(realPage, id);
         };
       }
 
@@ -2137,8 +2169,9 @@ function initializeAdapterBridge(
   // two kinds are told apart the way Playwright's own API does it, by what
   // `asElement()` answers: a handle that answers with itself is an
   // ElementHandle, and one that answers `null` is a JSHandle, so the execution
-  // evidence keeps the names the dedicated routes give. Locator.highlight's
-  // disposable has `dispose` alone, so it stays with its own route.
+  // evidence keeps the names the dedicated routes give. A Disposable
+  // (Locator.highlight, Page.exposeFunction, Page.exposeBinding) has
+  // `dispose` alone, so it stays with its own route.
   // A Request or Response the adapter reported. Playwright answers most of
   // their members synchronously, which no evaluation round trip can do, so
   // those members are read here, when the object crosses the boundary, and
