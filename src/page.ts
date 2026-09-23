@@ -2550,26 +2550,24 @@ export class PageImpl {
 
   /**
    * Pinned client methods prefix a thrown error with their own API name. The
-   * returned `Disposable`'s `dispose()` (and `Symbol.asyncDispose`) is a
-   * no-op: this package has no dispose or close lifecycle, so the property
-   * stays on `window` for the page's lifetime (see the ledger).
+   * returned `Disposable`'s `dispose()` (and `Symbol.asyncDispose`) removes
+   * the binding, per pinned server/page.ts `PageBinding.dispose`.
    */
   private async installBinding(
     apiName: string,
     name: string,
     callback: Binding
   ): Promise<Disposable> {
+    let remove: () => void;
     try {
-      this.bindings.expose(this.bindingOwner, name, callback);
+      remove = this.bindings.expose(this.bindingOwner, name, callback);
     } catch (error) {
       const result = asError(error);
       result.message = `${apiName}: ${result.message}`;
       throw result;
     }
-    return {
-      dispose: async () => {},
-      [Symbol.asyncDispose]: async () => {},
-    };
+    const dispose = async () => remove();
+    return { dispose, [Symbol.asyncDispose]: dispose };
   }
 
   /** Evaluates through the pinned Playwright UtilityScript. */

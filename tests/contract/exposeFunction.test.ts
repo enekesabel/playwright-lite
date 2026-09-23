@@ -10,25 +10,41 @@ describe("Page.exposeFunction", () => {
     expect((window as any).__playwright__binding__controller__).toBeUndefined();
   });
 
-  it("keeps the exposed property callable after dispose(), because this package has no dispose lifecycle", async () => {
+  it("removes the property on dispose() and frees the name for a new registration", async () => {
+    const page = createPage();
+    const first = await page.exposeFunction("double", (n: number) => n * 2);
+
+    await first.dispose();
+
+    expect("double" in window).toBe(false);
+    const second = await page.exposeFunction("double", (n: number) => n * 3);
+    await expect(page.evaluate(() => (window as any).double(7))).resolves.toBe(
+      21
+    );
+    // Disposing an already removed registration leaves the new one alone.
+    await first.dispose();
+    await expect(page.evaluate(() => (window as any).double(7))).resolves.toBe(
+      21
+    );
+
+    await second[Symbol.asyncDispose]();
+
+    expect("double" in window).toBe(false);
+  });
+
+  it("leaves the property in place on dispose() when the Site has replaced it", async () => {
     const page = createPage();
     const disposable = await page.exposeFunction(
-      "double",
-      (n: number) => n * 2
+      "triple",
+      (n: number) => n * 3
     );
-    await expect(page.evaluate(() => (window as any).double(21))).resolves.toBe(
-      42
-    );
+    const siteFunction = (n: number) => n + 1;
+    (window as any).triple = siteFunction;
 
     await disposable.dispose();
 
-    // Pinned Playwright's `should dispose` test asserts the opposite: after
-    // `dispose()`, calling the exposed function throws "is not a function".
-    // This package invents no removal, so the property, and the call, still
-    // work.
-    await expect(page.evaluate(() => (window as any).double(10))).resolves.toBe(
-      20
-    );
+    expect((window as any).triple).toBe(siteFunction);
+    delete (window as any).triple;
   });
 
   it("delivers a thrown Error to the Site as a fresh Error carrying the same name, message and stack", async () => {

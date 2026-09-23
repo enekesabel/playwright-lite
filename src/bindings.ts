@@ -29,14 +29,25 @@ export class PageBindings {
 
   constructor(private readonly window: Window & typeof globalThis) {}
 
-  /** Pinned server/page.ts `exposeBinding`'s duplicate-name error. Installs `window[name]`. */
-  expose(owner: BindingOwner, name: string, handler: Binding): void {
+  /**
+   * Pinned server/page.ts `exposeBinding`'s duplicate-name error. Installs
+   * `window[name]` and returns its idempotent removal, pinned
+   * `removeExposedBinding`: the registration goes, so `name` can be exposed
+   * again, and so does `window[name]` unless the Site has since replaced it.
+   */
+  expose(owner: BindingOwner, name: string, handler: Binding): () => void {
     if (this.bindings.has(name))
       throw new Error(`Function "${name}" has been already registered`);
-    this.install(name, { owner, handler });
-    (this.window as unknown as Record<string, unknown>)[name] = (
-      ...args: unknown[]
-    ) => this.callBinding(name, ...args);
+    const entry = { owner, handler };
+    this.install(name, entry);
+    const holder = this.window as unknown as Record<string, unknown>;
+    const exposed = (...args: unknown[]) => this.callBinding(name, ...args);
+    holder[name] = exposed;
+    return () => {
+      if (this.bindings.get(name) !== entry) return;
+      this.bindings.delete(name);
+      if (holder[name] === exposed) delete holder[name];
+    };
   }
 
   /**
