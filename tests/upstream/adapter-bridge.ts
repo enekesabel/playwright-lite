@@ -1942,7 +1942,9 @@ function initializeAdapterBridge(
   // Mirrors pinned server/javascript.ts normalizeExpression: a method
   // shorthand (`foo() {}`) only becomes an expression once it is prefixed.
   // Rebuilding the caller's function keeps its source, which the adapter
-  // stringifies again for its own serialization and error messages.
+  // stringifies again for its own serialization and error messages. The
+  // callback has no Node closure, but the name `expect` resolves to the
+  // adapter's public expect, so a handler can assert on its generic matchers.
   host.__pwLiteReconstructFunction = function reconstruct(source: string) {
     let result = source.trim();
     try {
@@ -1952,7 +1954,9 @@ function initializeAdapterBridge(
         ? "async function " + result.substring("async ".length)
         : "function " + result;
     }
-    return (0, eval)("(" + result + ")");
+    return (0, eval)("(function (expect) { return (" + result + "); })")(
+      host.__pwLiteAdapter.expect
+    );
   };
   host.__pwLiteDecodeBridgeValue = function decode(value: any): any {
     if (!value || typeof value !== "object") return value;
