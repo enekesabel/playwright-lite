@@ -1,5 +1,5 @@
 import { WrappedHostFunction } from "./hostGlobals";
-import { previewValue, type AdapterJSHandle } from "./jsHandle";
+import { previewValue, tagOf, type AdapterJSHandle } from "./jsHandle";
 import type { ConsoleMessage, JSHandle, Page } from "@playwright/test";
 
 /** The `ConsoleMessage` object the `console` event and `consoleMessages()` report; re-exported from `src/index.ts` as an opt-in annotation. A browser-generated entry (a failed resource load, a CSP report) is never observed, since none calls a `console.*` method. */
@@ -79,8 +79,9 @@ const CONSOLE_METHOD_TYPES: Readonly<Record<string, ConsoleMessageType>> = {
  * `groupCollapsed()`, `groupEnd()`, `clear()` and `trace()` always report,
  * falling back to `console.<method>` when called with no message argument
  * (`groupEnd()`/`clear()` take none at all, so this is their only text).
- * `assert`'s own fallback is handled in `observe`, after its condition
- * argument is dropped, but uses this same "console.<method>" text.
+ * That fallback is the call's one argument, in `args()` as well as `text()`,
+ * as V8's `reportCallWithDefaultArgument` passes it. `assert` falls back the
+ * same way in `observe`, once its condition argument is dropped.
  */
 const FALLBACK_TEXT_METHODS = new Set([
   "group",
@@ -111,7 +112,10 @@ export const CONSOLE_MESSAGE_LIMIT = 200;
 
 export type ConsoleCall = {
   type: ConsoleMessageType;
-  /** The raw arguments the Site passed, wrapped into `JSHandle`s per page. */
+  /**
+   * The raw arguments the Site passed (or the synthesized fallback of a
+   * `FALLBACK_TEXT_METHODS` call), wrapped into `JSHandle`s per page.
+   */
   args: unknown[];
   /** Pinned client/console.ts: joins each argument's object-preview text. */
   text: string;
@@ -164,24 +168,53 @@ function captureLocation() {
  * `previewValue` itself. This follows this package's own `JSHandle`
  * description, not V8's preview (no truncation, no sparse-array markers, no
  * class-instance member listing).
+ *
+ * Like V8's preview, verified against real Chromium, it never calls the
+ * Site's code: entries are read from property descriptors, an accessor
+ * renders as `undefined` without being called, and a setter-only property
+ * is left out.
  */
 function formatConsoleArg(value: unknown): string {
   if (typeof value === "string") return value;
-  if (Array.isArray(value)) return `[${value.map(previewValue).join(", ")}]`;
-  if (
-    value !== null &&
-    typeof value === "object" &&
-    Object.prototype.toString.call(value).slice(8, -1) === "Object"
-  )
-    return `{${Object.entries(value as Record<string, unknown>)
-      .map(([key, item]) => `${key}: ${previewValue(item)}`)
+  if (Array.isArray(value))
+    return `[${Array.from({ length: value.length }, (_, index) =>
+      previewEntry(Object.getOwnPropertyDescriptor(value, index))
+    ).join(", ")}]`;
+  if (value !== null && typeof value === "object" && tagOf(value) === "Object")
+    return `{${Object.keys(value)
+      .map((key) => [key, Object.getOwnPropertyDescriptor(value, key)] as const)
+      .filter(([, descriptor]) => descriptor && !isSetterOnly(descriptor))
+      .map(([key, descriptor]) => `${key}: ${previewEntry(descriptor)}`)
       .join(", ")}}`;
   return previewValue(value);
 }
 
-/** Pinned client/consoleMessage.ts `text()`: argument previews joined by a space. */
+/** An array hole renders empty, as `Array.prototype.join` renders it. */
+function previewEntry(descriptor: PropertyDescriptor | undefined): string {
+  if (!descriptor) return "";
+  return "value" in descriptor ? previewValue(descriptor.value) : "undefined";
+}
+
+function isSetterOnly(descriptor: PropertyDescriptor): boolean {
+  return !("value" in descriptor) && !descriptor.get;
+}
+
+/**
+ * Pinned client/consoleMessage.ts `text()`: argument previews joined by a
+ * space. The preview never calls Site code, but a Proxy's traps can still
+ * throw; that argument then renders as `Object` rather than failing the
+ * report.
+ */
 function formatConsoleText(args: readonly unknown[]): string {
-  return args.map(formatConsoleArg).join(" ");
+  return args
+    .map((arg) => {
+      try {
+        return formatConsoleArg(arg);
+      } catch {
+        return "Object";
+      }
+    })
+    .join(" ");
 }
 
 const observations = new WeakMap<Window, ConsoleObservation>();
@@ -240,7 +273,7 @@ export class ConsoleObservation {
     for (const subscriber of [...this.subscribers]) subscriber(call);
   }
 
-  /** Guards one `emit` call against the reentrancy `observe` documents. */
+  /** Guards one report against the reentrancy `observe` documents. */
   private emitting = false;
 
   /**
@@ -249,11 +282,15 @@ export class ConsoleObservation {
    * synthesized-fallback and bare-call-suppression rule is verified against
    * real Chromium; see `FALLBACK_TEXT_METHODS`/`SUPPRESSED_WHEN_EMPTY`.
    *
+   * Observing never changes the Site's call: it returns the native method's
+   * own result, and nothing that fails while building or emitting the report
+   * reaches the caller; such a report is dropped instead.
+   *
    * A subscriber runs inside this document, unlike the pinned client's
    * Node-side listener, so one that itself calls a wrapped method (including
    * indirectly, through this observation's own listener-failure logging)
    * would otherwise re-enter this method without end; `emitting` guards one
-   * `emit` call against that, forwarding to the original method regardless.
+   * report against that, forwarding to the original method regardless.
    */
   private observe(
     type: ConsoleMessageType,
@@ -263,25 +300,26 @@ export class ConsoleObservation {
     args: unknown[]
   ): unknown {
     const result = Reflect.apply(original, thisArg, args);
-    if (method === "assert") {
-      if (args[0]) return result;
-      args = args.slice(1);
-    }
-    if (args.length === 0 && SUPPRESSED_WHEN_EMPTY.has(method)) return result;
     if (this.emitting) return result;
-    const text =
-      args.length === 0 && FALLBACK_TEXT_METHODS.has(method)
-        ? `console.${method}`
-        : formatConsoleText(args);
     this.emitting = true;
     try {
+      if (method === "assert") {
+        if (args[0]) return result;
+        args = args.slice(1);
+      }
+      if (args.length === 0) {
+        if (SUPPRESSED_WHEN_EMPTY.has(method)) return result;
+        if (FALLBACK_TEXT_METHODS.has(method)) args = [`console.${method}`];
+      }
       this.emit({
         type,
         args,
-        text,
+        text: formatConsoleText(args),
         location: captureLocation(),
         timestamp: Date.now(),
       });
+    } catch {
+      // Dropped: see "Observing never changes the Site's call" above.
     } finally {
       this.emitting = false;
     }

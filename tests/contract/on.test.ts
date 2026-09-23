@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createPage } from "../../src/index";
+import { createPage, type ConsoleMessage } from "../../src/index";
 import {
   listenedPages,
   listenerFailures,
@@ -263,23 +263,63 @@ describe("Page.on", () => {
     expect(console.log).not.toBe(before);
   });
 
-  it("reports type, text and args for a console.log call", () => {
+  it("reports type, text and args for a console.log call", async () => {
     const page = consolePage();
-    const messages: { type: string; text: string }[] = [];
-    page.on("console", (message) => {
-      messages.push({ type: message.type(), text: message.text() });
-    });
+    const messages: ConsoleMessage[] = [];
+    page.on("console", (message) => messages.push(message));
 
     console.log("hello", 5, { foo: "bar" });
 
-    expect(messages).toEqual([{ type: "log", text: "hello 5 {foo: bar}" }]);
+    expect(messages.map((m) => [m.type(), m.text()])).toEqual([
+      ["log", "hello 5 {foo: bar}"],
+    ]);
+    expect(
+      await Promise.all(messages[0].args().map((arg) => arg.jsonValue()))
+    ).toEqual(["hello", 5, { foo: "bar" }]);
+  });
+
+  it("previews an accessor without calling it, and leaves the call's result alone", () => {
+    // Stands in for the native method, whose own result must come back
+    // unchanged; the test runner's console would itself read the getter.
+    vi.spyOn(console, "log").mockImplementation(
+      () => "native result" as unknown as void
+    );
+    const page = consolePage();
+    const texts: string[] = [];
+    page.on("console", (m) => texts.push(m.text()));
+    const getter = vi.fn(() => {
+      throw new Error("boom");
+    });
+    class Tagged {
+      get [Symbol.toStringTag]() {
+        return getter();
+      }
+    }
+    const value = { y: 1, tagged: new Tagged() };
+    Object.defineProperty(value, "x", { get: getter, enumerable: true });
+    Object.defineProperty(value, "w", { set: () => {}, enumerable: true });
+
+    const result = console.log(value);
+
+    expect(result).toBe("native result");
+    expect(getter).not.toHaveBeenCalled();
+    // Verified against real Chromium: an accessor previews as `undefined`, a
+    // setter-only property is left out, and an object whose
+    // `Symbol.toStringTag` is an accessor is named by its constructor.
+    expect(texts).toEqual(["{y: 1, tagged: Tagged, x: undefined}"]);
   });
 
   // Verified against real Chromium: `group`/`groupCollapsed`/`groupEnd`/
   // `clear`/`trace`/`assert` always report, falling back to `console.<name>`
-  // text when called with no message argument.
+  // as both the text and the one argument when called with no message.
   const fallbackTextCalls: [string, () => void, string, string][] = [
     ["group", () => console.group(), "startGroup", "console.group"],
+    [
+      "groupCollapsed",
+      () => console.groupCollapsed(),
+      "startGroupCollapsed",
+      "console.groupCollapsed",
+    ],
     ["groupEnd", () => console.groupEnd(), "endGroup", "console.groupEnd"],
     ["clear", () => console.clear(), "clear", "console.clear"],
     ["trace", () => console.trace(), "trace", "console.trace"],
@@ -288,16 +328,17 @@ describe("Page.on", () => {
 
   it.each(fallbackTextCalls)(
     "reports a bare console.%s call as its own name",
-    (_method, call, type, text) => {
+    async (_method, call, type, text) => {
       const page = consolePage();
-      const messages: { type: string; text: string }[] = [];
-      page.on("console", (m) =>
-        messages.push({ type: m.type(), text: m.text() })
-      );
+      const messages: ConsoleMessage[] = [];
+      page.on("console", (m) => messages.push(m));
 
       call();
 
-      expect(messages).toEqual([{ type, text }]);
+      expect(messages.map((m) => [m.type(), m.text()])).toEqual([[type, text]]);
+      expect(
+        await Promise.all(messages[0].args().map((arg) => arg.jsonValue()))
+      ).toEqual([text]);
     }
   );
 
