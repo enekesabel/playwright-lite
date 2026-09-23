@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage, type Request } from "../../src/index";
-import { contractUrl, restoreFetch } from "./network";
+import { assetUrl, contractUrl, restoreFetch, sendXhr } from "./network";
 
 /**
  * The exported `Request` type carries only what the current document can fill.
@@ -76,19 +76,6 @@ describe("Page.waitForRequest", () => {
     expect(posted.postDataBuffer()).toBeInstanceOf(Uint8Array);
   });
 
-  it("parses a form-urlencoded body the way the pinned client does", async () => {
-    const page = createPage();
-    const waiting = page.waitForRequest("**/form", { timeout: 5_000 });
-    void window.fetch(contractUrl("./form"), {
-      method: "POST",
-      headers: {
-        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
-      },
-      body: "foo=bar&baz=123",
-    });
-    expect((await waiting).postDataJSON()).toEqual({ foo: "bar", baz: "123" });
-  });
-
   it("reports a regular expression and a predicate in its timeout", async () => {
     const page = createPage();
     await expect(
@@ -97,5 +84,100 @@ describe("Page.waitForRequest", () => {
     await expect(
       page.waitForRequest(() => false, { timeout: 1 })
     ).rejects.toThrow('waiting for event "request"');
+  });
+
+  // ── Request bodies ──────────────────────────────────────────────
+
+  type BodyCase = {
+    body: string;
+    method?: string;
+    contentType?: string;
+    make: () => BodyInit;
+    postData: string | null;
+    postDataJSON?: unknown;
+    /** `fetch` rejects a body on GET, so the case is XHR's alone. */
+    xhrOnly?: boolean;
+  };
+  const bodyCases: BodyCase[] = [
+    {
+      body: "a JSON string",
+      contentType: "application/json",
+      make: () => '{"foo":"bar"}',
+      postData: '{"foo":"bar"}',
+      postDataJSON: { foo: "bar" },
+    },
+    {
+      // The pinned client parses this content type instead of JSON.
+      body: "a form-urlencoded string",
+      contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+      make: () => "foo=bar&baz=123",
+      postData: "foo=bar&baz=123",
+      postDataJSON: { foo: "bar", baz: "123" },
+    },
+    {
+      body: "URLSearchParams",
+      make: () => new URLSearchParams({ foo: "bar" }),
+      postData: "foo=bar",
+    },
+    {
+      body: "a typed array",
+      make: () => new TextEncoder().encode("bytes"),
+      postData: "bytes",
+    },
+    // Both can only be read asynchronously, and postData() answers at once.
+    { body: "a Blob", make: () => new Blob(["blob"]), postData: null },
+    {
+      body: "FormData",
+      make: () => {
+        const formData = new FormData();
+        formData.set("foo", "bar");
+        return formData;
+      },
+      postData: null,
+    },
+    {
+      // XMLHttpRequest ignores the send() body of a GET.
+      body: "a body on GET",
+      method: "GET",
+      make: () => "ignored",
+      postData: null,
+      xhrOnly: true,
+    },
+  ];
+  const send = {
+    fetch: (url: string, c: BodyCase) =>
+      void window.fetch(url, {
+        method: c.method ?? "POST",
+        headers: c.contentType ? { "content-type": c.contentType } : {},
+        body: c.make(),
+      }),
+    XMLHttpRequest: (url: string, c: BodyCase) =>
+      void sendXhr(url, {
+        method: c.method ?? "POST",
+        headers: c.contentType ? [["content-type", c.contentType]] : [],
+        body: c.make() as XMLHttpRequestBodyInit,
+      }),
+  };
+  const bodyRows = (["fetch", "XMLHttpRequest"] as const).flatMap((via) =>
+    bodyCases
+      .filter((c) => via === "XMLHttpRequest" || !c.xhrOnly)
+      .map((c, index) => [`${c.body} via ${via}`, via, c, index] as const)
+  );
+
+  it.each(bodyRows)("reads %s", async (_, via, c, index) => {
+    const page = createPage();
+    const url = assetUrl(`?body-${via}-${index}`);
+    const waiting = page.waitForRequest((request) => request.url() === url, {
+      timeout: 5_000,
+    });
+    send[via](url, c);
+    const request = await waiting;
+
+    expect(request.postData()).toBe(c.postData);
+    expect(request.postDataBuffer()).toEqual(
+      c.postData === null ? null : new TextEncoder().encode(c.postData)
+    );
+    if (c.postDataJSON !== undefined)
+      expect(request.postDataJSON()).toEqual(c.postDataJSON);
   });
 });
