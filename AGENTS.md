@@ -116,14 +116,35 @@ architecture, and corpus/baseline mechanics out of it. Installation instructions
 must describe a verified distribution path, not an assumed registry release.
 
 Runtime boundaries are constraints of running inside the current document.
-Explain them once in that section; they do not by themselves downgrade an API.
-Compatibility notes describe concrete differences from the pinned Playwright
-public JavaScript API: name missing options or input forms, and contrast changed
-selection behavior or return values with Playwright. Do not call normal
-Playwright behavior a limitation. Avoid undefined terms such as "limited";
-list the exact returned-handle differences once and reference them from rows.
+Explain them once in that section, one short line per boundary, with a
+subsection for mechanics several APIs share; an API keeps its status despite
+them.
+
+Compatibility documents only differences from the pinned Playwright public
+JavaScript API, each stated concretely as what Playwright does and what this
+package does instead. Each behaviour is explained once, in the section that owns
+it, and every other mention is a link:
+
+- A table note is one line naming the difference (a missing option or input
+  form, a changed selection or return value) plus a link to the owning section.
+- Events owns the supported events: what fires each one and how its payload and
+  timing differ. The event-emitter rows link there.
+- Expect holds three tables, in order: Locator assertions (one row per
+  `expect(locator)` matcher), Page assertions (one row per `expect(page)`
+  matcher), and Generic expect (`expect(value)`, the `expect` members, and
+  plain-text rows for assertion families with no in-document target).
+- Each returned-object section states what it covers, then "Not available:"
+  (the missing members, omitted when there are none), then "Differences from
+  Playwright:": a Member | playwright-lite | Playwright table for differences
+  tied to one member, and one-line bullets for the rest.
+- A difference a typical user of that API would not run into goes in the
+  section's collapsed "Edge cases" block.
+- An explanation stays only when it lets the reader predict behaviour beyond the
+  listed cases, as one short clause. How this package works inside stays in the
+  source.
 
 Use Playwright's public JavaScript terminology and this package's public exports.
+Call the application under automation "the page" or "the document".
 Do not document internal types/helpers as consumer API, or borrow type names from
 other language bindings. Use the documented object shape when no public type is
 named. Link documented members to verified official anchors; leave members with

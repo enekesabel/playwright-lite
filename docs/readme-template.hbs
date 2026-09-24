@@ -18,17 +18,11 @@ await page.getByRole("textbox", { name: "Name" }).fill("Ada");
 await page.getByRole("button", { name: "Save" }).click();
 ```
 
+{{!--
+Usage only. The matcher list and its differences live once, in the Expect
+section's tables.
+--}}
 ## Assertions
-
-`expect(locator)` supports `toBeAttached`, `toBeChecked`, `toBeDisabled`,
-`toBeEditable`, `toBeEmpty`, `toBeEnabled`, `toBeFocused`, `toBeHidden`,
-`toBeInViewport`, `toBeVisible`, `toContainText`, `toContainClass`,
-`toHaveAccessibleDescription`, `toHaveAccessibleName`,
-`toHaveAccessibleErrorMessage`, `toHaveAttribute`, `toHaveClass`,
-`toHaveCount`, `toHaveCSS`, `toHaveId`, `toHaveJSProperty`, `toHaveRole`,
-`toHaveText`, `toHaveValue`, `toHaveValues`, and the inline string form of
-`toMatchAriaSnapshot`. `toHaveScreenshot` and ARIA snapshot forms that read,
-write, or configure snapshot files are not available.
 
 ```ts
 import { createPage, expect } from "@enekesabel/playwright-lite";
@@ -38,20 +32,7 @@ await expect(page.getByRole("button", { name: "Save" })).toBeEnabled();
 await expect(page.locator(".notice")).toContainText("Saved");
 ```
 
-{{!--
-Runtime-wide constraints of executing inside the current document belong here.
-Do not repeat them in partial API notes or downgrade APIs because of them.
---}}
-## Runtime boundaries
-
-- **Current document only.** No iframe traversal, `Frame`, or `FrameLocator` support.
-- **Navigation ends execution.** `goto()` can start navigation, but replacing the document destroys the JavaScript context running your script. Automation cannot continue across a full-page navigation or reload.
-- **Observing the network or console replaces `window.fetch`, three `XMLHttpRequest` methods, and `console.*`.** Adding the first `request`, `response`, `requestfinished` or `requestfailed` listener, the first call to `waitForRequest()`, `waitForResponse()` or `requests()`, or a `networkidle` wait, installs wrappers around `window.fetch` and `XMLHttpRequest.prototype.open`, `setRequestHeader` and `send`. Adding the first `console` listener, or the first call to `consoleMessages()`, wraps every `console.*` method Playwright's `ConsoleMessage` covers. Every wrapper forwards calls unchanged. Removing the last listener for a given kind puts its original functions back, unless the page replaced one of them itself in the meantime; `requests()` and `consoleMessages()` keep their wrappers installed so their logs keep filling, and a `networkidle` wait holds the network wrappers until it ends. A page you never subscribe on is left untouched.
-- **Network idle counts only `fetch()` and `XMLHttpRequest`.** Playwright documents `networkidle` as "**DISCOURAGED** consider operation to be finished when there are no network connections for at least `500` ms. Don't use this method for testing, rely on web assertions to assess readiness instead." Here, `waitForLoadState("networkidle")` and `waitUntil: "networkidle"` resolve once no `fetch()` or `XMLHttpRequest` call of the current document has been in flight for 500 ms, excluding `/favicon.ico` requests as Playwright does. When an image, script, stylesheet or other resource finishes loading, the 500 ms starts over, but a resource still loading never holds it. The end of each call and resource is noticed a few milliseconds late, so a wait can resolve slightly more than 500 ms after it. A call started before the wrappers above were installed is not seen, so a wait started while such a call is in flight can resolve before it ends. Calls from iframes, workers and other realms are not seen.
-- **Observing dialogs replaces `window.alert`, `window.confirm` and `window.prompt`.** Adding the first `dialog` listener wraps all three; removing the last one restores them, unless the page replaced one of them itself in the meantime. A page you never add a `dialog` listener to is left untouched, so a page relying on the browser's own modal keeps working. See [Dialog compatibility](#dialog-compatibility) for how a wrapped dialog is settled.
-- **Synthetic input.** Input events are not browser-trusted. Native keyboard behavior such as cursor movement, deletion, and focus traversal is not simulated.
-- **No browser control.** No browser launch, browser contexts, or browser-level control over network traffic, downloads, or other tabs.
-- **Content Security Policy still applies.** Evaluation callbacks need dynamic JavaScript evaluation to be allowed by the page's policy; the library does not bypass it.
+See [Expect](#expect) for the supported matchers and how a failed assertion surfaces.
 
 ## Use cases
 
@@ -69,64 +50,169 @@ npm add @enekesabel/playwright-lite
 ```
 
 {{!--
-The ledger owns statuses and exact public JavaScript API differences. Notes name
-unsupported options/inputs or contrast return/selection behavior with Playwright;
-they do not repeat upstream documentation or expose internal helper/type names.
-Keep contributor instructions out of this consumer README.
+Constraints of executing inside the current document, explained once here; an
+API keeps its status despite them. One short line per boundary. Mechanics that
+several APIs share (replaced page functions, network idle) get a subsection
+here instead of a row note.
+--}}
+## Runtime boundaries
+
+- **Current document only.** No iframe traversal, `Frame`, or `FrameLocator` support.
+- **Navigation ends execution.** `goto()` can start navigation, but replacing the document destroys the JavaScript context running your script, so automation cannot continue across a full-page navigation or reload.
+- **Synthetic input.** Input events are not browser-trusted; native keyboard behavior such as cursor movement, deletion and focus traversal is not simulated.
+- **No browser control.** No browser launch, browser contexts, or browser-level control over network traffic, downloads, or other tabs.
+- **Content Security Policy applies.** Evaluation callbacks need the page's policy to allow dynamic JavaScript evaluation; the library does not bypass it.
+
+### Page functions playwright-lite replaces
+
+| Functions | Replaced when you first… | Put back when… |
+| --- | --- | --- |
+| `window.fetch` and `XMLHttpRequest.prototype.open`, `setRequestHeader` and `send` | add a `request`, `response`, `requestfinished` or `requestfailed` listener, call `waitForRequest()`, `waitForResponse()` or `requests()`, or start a `networkidle` wait | the last of those listeners is removed and no `networkidle` wait is running. After a `requests()` call they stay, so its log keeps filling. |
+| Every `console.*` method Playwright's `ConsoleMessage` covers | add a `console` listener or call `consoleMessages()` | the last `console` listener is removed. After a `consoleMessages()` call they stay, so its log keeps filling. |
+| `window.alert`, `window.confirm` and `window.prompt` | add a `dialog` listener | the last `dialog` listener is removed. |
+
+Nothing is replaced until you subscribe, and a function the page replaced itself is never put back. The network and console replacements forward every call unchanged. The dialog replacements pass each dialog to your listeners instead of showing it; see [Dialog](#dialog).
+
+### Network idle
+
+`waitForLoadState("networkidle")` and `waitUntil: "networkidle"` resolve once no `fetch()` or `XMLHttpRequest` call of the current document has been in flight for 500 ms.
+
+- Only `fetch()` and `XMLHttpRequest` calls count as in flight. An image, script, stylesheet or other resource that finishes loading restarts the 500 ms, but one still loading never holds it.
+- `/favicon.ico` requests are excluded, as in Playwright.
+- A call started before you subscribed is not seen, so a wait started while such a call is in flight can resolve before it ends.
+- Calls from iframes, workers and other realms are not seen.
+- Playwright documents `networkidle` as "**DISCOURAGED** consider operation to be finished when there are no network connections for at least `500` ms. Don't use this method for testing, rely on web assertions to assess readiness instead."
+
+<details>
+<summary>Edge cases</summary>
+
+- The end of each call and resource is noticed a few milliseconds late, so a wait can resolve slightly more than 500 ms after it.
+
+</details>
+
+{{!--
+The ledger in compatibility/api.ts owns statuses and every difference from
+Playwright's public JavaScript API. Keep contributor instructions out of this
+consumer README.
+
+- A table note is one line naming the concrete difference (a missing option or
+  input form, a changed return value or selection) plus a link to the section
+  that explains it.
+- Each behaviour is explained once, in its owning section: an event's payload
+  and timing in Events, an object's members and behaviour in that object's
+  section. Rows link there.
+- Page and Locator tables print notes only for ⚠️ and 🚫 rows; the Events and
+  Expect tables print every note, so their ✅ notes name real differences only.
+- An explanation stays only when it lets the reader predict behaviour beyond
+  the listed cases, as one short clause ("because `alert()` blocks the page's
+  script"). How this package works inside is left to the source.
 --}}
 ## Compatibility
 
 Targets Playwright **{{playwrightVersion}}**. Statuses describe API compatibility within the runtime boundaries above. API links open Playwright's current documentation.
 
-{{!--
-Expect rows distinguish generic value matchers from owner-specific Page and
-Locator assertions. Keep runtime-wide document boundaries above; row notes name
-only concrete matcher inputs, options, or selection differences.
---}}
-
 ✅ Compatible · ⚠️ Partially compatible · ❌ Not implemented · 🚫 Intentionally excluded
 
-{{#each tables}}
+{{#each apiTables}}
 ### {{name}}
 
 | API | Status | Notes |
 | --- | :---: | --- |
 {{#each rows}}
-| {{#if url}}[`{{label}}`]({{{url}}}){{else}}`{{label}}`{{/if}} | {{status}} | {{{note}}} |
+| {{#if url}}[{{{label}}}]({{{url}}}){{else}}{{{label}}}{{/if}} | {{status}} | {{{note}}} |
 {{/each}}
 
 {{/each}}
-### ElementHandle compatibility
+{{!--
+Owned by `events` in compatibility/api.ts: one row per event, or per group of
+events sharing a payload. The Page event-emitter rows link here; payload detail
+that belongs to an object links to that object's section.
+--}}
+### Events
 
-{{{elementHandleLimitations}}}
+Listeners added with `on()`, `once()`, `addListener()` or `prependListener()`, and `waitForEvent()`, receive only these events.
+
+| Event | Fires for | Differences from Playwright |
+| --- | --- | --- |
+{{#each events}}
+| {{#each events}}{{#unless @first}}, {{/unless}}[`{{name}}`]({{{url}}}){{/each}} | {{{firesFor}}} | {{{differences}}} |
+{{/each}}
 
 {{!--
-Owned by `networkLimitations` in compatibility/api.ts: the exact members these
-objects have, the ones absent from their types, and how the present members
-differ from Playwright's. The network ledger rows link here.
+Owned by the assertion ledgers in compatibility/api.ts, in this order: Locator
+assertions (one row per `expect(locator)` matcher), Page assertions (one row per
+`expect(page)` matcher), Generic expect (one `expect(value)` row for every
+generic matcher, rows for the `expect` members, and plain-text rows for
+assertion families with no in-document target). The failure-behaviour sentences
+follow `ExpectationError` and `callMatcher` in src/expect.ts.
 --}}
-### Request and Response compatibility
+### Expect
 
-{{{networkLimitations}}}
+A failed assertion throws an error whose `matcherResult` describes the failure: generic matchers throw synchronously, and locator and page assertions reject after retrying until their timeout, 5 s by default. Nothing reports the failure for you, so catch it; otherwise it surfaces as an uncaught error or an unhandled rejection.
 
+{{#each expectTables}}
+#### {{name}}
+
+| {{#if receiver}}`{{receiver}}`{{else}}API{{/if}} | Status | Notes |
+| --- | :---: | --- |
+{{#each rows}}
+| {{#if url}}[{{{label}}}]({{{url}}}){{else}}{{{label}}}{{/if}} | {{status}} | {{{note}}} |
+{{/each}}
+
+{{/each}}
 {{!--
-Owned by `dialogLimitations` in compatibility/api.ts: the exact members
-`Dialog` has and how the present members differ from Playwright's. The
-on/off/waitForEvent ledger rows link here.
+Owned by `objectSections` in compatibility/api.ts. Every object section has the
+same layout, and an empty part is omitted:
+1. What it covers (Request and Response: "Reported:" and "Not reported:").
+2. "Not available:" with the missing members.
+3. "Differences from Playwright:" as a Member | playwright-lite | Playwright
+   table for differences tied to one member, then one-line bullets for the rest.
+4. An "Edge cases" fold for differences a typical user of the object never runs
+   into.
 --}}
-### Dialog compatibility
+{{#each objectSections}}
+### {{name}}
 
-{{{dialogLimitations}}}
+{{#if reported}}
+**Reported:** {{{reported}}}
 
-{{!--
-Owned by `consoleMessageLimitations` in compatibility/api.ts: the console
-methods reported, how they differ from Playwright's ConsoleMessage, and the
-reentrancy rule. The console ledger rows link here.
---}}
-### ConsoleMessage compatibility
+**Not reported:** {{{notReported}}}
 
-{{{consoleMessageLimitations}}}
+{{/if}}
+{{#if covers}}
+{{{covers}}}
 
+{{/if}}
+{{#if notAvailable}}
+**Not available:** {{{notAvailable}}}
+
+{{/if}}
+**Differences from Playwright:**
+
+{{#if members.length}}
+| Member | playwright-lite | Playwright |
+| --- | --- | --- |
+{{#each members}}
+| {{{member}}} | {{{lite}}} | {{{playwright}}} |
+{{/each}}
+
+{{/if}}
+{{#each differences}}
+- {{{this}}}
+{{/each}}
+
+{{#if edgeCases.length}}
+<details>
+<summary>Edge cases</summary>
+
+{{#each edgeCases}}
+- {{{this}}}
+{{/each}}
+
+</details>
+
+{{/if}}
+{{/each}}
 ## License
 
 MIT for this project. Bundled and copied third-party code retains its own license. See [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) and [LICENSES](LICENSES).
