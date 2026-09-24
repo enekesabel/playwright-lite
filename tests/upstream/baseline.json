@@ -551,6 +551,438 @@
       "evidence": "'xpath=/html/body/section' resolves through the XPath engine and Page.$eval returns the element's id."
     },
     {
+      "id": "expect-boolean.spec.ts > not.toBeDisabled div",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeDisabled",
+      "evidence": "A div with disabled=\"yes\" satisfies not.toBeDisabled(), because the attribute only disables form controls, through the correlated Locator.toBeDisabled -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > not.toBeEmpty",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEmpty",
+      "evidence": "An input with value=text satisfies not.toBeEmpty() through the correlated Locator.toBeEmpty -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > should print selector syntax error",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "toBeVisible() on locator('row]') rejects with the selector parser error Unexpected token \"]\" while parsing css selector \"row]\" through the correlated Locator.toBeVisible -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > should print unknown engine error",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "toBeVisible() on locator('row=\"row\"') rejects with the selector parser error Unknown engine \"row\" while parsing selector row=\"row\" through the correlated Locator.toBeVisible -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeAttached > default",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeAttached",
+      "evidence": "An input in the document satisfies toBeAttached() through the correlated Locator.toBeAttached -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeAttached > eventually",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeAttached",
+      "evidence": "toBeAttached() on a not-yet-existing span retries until an adapter-routed Page.$eval inserts it, proving the retry loop observes the later state."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeAttached > eventually with not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeAttached",
+      "evidence": "not.toBeAttached() on an existing span retries until an adapter-routed Page.$eval removes it, proving the negated retry loop observes the later state."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeAttached > fail with not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeAttached",
+      "evidence": "An attached input times out not.toBeAttached({ timeout: 3000 }) and the message's call log contains locator resolved to <input/>."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeAttached > with attached:false",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeAttached",
+      "evidence": "A selector with no match satisfies toBeAttached({ attached: false }) through the correlated Locator.toBeAttached -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeAttached > with attached:true",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeAttached",
+      "evidence": "A present button satisfies toBeAttached({ attached: true }) through the correlated Locator.toBeAttached -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeAttached > with hidden element",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeAttached",
+      "evidence": "A display:none button satisfies toBeAttached(), so attachment is independent of visibility, through the correlated Locator.toBeAttached -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeAttached > with impossible timeout",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeAttached",
+      "evidence": "An already-attached div satisfies toBeAttached({ timeout: 1 }), proving the immediate first check runs before the 1ms deadline."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeAttached > with impossible timeout .not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeAttached",
+      "evidence": "A selector with no match satisfies not.toBeAttached({ timeout: 1 }), proving the immediate first check runs before the 1ms deadline for negated assertions."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeAttached > with not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeAttached",
+      "evidence": "A selector with no match satisfies not.toBeAttached() through the correlated Locator.toBeAttached -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeAttached > with not and attached:false",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeAttached",
+      "evidence": "A present button satisfies not.toBeAttached({ attached: false }) through the correlated Locator.toBeAttached -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > default",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "A checked checkbox satisfies the public toBeChecked() with no options through the correlated Locator.toBeChecked -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > fail",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "An unchecked checkbox times out toBeChecked({ timeout: 1000 }) with Playwright's exact header (Locator, Expected: checked, Received: unchecked, Timeout: 1000ms) and the call-log line - Expect \"toBeChecked\" with timeout 1000ms."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > fail with checked:false",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "A checked checkbox times out toBeChecked({ checked: false }) with the exact toBeChecked({ checked: false }) header (Expected: unchecked, Received: checked), the Expect call-log line and the resolved-element log line."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > fail with indeterminate: true",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "An unchecked checkbox times out toBeChecked({ indeterminate: true }) with the exact header (Expected: indeterminate, Received: unchecked, Timeout: 1000ms) and the Expect call-log line."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > fail with not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "A checked checkbox times out not.toBeChecked({ timeout: 1000 }) with the exact not-checked header, the - Expect \"not toBeChecked\" call-log line and locator resolved to <input checked type=\"checkbox\"/>."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > friendly log",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "Timed-out toBeChecked() and toBeChecked({ checked: false }) messages contain the call-log lines unexpected value \"unchecked\" and unexpected value \"checked\" respectively."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > with checked:false",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "A checked checkbox satisfies the negated not.toBeChecked({ checked: false }) through the correlated Locator.toBeChecked -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > with checked:true",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "A checked checkbox satisfies toBeChecked({ checked: true }) through the correlated Locator.toBeChecked -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > with impossible timeout",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "An already-checked checkbox satisfies toBeChecked({ timeout: 1 }), proving the immediate first check runs before the 1ms deadline."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > with impossible timeout .not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "An unchecked checkbox satisfies not.toBeChecked({ timeout: 1 }), proving the immediate first check runs before the 1ms deadline for negated assertions."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > with indeterminate:true",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "After an adapter-routed Locator.evaluate sets indeterminate, toBeChecked({ indeterminate: true }) passes through the correlated Locator.toBeChecked -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > with indeterminate:true and checked",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "toBeChecked({ indeterminate: true, checked: false }) rejects with the InjectedScript error \"Can't assert indeterminate and checked at the same time\" through the correlated Locator.toBeChecked -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > with not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "An unchecked checkbox satisfies not.toBeChecked() through the correlated Locator.toBeChecked -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > with not and checked:false",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "An unchecked checkbox satisfies toBeChecked({ checked: false }) through the correlated Locator.toBeChecked -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked > with role",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "toBeChecked() passes for aria-checked=true on each of the checkbox, menuitemcheckbox, option, radio, switch, menuitemradio and treeitem roles through the correlated Locator.toBeChecked -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeChecked with value",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "A checkbox with checked=\"yes\" satisfies toBeChecked() through the correlated Locator.toBeChecked -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeDisabled with value",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeDisabled",
+      "evidence": "A button with disabled=\"yes\" satisfies toBeDisabled(), so any disabled attribute value disables it, through the correlated Locator.toBeDisabled -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEditable > default",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEditable",
+      "evidence": "An enabled input satisfies toBeEditable() through the correlated Locator.toBeEditable -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEditable > throws",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEditable",
+      "evidence": "toBeEditable() on a <button> rejects with the InjectedScript error that the element is not an <input>, <textarea>, <select> or [contenteditable] and has no role allowing [aria-readonly]."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEditable > with editable:false",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEditable",
+      "evidence": "A readonly input satisfies toBeEditable({ editable: false }) through the correlated Locator.toBeEditable -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEditable > with editable:true",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEditable",
+      "evidence": "An enabled input satisfies toBeEditable({ editable: true }) through the correlated Locator.toBeEditable -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEditable > with not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEditable",
+      "evidence": "A readonly input satisfies not.toBeEditable() through the correlated Locator.toBeEditable -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEditable > with not and editable:false",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEditable",
+      "evidence": "An editable input satisfies not.toBeEditable({ editable: false }) through the correlated Locator.toBeEditable -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEmpty div",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEmpty",
+      "evidence": "A div without children or text satisfies toBeEmpty() through the correlated Locator.toBeEmpty -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEmpty input",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEmpty",
+      "evidence": "An input without a value satisfies toBeEmpty() through the correlated Locator.toBeEmpty -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEnabled > default",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEnabled",
+      "evidence": "An enabled button satisfies toBeEnabled() through the correlated Locator.toBeEnabled -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEnabled > eventually",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEnabled",
+      "evidence": "toBeEnabled() on a disabled button retries until an adapter-routed Locator.evaluate removes disabled after 500ms, proving the retry loop observes the later state."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEnabled > eventually with not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEnabled",
+      "evidence": "not.toBeEnabled() on an enabled button retries until an adapter-routed Locator.evaluate sets disabled after 500ms, proving the negated retry loop observes the later state."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEnabled > failed",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEnabled",
+      "evidence": "A disabled button times out toBeEnabled({ timeout: 1000 }) and the message's call log contains locator resolved to <button disabled>Text</button>."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEnabled > toBeDisabled",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeDisabled",
+      "evidence": "A disabled button satisfies toBeDisabled() through the correlated Locator.toBeDisabled -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEnabled > with enabled:false",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEnabled",
+      "evidence": "A disabled button satisfies toBeEnabled({ enabled: false }) through the correlated Locator.toBeEnabled -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEnabled > with enabled:true",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEnabled",
+      "evidence": "An enabled button satisfies toBeEnabled({ enabled: true }) through the correlated Locator.toBeEnabled -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeEnabled > with not and enabled:false",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeEnabled",
+      "evidence": "An enabled button satisfies not.toBeEnabled({ enabled: false }) through the correlated Locator.toBeEnabled -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeFocused",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeFocused",
+      "evidence": "After an adapter-routed Locator.focus, the input satisfies toBeFocused() through the correlated Locator.toBeFocused -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeFocused with shadow elements",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeFocused",
+      "evidence": "After focusing an input inside an open shadow root, both the shadow host #app and the inner input satisfy toBeFocused() through the correlated Locator.toBeFocused -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeHidden > default",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeHidden",
+      "evidence": "A display:none button satisfies toBeHidden() through the correlated Locator.toBeHidden -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeHidden > eventually",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeHidden",
+      "evidence": "toBeHidden() on a visible span retries until an adapter-routed Page.$eval empties its text, proving the retry loop observes the later state."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeHidden > eventually with not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeHidden",
+      "evidence": "not.toBeHidden() on a not-yet-existing span retries until an adapter-routed Page.$eval inserts it, proving the negated retry loop observes the later state."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeHidden > fail",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeHidden",
+      "evidence": "A visible input times out toBeHidden({ timeout: 3000 }) and the message's call log contains locator resolved to <input/>."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeHidden > fail with not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeHidden",
+      "evidence": "A display:none button times out not.toBeHidden({ timeout: 3000 }) and the message's call log contains locator resolved to <button></button>."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeHidden > fail with not when nothing matching",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeHidden",
+      "evidence": "not.toBeHidden({ timeout: 1000 }) on an unmatched selector fails with Playwright's exact message: Expected: not hidden, Timeout: 1000ms, Error: element(s) not found, and the - Expect \"not toBeHidden\" call-log line."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeHidden > when nothing matches",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeHidden",
+      "evidence": "A selector with no match satisfies toBeHidden() through the correlated Locator.toBeHidden -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeHidden > with impossible timeout",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeHidden",
+      "evidence": "A selector with no match satisfies toBeHidden({ timeout: 1 }), proving the immediate first check runs before the 1ms deadline."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeHidden > with impossible timeout .not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeHidden",
+      "evidence": "An already-visible div satisfies not.toBeHidden({ timeout: 1 }), proving the immediate first check runs before the 1ms deadline for negated assertions."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeHidden > with not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeHidden",
+      "evidence": "A rendered input satisfies not.toBeHidden() through the correlated Locator.toBeHidden -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeHidden with value",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeHidden",
+      "evidence": "A checkbox with hidden=\"of course\" satisfies toBeHidden() through the correlated Locator.toBeHidden -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeVisible > default",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "A rendered input satisfies toBeVisible() through the correlated Locator.toBeVisible -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeVisible > eventually",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "toBeVisible() on a not-yet-existing span retries until an adapter-routed Page.$eval inserts it, proving the retry loop observes the later state."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeVisible > eventually with not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "not.toBeVisible() on a visible span retries until an adapter-routed Page.$eval empties its text, proving the negated retry loop observes the later state."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeVisible > fail",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "A display:none button times out toBeVisible({ timeout: 1000 }) and the message's call log contains locator resolved to <button></button>."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeVisible > fail with not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "A visible input times out not.toBeVisible({ timeout: 1000 }) and the message's call log contains locator resolved to <input/>."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeVisible > with impossible timeout",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "An already-visible div satisfies toBeVisible({ timeout: 1 }), proving the immediate first check runs before the 1ms deadline."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeVisible > with impossible timeout .not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "A selector with no match satisfies not.toBeVisible({ timeout: 1 }), proving the immediate first check runs before the 1ms deadline for negated assertions."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeVisible > with not",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "A display:none button satisfies not.toBeVisible() through the correlated Locator.toBeVisible -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeVisible > with not and visible:false",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "A rendered button satisfies not.toBeVisible({ visible: false }) through the correlated Locator.toBeVisible -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeVisible > with visible:false",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "A hidden-attribute button satisfies toBeVisible({ visible: false }) through the correlated Locator.toBeVisible -> Locator._expect path."
+    },
+    {
+      "id": "expect-boolean.spec.ts > toBeVisible > with visible:true",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "A rendered button satisfies toBeVisible({ visible: true }) through the correlated Locator.toBeVisible -> Locator._expect path."
+    },
+    {
       "id": "expect-misc.spec.ts > toHaveTitle > pass",
       "method": "Page._expect",
       "matcher": "Page.toHaveTitle",
@@ -561,6 +993,65 @@
       "method": "Page._expect",
       "matcher": "Page.toHaveURL",
       "evidence": "After the fixture's native goto establishes the data: document, the public Page matcher verifies that exact current-document URL through the correlated Page.toHaveURL -> Page._expect path; native goto is setup only."
+    },
+    {
+      "id": "expect-timeout.spec.ts > should fail like a timeout when toHaveCount is aborted mid-assertion",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCount",
+      "evidence": "Aborting the signal 300ms into toHaveCount(3, { timeout: 5000, signal }) rejects with an expect(locator).toHaveCount(expected) failed error whose name is not AbortError."
+    },
+    {
+      "id": "expect-timeout.spec.ts > should fail like a timeout when toHaveText is aborted mid-assertion",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "Aborting the signal 300ms into toHaveText({ timeout: 5000, signal }) rejects with an expect(locator).toHaveText(expected) failed error whose name is not AbortError."
+    },
+    {
+      "id": "expect-timeout.spec.ts > should fail like a timeout when toHaveURL is aborted mid-assertion",
+      "method": "Page._expect",
+      "matcher": "Page.toHaveURL",
+      "evidence": "Aborting the signal 500ms into page toHaveURL({ timeout: 5000, signal }) rejects with an expect(page).toHaveURL(expected) failed error whose name is not AbortError, through the correlated Page.toHaveURL -> Page._expect path."
+    },
+    {
+      "id": "expect-timeout.spec.ts > should fail like a timeout when toMatchAriaSnapshot is aborted mid-assertion",
+      "method": "Locator._expect",
+      "matcher": "Locator.toMatchAriaSnapshot",
+      "evidence": "Aborting the signal 300ms into toMatchAriaSnapshot({ timeout: 5000, signal }) rejects with an expect(locator).toMatchAriaSnapshot(expected) failed error whose name is not AbortError."
+    },
+    {
+      "id": "expect-timeout.spec.ts > should have timeout error name",
+      "method": "Page.waitForSelector",
+      "evidence": "Page.waitForSelector('#not-found', { timeout: 1 }) rejects with an error whose name is TimeoutError."
+    },
+    {
+      "id": "expect-timeout.spec.ts > should not miss element that appears between retries before the deadline",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "toBeVisible({ timeout: 1800 }) passes when the target becomes visible at 1500ms, proving the retry loop re-checks before the deadline instead of sleeping past it."
+    },
+    {
+      "id": "expect-timeout.spec.ts > should print element not found",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "toHaveText('hey', { timeout: 1000 }) on an unmatched locator fails with Playwright's exact header: Expected: \"hey\", Timeout: 1000ms, Error: element(s) not found, followed by Call log:."
+    },
+    {
+      "id": "expect-timeout.spec.ts > should print timed out error message when value does not match",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "toHaveText('hey', { timeout: 1000 }) on a div with other text fails with Playwright's exact header: Expected: \"hey\", Received: \"Text content\", Timeout: 1000ms, followed by Call log:."
+    },
+    {
+      "id": "expect-timeout.spec.ts > should print timed out error message when value does not match with impossible timeout",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "toHaveText('hey', { timeout: 1 }) on a div with other text fails with the exact header Received: \"Text content\", Timeout: 1ms, so a 1ms deadline still reports the received value."
+    },
+    {
+      "id": "expect-timeout.spec.ts > should print timed out error message with impossible timeout",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "toHaveText('hey', { timeout: 1 }) on an unmatched locator fails with the exact element(s) not found header and Timeout: 1ms, so a 1ms deadline still reports a timeout."
     },
     {
       "id": "expect-to-have-text.spec.ts > toHaveText with text > pass",
