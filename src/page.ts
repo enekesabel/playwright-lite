@@ -350,6 +350,19 @@ export class PageImpl {
   private pointerTarget: Element | undefined;
   /** Pinned input.ts Mouse starts at the document origin and tracks its moves. */
   private pointerPosition: ActionPoint = { x: 0, y: 0 };
+  // SPIKE(research/synthetic-pointer): throwaway synthetic Mouse/Touchscreen
+  // and drag emulation state. Pinned server/input.ts Mouse keeps `_buttons`
+  // and `_lastButton`; the browser keeps the click target and drag state.
+  readonly mouse: SyntheticMouse;
+  readonly touchscreen: SyntheticTouchscreen;
+  private readonly pointerButtons = new Set<SyntheticMouseButton>();
+  private readonly pointerDownTargets = new Map<
+    SyntheticMouseButton,
+    Element
+  >();
+  private pointerDownSuppressed = false;
+  private dragCandidate: { source: Element; point: ActionPoint } | undefined;
+  private syntheticDrag: SyntheticDragState | undefined;
   private defaultTimeout: number | undefined;
   private defaultNavigationTimeout: number | undefined;
   private readonly listeners = new Map<string, ListenerEntry[]>();
@@ -386,6 +399,8 @@ export class PageImpl {
     this.window = browserWindow;
     this.document = browserWindow.document;
     this.keyboard = new BrowserKeyboard(this);
+    this.mouse = new SyntheticMouse(this);
+    this.touchscreen = new SyntheticTouchscreen(this);
     this.evaluation = new Evaluation(this);
     this.localStorage = new PageWebStorage(this, "local");
     this.sessionStorage = new PageWebStorage(this, "session");
@@ -4016,6 +4031,13 @@ export class PageImpl {
     deadline: ActionDeadline,
     action: string
   ) {
+    // SPIKE: while an emulated drag is active the browser sends drag events,
+    // not mouse events (pinned crDragDrop.interceptDragCausedByMove).
+    if (this.syntheticDrag) {
+      await this.pointerTask(deadline, action, () => this.dragOverAt(point));
+      return;
+    }
+    const buttons = this.pointerButtonsMask();
     const target = this.eventTargetAtPoint(point);
     const previous = this.pointerTarget;
     if (previous !== target && previous?.isConnected) {
@@ -4125,20 +4147,772 @@ export class PageImpl {
         "pointermove",
         point,
         -1,
-        0,
+        buttons,
         0
       )
+    );
+    if (!this.pointerDownSuppressed)
+      await this.pointerTask(deadline, action, () =>
+        this.dispatchMouseEvent(
+          this.eventTargetAtPoint(point),
+          "mousemove",
+          point,
+          0,
+          buttons,
+          0
+        )
+      );
+    if (this.dragCandidate && this.pointerButtons.has("left"))
+      await this.pointerTask(deadline, action, () =>
+        this.maybeStartDrag(point)
+      );
+  }
+
+  // ── SPIKE: synthetic page.mouse, touchscreen, tap and drag ──────────
+  // Throwaway research code for "How far can synthetic mouse, touch and drag
+  // go inside one document?". Not reviewed for production.
+
+  private inputDeadline(): ActionDeadline {
+    // Pinned client input.ts sends every Mouse/Touchscreen call with
+    // kNoTimeout.
+    return { timeout: 0, expiresAt: Infinity };
+  }
+
+  private pointerButtonsMask(): number {
+    let mask = 0;
+    if (this.pointerButtons.has("left")) mask |= 1;
+    if (this.pointerButtons.has("right")) mask |= 2;
+    if (this.pointerButtons.has("middle")) mask |= 4;
+    return mask;
+  }
+
+  async mouseMove(x: number, y: number, options: { steps?: number } = {}) {
+    await this.movePointer(
+      { x, y },
+      this.inputDeadline(),
+      "mouse.move",
+      options.steps ?? 1
+    );
+  }
+
+  async mouseDown(
+    options: { button?: SyntheticMouseButton; clickCount?: number } = {},
+    deadline = this.inputDeadline()
+  ) {
+    const { button = "left", clickCount = 1 } = options;
+    // Pinned crInput RawMouseImpl.down ignores presses while dragging.
+    if (this.syntheticDrag) return;
+    const point = this.pointerPosition;
+    const code = syntheticButtonCode(button);
+    const first = this.pointerButtons.size === 0;
+    this.pointerButtons.add(button);
+    const mask = this.pointerButtonsMask();
+    if (first) {
+      const allowed = await this.pointerTask(deadline, "mouse.down", () =>
+        this.dispatchPointerEvent(
+          this.eventTargetAtPoint(point),
+          "pointerdown",
+          point,
+          code,
+          mask,
+          0
+        )
+      );
+      this.pointerDownSuppressed = !allowed;
+    } else {
+      // A chorded press is a pointermove with the changed button.
+      await this.pointerTask(deadline, "mouse.down", () =>
+        this.dispatchPointerEvent(
+          this.eventTargetAtPoint(point),
+          "pointermove",
+          point,
+          code,
+          mask,
+          0
+        )
+      );
+    }
+    const target = this.eventTargetAtPoint(point);
+    let mouseDownAllowed = false;
+    if (!this.pointerDownSuppressed)
+      mouseDownAllowed = await this.pointerTask(deadline, "mouse.down", () => {
+        const current = this.eventTargetAtPoint(point);
+        const allowed = this.dispatchMouseEvent(
+          current,
+          "mousedown",
+          point,
+          code,
+          mask,
+          clickCount
+        );
+        if (allowed) this.focusPointerTarget(current);
+        return allowed;
+      });
+    this.pointerDownTargets.set(button, target);
+    if (button === "left") {
+      const source = mouseDownAllowed
+        ? this.draggableAncestor(target)
+        : undefined;
+      this.dragCandidate = source ? { source, point } : undefined;
+    }
+    if (button === "right")
+      await this.pointerTask(deadline, "mouse.down", () =>
+        this.dispatchMouseEvent(
+          this.eventTargetAtPoint(point),
+          "contextmenu",
+          point,
+          code,
+          mask,
+          clickCount
+        )
+      );
+  }
+
+  async mouseUp(
+    options: { button?: SyntheticMouseButton; clickCount?: number } = {},
+    deadline = this.inputDeadline()
+  ) {
+    const { button = "left", clickCount = 1 } = options;
+    const point = this.pointerPosition;
+    if (this.syntheticDrag) {
+      // Pinned crInput RawMouseImpl.up turns the release into a drop.
+      this.pointerButtons.delete(button);
+      this.pointerDownTargets.delete(button);
+      if (this.pointerButtons.size === 0) this.pointerDownSuppressed = false;
+      await this.pointerTask(deadline, "mouse.up", () =>
+        this.finishDrag(point)
+      );
+      return;
+    }
+    if (button === "left") this.dragCandidate = undefined;
+    this.pointerButtons.delete(button);
+    const code = syntheticButtonCode(button);
+    const mask = this.pointerButtonsMask();
+    await this.pointerTask(deadline, "mouse.up", () =>
+      this.dispatchPointerEvent(
+        this.eventTargetAtPoint(point),
+        this.pointerButtons.size === 0 ? "pointerup" : "pointermove",
+        point,
+        code,
+        mask,
+        0
+      )
+    );
+    const suppressed = this.pointerDownSuppressed;
+    if (this.pointerButtons.size === 0) this.pointerDownSuppressed = false;
+    if (!suppressed)
+      await this.pointerTask(deadline, "mouse.up", () =>
+        this.dispatchMouseEvent(
+          this.eventTargetAtPoint(point),
+          "mouseup",
+          point,
+          code,
+          mask,
+          clickCount
+        )
+      );
+    const downTarget = this.pointerDownTargets.get(button);
+    this.pointerDownTargets.delete(button);
+    if (!downTarget || clickCount <= 0) return;
+    await this.pointerTask(deadline, "mouse.up", () => {
+      const upTarget = this.eventTargetAtPoint(point);
+      let target: Element | null = downTarget;
+      while (target && !target.contains(upTarget))
+        target = target.parentElement;
+      if (target?.isConnected)
+        this.dispatchMouseEvent(
+          target,
+          button === "left" ? "click" : "auxclick",
+          point,
+          code,
+          mask,
+          clickCount
+        );
+    });
+    if (clickCount === 2 && button === "left")
+      await this.pointerTask(deadline, "mouse.up", () =>
+        this.dispatchMouseEvent(
+          this.eventTargetAtPoint(point),
+          "dblclick",
+          point,
+          code,
+          mask,
+          clickCount
+        )
+      );
+  }
+
+  async mouseClick(
+    x: number,
+    y: number,
+    options: {
+      button?: SyntheticMouseButton;
+      clickCount?: number;
+      delay?: number;
+      steps?: number;
+    } = {}
+  ) {
+    const deadline = this.inputDeadline();
+    const { clickCount = 1, delay } = options;
+    await this.movePointer({ x, y }, deadline, "mouse.click", options.steps);
+    for (let cc = 1; cc <= clickCount; cc++) {
+      await this.mouseDown(
+        { button: options.button, clickCount: cc },
+        deadline
+      );
+      await this.waitWithinActionDeadline(delay, deadline, "mouse.click");
+      await this.mouseUp({ button: options.button, clickCount: cc }, deadline);
+      if (cc < clickCount)
+        await this.waitWithinActionDeadline(delay, deadline, "mouse.click");
+    }
+  }
+
+  async mouseWheel(deltaX: number, deltaY: number) {
+    const point = this.pointerPosition;
+    await this.pointerTask(this.inputDeadline(), "mouse.wheel", () => {
+      const target = this.eventTargetAtPoint(point);
+      const event = new this.window.WheelEvent("wheel", {
+        ...this.pointerEventInit(point, 0, this.pointerButtonsMask(), 0, true),
+        deltaX,
+        deltaY,
+        deltaMode: 0,
+      });
+      Object.defineProperty(event, "__pwTrustedSynthetic", { value: true });
+      // The browser scrolls as the wheel event's default action. A script
+      // can only approximate it: find the nearest scroller, jump instantly.
+      if (target.dispatchEvent(event))
+        this.scrollForWheel(target, deltaX, deltaY);
+    });
+  }
+
+  private scrollForWheel(target: Element, deltaX: number, deltaY: number) {
+    for (
+      let element: Element | null = target;
+      element &&
+      element !== this.document.scrollingElement &&
+      element !== this.document.body;
+      element = element.parentElement
+    ) {
+      const style = this.window.getComputedStyle(element);
+      const scrollableY =
+        deltaY !== 0 &&
+        /(auto|scroll|overlay)/.test(style.overflowY) &&
+        (deltaY > 0
+          ? element.scrollTop + element.clientHeight < element.scrollHeight
+          : element.scrollTop > 0);
+      const scrollableX =
+        deltaX !== 0 &&
+        /(auto|scroll|overlay)/.test(style.overflowX) &&
+        (deltaX > 0
+          ? element.scrollLeft + element.clientWidth < element.scrollWidth
+          : element.scrollLeft > 0);
+      if (scrollableX || scrollableY) {
+        element.scrollBy({ left: deltaX, top: deltaY, behavior: "instant" });
+        return;
+      }
+    }
+    this.window.scrollBy({ left: deltaX, top: deltaY, behavior: "instant" });
+  }
+
+  /** The in-document analogue of the context's `hasTouch`. */
+  private hasTouchInput(): boolean {
+    return this.window.navigator.maxTouchPoints > 0;
+  }
+
+  async touchscreenTap(x: number, y: number) {
+    if (!this.hasTouchInput())
+      throw new Error(
+        "hasTouch must be enabled on the browser context before using the touchscreen."
+      );
+    await this.dispatchTap({ x, y }, this.inputDeadline(), "touchscreen.tap");
+  }
+
+  /**
+   * Chromium's tap as recorded by pinned tests/library/tap.spec.ts: touch
+   * pointer events and touch events, then compatibility mouse events unless
+   * a touch event was canceled.
+   */
+  private async dispatchTap(
+    point: ActionPoint,
+    deadline: ActionDeadline,
+    action: string
+  ) {
+    const target = this.eventTargetAtPoint(point);
+    const pointer = (
+      type: string,
+      button: number,
+      buttons: number,
+      bubbles = true
+    ) => {
+      const event = new this.window.PointerEvent(type, {
+        ...this.pointerEventInit(point, button, buttons, 0, bubbles),
+        pointerId: 2,
+        pointerType: "touch",
+        isPrimary: true,
+        width: 1,
+        height: 1,
+        pressure: buttons ? 1 : 0,
+      });
+      Object.defineProperty(event, "__pwTrustedSynthetic", { value: true });
+      return target.dispatchEvent(event);
+    };
+    const touch = new this.window.Touch({
+      identifier: 0,
+      target,
+      clientX: point.x,
+      clientY: point.y,
+      screenX: point.x,
+      screenY: point.y,
+      pageX: point.x + this.window.scrollX,
+      pageY: point.y + this.window.scrollY,
+      radiusX: 1,
+      radiusY: 1,
+      rotationAngle: 0,
+      force: 1,
+    });
+    const modifiers = this.keyboard.modifierState();
+    const touchEvent = (type: string, touches: Touch[]) => {
+      const event = new this.window.TouchEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        view: this.window,
+        touches,
+        targetTouches: touches,
+        changedTouches: [touch],
+        altKey: modifiers.includes("Alt"),
+        ctrlKey: modifiers.includes("Control"),
+        metaKey: modifiers.includes("Meta"),
+        shiftKey: modifiers.includes("Shift"),
+      });
+      Object.defineProperty(event, "__pwTrustedSynthetic", { value: true });
+      return target.dispatchEvent(event);
+    };
+    await this.pointerTask(deadline, action, () =>
+      pointer("pointerover", -1, 0)
     );
     await this.pointerTask(deadline, action, () =>
-      this.dispatchMouseEvent(
-        this.eventTargetAtPoint(point),
-        "mousemove",
+      pointer("pointerenter", -1, 0, false)
+    );
+    await this.pointerTask(deadline, action, () =>
+      pointer("pointerdown", 0, 1)
+    );
+    const started = await this.pointerTask(deadline, action, () =>
+      touchEvent("touchstart", [touch])
+    );
+    await this.pointerTask(deadline, action, () => pointer("pointerup", 0, 0));
+    await this.pointerTask(deadline, action, () =>
+      pointer("pointerout", -1, 0)
+    );
+    await this.pointerTask(deadline, action, () =>
+      pointer("pointerleave", -1, 0, false)
+    );
+    const ended = await this.pointerTask(deadline, action, () =>
+      touchEvent("touchend", [])
+    );
+    if (!started || !ended) return;
+    // Compatibility mouse events for the tap gesture.
+    const previous = this.pointerTarget;
+    if (previous !== target) {
+      if (previous?.isConnected) {
+        await this.pointerTask(deadline, action, () =>
+          this.dispatchMouseEvent(
+            previous,
+            "mouseout",
+            point,
+            0,
+            0,
+            0,
+            true,
+            target
+          )
+        );
+        await this.pointerTask(deadline, action, () =>
+          this.dispatchMouseEvent(
+            previous,
+            "mouseleave",
+            point,
+            0,
+            0,
+            0,
+            false,
+            target
+          )
+        );
+      }
+      await this.pointerTask(deadline, action, () =>
+        this.dispatchMouseEvent(
+          target,
+          "mouseover",
+          point,
+          0,
+          0,
+          0,
+          true,
+          previous
+        )
+      );
+      await this.pointerTask(deadline, action, () =>
+        this.dispatchMouseEvent(
+          target,
+          "mouseenter",
+          point,
+          0,
+          0,
+          0,
+          false,
+          previous
+        )
+      );
+      this.pointerTarget = target;
+    }
+    await this.pointerTask(deadline, action, () =>
+      this.dispatchMouseEvent(target, "mousemove", point, 0, 0, 0)
+    );
+    await this.pointerTask(deadline, action, () => {
+      if (this.dispatchMouseEvent(target, "mousedown", point, 0, 1, 1))
+        this.focusPointerTarget(target);
+    });
+    await this.pointerTask(deadline, action, () =>
+      this.dispatchMouseEvent(target, "mouseup", point, 0, 0, 1)
+    );
+    await this.pointerTask(deadline, action, () =>
+      this.dispatchMouseEvent(target, "click", point, 0, 0, 1)
+    );
+  }
+
+  async tapSelector(
+    selector: string | Element,
+    label: string,
+    options: PointerActionOptions & { signal?: AbortSignal } = {},
+    strict = true,
+    method = "locator.tap"
+  ) {
+    try {
+      if (!this.hasTouchInput())
+        throw new Error(
+          "The page does not support tap. Use hasTouch context option to enable touch support."
+        );
+      const deadline = this.createActionDeadline(options.timeout);
+      this.attachActionSignal(deadline, options.signal);
+      const target = await this.retryActionability(
+        selector,
+        label,
+        "tap" as "click",
+        ["visible", "enabled", "stable"],
+        true,
+        deadline,
+        options.position,
+        options,
+        strict
+      );
+      const interceptor = options.force
+        ? undefined
+        : this.actionableInjected.setupHitTargetInterceptor(
+            target.element,
+            "tap" as unknown as "hover",
+            target.point,
+            !!options.trial
+          );
+      if (typeof interceptor === "string")
+        throw new Error(
+          `Element does not receive pointer events: ${interceptor}`
+        );
+      const previousModifiers = this.keyboard.modifierState();
+      let interception: "done" | { hitTargetDescription: string } = "done";
+      try {
+        if (options.modifiers)
+          await this.keyboard.ensureModifiers(options.modifiers, deadline);
+        // Pinned _performPointerAction performs the input also in trial
+        // mode; the interceptor then blocks the tap's events.
+        await this.dispatchTap(target.point, deadline, "tap");
+      } finally {
+        interception = interceptor?.stop() ?? "done";
+        if (options.modifiers)
+          await this.keyboard.ensureModifiers(previousModifiers);
+      }
+      if (interception !== "done")
+        throw new Error(
+          `Element does not receive pointer events: ${interception.hitTargetDescription}`
+        );
+    } catch (error) {
+      const result = asError(error);
+      result.message = `${method}: ${result.message}`;
+      throw result;
+    }
+  }
+
+  async tap(
+    selector: string,
+    options?: PointerActionOptions & { signal?: AbortSignal }
+  ) {
+    await this.tapSelector(
+      selector,
+      `page.tap(${JSON.stringify(selector)})`,
+      options,
+      options?.strict ?? false,
+      "page.tap"
+    );
+  }
+
+  /**
+   * Mirrors pinned server/frames.ts Frame.dragAndDrop: "move and down" on
+   * the source, then "move and up" (with `steps`) on the target.
+   */
+  async dragAndDropSelectors(
+    source: string,
+    target: string,
+    options: {
+      force?: boolean;
+      noWaitAfter?: boolean;
+      sourcePosition?: ActionPoint;
+      targetPosition?: ActionPoint;
+      steps?: number;
+      strict?: boolean;
+      timeout?: number;
+      trial?: boolean;
+      signal?: AbortSignal;
+    } = {},
+    strict: boolean,
+    method: string
+  ) {
+    try {
+      const deadline = this.createActionDeadline(options.timeout);
+      this.attachActionSignal(deadline, options.signal);
+      const from = await this.retryActionability(
+        source,
+        source,
+        "drag" as "hover",
+        ["visible", "stable"],
+        true,
+        deadline,
+        options.sourcePosition,
+        {
+          ...options,
+          position: options.sourcePosition,
+        } as PointerActionOptions,
+        strict
+      );
+      const interceptor = options.force
+        ? undefined
+        : this.actionableInjected.setupHitTargetInterceptor(
+            from.element,
+            "mouse",
+            from.point,
+            !!options.trial
+          );
+      if (typeof interceptor === "string")
+        throw new Error(
+          `Element does not receive pointer events: ${interceptor}`
+        );
+      let interception: "done" | { hitTargetDescription: string } = "done";
+      try {
+        await this.movePointer(from.point, deadline, "drag");
+        await this.mouseDown({}, deadline);
+      } finally {
+        interception = interceptor?.stop() ?? "done";
+      }
+      if (interception !== "done")
+        throw new Error(
+          `Element does not receive pointer events: ${interception.hitTargetDescription}`
+        );
+      const to = await this.retryActionability(
+        target,
+        target,
+        "drag" as "hover",
+        ["visible", "stable"],
+        true,
+        deadline,
+        options.targetPosition,
+        {
+          ...options,
+          position: options.targetPosition,
+        } as PointerActionOptions,
+        strict
+      );
+      await this.movePointer(to.point, deadline, "drag", options.steps);
+      await this.mouseUp({}, deadline);
+    } catch (error) {
+      const result = asError(error);
+      result.message = `${method}: ${result.message}`;
+      throw result;
+    }
+  }
+
+  async dragAndDrop(
+    source: string,
+    target: string,
+    options?: Parameters<PageImpl["dragAndDropSelectors"]>[2]
+  ) {
+    await this.dragAndDropSelectors(
+      source,
+      target,
+      options,
+      options?.strict ?? false,
+      "page.dragAndDrop"
+    );
+  }
+
+  private draggableAncestor(element: Element): Element | undefined {
+    for (
+      let current: Element | null = element;
+      current;
+      current = current.parentElement
+    )
+      if (current instanceof this.window.HTMLElement && current.draggable)
+        return current;
+    return undefined;
+  }
+
+  /**
+   * A constructed DataTransfer ignores `effectAllowed` and `dropEffect`
+   * writes in Chromium (it is not a drag-and-drop DataTransfer). The spike
+   * shadows both with own accessors on this one instance, following the
+   * HTML drag-and-drop value lists; no host global is changed.
+   */
+  private createDragTransfer(): DataTransfer {
+    const transfer = new this.window.DataTransfer();
+    let effectAllowed = "uninitialized";
+    let dropEffect = "none";
+    Object.defineProperties(transfer, {
+      effectAllowed: {
+        configurable: true,
+        get: () => effectAllowed,
+        set: (value: unknown) => {
+          if (EFFECT_ALLOWED_VALUES.includes(String(value)))
+            effectAllowed = String(value);
+        },
+      },
+      dropEffect: {
+        configurable: true,
+        get: () => dropEffect,
+        set: (value: unknown) => {
+          if (["none", "copy", "link", "move"].includes(String(value)))
+            dropEffect = String(value);
+        },
+      },
+    });
+    return transfer;
+  }
+
+  private dispatchDragEvent(
+    element: Element,
+    type: string,
+    point: ActionPoint,
+    transfer: DataTransfer,
+    relatedTarget?: Element
+  ): boolean {
+    const event = new this.window.DragEvent(type, {
+      ...this.pointerEventInit(
         point,
         0,
+        type === "dragend" ? 0 : 1,
         0,
-        0
+        true,
+        relatedTarget
+      ),
+      cancelable: type !== "dragleave" && type !== "dragend",
+      dataTransfer: transfer,
+    });
+    Object.defineProperty(event, "__pwTrustedSynthetic", { value: true });
+    return element.dispatchEvent(event);
+  }
+
+  private maybeStartDrag(point: ActionPoint) {
+    const candidate = this.dragCandidate;
+    this.dragCandidate = undefined;
+    if (!candidate?.source.isConnected) return;
+    const transfer = this.createDragTransfer();
+    // dragstart carries the press position (pinned page-drag expectations).
+    if (
+      !this.dispatchDragEvent(
+        candidate.source,
+        "dragstart",
+        candidate.point,
+        transfer
       )
+    )
+      return;
+    const downTarget = this.pointerDownTargets.get("left") ?? candidate.source;
+    if (downTarget.isConnected)
+      this.dispatchPointerEvent(downTarget, "pointercancel", point, -1, 0, 0);
+    const target = this.eventTargetAtPoint(point);
+    this.syntheticDrag = { source: candidate.source, transfer, target };
+    transfer.dropEffect = initialDropEffect(transfer.effectAllowed);
+    // Chromium's first drag position sends dragenter without dragover.
+    this.dispatchDragEvent(target, "dragenter", point, transfer);
+  }
+
+  private dragOverTarget(point: ActionPoint): DataTransfer["dropEffect"] {
+    const drag = this.syntheticDrag!;
+    const target = this.eventTargetAtPoint(point);
+    if (target !== drag.target) {
+      this.dispatchDragEvent(
+        target,
+        "dragenter",
+        point,
+        drag.transfer,
+        drag.target
+      );
+      if (drag.target.isConnected)
+        this.dispatchDragEvent(
+          drag.target,
+          "dragleave",
+          point,
+          drag.transfer,
+          target
+        );
+      drag.target = target;
+    }
+    drag.transfer.dropEffect = initialDropEffect(drag.transfer.effectAllowed);
+    const accepted = !this.dispatchDragEvent(
+      target,
+      "dragover",
+      point,
+      drag.transfer
     );
+    return accepted
+      ? dragOperation(drag.transfer.effectAllowed, drag.transfer.dropEffect)
+      : "none";
+  }
+
+  private dragOverAt(point: ActionPoint) {
+    const drag = this.syntheticDrag!;
+    if (drag.source.isConnected)
+      this.dispatchDragEvent(drag.source, "drag", point, drag.transfer);
+    this.dragOverTarget(point);
+  }
+
+  private finishDrag(point: ActionPoint) {
+    const drag = this.syntheticDrag!;
+    const operation = this.dragOverTarget(point);
+    this.syntheticDrag = undefined;
+    this.dragCandidate = undefined;
+    if (operation !== "none") {
+      drag.transfer.dropEffect = operation;
+      this.dispatchDragEvent(drag.target, "drop", point, drag.transfer);
+    } else if (drag.target.isConnected) {
+      this.dispatchDragEvent(drag.target, "dragleave", point, drag.transfer);
+    }
+    drag.transfer.dropEffect = operation;
+    if (drag.source.isConnected)
+      this.dispatchDragEvent(drag.source, "dragend", point, drag.transfer);
+  }
+
+  /** Pinned crInput keydown: Escape cancels an active drag instead. */
+  cancelSyntheticDrag(): boolean {
+    const drag = this.syntheticDrag;
+    if (!drag) return false;
+    this.syntheticDrag = undefined;
+    drag.transfer.dropEffect = "none";
+    if (drag.source.isConnected)
+      this.dispatchDragEvent(
+        drag.source,
+        "dragend",
+        this.pointerPosition,
+        drag.transfer
+      );
+    return true;
   }
 
   private async dispatchClick(
@@ -4713,6 +5487,99 @@ class PageWebStorage implements WebStorage {
  * cursor movement, deletion, focus traversal, and navigation defaults remain
  * outside this adapter's supported default-action surface.
  */
+// ── SPIKE(research/synthetic-pointer) module helpers ─────────────────
+
+type SyntheticMouseButton = "left" | "middle" | "right";
+
+type SyntheticDragState = {
+  source: Element;
+  transfer: DataTransfer;
+  target: Element;
+};
+
+function syntheticButtonCode(button: SyntheticMouseButton): number {
+  return button === "right" ? 2 : button === "middle" ? 1 : 0;
+}
+
+const EFFECT_ALLOWED_VALUES = [
+  "none",
+  "copy",
+  "copyLink",
+  "copyMove",
+  "link",
+  "linkMove",
+  "move",
+  "all",
+  "uninitialized",
+];
+
+/** HTML drag-and-drop: dropEffect initialised from effectAllowed. */
+function initialDropEffect(effectAllowed: string): DataTransfer["dropEffect"] {
+  if (effectAllowed === "none") return "none";
+  if (effectAllowed === "link" || effectAllowed === "linkMove") return "link";
+  if (effectAllowed === "move") return "move";
+  return "copy";
+}
+
+/** HTML drag-and-drop: current drag operation after a canceled dragover. */
+function dragOperation(
+  effectAllowed: string,
+  dropEffect: string
+): DataTransfer["dropEffect"] {
+  const allowed: Record<string, string[]> = {
+    copy: ["uninitialized", "copy", "copyLink", "copyMove", "all"],
+    link: ["uninitialized", "link", "copyLink", "linkMove", "all"],
+    move: ["uninitialized", "move", "copyMove", "linkMove", "all"],
+  };
+  return allowed[dropEffect]?.includes(effectAllowed)
+    ? (dropEffect as DataTransfer["dropEffect"])
+    : "none";
+}
+
+class SyntheticMouse {
+  constructor(private readonly page: PageImpl) {}
+
+  async move(x: number, y: number, options?: { steps?: number }) {
+    await this.page.mouseMove(x, y, options);
+  }
+
+  async down(options?: { button?: SyntheticMouseButton; clickCount?: number }) {
+    await this.page.mouseDown(options);
+  }
+
+  async up(options?: { button?: SyntheticMouseButton; clickCount?: number }) {
+    await this.page.mouseUp(options);
+  }
+
+  async click(
+    x: number,
+    y: number,
+    options?: Parameters<PageImpl["mouseClick"]>[2]
+  ) {
+    await this.page.mouseClick(x, y, options);
+  }
+
+  async dblclick(
+    x: number,
+    y: number,
+    options?: Omit<Parameters<PageImpl["mouseClick"]>[2], "clickCount">
+  ) {
+    await this.page.mouseClick(x, y, { ...options, clickCount: 2 });
+  }
+
+  async wheel(deltaX: number, deltaY: number) {
+    await this.page.mouseWheel(deltaX, deltaY);
+  }
+}
+
+class SyntheticTouchscreen {
+  constructor(private readonly page: PageImpl) {}
+
+  async tap(x: number, y: number) {
+    await this.page.touchscreenTap(x, y);
+  }
+}
+
 class BrowserKeyboard {
   private readonly pressedKeys = new Set<string>();
   private readonly pressedModifiers = new Set<string>();
@@ -4835,6 +5702,10 @@ class BrowserKeyboard {
     const repeat = this.pressedKeys.has(description.code);
     this.pressedKeys.add(description.code);
     if (isModifier(description.key)) this.pressedModifiers.add(description.key);
+    // SPIKE: pinned crInput RawKeyboardImpl.keydown swallows Escape when it
+    // cancels an active drag.
+    if (description.code === "Escape" && this.page.cancelSyntheticDrag())
+      return;
 
     const keyDownTarget = this.activeTarget();
     const keyDownAllowed = this.page.dispatchKeyboardEvent(

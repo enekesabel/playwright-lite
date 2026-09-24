@@ -174,7 +174,9 @@ export const pageLedger = {
   ),
   dblclick: implemented(),
   dispatchEvent: implemented(),
-  dragAndDrop: undecided(),
+  dragAndDrop: partial(
+    "SPIKE(research/synthetic-pointer): synthetic, untrusted events; draft note in docs/research/synthetic-pointer.md."
+  ),
   emulateMedia: undecided(),
   evaluate: implemented(
     "Uses the pinned Playwright by-value argument and result serializers."
@@ -227,7 +229,9 @@ export const pageLedger = {
   localStorage: implemented("Native current-window Storage only."),
   locator: implemented(),
   mainFrame: partial("Returns the same `Page` object, not a `Frame`."),
-  mouse: planned("Synthetic functional input only."),
+  mouse: partial(
+    "SPIKE(research/synthetic-pointer): synthetic, untrusted events; draft note in docs/research/synthetic-pointer.md."
+  ),
   off: partial(eventRemovalLimitations),
   on: partial(eventListenerLimitations),
   once: partial(eventListenerLimitations),
@@ -277,10 +281,14 @@ export const pageLedger = {
     "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported. Empty `mimeType` throws instead of inferring a MIME type."
   ),
   setViewportSize: outOfScope("Browser viewport resizing is excluded."),
-  tap: planned("Synthetic functional input only."),
+  tap: partial(
+    "SPIKE(research/synthetic-pointer): synthetic, untrusted events; draft note in docs/research/synthetic-pointer.md."
+  ),
   textContent: implemented(),
   title: implemented(),
-  touchscreen: planned("Synthetic functional input only."),
+  touchscreen: partial(
+    "SPIKE(research/synthetic-pointer): synthetic, untrusted events; draft note in docs/research/synthetic-pointer.md."
+  ),
   type: implemented(),
   uncheck: implemented(),
   unroute: outOfScope(
@@ -333,7 +341,9 @@ export const locatorLedger = {
     "`describe('').description()` returns `''` instead of `null`; `describe('x').filter({}).description()` returns `null` instead of `'x'`."
   ),
   dispatchEvent: implemented(),
-  dragTo: undecided(),
+  dragTo: partial(
+    "SPIKE(research/synthetic-pointer): synthetic, untrusted events; draft note in docs/research/synthetic-pointer.md."
+  ),
   drop: partial(
     "Accepts only in-memory `{ name, mimeType, buffer }` file payloads; file paths are unsupported. Empty `mimeType` throws instead of inferring a MIME type."
   ),
@@ -399,7 +409,9 @@ export const locatorLedger = {
   setInputFiles: partial(
     "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported. Empty `mimeType` throws instead of inferring a MIME type."
   ),
-  tap: undecided(),
+  tap: partial(
+    "SPIKE(research/synthetic-pointer): synthetic, untrusted events; draft note in docs/research/synthetic-pointer.md."
+  ),
   textContent: implemented(),
   toString: partial(
     "String representations can omit options: `filter({ hasText: 'x' })` prints `filter(...)`, and `page.getByRole('button', { disabled: true })` omits `disabled`."
@@ -421,16 +433,30 @@ export const keyboardLedger = {
 } as const satisfies Ledger<Keyboard>;
 
 export const mouseLedger = {
-  click: planned("Synthetic functional input only."),
-  dblclick: planned("Synthetic functional input only."),
-  down: planned("Synthetic functional input only."),
-  move: planned("Synthetic functional input only."),
-  up: planned("Synthetic functional input only."),
-  wheel: planned("Synthetic functional input only."),
+  click: partial(
+    "SPIKE(research/synthetic-pointer): synthetic, untrusted events; draft note in docs/research/synthetic-pointer.md."
+  ),
+  dblclick: partial(
+    "SPIKE(research/synthetic-pointer): synthetic, untrusted events; draft note in docs/research/synthetic-pointer.md."
+  ),
+  down: partial(
+    "SPIKE(research/synthetic-pointer): synthetic, untrusted events; draft note in docs/research/synthetic-pointer.md."
+  ),
+  move: partial(
+    "SPIKE(research/synthetic-pointer): synthetic, untrusted events; draft note in docs/research/synthetic-pointer.md."
+  ),
+  up: partial(
+    "SPIKE(research/synthetic-pointer): synthetic, untrusted events; draft note in docs/research/synthetic-pointer.md."
+  ),
+  wheel: partial(
+    "SPIKE(research/synthetic-pointer): synthetic, untrusted events; draft note in docs/research/synthetic-pointer.md."
+  ),
 } as const satisfies Ledger<Mouse>;
 
 export const touchscreenLedger = {
-  tap: planned("Synthetic functional input only."),
+  tap: partial(
+    "SPIKE(research/synthetic-pointer): synthetic, untrusted events; draft note in docs/research/synthetic-pointer.md."
+  ),
 } as const satisfies Ledger<Touchscreen>;
 
 /** The public in-browser expect foundation and its owner-specific assertions. */

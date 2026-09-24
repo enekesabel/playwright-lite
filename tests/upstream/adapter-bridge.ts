@@ -845,6 +845,9 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       // Keyboard is a synchronous Page property whose methods must execute in
       // the browser adapter. Do not leak the native Playwright keyboard.
       if (prop === "keyboard") return createKeyboardProxy(realPage);
+      // SPIKE(research/synthetic-pointer): same transport as keyboard.
+      if (prop === "mouse" || prop === "touchscreen")
+        return createInputDeviceProxy(realPage, prop);
       if (prop === "localStorage" || prop === "sessionStorage")
         return storage[prop];
 
@@ -1315,6 +1318,47 @@ function createKeyboardProxy(realPage: Page) {
   };
 }
 
+// SPIKE(research/synthetic-pointer): transport for page.mouse and
+// page.touchscreen, gated on the ledger like the keyboard.
+function createInputDeviceProxy(
+  realPage: Page,
+  device: "mouse" | "touchscreen"
+) {
+  const owner = device === "mouse" ? "Mouse" : "Touchscreen";
+  const members =
+    device === "mouse"
+      ? ["move", "down", "up", "click", "dblclick", "wheel"]
+      : ["tap"];
+  const call = async (method: string, args: unknown[]) => {
+    if (statusFor(owner, method) !== "implemented")
+      throw new TypeError(
+        `${owner}.${method} is not implemented by the adapter`
+      );
+    return await evaluateAdapter<void>(
+      realPage,
+      ({ device: name, method: member, args: rawArgs }) => {
+        const host = window as any;
+        return host.__pwLiteInvokeAdapter(() =>
+          host.__pwLiteAdapterPage[name][member](
+            ...host.__pwLiteDecodeBridgeValue(rawArgs)
+          )
+        );
+      },
+      {
+        device,
+        method,
+        args: encodeBridgeValueForPage(args, realPage) as unknown[],
+      }
+    );
+  };
+  return Object.fromEntries(
+    members.map((member) => [
+      member,
+      (...args: unknown[]) => call(member, args),
+    ])
+  );
+}
+
 // ── ElementHandle proxy ─────────────────────────────────────────────
 
 async function createElementHandleProxy(
@@ -1533,6 +1577,39 @@ async function createElementHandleProxy(
               arg: encodeBridgeValueForPage(arg, realPage),
             }
           );
+      }
+
+      // SPIKE(research/synthetic-pointer): the returned handle cannot cross
+      // by value; store it and republish it, like Page.evaluateHandle.
+      if (prop === "evaluateHandle") {
+        return async (pageFunction: unknown, arg?: unknown) => {
+          const resultId = await evaluateAdapter<string>(
+            realPage,
+            ({ handleId, expression, arg: a }) => {
+              const host = window as any;
+              return host.__pwLiteInvokeAdapter(async () =>
+                host.__pwLiteStoreElementHandle(
+                  await host
+                    .__pwLiteElementHandleForId(handleId)
+                    .evaluateHandle(
+                      host.__pwLiteDecodeBridgeValue(expression),
+                      host.__pwLiteDecodeBridgeValue(a)
+                    ),
+                  "JSHandle"
+                )
+              );
+            },
+            {
+              handleId: id,
+              expression: encodePageFunction(
+                pageFunction,
+                "ElementHandle.evaluateHandle"
+              ),
+              arg: encodeBridgeValueForPage(arg, realPage),
+            }
+          );
+          return createElementHandleProxy(realPage, state, resultId);
+        };
       }
 
       return async (...args: unknown[]) =>
@@ -2125,6 +2202,18 @@ function initializeAdapterBridge(
     "type",
     "insertText",
   ]);
+  // SPIKE(research/synthetic-pointer)
+  if (host.__pwLiteAdapterPage.mouse)
+    instrument(host.__pwLiteAdapterPage.mouse, "Mouse", [
+      "move",
+      "down",
+      "up",
+      "click",
+      "dblclick",
+      "wheel",
+    ]);
+  if (host.__pwLiteAdapterPage.touchscreen)
+    instrument(host.__pwLiteAdapterPage.touchscreen, "Touchscreen", ["tap"]);
   for (const kind of ["localStorage", "sessionStorage"])
     instrument(host.__pwLiteAdapterPage[kind], `Page.${kind}`, [
       "items",

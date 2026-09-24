@@ -535,6 +535,28 @@ export class LocatorImpl {
     );
   }
 
+  // SPIKE(research/synthetic-pointer): throwaway tap and dragTo.
+  async tap(options?: Parameters<Locator["tap"]>[0]) {
+    await this.ownerPage.tapSelector(
+      this.selector,
+      this.label,
+      options as never,
+      true,
+      "locator.tap"
+    );
+  }
+
+  async dragTo(target: Locator, options?: Parameters<Locator["dragTo"]>[1]) {
+    const brand = requireBrand(target, "Target");
+    await this.ownerPage.dragAndDropSelectors(
+      this.selector,
+      brand.getSelector(),
+      options as never,
+      true,
+      "locator.dragTo"
+    );
+  }
+
   async press(key: string, options?: LocatorKeyboardInputOptions) {
     const delay = rejectUnsupportedOptions("press", options, [
       "delay",

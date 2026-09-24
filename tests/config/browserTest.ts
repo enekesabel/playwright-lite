@@ -9,6 +9,12 @@ import { createAdapterPage } from "../upstream/adapter-bridge";
 
 export { expect } from "../upstream/pageTest";
 
+// SPIKE(research/synthetic-pointer): pinned tests/config/browserTest.ts
+// exports `contextTest` as its page-per-context fixture. The adapter page
+// fixture already runs on a fresh context that honours `test.use()` context
+// options such as `hasTouch`.
+export { test as contextTest } from "../upstream/pageTest";
+
 type ContextRecord = {
   context: BrowserContext;
   pages: Page[];

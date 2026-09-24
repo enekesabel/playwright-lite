@@ -8,6 +8,7 @@ export const corpus = {
   },
   sourcePaths: {
     "locator-highlight.spec.ts": "tests/library/locator-highlight.spec.ts",
+    "tap.spec.ts": "tests/library/tap.spec.ts",
   },
   specs: {
     "page-click.spec.ts":
@@ -214,6 +215,8 @@ export const corpus = {
       "b758da2196bf60d560528fc77eec6dfef23e191de9211fb0e6570909a61e0d7f",
     "page-network-idle.spec.ts":
       "be5cea8a33c9413dbe9347d8cf1370ffbc119128d5c7aa53478a2c9165172242",
+    "tap.spec.ts":
+      "47b0c63f3adf172a831a04315aac0a92357a525cf537704007d59a32f78050cd",
   },
 } as const;
 
