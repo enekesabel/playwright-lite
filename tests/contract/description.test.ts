@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
 
+// Contract coverage: description() is synchronous, so the upstream bridge
+// answers it in Node and the corpus never reaches the adapter's version.
 describe("Locator.description", () => {
   it("is null until a description is pinned", () => {
     const page = createPage();
@@ -10,8 +12,6 @@ describe("Locator.description", () => {
     expect(locator.description()).toBeNull();
   });
 
-  // Contract coverage: no upstream locator-convenience test describes a locator
-  // with an empty string or filters a described locator.
   it("reads the description from the selector's last part", () => {
     const page = createPage();
     const described = page.locator("div").describe("x");
