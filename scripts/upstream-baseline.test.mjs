@@ -6,6 +6,7 @@ import {
   validateCompleteness,
   validateReportErrors,
   reviewedPromotion,
+  blockingRegressions,
   failurePhase,
   sabotageVerdict,
   sabotageGrep,
@@ -465,6 +466,117 @@ describe("reviewed promotion", () => {
       ),
       { id: "test", method: "Page.evaluate", evidence: "checks returned value" }
     );
+  });
+});
+
+describe("blockingRegressions", () => {
+  const names = ["jshandle.spec.ts"];
+  const passing = (id, entered) => ({
+    id,
+    file: "jshandle.spec.ts",
+    status: "passed",
+    execution: { entered, failures: [] },
+  });
+  const renamed = "jshandle.spec.ts > renamed owner";
+  const other = "jshandle.spec.ts > other";
+  const baseline = {
+    reviewed: [
+      { id: renamed, method: "JSHandle.asElement", evidence: "reviewed" },
+      { id: other, method: "Page.evaluate", evidence: "reviewed" },
+    ],
+  };
+  const correction = { id: renamed, method: "ElementHandle.asElement" };
+
+  it("lets an entry whose method only changed owner be re-recorded", () => {
+    const entries = [
+      passing(renamed, ["Page.evaluateHandle", "ElementHandle.asElement"]),
+      passing(other, ["Page.evaluate"]),
+    ];
+    assert.deepEqual(compareBaseline(entries, baseline, names).regressions, [
+      renamed,
+    ]);
+    assert.deepEqual(
+      blockingRegressions(
+        entries,
+        baseline,
+        names,
+        [correction],
+        new Set([renamed])
+      ),
+      []
+    );
+  });
+
+  it("keeps a regression blocking unless its promotion is a re-record", () => {
+    const entries = [
+      passing(renamed, ["ElementHandle.asElement"]),
+      { ...passing(other, ["Page.evaluate"]), status: "failed" },
+    ];
+    // Not listed as a re-record, the renamed entry blocks like any regression.
+    assert.deepEqual(
+      blockingRegressions(entries, baseline, names, [correction], new Set()),
+      [other, renamed].sort()
+    );
+    // Re-recording one entry leaves every other regression blocking.
+    assert.deepEqual(
+      blockingRegressions(
+        entries,
+        baseline,
+        names,
+        [correction],
+        new Set([renamed])
+      ),
+      [other]
+    );
+  });
+
+  it("refuses a re-record that is not an owner rename of a regressed entry", () => {
+    const refused = [
+      // Nothing to correct: the recorded method still certifies.
+      [[passing(renamed, ["JSHandle.asElement"])], correction],
+      // Another member is a new promotion, not a correction.
+      [
+        [passing(renamed, ["ElementHandle.click"])],
+        { id: renamed, method: "ElementHandle.click" },
+      ],
+      // The same method cannot be a rename.
+      [
+        [passing(renamed, ["ElementHandle.asElement"])],
+        { id: renamed, method: "JSHandle.asElement" },
+      ],
+      // A failing test is a regression to investigate.
+      [
+        [
+          {
+            ...passing(renamed, ["ElementHandle.asElement"]),
+            status: "failed",
+          },
+        ],
+        correction,
+      ],
+      // A matcher change is not a rename.
+      [
+        [passing(renamed, ["ElementHandle.asElement"])],
+        { ...correction, matcher: "Locator.toBeVisible" },
+      ],
+      // Only an existing reviewed entry can be re-recorded.
+      [
+        [passing("jshandle.spec.ts > new", ["ElementHandle.asElement"])],
+        { id: "jshandle.spec.ts > new", method: "ElementHandle.asElement" },
+      ],
+    ];
+    for (const [entries, promotion] of refused)
+      assert.throws(
+        () =>
+          blockingRegressions(
+            [...entries, passing(other, ["Page.evaluate"])],
+            baseline,
+            names,
+            [promotion],
+            new Set([promotion.id])
+          ),
+        /re-record/
+      );
   });
 });
 

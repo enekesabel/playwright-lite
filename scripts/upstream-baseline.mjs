@@ -5,6 +5,8 @@
  * Commands:
  *   check   verify corpus integrity → run tests → gate against baseline
  *   promote <test-id> <method> <evidence>  rerun corpus and promote a reviewed test
+ *     --matcher <matcher>  after <method>: the public matcher an _expect promotion proves
+ *     --re-record          after <method>: correct an existing entry whose method's owner was renamed
  */
 import {
   existsSync,
@@ -279,6 +281,60 @@ export function reviewedPromotion(entries, id, method, evidence, matcher) {
     ...(matcher ? { matcher } : {}),
     evidence: evidence.trim(),
   };
+}
+
+/**
+ * The baseline regressions that block a promotion run.
+ *
+ * A promotion listed in `reRecords` corrects an existing reviewed entry that
+ * regressed only because its recorded method's owner changed name (a harness
+ * now records `ElementHandle.asElement` where it recorded
+ * `JSHandle.asElement`): the test still passes with clean execution evidence,
+ * and the new method names the same member under another owner, with the same
+ * matcher. Such an entry does not block its own correction. A re-record that
+ * is not such a correction is refused, and every other regression still
+ * blocks. The re-recorded method still goes through the sabotage rerun like
+ * any promotion.
+ *
+ * @param {Array} entries  Parsed test entries.
+ * @param {{ reviewed: Array<{id: string, method: string, matcher?: string}> }} baseline  Recorded baseline.
+ * @param {readonly string[]} names  Corpus spec filenames.
+ * @param {Array<{id: string, method: string, matcher?: string}>} promotions  Checked promotions.
+ * @param {ReadonlySet<string>} reRecords  IDs of promotions that correct an existing entry.
+ */
+export function blockingRegressions(
+  entries,
+  baseline,
+  names,
+  promotions,
+  reRecords
+) {
+  const { regressions } = compareBaseline(entries, baseline, names);
+  const member = (method) => method.slice(method.indexOf(".") + 1);
+  for (const id of reRecords) {
+    const promotion = promotions.find((promotion) => promotion.id === id);
+    const reviewed = baseline.reviewed.find((review) => review.id === id);
+    const entry = entries.find((entry) => entry.id === id);
+    if (!promotion || !reviewed)
+      throw new Error(
+        `--re-record corrects an existing reviewed entry; ${id} has none.`
+      );
+    if (!regressions.includes(id))
+      throw new Error(
+        `${id} still certifies ${reviewed.method}, so there is nothing to re-record.`
+      );
+    if (
+      !entry ||
+      !isCandidate(entry) ||
+      promotion.method === reviewed.method ||
+      member(promotion.method) !== member(reviewed.method) ||
+      promotion.matcher !== reviewed.matcher
+    )
+      throw new Error(
+        `${id} can be re-recorded only as the same member of ${reviewed.method} under another owner, with the test still passing.`
+      );
+  }
+  return regressions.filter((id) => !reRecords.has(id));
 }
 
 /**
@@ -586,9 +642,10 @@ function doUpdate(entries) {
   if (args[0] === "--") args.shift();
   if (!args.length)
     throw new Error(
-      "Provide one or more <test-id> <method> [--matcher <matcher>] <evidence> promotions."
+      "Provide one or more <test-id> <method> [--matcher <matcher>] [--re-record] <evidence> promotions."
     );
   const promotions = [];
+  const reRecords = new Set();
   for (let index = 0; index < args.length;) {
     const id = args[index++];
     const method = args[index++];
@@ -601,6 +658,10 @@ function doUpdate(entries) {
         throw new Error("--matcher requires a public matcher name.");
       index += 2;
     }
+    if (args[index] === "--re-record") {
+      reRecords.add(id);
+      index++;
+    }
     const evidence = args[index++];
     if (!evidence) throw new Error("Each promotion requires review evidence.");
     promotions.push(reviewedPromotion(entries, id, method, evidence, matcher));
@@ -608,9 +669,16 @@ function doUpdate(entries) {
   if (new Set(promotions.map((entry) => entry.id)).size !== promotions.length)
     throw new Error("Each promoted test ID must be unique.");
   const previous = JSON.parse(readFileSync(BASELINE_PATH, "utf8"));
-  if (compareBaseline(entries, previous, specNames).regressions.length)
+  const blocking = blockingRegressions(
+    entries,
+    previous,
+    specNames,
+    promotions,
+    reRecords
+  );
+  if (blocking.length)
     throw new Error(
-      "Resolve existing baseline regressions before promoting tests."
+      `Resolve existing baseline regressions before promoting tests: ${blocking.join(", ")}`
     );
   for (const { id, method, matcher } of promotions) {
     const entry = entries.find((entry) => entry.id === id);
@@ -788,7 +856,7 @@ if (isMain) {
     }
     default:
       console.error(
-        "Usage: upstream-baseline.mjs check [--report <path>] | promote <test-id> <method> [--matcher <matcher>] <evidence>"
+        "Usage: upstream-baseline.mjs check [--report <path>] | promote <test-id> <method> [--matcher <matcher>] [--re-record] <evidence>"
       );
       process.exit(1);
   }
