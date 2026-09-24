@@ -29,7 +29,7 @@ export function inputFilePayloads(files: InputFiles, method = "setInputFiles") {
       !(item.buffer instanceof Uint8Array)
     )
       throw new TypeError(
-        `${method}: expected { name, mimeType, buffer } with a string MIME type and byte buffer; File and Blob are not supported.`
+        `${method}: expected { name, mimeType, buffer } with an optional string MIME type and byte buffer; File and Blob are not supported.`
       );
     return item;
   });

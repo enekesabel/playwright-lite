@@ -19,7 +19,7 @@ const expectedProtocolSha256 =
 const mimeId = "virtual:playwright-lite-mime";
 const resolvedMimeId = `\0${mimeId}`;
 const expectedMimeTypesSha256 =
-  "f47892c751828bbe632fc7507f4cff6689d5eb59fa78a2c9cab55d2c7e1302c2";
+  "fa27e7587fa87945e8afee7402ccdbc8463bc6cf0fc9c85f907f884402571986";
 
 export function playwrightInjectedPlugin() {
   return {
@@ -31,7 +31,7 @@ export function playwrightInjectedPlugin() {
     },
     load(id: string) {
       if (id === resolvedMimeId)
-        return `export const extensionToType = new Map(Object.entries(${readPinnedMimeTypes()}).flatMap(([type, extensions]) => extensions.map((extension) => [extension, type])));`;
+        return `export const extensionToType = new Map(Object.entries(${readPinnedMimeTypes()}));`;
       if (id === resolvedEvaluationId) {
         return [
           "const protocol = (() => {",
@@ -111,18 +111,14 @@ function readScriptSource(
  * The extension table pinned server/fileUploadUtils.ts consults through
  * `mime.getType(name)`: the mime@4.1.0 instance that playwright-core 1.62.1,
  * the release of the pinned commit, bundles as utilsBundle's `mime`. Mime has
- * no public enumeration, so the table comes from its `_getTestState()` hook,
- * grouped by type to keep the browser bundle small.
+ * no public enumeration, so the table comes from its `_getTestState()` hook.
  */
 function readPinnedMimeTypes(): string {
   const require = createRequire(import.meta.url);
   const { mime } = require("playwright-core/lib/utilsBundle") as {
     mime: { _getTestState(): { types: Map<string, string> } };
   };
-  const byType: Record<string, string[]> = {};
-  for (const [extension, type] of mime._getTestState().types)
-    (byType[type] ??= []).push(extension);
-  const json = JSON.stringify(byType);
+  const json = JSON.stringify(Object.fromEntries(mime._getTestState().types));
   const sha256 = createHash("sha256").update(json).digest("hex");
   if (sha256 !== expectedMimeTypesSha256)
     throw new Error(
