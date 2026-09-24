@@ -2154,9 +2154,10 @@ function initializeAdapterBridge(
   // what `asElement()` answers: a handle that answers with itself is an
   // ElementHandle and any other is a JSHandle, whatever the returning member
   // declares (`evaluateHandle`, `waitForFunction` and `getProperty` answer an
-  // ElementHandle for an element value). The answer is read before the handle
-  // is instrumented, so it is not execution evidence. Only a Disposable, which
-  // is not a handle, names its own kind.
+  // ElementHandle for an element value). The answer is read only before the
+  // handle is instrumented, so it is not execution evidence; a handle stored
+  // again keeps the kind it was first instrumented under. Only a Disposable,
+  // which is not a handle, names its own kind.
   host.__pwLiteStoreElementHandle = function store(
     handle: any,
     kind?: "Disposable"
@@ -2164,7 +2165,9 @@ function initializeAdapterBridge(
     if (!handle) return null;
     const id = `${handleContext}:element-${++nextElementHandleId}`;
     const element =
-      typeof handle.asElement === "function" && handle.asElement() === handle;
+      !wrapped.has(handle) &&
+      typeof handle.asElement === "function" &&
+      handle.asElement() === handle;
     host.__pwLiteElementHandles.set(
       id,
       instrument(handle, kind ?? (element ? "ElementHandle" : "JSHandle"))
