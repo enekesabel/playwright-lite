@@ -1165,6 +1165,16 @@
       "evidence": "Awaiting Locator.click completes without rejection when the target element is removed in pointerup event."
     },
     {
+      "id": "locator-click.spec.ts > should double click the button",
+      "method": "Locator.dblclick",
+      "evidence": "Locator.dblclick fires the button's dblclick listener (double becomes true) and its click listener (result is 'Clicked'). Native goto only establishes the document."
+    },
+    {
+      "id": "locator-click.spec.ts > should work @smoke",
+      "method": "Locator.click",
+      "evidence": "Locator.click on button.html fires the button's click listener, which sets window.result to 'Clicked'. Native goto only establishes the document."
+    },
+    {
       "id": "locator-convenience.spec.ts > allInnerTexts should work",
       "method": "Locator.allInnerTexts",
       "evidence": "With three divs containing A, B, and C, Locator.allInnerTexts returns ['A', 'B', 'C']."
@@ -2044,6 +2054,16 @@
       "evidence": "Asserts a checked input stays checked after trial actionability checks."
     },
     {
+      "id": "page-click-react.spec.ts > should not retarget when element changes on hover",
+      "method": "Page.click",
+      "evidence": "Hovering renames the React button that text=button1 resolved to. Page.click still clicks that element and not a re-resolved one: window.button1 is true and window.button2 stays undefined. Native goto only establishes the document."
+    },
+    {
+      "id": "page-click-react.spec.ts > should not retarget when element is recycled on hover",
+      "method": "Page.click",
+      "evidence": "The mouseenter handler re-renders, so React reuses the hovered DOM node for button2. Page.click delivers the click to that same node, which sets window.button2 to true and leaves window.button1 undefined. This proves hover events are dispatched before the click without re-resolving the target. Native goto only establishes the document."
+    },
+    {
       "id": "page-click-scroll.spec.ts > should click in-viewport element when scroll is \"none\"",
       "method": "Locator.click",
       "evidence": "The in-viewport handler runs while window.scrollY remains zero with scroll:none."
@@ -2359,6 +2379,11 @@
       "evidence": "Two different offscreen fixture buttons change their own text to clicked after scrolling and browser-adapter activation."
     },
     {
+      "id": "page-click.spec.ts > should scroll and click the button with smooth scroll behavior",
+      "method": "Page.click",
+      "evidence": "With html { scroll-behavior: smooth } added through Page.addStyleTag, five rounds of Page.click alternate between #button-80 and #button-20 and each click changes the target's text to 'clicked', so scrolling each target into view works under smooth scrolling. Native goto only establishes the document."
+    },
+    {
       "id": "page-click.spec.ts > should set PointerEvent.pressure on pointerdown",
       "method": "Page.click",
       "evidence": "The document listeners observe mouse pointer pressure 0.5 on pointerdown and 0 on pointerup from the actual click."
@@ -2464,6 +2489,51 @@
       "evidence": "The listener checks type 'prompt', defaultValue 'yes.' and message 'question?' with the bound public expect, then accept('answer!'); the Node assertion reads 'answer!' back from prompt(), a value neither Playwright's native auto-dismiss (null) nor an accept without the text (the default 'yes.') can produce, proving Dialog.accept(promptText) becomes prompt()'s return value."
     },
     {
+      "id": "page-dispatchevent.spec.ts > should dispatch absolute device orientation event",
+      "method": "Locator.dispatchEvent",
+      "evidence": "Locator.dispatchEvent('deviceorientationabsolute') builds a DeviceOrientationEvent from eventInit: the page handler reads alpha 10, beta 20, gamma 30 and absolute true. Native goto only establishes the document."
+    },
+    {
+      "id": "page-dispatchevent.spec.ts > should dispatch click event @smoke",
+      "method": "Page.dispatchEvent",
+      "evidence": "Page.dispatchEvent('button', 'click') runs the button's click listener, which sets window.result to 'Clicked'. Native goto only establishes the document."
+    },
+    {
+      "id": "page-dispatchevent.spec.ts > should dispatch click event properties",
+      "method": "Page.dispatchEvent",
+      "evidence": "The click event Page.dispatchEvent dispatches reaches the listener with bubbles, cancelable and composed all truthy, which are the defaults Playwright uses for a click. Native goto only establishes the document."
+    },
+    {
+      "id": "page-dispatchevent.spec.ts > should dispatch click event via ElementHandles",
+      "method": "ElementHandle.dispatchEvent",
+      "evidence": "ElementHandle.dispatchEvent('click') on the page.$ button handle runs its click listener, which sets window.result to 'Clicked'. Native goto only establishes the document."
+    },
+    {
+      "id": "page-dispatchevent.spec.ts > should dispatch click on a span with an inline element inside",
+      "method": "Page.dispatchEvent",
+      "evidence": "Page.dispatchEvent clicks an empty span that only has ::before content, and its inline onclick sets window.CLICKED to 42. Native setContent only establishes the document."
+    },
+    {
+      "id": "page-dispatchevent.spec.ts > should dispatch click svg",
+      "method": "Page.dispatchEvent",
+      "evidence": "Page.dispatchEvent clicks an SVG <circle>, and its onclick attribute sets window.__CLICKED to 42. Native setContent only establishes the document."
+    },
+    {
+      "id": "page-dispatchevent.spec.ts > should dispatch click when node is added in shadow dom",
+      "method": "Page.dispatchEvent",
+      "evidence": "Page.dispatchEvent('span', 'click') waits until a span is appended to an open shadow root after the call, then clicks it, so window.clicked becomes true. Native goto only establishes the document."
+    },
+    {
+      "id": "page-dispatchevent.spec.ts > should dispatch device motion event",
+      "method": "Locator.dispatchEvent",
+      "evidence": "Locator.dispatchEvent('devicemotion') builds a DeviceMotionEvent whose acceleration, accelerationIncludingGravity, rotationRate and interval fields all reach the page handler with the exact values passed in eventInit. Native goto only establishes the document."
+    },
+    {
+      "id": "page-dispatchevent.spec.ts > should dispatch device orientation event",
+      "method": "Locator.dispatchEvent",
+      "evidence": "Locator.dispatchEvent('deviceorientation') builds a DeviceOrientationEvent: the handler reads alpha 10, beta 20, gamma 30 and absolute falsy. Native goto only establishes the document."
+    },
+    {
       "id": "page-dispatchevent.spec.ts > should dispatch drag drop events",
       "method": "Page.dispatchEvent",
       "evidence": "A DataTransfer handle inside eventInit is unwrapped to the DataTransfer object, so the dispatched dragstart and drop share one transfer and the source really moves into the target. Native goto only establishes the document."
@@ -2472,6 +2542,11 @@
       "id": "page-dispatchevent.spec.ts > should dispatch drag drop events via ElementHandles",
       "method": "ElementHandle.dispatchEvent",
       "evidence": "The same drag and drop dispatched from element handles unwraps the DataTransfer handle in their eventInit and moves the source into the target. Native goto only establishes the document."
+    },
+    {
+      "id": "page-dispatchevent.spec.ts > should not fail when element is blocked on hover",
+      "method": "Page.dispatchEvent",
+      "evidence": "A div becomes pointer-events:auto over the button only on :hover. Page.dispatchEvent still delivers the click to the button without any hover or hit-target check, so window.clicked is truthy. Native setContent only establishes the document."
     },
     {
       "id": "page-drop.spec.ts > should drop a file payload",
@@ -2959,6 +3034,46 @@
       "evidence": "Consecutive fills on distinct inputs produce the two independently asserted values."
     },
     {
+      "id": "page-fill.spec.ts > input event.composed should be true and cross shadow dom boundary - color",
+      "method": "Locator.fill",
+      "evidence": "Locator.fill on an <input type=color> inside an open shadow root fires input with composed true and change with composed false. Only the input event crosses the shadow boundary to body (['input:true']). Native goto and setContent only establish the document."
+    },
+    {
+      "id": "page-fill.spec.ts > input event.composed should be true and cross shadow dom boundary - date",
+      "method": "Locator.fill",
+      "evidence": "Locator.fill on an <input type=date> inside an open shadow root fires input with composed true and change with composed false. Only the input event crosses the shadow boundary to body (['input:true']). Native goto and setContent only establish the document."
+    },
+    {
+      "id": "page-fill.spec.ts > input event.composed should be true and cross shadow dom boundary - datetime-local",
+      "method": "Locator.fill",
+      "evidence": "Locator.fill on an <input type=datetime-local> inside an open shadow root fires input with composed true and change with composed false. Only the input event crosses the shadow boundary to body (['input:true']). Native goto and setContent only establish the document."
+    },
+    {
+      "id": "page-fill.spec.ts > input event.composed should be true and cross shadow dom boundary - month",
+      "method": "Locator.fill",
+      "evidence": "Locator.fill on an <input type=month> inside an open shadow root fires input with composed true and change with composed false. Only the input event crosses the shadow boundary to body (['input:true']). Native goto and setContent only establish the document."
+    },
+    {
+      "id": "page-fill.spec.ts > input event.composed should be true and cross shadow dom boundary - range",
+      "method": "Locator.fill",
+      "evidence": "Locator.fill on an <input type=range> inside an open shadow root fires input with composed true and change with composed false. Only the input event crosses the shadow boundary to body (['input:true']). Native goto and setContent only establish the document."
+    },
+    {
+      "id": "page-fill.spec.ts > input event.composed should be true and cross shadow dom boundary - time",
+      "method": "Locator.fill",
+      "evidence": "Locator.fill on an <input type=time> inside an open shadow root fires input with composed true and change with composed false. Only the input event crosses the shadow boundary to body (['input:true']). Native goto and setContent only establish the document."
+    },
+    {
+      "id": "page-fill.spec.ts > input event.composed should be true and cross shadow dom boundary - week",
+      "method": "Locator.fill",
+      "evidence": "Locator.fill on an <input type=week> inside an open shadow root fires input with composed true and change with composed false. Only the input event crosses the shadow boundary to body (['input:true']). Native goto and setContent only establish the document."
+    },
+    {
+      "id": "page-fill.spec.ts > should be able to clear using fill()",
+      "method": "Page.fill",
+      "evidence": "Page.fill sets the input to 'some value' and then fill('') clears it: the input listener records 'some value', then ''. Native goto only establishes the document."
+    },
+    {
       "id": "page-fill.spec.ts > should be able to fill exponent into the input[type=number]",
       "method": "Page.fill",
       "evidence": "Fills a numeric input with -10e5 and asserts that exact exponent representation."
@@ -2994,6 +3109,11 @@
       "evidence": "Fills mixed-case color text and asserts the normalized lowercase value in Chromium."
     },
     {
+      "id": "page-fill.spec.ts > should fill contenteditable",
+      "method": "Page.fill",
+      "evidence": "Page.fill on div[contenteditable] makes its textContent exactly 'some value'. Native goto only establishes the document."
+    },
+    {
       "id": "page-fill.spec.ts > should fill contenteditable with focus handler that collapses selection",
       "method": "Page.fill",
       "evidence": "Fills an existing contenteditable despite its focus listener collapsing selection and asserts replacement text."
@@ -3009,9 +3129,24 @@
       "evidence": "Fills a datetime-local control and asserts its exact local date and time."
     },
     {
+      "id": "page-fill.spec.ts > should fill different input types",
+      "method": "Page.fill",
+      "evidence": "Page.fill fills input types password, search, tel, text, url and an unknown type as text, and the input listener records 'text <type>' each time. Native goto only establishes the document."
+    },
+    {
+      "id": "page-fill.spec.ts > should fill elements with existing value and selection",
+      "method": "Page.fill",
+      "evidence": "Page.fill replaces an existing input value, an input with a partial selection, and a contenteditable with a selected nested span. Each ends up holding only the new text. Native goto only establishes the document."
+    },
+    {
       "id": "page-fill.spec.ts > should fill fixed position input",
       "method": "Page.fill",
       "evidence": "Fills a fixed-position input and asserts its value."
+    },
+    {
+      "id": "page-fill.spec.ts > should fill input",
+      "method": "Page.fill",
+      "evidence": "Page.fill('input') fires the input listener with the full value 'some value'. Native goto only establishes the document."
     },
     {
       "id": "page-fill.spec.ts > should fill month input",
@@ -3022,6 +3157,11 @@
       "id": "page-fill.spec.ts > should fill range input",
       "method": "Page.fill",
       "evidence": "Fills the range input and asserts the resulting value is 42."
+    },
+    {
+      "id": "page-fill.spec.ts > should fill textarea @smoke",
+      "method": "Page.fill",
+      "evidence": "Page.fill('textarea') fires the input listener with the full value 'some value'. Native goto only establishes the document."
     },
     {
       "id": "page-fill.spec.ts > should fill time input",
@@ -3042,6 +3182,26 @@
       "id": "page-fill.spec.ts > should not double-fill in contenteditable with beforeinput handler in Firefox",
       "method": "Locator.fill",
       "evidence": "In the configured Chromium run, filling the contenteditable yields exactly Playwright, not duplicate text; this assertion does not certify beforeinput delivery."
+    },
+    {
+      "id": "page-fill.spec.ts > should retry on disabled element",
+      "method": "Page.fill",
+      "evidence": "Page.fill stays pending while the input is disabled (not done after 5 rafs, result still ''), then fills 'some value' once the input is enabled. Native goto only establishes the document."
+    },
+    {
+      "id": "page-fill.spec.ts > should retry on invisible element",
+      "method": "Page.fill",
+      "evidence": "Page.fill stays pending while the input is display:none (not done, result still ''), then fills 'some value' once it is shown. Native goto only establishes the document."
+    },
+    {
+      "id": "page-fill.spec.ts > should retry on readonly element",
+      "method": "Page.fill",
+      "evidence": "Page.fill stays pending while the textarea is readOnly (not done, result still ''), then fills 'some value' once readOnly is cleared. Native goto only establishes the document."
+    },
+    {
+      "id": "page-fill.spec.ts > should throw if passed a non-string value",
+      "method": "Page.fill",
+      "evidence": "Page.fill with the number 123 rejects with the pinned protocol validation message 'value: expected string, got number'. Native goto only establishes the document."
     },
     {
       "id": "page-fill.spec.ts > should throw nice error without injected script stack when element is not an <input>",
@@ -3084,6 +3244,11 @@
       "evidence": "The entered fill operation rejects an invalid week representation."
     },
     {
+      "id": "page-fill.spec.ts > should throw on unsupported inputs",
+      "method": "Page.fill",
+      "evidence": "Page.fill rejects input types button, checkbox, file, image, radio, reset and submit, each with 'Input of type \"<type>\" cannot be filled'. Native goto only establishes the document."
+    },
+    {
       "id": "page-focus.spec.ts > clicking checkbox should activate it",
       "method": "Page.click",
       "evidence": "Clicking a checkbox makes document.activeElement an INPUT, proving the click applies native focus; the test asserts only that node name, not which input is focused, and calls no focus API."
@@ -3109,14 +3274,139 @@
       "evidence": "Page.goto validates waitUntil before navigating and rejects networkidle2 with Playwright's waitUntil: expected one of (load|domcontentloaded|networkidle|commit)."
     },
     {
+      "id": "page-keyboard.spec.ts > insertText should only emit input event",
+      "method": "Keyboard.insertText",
+      "evidence": "Keyboard.insertText('hello world') into the focused textarea fires only 'input': no keydown, keypress or keyup is recorded. Native goto only establishes the document."
+    },
+    {
       "id": "page-keyboard.spec.ts > pressing Meta should not result in any text insertion on any platform",
       "method": "Keyboard.press",
       "evidence": "The unchanged assertions prove the input value remains hello world before and after adapter Keyboard.press(Meta). Focus, keyboard dispatch and matcher checks all execute through the browser adapter; Page.setContent is setup only."
     },
     {
+      "id": "page-keyboard.spec.ts > should dispatch a click event on a button when Enter gets pressed",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press('Enter') on a focused <button> activates it, so its click listener sets clicked to true. Native setContent only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should dispatch a click event on a button when Space gets pressed",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press('Space') on a focused <button> activates it, so its click listener sets clicked to true. Native setContent only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should dispatch key events in separate tasks",
+      "method": "Keyboard.press",
+      "evidence": "A microtask queued in the keydown handler runs before keypress (['keydown','microtask-keydown','keypress','microtask-keypress']), so Keyboard.press delivers each key event in its own task. Native setContent only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should emit keydown, keypress, textInput and input when typing a character",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press('f') into a focused input fires exactly keydown, keypress, textInput, input and keyup, in that order. Native setContent only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should have correct Keydown/Keyup order when pressing Escape key",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press('Escape') logs exactly Keydown then Keyup for Escape/Escape at STANDARD location, with no keypress. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should not type canceled events",
+      "method": "Keyboard.type",
+      "evidence": "Keyboard.type('Hello World!') inserts nothing for keys whose keydown is preventDefault()ed ('l' and 'o'), so the textarea ends as 'He Wrd!'. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should press audio and media control keys",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press with the six volume and media-track keys fires keydown with the matching key and Chromium code at location 0. Native setContent only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should press Enter",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press with 'Enter', 'NumpadEnter', '\\n' and '\\r' each fires keydown with key Enter, code Enter or NumpadEnter as expected, and inserts a newline into the textarea. Native setContent only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should press plus",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press('+') is parsed as the plus key, not as a separator: keydown, keypress (charCode 43) and keyup report '+ Equal STANDARD' with no modifiers. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should press shift plus",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press('Shift++') holds Shift around '+', and the logged sequence has Shift down, '+ Equal' down/keypress 43/up with [Shift], then Shift up. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should press the meta key",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press('Meta') fires keydown with key Meta, code MetaLeft and metaKey true. No native calls."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should report multiple modifiers",
+      "method": "Keyboard.down",
+      "evidence": "Keyboard.down for Control, Alt and ';' reports each key's code and location with the accumulated modifier set ([Alt Control]). Keyboard.up releases them in turn until the set is []. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should report shiftKey",
+      "method": "Keyboard.down",
+      "evidence": "For Shift, Alt and Control, Keyboard.down reports the modifier at LEFT location and sets its flag on '!' (Digit1). Only Shift produces a keypress (charCode 33). Keyboard.up clears the modifier. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should send a character with ElementHandle.press",
+      "method": "ElementHandle.press",
+      "evidence": "ElementHandle.press('a') inserts 'a' into the textarea. Once a capturing keydown listener calls preventDefault, press('b') inserts nothing and the value stays 'a'. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should send a character with insertText",
+      "method": "Keyboard.insertText",
+      "evidence": "Keyboard.insertText inserts '嗨' into the focused textarea, and still inserts 'a' while keydown is preventDefault()ed, because it dispatches no keydown ('嗨a'). Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should send proper codes while typing",
+      "method": "Keyboard.type",
+      "evidence": "Keyboard.type('!') and type('^') log keydown, keypress (charCodes 33 and 94) and keyup with codes Digit1 and Digit6 at STANDARD location. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should send proper codes while typing with shift",
+      "method": "Keyboard.type",
+      "evidence": "With Shift held by Keyboard.down, Keyboard.type('~') logs '~ Backquote' keydown, keypress 126 and keyup, all with [Shift]. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should shift raw codes",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press('Shift+Digit3') turns the raw code Digit3 into key '#' (keypress charCode 35), with Shift around it. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should specify location",
+      "method": "ElementHandle.press",
+      "evidence": "ElementHandle.press reports KeyboardEvent.location 0, 1, 2 and 3 for Digit5, ControlLeft, ControlRight and NumpadSubtract, with the matching key and code. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should specify repeat property",
+      "method": "Keyboard.down",
+      "evidence": "A Keyboard.down of a key that is already held reports repeat true, and so does a press('a') while 'a' is held. A first down, or a down after Keyboard.up, reports repeat false. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should support multiple plus-separated modifiers",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press('Control+Shift+~') presses Control, Shift and '~' in order and releases them in reverse, with accumulated modifiers and no keypress while Control is held. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should support plus-separated modifiers",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press('Shift+~') logs Shift down, '~ Backquote' down/keypress 126/up with [Shift], then Shift up. Native goto only establishes the document."
+    },
+    {
       "id": "page-keyboard.spec.ts > should throw on unknown keys",
       "method": "Keyboard.press",
       "evidence": "Three invalid keys reach browser Keyboard.press/down and are rejected with the exact unknown-key names asserted by the unchanged test. No native calls or transport failures."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should type all kinds of characters",
+      "method": "Keyboard.type",
+      "evidence": "Keyboard.type of text with a newline and the non-ASCII '嗨' leaves the textarea value exactly equal to the input text. Native goto only establishes the document."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should type emoji",
+      "method": "Page.type",
+      "evidence": "Page.type of '👹 Tokyo street Japan 🇯🇵' leaves the textarea value exactly equal to that string, including the surrogate-pair emoji and the regional-indicator flag. Native goto only establishes the document."
     },
     {
       "id": "page-keyboard.spec.ts > should type into a textarea @smoke",
@@ -3137,6 +3427,16 @@
       "id": "page-keyboard.spec.ts > should type repeatedly in input in shadow dom",
       "method": "Locator.type",
       "evidence": "The unchanged test types two different strings into inputs inside an open shadow root and asserts each resulting inputValue exactly. Locator.type and inputValue execute through the browser adapter; Page.setContent is setup only."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should work after a cross origin navigation",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press('a') fires keydown with key 'a' in a document on the cross-process origin. Both gotos are native setup that happen before any adapter call, so this does not certify navigation. It only shows the keyboard works in a document on another origin."
+    },
+    {
+      "id": "page-keyboard.spec.ts > should work with keyboard events with empty.html",
+      "method": "Keyboard.press",
+      "evidence": "Keyboard.press('a') on empty.html fires a document keydown with key 'a'. Native goto only establishes the document."
     },
     {
       "id": "page-keyboard.spec.ts > type to non-focusable element should maintain old focus",
@@ -3184,6 +3484,11 @@
       "evidence": "The unchanged test checks empty enumeration, both written values, getItem, selective removal and final clear through the browser sessionStorage wrapper. Native goto establishes the origin and is not certified."
     },
     {
+      "id": "page-mouse.spec.ts > should set modifier keys on click",
+      "method": "Page.click",
+      "evidence": "Despite the file name, page.mouse is never called. Page.click's mousedown carries shiftKey, ctrlKey, altKey and metaKey while the matching modifier is held by Keyboard.down, and none of them after Keyboard.up. Native goto only establishes the document."
+    },
+    {
       "id": "page-network-request.spec.ts > should parse the data if content-type is application/x-www-form-urlencoded; charset=UTF-8",
       "method": "Page.waitForRequest",
       "evidence": "With Page.waitForRequest withheld, the sabotage rerun fails this test: waitForRequest('**/post') is what resolves with the POST the document's own fetch sent to that URL after Page.evaluate made it, so the glob matched a real request that reached the server. The postDataJSON() value the test then asserts is read from the fixture's snapshot of that request, taken outside the recorded adapter execution, and is not covered by the rerun."
@@ -3194,9 +3499,104 @@
       "evidence": "The response awaited from waitForEvent('response') reports status 200 while the server has sent only 'hello ', and its text() resolves with 'hello world!' only after the server writes the rest and ends: text() reads the observed fetch's body to its end rather than returning what had arrived with the headers. The test's requestfinished assertion is vacuous here, because the fixture cannot deliver an event to a Node listener; the promoted evidence is the body assertion."
     },
     {
+      "id": "page-select-option.spec.ts > input event.composed should be true and cross shadow dom boundary",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption on a <select> inside an open shadow root fires input with composed true and change with composed false. Only the input event crosses the shadow boundary to body (['input:true']). Native goto and setContent only establish the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should deselect all options when passed no values for a multiple select",
+      "method": "Page.selectOption",
+      "evidence": "After selecting three options in a multiple select (black was already selected by default), Page.selectOption([]) leaves no option selected. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should deselect all options when passed no values for a select without multiple",
+      "method": "Page.selectOption",
+      "evidence": "On a single select, where the first option is selected by default, Page.selectOption([]) leaves no option selected. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should fall back to selecting by label",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption('Blue') matches no value, so it falls back to the option labelled Blue and input/change report ['blue']. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should not allow null items",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption with a null array item rejects with the pinned validation message 'options[1]: expected object, got null'. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should not select single option when some attributes do not match",
+      "method": "Page.selectOption",
+      "evidence": "{ value: 'green', label: 'Brown' } matches no single option, so Page.selectOption selects nothing and times out with a 'Timeout' message. The select value stays ''. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should respect event bubbling",
+      "method": "Page.selectOption",
+      "evidence": "The input and change events from Page.selectOption bubble to document.body, whose listeners record ['blue']. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should return [] on no matched values",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption('select', []) resolves to exactly []. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should return [] on no values",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption('select', []) resolves to exactly []. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should return an array of one element when multiple is not set",
+      "method": "Page.selectOption",
+      "evidence": "On a single select, Page.selectOption with four candidate values resolves to an array of exactly one selected value. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should select multiple options",
+      "method": "Page.selectOption",
+      "evidence": "On a multiple select, Page.selectOption(['blue','green','red']) selects all three, and input/change report ['blue','green','red']. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should select multiple options with attributes",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption with { value: 'blue' }, { label: 'Green' } and { index: 4 } selects blue, green and gray on a multiple select, and input/change report them in document order. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should select only first option",
+      "method": "Page.selectOption",
+      "evidence": "On a single select, Page.selectOption(['blue','green','red']) selects only the first match, and input/change report ['blue']. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should select single option @smoke",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption('select', 'blue') selects blue and fires input and change reporting ['blue']. Native goto only establishes the document."
+    },
+    {
       "id": "page-select-option.spec.ts > should select single option by handle",
       "method": "Page.selectOption",
       "evidence": "An ElementHandle to the white <option> selects it and fires input and change with 'white', so a handle value is matched as the option node itself. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should select single option by index",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption with { index: 2 } selects the third option, and input/change report ['brown']. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should select single option by label",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption with { label: 'Indigo' } selects indigo, and input/change report ['indigo']. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should select single option by label with html whitespace",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption with { label: 'HTML' } matches the option whose text is '&nbsp;HTML', so label matching trims HTML whitespace and input/change report ['html']. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should select single option by multiple attributes",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption with { value: 'green', label: 'Green' } selects the option matching both, and input/change report ['green']. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should select single option by value",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption with { value: 'blue' } selects blue, and input/change report ['blue']. Native goto only establishes the document."
     },
     {
       "id": "page-select-option.spec.ts > should throw if passed wrong types",
@@ -3204,14 +3604,39 @@
       "evidence": "Page.selectOption validates its values with the pinned FrameSelectOptionParams scheme before waiting, so a number, {value:12}, {label:12} and {index:'12'} each reject with the protocol message the assertion names."
     },
     {
+      "id": "page-select-option.spec.ts > should throw when element is not a <select>",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption('body', '') rejects with 'Element is not a <select> element'. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should unselect with null",
+      "method": "Page.selectOption",
+      "evidence": "After Page.selectOption selects ['blue','black','magenta'] on the multiple select, Page.selectOption('select', null) leaves no option selected. Native goto only establishes the document."
+    },
+    {
+      "id": "page-select-option.spec.ts > should wait for multiple options to be present",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption(['green','scarlet']) stays pending until the missing scarlet option is appended, then resolves to exactly ['green','scarlet']. Native goto only establishes the document."
+    },
+    {
       "id": "page-select-option.spec.ts > should wait for optgroup to be enabled",
       "method": "Locator.selectOption",
       "evidence": "Locator.selectOption retries an option inside a disabled <optgroup>; the timeout carries the pinned call-log reason 'option being selected is not enabled', and the later select then reports value 'two'."
     },
     {
+      "id": "page-select-option.spec.ts > should wait for option index to be present",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption({ index: options.length }) stays pending until an option exists at that index, then resolves to exactly ['scarlet']. Native goto only establishes the document."
+    },
+    {
       "id": "page-select-option.spec.ts > should wait for option to be enabled",
       "method": "Locator.selectOption",
       "evidence": "Locator.selectOption retries a disabled <option> until it is hydrated; the timeout it raises first carries the pinned call-log reason 'option being selected is not enabled', and the later select then reports value 'two'."
+    },
+    {
+      "id": "page-select-option.spec.ts > should wait for option to be present",
+      "method": "Page.selectOption",
+      "evidence": "Page.selectOption('scarlet') stays pending until the scarlet option is appended, then resolves to exactly ['scarlet']. Native goto only establishes the document."
     },
     {
       "id": "page-select-option.spec.ts > should wait for select to be enabled",
