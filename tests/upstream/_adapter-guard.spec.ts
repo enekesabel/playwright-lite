@@ -254,10 +254,10 @@ test("execution evidence records browser method entry and swallowed dispatch fai
 }) => {
   await page.setContent("<button>hello</button>");
   await adapterPage.locator("button").count();
-  await adapterPage.reload().catch(() => {});
+  await adapterPage.pickLocator().catch(() => {});
   const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.entered).toContain("Locator.count");
-  expect(execution.entered).not.toContain("Page.reload");
+  expect(execution.entered).not.toContain("Page.pickLocator");
   expect((page as any).__pwLiteTransportFailures.length).toBeGreaterThan(0);
 });
 
@@ -1315,7 +1315,7 @@ test("proxy page methods do not fall through to real Playwright driver", async (
   };
   try {
     await expect(adapterPage.title()).resolves.toBe("");
-    await expect(adapterPage.goBack()).rejects.toThrow();
+    await expect(adapterPage.pickLocator()).rejects.toThrow();
     await expect(adapterPage.screenshot()).rejects.toThrow();
     await expect((adapterPage as any).close()).rejects.toThrow();
     expect((page as any).__pwLiteNativeOperations).toEqual([]);

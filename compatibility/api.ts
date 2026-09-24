@@ -106,6 +106,9 @@ const consoleMessagesNote =
 const networkIdleNote =
   '`"networkidle"` resolves no sooner than 500 ms after the call, even when the document is already idle; see [Network idle](#network-idle).';
 
+const historyTraversalNote =
+  "Traverses only the entries the browser's Navigation API lists, those of the current document's origin: with another origin's entry adjacent, resolves to `null` without navigating, where Playwright navigates to it; returns no `Response`, since traversing to another document ends execution; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call, even when already idle.";
+
 /** The Page events this package fires, in README order. */
 export const events: readonly EventRow[] = [
   {
@@ -341,12 +344,8 @@ export const pageLedger = {
   getByTestId: implemented(),
   getByText: implemented(),
   getByTitle: implemented(),
-  goBack: planned(
-    "Initiates browser navigation; execution ends on document replacement."
-  ),
-  goForward: planned(
-    "Initiates browser navigation; execution ends on document replacement."
-  ),
+  goBack: partial(historyTraversalNote),
+  goForward: partial(historyTraversalNote),
   goto: partial(
     "Returns no `Response` (`null` only for same-document hash navigation); relative URLs resolve against `document.baseURI`, with no `baseURL`; rejects `referer` and `signal`; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call, even when already idle."
   ),
@@ -385,8 +384,8 @@ export const pageLedger = {
   pickLocator: undecided(),
   prependListener: partial(listenerNote),
   press: implemented(),
-  reload: planned(
-    "Initiates browser navigation; execution ends on document replacement."
+  reload: partial(
+    "Never resolves: the reload replaces the document, which ends execution, so it returns no `Response`; rejects with a timeout only if the document is not replaced."
   ),
   removeAllListeners: partial(removalNote),
   removeListener: partial(removalNote),

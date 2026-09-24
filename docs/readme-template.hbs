@@ -64,7 +64,7 @@ here instead of a row note.
 ## Runtime boundaries
 
 - **Current document only.** No iframe traversal, `Frame`, or `FrameLocator` support.
-- **Navigation ends execution.** `goto()` can start navigation, but replacing the document destroys the JavaScript context running your script, so automation cannot continue across a full-page navigation or reload.
+- **Navigation ends execution.** `goto()`, `reload()`, `goBack()` and `goForward()` can start navigation, but replacing the document destroys the JavaScript context running your script, so automation cannot continue across a full-page navigation or reload.
 - **Synthetic input.** Input events are not browser-trusted; native keyboard behavior such as cursor movement, deletion and focus traversal is not simulated.
 - **No browser control.** No browser launch, browser contexts, or browser-level control over network traffic, downloads, or other tabs.
 - **Content Security Policy applies.** Evaluation callbacks need the page's policy to allow dynamic JavaScript evaluation; the library does not bypass it.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../../src/index";
+import { prepareTraversal, stubLoading } from "../history";
 
 describe("cancellation", () => {
   it("aborts every action with a prefixed AbortError", async () => {
@@ -11,7 +12,7 @@ describe("cancellation", () => {
     const actions: [
       string,
       (options: Options) => Promise<unknown>,
-      (() => () => void)?,
+      (() => (() => void) | Promise<() => void>)?,
     ][] = [
       ["page.check", (o) => page.check("#never", o)],
       ["page.click", (o) => page.click("#never", o)],
@@ -33,23 +34,7 @@ describe("cancellation", () => {
       [
         "page.waitForLoadState",
         (o) => page.waitForLoadState(undefined, o),
-        () => {
-          const descriptor = Object.getOwnPropertyDescriptor(
-            document,
-            "readyState"
-          );
-          Object.defineProperty(document, "readyState", {
-            configurable: true,
-            value: "loading",
-          });
-          return () => {
-            if (descriptor)
-              Object.defineProperty(document, "readyState", descriptor);
-            else
-              delete (document as { readyState?: DocumentReadyState })
-                .readyState;
-          };
-        },
+        stubLoading,
       ],
       ["page.waitForLoadState", (o) => page.waitForLoadState("networkidle", o)],
       ["page.waitForSelector", (o) => page.waitForSelector("#never", o)],
@@ -58,6 +43,12 @@ describe("cancellation", () => {
         "page.waitForURL",
         (o) =>
           page.waitForURL(location.href, { ...o, waitUntil: "networkidle" }),
+      ],
+      ["page.goBack", (o) => page.goBack(o), () => prepareTraversal("back")],
+      [
+        "page.goForward",
+        (o) => page.goForward(o),
+        () => prepareTraversal("forward"),
       ],
       ["page.waitForEvent", (o) => page.waitForEvent("load", o)],
       ["page.waitForRequest", (o) => page.waitForRequest("**/never", o)],
@@ -87,7 +78,7 @@ describe("cancellation", () => {
 
     for (const [apiName, run, prepare] of actions) {
       for (const inFlight of [false, true]) {
-        const restore = prepare?.();
+        const restore = await prepare?.();
         const reason = new Error("stop");
         const controller = new AbortController();
         if (inFlight) window.setTimeout(() => controller.abort(reason), 10);

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { ADAPTER_TIMEOUT_ERROR } from "../../../src/errors";
 import { createPage } from "../../../src/index";
+import { prepareTraversal } from "../history";
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -136,5 +137,32 @@ describe("timeouts", () => {
       await expect(wait(), apiName).rejects.toThrow(
         `${apiName}: Timeout 20ms exceeded.`
       );
+  });
+
+  it("applies the navigation timeout to history traversal", async () => {
+    // The traversal commits, then waits for a `load` that never comes.
+    const page = createPage({ navigationTimeout: 20 });
+    const traversals: [
+      string,
+      "back" | "forward",
+      () => ReturnType<typeof page.goBack>,
+    ][] = [
+      ["page.goBack", "back", () => page.goBack()],
+      ["page.goForward", "forward", () => page.goForward()],
+    ];
+
+    for (const [apiName, side, traverse] of traversals) {
+      const restore = await prepareTraversal(side);
+      try {
+        const error = await traverse().catch((error) => error);
+        expect(error.name, apiName).toBe("TimeoutError");
+        expect(error[ADAPTER_TIMEOUT_ERROR], apiName).toBe(true);
+        expect(error.message, apiName).toBe(
+          `${apiName}: Timeout 20ms exceeded.`
+        );
+      } finally {
+        restore();
+      }
+    }
   });
 });
