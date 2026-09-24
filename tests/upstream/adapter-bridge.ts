@@ -2164,10 +2164,12 @@ function initializeAdapterBridge(
   ): string | null {
     if (!handle) return null;
     const id = `${handleContext}:element-${++nextElementHandleId}`;
+    if (wrapped.has(handle)) {
+      host.__pwLiteElementHandles.set(id, handle);
+      return id;
+    }
     const element =
-      !wrapped.has(handle) &&
-      typeof handle.asElement === "function" &&
-      handle.asElement() === handle;
+      typeof handle.asElement === "function" && handle.asElement() === handle;
     host.__pwLiteElementHandles.set(
       id,
       instrument(handle, kind ?? (element ? "ElementHandle" : "JSHandle"))

@@ -7,6 +7,7 @@ import {
   validateReportErrors,
   reviewedPromotion,
   blockingRegressions,
+  parsePromotionArgs,
   failurePhase,
   sabotageVerdict,
   sabotageGrep,
@@ -577,6 +578,98 @@ describe("blockingRegressions", () => {
           ),
         /re-record/
       );
+  });
+
+  it("refuses a re-record when the entry's method now runs natively", () => {
+    const native = (entered, nativeMethods) => ({
+      ...passing(renamed, entered),
+      execution: { entered, failures: [], native: nativeMethods },
+    });
+    // Whether or not the adapter still records the old method, running it
+    // natively is a regression, never an owner rename.
+    for (const entry of [
+      native(["ElementHandle.asElement"], ["JSHandle.asElement"]),
+      native(
+        ["JSHandle.asElement", "ElementHandle.asElement"],
+        ["JSHandle.asElement"]
+      ),
+    ])
+      assert.throws(
+        () =>
+          blockingRegressions(
+            [entry, passing(other, ["Page.evaluate"])],
+            baseline,
+            names,
+            [correction],
+            new Set([renamed])
+          ),
+        /runs JSHandle\.asElement natively/
+      );
+  });
+});
+
+describe("parsePromotionArgs", () => {
+  const id = "jshandle.spec.ts > a";
+
+  it("reads a plain promotion, a matcher and a re-record", () => {
+    assert.deepEqual(
+      parsePromotionArgs([
+        id,
+        "Page.click",
+        "clicks",
+        "x.spec.ts > b",
+        "Locator._expect",
+        "--matcher",
+        "Locator.toHaveText",
+        "matches",
+        "x.spec.ts > c",
+        "ElementHandle.asElement",
+        "--re-record",
+        "renamed",
+      ]),
+      {
+        requests: [
+          { id, method: "Page.click", evidence: "clicks" },
+          {
+            id: "x.spec.ts > b",
+            method: "Locator._expect",
+            matcher: "Locator.toHaveText",
+            evidence: "matches",
+          },
+          {
+            id: "x.spec.ts > c",
+            method: "ElementHandle.asElement",
+            evidence: "renamed",
+          },
+        ],
+        reRecords: new Set(["x.spec.ts > c"]),
+      }
+    );
+  });
+
+  it("names the conflict when --re-record and --matcher are combined, in either order", () => {
+    for (const flags of [
+      ["--matcher", "Locator.toHaveText", "--re-record"],
+      ["--re-record", "--matcher", "Locator.toHaveText"],
+    ])
+      assert.throws(
+        () => parsePromotionArgs([id, "Locator._expect", ...flags, "evidence"]),
+        /--re-record cannot be combined with --matcher/
+      );
+  });
+
+  it("refuses a flag as the matcher name", () => {
+    assert.throws(
+      () =>
+        parsePromotionArgs([
+          id,
+          "Locator._expect",
+          "--matcher",
+          "--re-record",
+          "evidence",
+        ]),
+      /--matcher requires a public matcher name/
+    );
   });
 });
 

@@ -4,9 +4,11 @@
  *
  * Commands:
  *   check   verify corpus integrity → run tests → gate against baseline
- *   promote <test-id> <method> <evidence>  rerun corpus and promote a reviewed test
- *     --matcher <matcher>  after <method>: the public matcher an _expect promotion proves
- *     --re-record          after <method>: correct an existing entry whose method's owner was renamed
+ *   promote <test-id> <method> [--matcher <matcher> | --re-record] <evidence>
+ *           rerun corpus and promote a reviewed test; each flag goes after <method>
+ *     --matcher <matcher>  the public matcher an _expect promotion proves
+ *     --re-record          correct an existing entry whose method's owner was renamed;
+ *                          it sets no matcher, so it cannot be combined with --matcher
  */
 import {
   existsSync,
@@ -291,9 +293,10 @@ export function reviewedPromotion(entries, id, method, evidence, matcher) {
  * now records `ElementHandle.asElement` where it recorded
  * `JSHandle.asElement`): the test still passes with clean execution evidence,
  * and the new method names the same member under another owner, with the same
- * matcher. Such an entry does not block its own correction. A re-record that
- * is not such a correction is refused, and every other regression still
- * blocks. The re-recorded method still goes through the sabotage rerun like
+ * matcher. Such an entry does not block its own correction. An entry whose
+ * recorded method now runs natively regressed, whatever the new method is. A
+ * re-record that is not such a correction is refused, and every other
+ * regression still blocks. The re-recorded method still goes through the sabotage rerun like
  * any promotion.
  *
  * @param {Array} entries  Parsed test entries.
@@ -322,6 +325,10 @@ export function blockingRegressions(
     if (!regressions.includes(id))
       throw new Error(
         `${id} still certifies ${reviewed.method}, so there is nothing to re-record.`
+      );
+    if (entry?.execution?.native?.includes(reviewed.method))
+      throw new Error(
+        `${id} now runs ${reviewed.method} natively; that is a regression to investigate, never an owner rename to re-record.`
       );
     if (
       !entry ||
@@ -634,6 +641,48 @@ function loadAndValidateReport(path, exitCodeOnFailure) {
   return { entries, specCount, testCount };
 }
 
+/**
+ * Splits `promote` arguments into promotion requests. Each request is
+ * `<test-id> <method>`, then `--matcher <matcher>` or `--re-record` in any
+ * order, then `<evidence>`. A re-record sets no matcher, so the two flags
+ * conflict.
+ *
+ * @param {readonly string[]} args  Arguments after `promote` (and `--`).
+ * @returns {{ requests: Array<{id: string, method: string, matcher?: string, evidence: string}>, reRecords: Set<string> }}
+ */
+export function parsePromotionArgs(args) {
+  const requests = [];
+  const reRecords = new Set();
+  for (let index = 0; index < args.length;) {
+    const id = args[index++];
+    const method = args[index++];
+    if (!id || !method)
+      throw new Error("Each promotion requires a test ID and adapter method.");
+    let matcher;
+    let reRecord = false;
+    for (;;) {
+      if (args[index] === "--matcher") {
+        matcher = args[index + 1];
+        if (!matcher || matcher.startsWith("--"))
+          throw new Error("--matcher requires a public matcher name.");
+        index += 2;
+      } else if (args[index] === "--re-record") {
+        reRecord = true;
+        index++;
+      } else break;
+    }
+    if (reRecord && matcher)
+      throw new Error(
+        `${id}: --re-record cannot be combined with --matcher; a re-record corrects only the owner of the entry's method and sets no matcher.`
+      );
+    if (reRecord) reRecords.add(id);
+    const evidence = args[index++];
+    if (!evidence) throw new Error("Each promotion requires review evidence.");
+    requests.push({ id, method, ...(matcher ? { matcher } : {}), evidence });
+  }
+  return { requests, reRecords };
+}
+
 function doUpdate(entries) {
   const corpusSpecs = new Set(specNames);
   const corpusEntries = entries.filter((e) => corpusSpecs.has(e.file));
@@ -642,30 +691,12 @@ function doUpdate(entries) {
   if (args[0] === "--") args.shift();
   if (!args.length)
     throw new Error(
-      "Provide one or more <test-id> <method> [--matcher <matcher>] [--re-record] <evidence> promotions."
+      "Provide one or more <test-id> <method> [--matcher <matcher> | --re-record] <evidence> promotions."
     );
-  const promotions = [];
-  const reRecords = new Set();
-  for (let index = 0; index < args.length;) {
-    const id = args[index++];
-    const method = args[index++];
-    if (!id || !method)
-      throw new Error("Each promotion requires a test ID and adapter method.");
-    let matcher;
-    if (args[index] === "--matcher") {
-      matcher = args[index + 1];
-      if (!matcher)
-        throw new Error("--matcher requires a public matcher name.");
-      index += 2;
-    }
-    if (args[index] === "--re-record") {
-      reRecords.add(id);
-      index++;
-    }
-    const evidence = args[index++];
-    if (!evidence) throw new Error("Each promotion requires review evidence.");
-    promotions.push(reviewedPromotion(entries, id, method, evidence, matcher));
-  }
+  const { requests, reRecords } = parsePromotionArgs(args);
+  const promotions = requests.map(({ id, method, evidence, matcher }) =>
+    reviewedPromotion(entries, id, method, evidence, matcher)
+  );
   if (new Set(promotions.map((entry) => entry.id)).size !== promotions.length)
     throw new Error("Each promoted test ID must be unique.");
   const previous = JSON.parse(readFileSync(BASELINE_PATH, "utf8"));
@@ -856,7 +887,7 @@ if (isMain) {
     }
     default:
       console.error(
-        "Usage: upstream-baseline.mjs check [--report <path>] | promote <test-id> <method> [--matcher <matcher>] [--re-record] <evidence>"
+        "Usage: upstream-baseline.mjs check [--report <path>] | promote <test-id> <method> [--matcher <matcher> | --re-record] <evidence>"
       );
       process.exit(1);
   }
