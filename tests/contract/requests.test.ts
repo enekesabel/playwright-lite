@@ -31,6 +31,28 @@ describe("Page.requests", () => {
     expect(urls.at(-1)).toBe(assetUrl("?n=100"));
   });
 
+  it("shares one subscription with the network listeners", async () => {
+    const page = createPage();
+    await page.requests();
+    const seen: string[] = [];
+    const onRequest = (request: { url(): string }) => seen.push(request.url());
+    page.on("request", onRequest);
+
+    await window.fetch(assetUrl("?listened"));
+    expect(seen).toEqual([assetUrl("?listened")]);
+    expect((await page.requests()).map((request) => request.url())).toEqual([
+      assetUrl("?listened"),
+    ]);
+
+    page.off("request", onRequest);
+    await window.fetch(assetUrl("?unlistened"));
+    expect(seen).toEqual([assetUrl("?listened")]);
+    expect((await page.requests()).map((request) => request.url())).toEqual([
+      assetUrl("?listened"),
+      assetUrl("?unlistened"),
+    ]);
+  });
+
   it("lists the document's fetch and XMLHttpRequest calls in one log", async () => {
     const page = createPage();
     await page.requests();

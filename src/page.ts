@@ -28,6 +28,7 @@ import {
   networkObservationFor,
   networkPredicate,
   recordRequest,
+  type NetworkEventName,
   type NetworkMatch,
   type Request as NetworkRequest,
   type Response as NetworkResponse,
@@ -337,6 +338,19 @@ export class PageImpl {
    * released: a request log nobody observes cannot be filled later.
    */
   private retainedNetwork: (() => void) | undefined;
+  /**
+   * The one reporter `requests()` and the network listeners both subscribe
+   * with. The observation counts subscriptions per reporter, so the two are
+   * holders of one subscription and a request is logged and emitted once.
+   */
+  private readonly reportNetwork = (
+    event: NetworkEventName,
+    payload: unknown
+  ) => {
+    if (event === "request")
+      recordRequest(this.requestLog, payload as NetworkRequest);
+    this.emit(event, payload);
+  };
   private readonly documentObservers = new Set<() => void>();
   private unobserveDocument: (() => void) | undefined;
   private readonly pageErrorsBuffer: Error[] = [];
@@ -1738,11 +1752,7 @@ export class PageImpl {
    * stays per page.
    */
   private subscribeToNetwork(): () => void {
-    return this.network.subscribe((event, payload) => {
-      if (event === "request")
-        recordRequest(this.requestLog, payload as NetworkRequest);
-      this.emit(event, payload);
-    });
+    return this.network.subscribe(this.reportNetwork);
   }
 
   /** Reports the window's `alert`/`confirm`/`prompt` calls on this page while the subscription lives. */
