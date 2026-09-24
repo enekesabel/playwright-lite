@@ -30,6 +30,21 @@ await expect(page.locator(".notice")).toContainText("Saved");
 
 See [Expect](#expect) for the supported matchers and how a failed assertion surfaces.
 
+## Use cases
+
+- Automate your own application in the browser you're using.
+- Let an in-app assistant inspect and interact with the page.
+- Build guided onboarding and automation flows.
+- Run the supported parts of existing Playwright scripts inside your application.
+
+## Installation
+
+playwright-lite is pre-1.0; APIs may change.
+
+```sh
+npm add @enekesabel/playwright-lite
+```
+
 ## Runtime boundaries
 
 - **Current document only.** No iframe traversal, `Frame`, or `FrameLocator` support.
@@ -64,21 +79,6 @@ Nothing is replaced until you subscribe, and a function the page replaced itself
 - The end of each call and resource is noticed a few milliseconds late, so a wait can resolve slightly more than 500 ms after it.
 
 </details>
-
-## Use cases
-
-- Automate your own application in the browser you're using.
-- Let an in-app assistant inspect and interact with the page.
-- Build guided onboarding and automation flows.
-- Run the supported parts of existing Playwright scripts inside your application.
-
-## Installation
-
-playwright-lite is pre-1.0; APIs may change.
-
-```sh
-npm add @enekesabel/playwright-lite
-```
 
 ## Compatibility
 

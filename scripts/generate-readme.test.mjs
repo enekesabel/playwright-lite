@@ -34,9 +34,15 @@ test("README renders API compatibility without repeating runtime boundaries", as
   assert.match(row("close"), /\|\s*❌\s*\|\s*\|$/u);
   assert.match(row("frame"), /\|\s*🚫\s*\|.+/u);
   assert.match(row("[Symbol.asyncDispose]()"), /\|\s*❌\s*\|\s*\|$/u);
-  assert.ok(
-    readme.indexOf("## Installation") < readme.indexOf("## Compatibility")
-  );
+  const headings = [...readme.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
+  assert.deepEqual(headings, [
+    "Assertions",
+    "Use cases",
+    "Installation",
+    "Runtime boundaries",
+    "Compatibility",
+    "License",
+  ]);
   assert.ok(
     readme.indexOf("### Locator") <
       readme.indexOf("### ElementHandle and JSHandle")
