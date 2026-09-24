@@ -74,11 +74,48 @@ jobs:
           path: ${{ runner.temp }}/package/*.tgz
           if-no-files-found: error
 
+  # Decides whether this PR can affect the corpus. The skip-list names the paths
+  # the corpus never reads; a change to any other path, including one nobody
+  # listed yet, runs it. Pushes and manual runs always run it: publish-npm needs
+  # its verdict.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      corpus: ${{ steps.corpus.outputs.corpus }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          # The PR's merge commit and its first parent, the base it merges into.
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Decide whether the corpus runs
+        id: corpus
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          if [[ "$EVENT_NAME" != pull_request ]]; then
+            echo "corpus=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # --no-renames lists a move out of src/ as the deletion it also is.
+          changed=$(git diff --name-only --no-renames HEAD^1 HEAD)
+          skippable='^(docs/|LICENSES/|tests/contract/|\.claude/|src/.*\.test\.ts$|(README|AGENTS|CHANGELOG)\.md$|commitlint\.config\.js$|release-please-config\.json$|\.release-please-manifest\.json$)'
+          remaining=$(grep -Ev "$skippable" <<< "$changed" || true)
+          if [[ -n "$changed" && -z "$remaining" ]]; then
+            echo "corpus=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "corpus=true" >> "$GITHUB_OUTPUT"
+          fi
+
   corpus-shard:
     name: Corpus shard ${{ matrix.shard }}
-    needs: release-please
+    needs: [release-please, changes]
     # PRs/manual runs skip Release Please; a skipped controller must not suppress CI.
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.changes.outputs.corpus == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -131,9 +168,9 @@ jobs:
 
   corpus:
     name: Corpus
-    needs: [release-please, corpus-shard]
+    needs: [release-please, changes, corpus-shard]
     # PRs/manual runs skip Release Please; a skipped controller must not suppress CI.
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.changes.outputs.corpus == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -212,6 +249,36 @@ jobs:
         env:
           PLAYWRIGHT_VERSION: 1.62.1
         run: node scripts/packed-consumer.mjs "$RUNNER_TEMP/package/"*.tgz
+
+  # The one required status check. It names every job a PR must pass, so the
+  # ruleset never changes when a job is added, renamed or resharded. It runs
+  # even when a job it needs failed or was skipped, because GitHub counts a
+  # skipped required check as passing.
+  ci-ok:
+    name: CI OK
+    needs: [changes, check, corpus-shard, corpus, consumer]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every job to pass
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        shell: bash
+        run: |
+          # Only the corpus jobs may be skipped, and only when "changes" said
+          # this PR cannot affect the corpus. Any other skip means a job never ran.
+          node --input-type=module -e '
+            const needs = JSON.parse(process.env.NEEDS);
+            const corpusSkippable = needs.changes?.outputs?.corpus === "false";
+            const failed = Object.entries(needs).filter(
+              ([job, { result }]) =>
+                result !== "success" &&
+                !(corpusSkippable && result === "skipped" && ["corpus-shard", "corpus"].includes(job))
+            );
+            for (const [job, { result }] of failed) console.log(`::error::${job}: ${result}`);
+            process.exitCode = failed.length ? 1 : 0;
+          '
 
   publish-npm:
     name: Publish npm

@@ -1,4 +1,4 @@
-import { WrappedHostFunction } from "./hostGlobals";
+import { HostObservation, perWindow } from "./hostGlobals";
 
 /**
  * The `fetch` and `XMLHttpRequest` calls the controlled document makes,
@@ -98,7 +98,7 @@ export interface Response {
   request(): Request;
 }
 
-type Emit = (event: NetworkEventName, payload: unknown) => void;
+type NetworkReport = (event: NetworkEventName, payload: unknown) => void;
 
 /** Pinned client/page.ts `waitForRequest`/`waitForResponse` first argument. */
 export type NetworkMatch<T> =
@@ -347,25 +347,15 @@ class ObservedResponse implements Response {
   }
 }
 
-const observations = new WeakMap<Window, NetworkObservation>();
-
 /**
  * The one observation of a window's `fetch` and `XMLHttpRequest`. Every `Page`
  * created for the same window shares it: a second wrapper would wrap the first
  * one's proxy, and unsubscribing in the order they were installed would then
  * leave that proxy behind for good.
  */
-export function networkObservationFor(
-  browserWindow: Window & typeof globalThis
-): NetworkObservation {
-  let observation = observations.get(browserWindow);
-  if (!observation)
-    observations.set(
-      browserWindow,
-      (observation = new NetworkObservation(browserWindow))
-    );
-  return observation;
-}
+export const networkObservationFor = perWindow(
+  (browserWindow) => new NetworkObservation(browserWindow)
+);
 
 /**
  * Reports the `fetch` and `XMLHttpRequest` calls the document makes as
@@ -383,10 +373,7 @@ export class NetworkObservation {
    * The host functions this observation replaces. They are installed and
    * restored together, so one subscription is one decision about the document.
    */
-  private readonly wrappers: readonly { subscribe(): () => void }[];
-  /** How many live subscriptions each subscriber holds, so one release of a
-   * `Page` that subscribed twice does not stop reporting to it. */
-  private readonly subscribers = new Map<Emit, number>();
+  private readonly host: HostObservation<NetworkReport>;
   /** What `open` recorded for an `XMLHttpRequest` this observation saw. */
   private readonly openedRequests = new WeakMap<XMLHttpRequest, OpenedXhr>();
   /**
@@ -401,41 +388,40 @@ export class NetworkObservation {
       string,
       unknown
     >;
-    this.wrappers = [
-      new WrappedHostFunction<NativeFetch>(
-        window as unknown as Record<string, unknown>,
-        "fetch",
-        (original, thisArg, args) => this.observeFetch(original, thisArg, args)
-      ),
-      new WrappedHostFunction<XhrOpen>(xhr, "open", (original, thisArg, args) =>
-        this.observeOpen(original, thisArg, args)
-      ),
-      new WrappedHostFunction<XhrSetRequestHeader>(
-        xhr,
-        "setRequestHeader",
-        (original, thisArg, args) =>
-          this.observeSetRequestHeader(original, thisArg, args)
-      ),
-      new WrappedHostFunction<XhrSend>(xhr, "send", (original, thisArg, args) =>
-        this.observeSend(original, thisArg, args)
-      ),
-    ];
+    this.host = new HostObservation<NetworkReport>(
+      [
+        {
+          holder: window as unknown as Record<string, unknown>,
+          name: "fetch",
+          intercept: (original: NativeFetch, thisArg, args) =>
+            this.observeFetch(original, thisArg, args),
+        },
+        {
+          holder: xhr,
+          name: "open",
+          intercept: (original: XhrOpen, thisArg, args) =>
+            this.observeOpen(original, thisArg, args),
+        },
+        {
+          holder: xhr,
+          name: "setRequestHeader",
+          intercept: (original: XhrSetRequestHeader, thisArg, args) =>
+            this.observeSetRequestHeader(original, thisArg, args),
+        },
+        {
+          holder: xhr,
+          name: "send",
+          intercept: (original: XhrSend, thisArg, args) =>
+            this.observeSend(original, thisArg, args),
+        },
+      ],
+      { onLastRelease: () => this.inflight.clear() }
+    );
   }
 
-  /** Reports to `emit` until the returned release is called. */
-  subscribe(emit: Emit): () => void {
-    this.subscribers.set(emit, (this.subscribers.get(emit) ?? 0) + 1);
-    const releases = this.wrappers.map((wrapper) => wrapper.subscribe());
-    let released = false;
-    return () => {
-      if (released) return;
-      released = true;
-      const held = (this.subscribers.get(emit) ?? 1) - 1;
-      if (held > 0) this.subscribers.set(emit, held);
-      else this.subscribers.delete(emit);
-      if (this.subscribers.size === 0) this.inflight.clear();
-      for (const release of releases) release();
-    };
+  /** Reports to `report` until the returned release is called. */
+  subscribe(report: NetworkReport): () => void {
+    return this.host.subscribe(report);
   }
 
   /**
@@ -490,8 +476,7 @@ export class NetworkObservation {
       if (!request.url().endsWith("/favicon.ico")) this.inflight.add(request);
     } else if (event === "requestfinished" || event === "requestfailed")
       this.inflight.delete(payload as Request);
-    for (const subscriber of [...this.subscribers.keys()])
-      subscriber(event, payload);
+    this.host.report(event, payload);
   }
 
   private observeFetch(

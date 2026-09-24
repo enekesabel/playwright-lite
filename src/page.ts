@@ -33,7 +33,7 @@ import {
   type Request as NetworkRequest,
   type Response as NetworkResponse,
 } from "./network";
-import { dialogObservationFor, Dialog } from "./dialog";
+import { dialogObservationFor, Dialog, type DialogReport } from "./dialog";
 import {
   CONSOLE_EVENT,
   CONSOLE_MESSAGE_LIMIT,
@@ -301,6 +301,42 @@ type ActionableInjectedScript = {
   dispatchEvent(node: Node, type: string, eventInitObj: object): void;
 };
 
+/**
+ * One page's use of a host source. `start` subscribes this page and returns
+ * the release; the feed holds a subscription while a listener wants the
+ * source, and another for good once `retain` is called. For a host observation,
+ * `start` always subscribes the page's one stable reporter, which the
+ * observation counts once per call, so holding both never reports a call twice.
+ */
+class PageFeed {
+  private stopListening: (() => void) | undefined;
+  private retained = false;
+
+  constructor(private readonly start: () => () => void) {}
+
+  /** Starts or stops the listened subscription to match `wanted`. */
+  listen(wanted: boolean): void {
+    if (wanted === (this.stopListening !== undefined)) return;
+    if (wanted) {
+      this.stopListening = this.start();
+      return;
+    }
+    this.stopListening!();
+    this.stopListening = undefined;
+  }
+
+  /**
+   * Holds a subscription that is never released, as the pinned dispatcher
+   * keeps the subscription a log read adds: a log nobody observes cannot be
+   * filled later.
+   */
+  retain(): void {
+    if (this.retained) return;
+    this.retained = true;
+    this.start();
+  }
+}
+
 export class PageImpl {
   readonly [PAGE_BRAND] = PAGE_BRAND_TOKEN;
   readonly document: Document;
@@ -318,9 +354,6 @@ export class PageImpl {
   private defaultNavigationTimeout: number | undefined;
   private readonly listeners = new Map<string, ListenerEntry[]>();
   private readonly pendingListeners = new Map<string, Set<PendingListener>>();
-  private unobserveNavigation: (() => void) | undefined;
-  private unobserveNetwork: (() => void) | undefined;
-  private unobserveDialogs: (() => void) | undefined;
   private readonly network: ReturnType<typeof networkObservationFor>;
   private readonly dialogs: ReturnType<typeof dialogObservationFor>;
   /** Pinned server/page.ts `_pageBindings`, shared per window like `network`. */
@@ -332,46 +365,19 @@ export class PageImpl {
   };
   /** Pinned server/page.ts keeps the recent requests per page, not per realm. */
   private readonly requestLog: NetworkRequest[] = [];
-  /**
-   * The subscription `requests()` takes. Like the pinned dispatcher, which
-   * adds the `request` subscription when the log is first read, it is never
-   * released: a request log nobody observes cannot be filled later.
-   */
-  private retainedNetwork: (() => void) | undefined;
-  /**
-   * The one reporter `requests()` and the network listeners both subscribe
-   * with. The observation counts subscriptions per reporter, so the two are
-   * holders of one subscription and a request is logged and emitted once.
-   */
-  private readonly reportNetwork = (
-    event: NetworkEventName,
-    payload: unknown
-  ) => {
-    if (event === "request")
-      recordRequest(this.requestLog, payload as NetworkRequest);
-    this.emit(event, payload);
-  };
   private readonly documentObservers = new Set<() => void>();
   private unobserveDocument: (() => void) | undefined;
   private readonly pageErrorsBuffer: Error[] = [];
-  private unobserveConsole: (() => void) | undefined;
   private readonly consoleObservation: ReturnType<typeof consoleObservationFor>;
   private readonly consoleMessagesBuffer: ConsoleMessage[] = [];
   /**
-   * The subscription `consoleMessages()` takes. Like `retainedNetwork`, it is
-   * never released: a console log nobody observes cannot be filled later.
+   * This page's feed from each host source, started while a listener wants
+   * it and, for the ones with a log, for good once the log has been read.
    */
-  private retainedConsoleMessages: (() => void) | undefined;
-  /**
-   * `consoleMessages()` and the `console` listener path each call
-   * `subscribeToConsole()`, both of which must feed the same buffer and the
-   * same listeners. This counts how many of this page's own callers hold a
-   * subscription, so the underlying `consoleObservation.subscribe()` call
-   * happens once and its one reporting closure is shared, rather than each
-   * caller installing (and reporting through) its own.
-   */
-  private consoleSubscribers = 0;
-  private releaseConsoleSubscription: (() => void) | undefined;
+  private readonly navigationFeed: PageFeed;
+  private readonly networkFeed: PageFeed;
+  private readonly dialogFeed: PageFeed;
+  private readonly consoleFeed: PageFeed;
 
   constructor(
     browserWindow: Window & typeof globalThis,
@@ -387,6 +393,49 @@ export class PageImpl {
     this.dialogs = dialogObservationFor(browserWindow);
     this.bindings = bindingsFor(browserWindow);
     this.consoleObservation = consoleObservationFor(browserWindow);
+    this.navigationFeed = new PageFeed(() => this.observeNavigation());
+    // One reporter per feed, built here: listening and retaining subscribe
+    // the same reporter, and the observation counts subscriptions per
+    // reporter, so each call is logged and emitted once on this page.
+    // The observation is shared by every `Page` of this window, so a call is
+    // intercepted once; the recent-request log stays per page.
+    const reportNetwork = (event: NetworkEventName, payload: unknown) => {
+      if (event === "request")
+        recordRequest(this.requestLog, payload as NetworkRequest);
+      this.emit(event, payload);
+    };
+    this.networkFeed = new PageFeed(() =>
+      this.network.subscribe(reportNetwork)
+    );
+    const reportDialog: DialogReport = (type, message, defaultValue, box) => {
+      this.emit(
+        "dialog",
+        new Dialog(
+          type,
+          message,
+          defaultValue,
+          box,
+          () => this as unknown as Page
+        )
+      );
+    };
+    this.dialogFeed = new PageFeed(() => this.dialogs.subscribe(reportDialog));
+    const reportConsole = (call: ConsoleCall) => {
+      const message = buildConsoleMessage(
+        this as unknown as Page,
+        call.type,
+        call.args.map((arg) => this.evaluation.handleFor(arg)),
+        call.text,
+        call.location,
+        call.timestamp
+      );
+      this.consoleMessagesBuffer.push(message);
+      ensureArrayLimit(this.consoleMessagesBuffer, CONSOLE_MESSAGE_LIMIT);
+      this.emit(CONSOLE_EVENT, message);
+    };
+    this.consoleFeed = new PageFeed(() =>
+      this.consoleObservation.subscribe(reportConsole)
+    );
     this.startPageErrorCollection();
   }
 
@@ -1741,72 +1790,8 @@ export class PageImpl {
    * subscription so the log keeps filling once it has been read.
    */
   async requests(): Promise<NetworkRequest[]> {
-    this.retainedNetwork ??= this.subscribeToNetwork();
+    this.networkFeed.retain();
     return [...this.requestLog];
-  }
-
-  /**
-   * Reports the window's `fetch` and `XMLHttpRequest` calls on this page
-   * while the subscription lives. The observation is shared by every `Page`
-   * of this window, so a call is intercepted once; the recent-request log
-   * stays per page.
-   */
-  private subscribeToNetwork(): () => void {
-    return this.network.subscribe(this.reportNetwork);
-  }
-
-  /** Reports the window's `alert`/`confirm`/`prompt` calls on this page while the subscription lives. */
-  private subscribeToDialogs(): () => void {
-    return this.dialogs.subscribe((type, message, defaultValue, box) => {
-      this.emit(
-        "dialog",
-        new Dialog(
-          type,
-          message,
-          defaultValue,
-          box,
-          () => this as unknown as Page
-        )
-      );
-    });
-  }
-
-  /**
-   * Reports the window's `console.*` calls on this page while at least one
-   * of this page's own callers (a `console` listener, `consoleMessages()`)
-   * still holds the subscription this returns. The observation is shared by
-   * every `Page` of this window, so the call is intercepted once; this page
-   * installs its own single reporting closure on the first caller and shares
-   * it with every later one, so one `console.*` call fills the buffer and
-   * fires the event exactly once, however many of this page's callers are
-   * holding a subscription at the time.
-   */
-  private subscribeToConsole(): () => void {
-    if (this.consoleSubscribers++ === 0)
-      this.releaseConsoleSubscription = this.consoleObservation.subscribe(
-        (call: ConsoleCall) => {
-          const message = buildConsoleMessage(
-            this as unknown as Page,
-            call.type,
-            call.args.map((arg) => this.evaluation.handleFor(arg)),
-            call.text,
-            call.location,
-            call.timestamp
-          );
-          this.consoleMessagesBuffer.push(message);
-          ensureArrayLimit(this.consoleMessagesBuffer, CONSOLE_MESSAGE_LIMIT);
-          this.emit(CONSOLE_EVENT, message);
-        }
-      );
-    let released = false;
-    return () => {
-      if (released) return;
-      released = true;
-      if (--this.consoleSubscribers === 0) {
-        this.releaseConsoleSubscription?.();
-        this.releaseConsoleSubscription = undefined;
-      }
-    };
   }
 
   private async waitForPageEvent(
@@ -1927,40 +1912,14 @@ export class PageImpl {
    * see `startPageErrorCollection`.
    */
   private observeHost() {
-    this.unobserveNavigation = this.observeWhileListened(
-      "framenavigated",
-      this.unobserveNavigation,
-      () => this.observeNavigation()
-    );
-    this.unobserveNetwork = this.observeWhileListened(
-      NETWORK_EVENTS,
-      this.unobserveNetwork,
-      () => this.subscribeToNetwork()
-    );
-    this.unobserveDialogs = this.observeWhileListened(
-      "dialog",
-      this.unobserveDialogs,
-      () => this.subscribeToDialogs()
-    );
-    this.unobserveConsole = this.observeWhileListened(
-      CONSOLE_EVENT,
-      this.unobserveConsole,
-      () => this.subscribeToConsole()
-    );
+    this.navigationFeed.listen(this.isListened("framenavigated"));
+    this.networkFeed.listen(this.isListened(...NETWORK_EVENTS));
+    this.dialogFeed.listen(this.isListened("dialog"));
+    this.consoleFeed.listen(this.isListened(CONSOLE_EVENT));
   }
 
-  private observeWhileListened(
-    events: string | readonly string[],
-    stop: (() => void) | undefined,
-    start: () => () => void
-  ): (() => void) | undefined {
-    const wanted = (typeof events === "string" ? [events] : events).some(
-      (event) => (this.listeners.get(event)?.length ?? 0) > 0
-    );
-    if (wanted === (stop !== undefined)) return stop;
-    if (wanted) return start();
-    stop!();
-    return undefined;
+  private isListened(...events: readonly string[]): boolean {
+    return events.some((event) => (this.listeners.get(event)?.length ?? 0) > 0);
   }
 
   /**
@@ -2051,7 +2010,7 @@ export class PageImpl {
   }): Promise<ConsoleMessage[]> {
     rejectUnsupportedOptions("consoleMessages", options, ["filter"]);
     validateHistoryFilter(options?.filter);
-    this.retainedConsoleMessages ??= this.subscribeToConsole();
+    this.consoleFeed.retain();
     return this.consoleMessagesBuffer.slice();
   }
 
