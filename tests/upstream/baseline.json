@@ -983,16 +983,280 @@
       "evidence": "A rendered button satisfies toBeVisible({ visible: true }) through the correlated Locator.toBeVisible -> Locator._expect path."
     },
     {
+      "id": "expect-misc.spec.ts > toBeInViewport > should report intersection even if fully covered by other element",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeInViewport",
+      "evidence": "toBeInViewport() passes for a visible h1 inside the viewport. The upstream markup never closes the covering div's style attribute, so that div is not parsed and the covering element the title describes does not exist; this entry does not prove intersection under an overlay."
+    },
+    {
+      "id": "expect-misc.spec.ts > toBeInViewport > should respect ratio option",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeInViewport",
+      "evidence": "A 400vh element (visible ratio 0.25) is in the viewport for ratios up to 0.25 and not for 0.26, 0.3, 0.7 and 0.8."
+    },
+    {
+      "id": "expect-misc.spec.ts > toBeInViewport > should work",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeInViewport",
+      "evidence": "A 10000px-tall element is in the viewport and the element below it is not; after an adapter Locator.scrollIntoViewIfNeeded the lower element is in the viewport, including with ratio: 1."
+    },
+    {
+      "id": "expect-misc.spec.ts > toContainClass > fail",
+      "method": "Locator._expect",
+      "matcher": "Locator.toContainClass",
+      "evidence": "toContainClass('does-not-exist') on class \"bar baz\" rejects with Playwright's exact message (Expected: \"does-not-exist\", Received: \"bar baz\", Timeout: 1000ms, Call log) and the matching call-log line."
+    },
+    {
+      "id": "expect-misc.spec.ts > toContainClass > fail with array",
+      "method": "Locator._expect",
+      "matcher": "Locator.toContainClass",
+      "evidence": "An array whose third class is absent rejects with the toContainClass failure header, 'Timeout: 1000ms' and the 'Expect \"toContainClass\" with timeout 1000ms' call-log line."
+    },
+    {
+      "id": "expect-misc.spec.ts > toContainClass > pass with SVGs",
+      "method": "Locator._expect",
+      "matcher": "Locator.toContainClass",
+      "evidence": "toContainClass('c1') matches one class of an SVG element."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveAttribute > pass",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAttribute",
+      "evidence": "toHaveAttribute('id', 'node') matches the element's attribute value."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveAttribute > should match attribute without value",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAttribute",
+      "evidence": "The name-only form resolves for present 'id' and 'checked' attributes, and not.toHaveAttribute('open') resolves for an absent one."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveAttribute > should match boolean attribute",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAttribute",
+      "evidence": "A valueless 'checked' attribute matches '' and /.*/, and both negated forms reject with Playwright's exact 'not' messages and 'Expect \"not toHaveAttribute\"' call-log lines."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveAttribute > should not match missing attribute",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAttribute",
+      "evidence": "For a missing 'disabled' attribute, toHaveAttribute with '' and with /.*/ both reject with Playwright's exact messages ('serializes to the same string'; Expected pattern /.*/, Received string \"\"), and both negated forms resolve."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveAttribute > should support boolean attribute with options",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAttribute",
+      "evidence": "The name-only form with an options object as its second argument resolves for present 'id' and 'checked' attributes and, negated, for an absent 'open'."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveAttribute > support ignoreCase",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAttribute",
+      "evidence": "An id of \"NoDe\" matches 'node' with ignoreCase: true and does not match it without."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveClass > fail",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveClass",
+      "evidence": "toHaveClass('foo bar baz') on class \"bar baz\" rejects with Playwright's exact message (Expected: \"foo bar baz\", Received: \"bar baz\", Timeout: 1000ms, Call log) and the 'Expect \"toHaveClass\" with timeout 1000ms' line."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveClass > fail with array",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveClass",
+      "evidence": "An array whose third RegExp does not match rejects with the toHaveClass failure header, 'Timeout: 1000ms' and the 'Expect \"toHaveClass\" with timeout 1000ms' call-log line."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveClass > pass",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveClass",
+      "evidence": "toHaveClass('foo bar baz') matches the element's full class attribute."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveClass > pass with array",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveClass",
+      "evidence": "toHaveClass(['foo', 'bar', /[a-z]az/]) matches the classes of three elements in order, mixing strings and a RegExp."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveClass > pass with SVGs",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveClass",
+      "evidence": "toHaveClass(/c1/) matches the class attribute of an SVG element."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveCount > eventually pass zero",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCount",
+      "evidence": "toHaveCount(0) retries until an adapter Page.evaluate empties the div, then not.toHaveCount(1) resolves; setContent is native setup only."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveCount > fail zero",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCount",
+      "evidence": "With one span, toHaveCount(0, { timeout: 1000 }) rejects with Playwright's exact message (Locator: locator('span'), Expected: 0, Received: 1, Timeout: 1000ms) and the 'Expect \"toHaveCount\" with timeout 1000ms' call-log line."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveCount > fail zero 2",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCount",
+      "evidence": "With one span, not.toHaveCount(1, { timeout: 1000 }) rejects with Playwright's exact negated message (Expected: not 1, Received: 1, Timeout: 1000ms) and the 'Expect \"not toHaveCount\"' call-log line."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveCount > pass zero",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCount",
+      "evidence": "With no matching span, toHaveCount(0) and not.toHaveCount(1) both resolve through the public Locator matcher; setContent is native setup only."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveCount > toHaveCount pass",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCount",
+      "evidence": "toHaveCount(2) is still pending after 1s with one option (done stays false) and resolves after a second setContent renders two options, proving the public Locator matcher retries until the count matches. Both setContent calls run natively; the second is the mid-test mutation the matcher waits for."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveCSS > custom css properties",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCSS",
+      "evidence": "toHaveCSS('--custom-color-property', '#FF00FF') matches an inline custom property."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveCSS > pass",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCSS",
+      "evidence": "toHaveCSS('color', 'rgb(255, 0, 0)') matches the element's computed color."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveCSS > should support pseudo element",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCSS",
+      "evidence": "toHaveCSS('color', 'rgb(255, 0, 0)', { pseudo: 'before' }) matches the computed color of the ::before pseudo-element."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveId > pass",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveId",
+      "evidence": "toHaveId('node') matches the element's id."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > fail",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "An expected Date 1ms off makes toHaveJSProperty reject with a diff that contains the '-   \"c\"' line."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > fail boolean",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "toHaveJSProperty('foo', true) on a false property rejects with Playwright's exact message (Expected: true, Received: false, Timeout: 200ms) and the matching call-log line."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > fail boolean 2",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "toHaveJSProperty('foo', true) on a false property rejects with Playwright's exact message (Expected: true, Received: false, Timeout: 200ms) and the matching call-log line."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > fail nested",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "A missing dotted path ('foo.bar') rejects with 'Received: undefined' and a mismatched nested value ('foo.nested.a' expected 2) rejects with 'Received: 1'; the Node-side soft assertions on those messages fail the test if either is wrong."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > fail number",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "toHaveJSProperty('foo', 1) rejects with Playwright's exact message (Expected: 1, Received: 2021, Timeout: 200ms) and the matching call-log line."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > fail string",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "toHaveJSProperty('foo', 'error') rejects with Playwright's exact message (Expected: \"error\", Received: \"string\", Timeout: 200ms) and the 'Expect \"toHaveJSProperty\" with timeout 200ms' call-log line."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > pass",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "After an adapter Page.$eval stores an object holding a Date on the element, toHaveJSProperty('foo', { a, b, c: Date }) deep-equals it through the public Locator matcher."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > pass boolean",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "toHaveJSProperty('foo', true) matches a true property stored by an adapter Page.$eval."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > pass boolean 2",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "toHaveJSProperty('foo', false) matches a false property stored by an adapter Page.$eval."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > pass nested",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "Dotted property paths resolve nested values: 'foo.nested' deep-equals an object with a Date, and 'foo.nested.a', '.b' and '.c' match their number, string and Date values."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > pass null",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "toHaveJSProperty('foo', null) matches a null property stored by an adapter Page.$eval."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > pass number",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "toHaveJSProperty('foo', 2021) matches a number property stored by an adapter Page.$eval."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > pass string",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "toHaveJSProperty('foo', 'string') matches a string property stored by an adapter Page.$eval."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveJSProperty > pass undefined",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveJSProperty",
+      "evidence": "toHaveJSProperty('foo', undefined) resolves for an element that never had the property."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveTitle > fail",
+      "method": "Page._expect",
+      "matcher": "Page.toHaveTitle",
+      "evidence": "toHaveTitle('Hello') on a document titled \"Bye\" rejects with Playwright's exact expect(page) message (Expected: \"Hello\", Received: \"Bye\", Timeout: 1000ms, Call log) and the 'Expect \"toHaveTitle\" with timeout 1000ms' line; setContent is native setup only."
+    },
+    {
       "id": "expect-misc.spec.ts > toHaveTitle > pass",
       "method": "Page._expect",
       "matcher": "Page.toHaveTitle",
       "evidence": "After setting a title with irregular whitespace, the public Page matcher accepts the normalized expected title \"Hello  world\" through the correlated Page.toHaveTitle -> Page._expect path."
     },
     {
+      "id": "expect-misc.spec.ts > toHaveURL > fail string",
+      "method": "Page._expect",
+      "matcher": "Page.toHaveURL",
+      "evidence": "After the fixture's native goto establishes the data: document, toHaveURL('wrong') rejects with Playwright's exact expect(page) message whose Received value is that current-document URL; native goto is setup only."
+    },
+    {
       "id": "expect-misc.spec.ts > toHaveURL > pass",
       "method": "Page._expect",
       "matcher": "Page.toHaveURL",
       "evidence": "After the fixture's native goto establishes the data: document, the public Page matcher verifies that exact current-document URL through the correlated Page.toHaveURL -> Page._expect path; native goto is setup only."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveURL > resolve predicate on initial call",
+      "method": "Page._expect",
+      "matcher": "Page.toHaveURL",
+      "evidence": "A URL predicate, rebuilt in the browser, receives the current-document URL and toHaveURL resolves on it within 1000ms; native goto is setup only."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveURL > support ignoreCase",
+      "method": "Page._expect",
+      "matcher": "Page.toHaveURL",
+      "evidence": "toHaveURL('DATA:teXT/HTml,<div>a</div>', { ignoreCase: true }) matches the current-document data: URL case-insensitively; native goto is setup only."
     },
     {
       "id": "expect-timeout.spec.ts > should fail like a timeout when toHaveCount is aborted mid-assertion",
@@ -1054,10 +1318,316 @@
       "evidence": "toHaveText('hey', { timeout: 1 }) on an unmatched locator fails with the exact element(s) not found header and Timeout: 1ms, so a 1ms deadline still reports a timeout."
     },
     {
+      "id": "expect-to-have-accessible.spec.ts > should not show error message when validity is true and aria-invalid is false",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleErrorMessage",
+      "evidence": "After an adapter Locator.fill('99') leaves the input valid with aria-invalid=\"false\", not.toHaveAccessibleErrorMessage resolves."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > should show error message for all roles",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleErrorMessage",
+      "evidence": "A file input found by getByLabel exposes its aria-errormessage alert text 'File is incorrect'."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > should show error message when validity is false and aria-invalid is false",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleErrorMessage",
+      "evidence": "After an adapter Locator.fill('101') makes the input invalid, the referenced error message is exposed although aria-invalid=\"false\"."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > should show error message when validity is false and aria-invalid is true",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleErrorMessage",
+      "evidence": "After an adapter Locator.fill('101') on a number input with max 100 and aria-invalid=\"true\", toHaveAccessibleErrorMessage exposes the referenced message."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > should show error message when validity is true and aria-invalid is true",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleErrorMessage",
+      "evidence": "After an adapter Locator.fill('99') leaves the input valid, aria-invalid=\"true\" still exposes the referenced error message."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleDescription",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleDescription",
+      "evidence": "aria-description matches by string, ignoreCase and RegExp with the negations rejecting case mismatches, and an aria-describedby description normalizes to 'foo bar baz'; setContent is native setup only."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleErrorMessage",
+      "evidence": "The aria-errormessage target 'Hello' matches by string, ignoreCase and RegExp, the negations reject case mismatches, and an unreferenced element's text is not the message."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage should handle aria-invalid attribute > evaluated in false > aria-invalid=\"\" (empty string)",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleErrorMessage",
+      "evidence": "With an empty aria-invalid, the aria-errormessage target is not exposed: not.toHaveAccessibleErrorMessage('Error message') resolves."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage should handle aria-invalid attribute > evaluated in false > aria-invalid=\"false\"",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleErrorMessage",
+      "evidence": "With aria-invalid=\"false\", the aria-errormessage target is not exposed: not.toHaveAccessibleErrorMessage('Error message') resolves."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage should handle aria-invalid attribute > evaluated in false > no aria-invalid attribute",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleErrorMessage",
+      "evidence": "Without aria-invalid, the aria-errormessage target is not exposed: not.toHaveAccessibleErrorMessage('Error message') resolves."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage should handle aria-invalid attribute > evaluated in true > aria-invalid=\"foo\" (unrecognized value)",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleErrorMessage",
+      "evidence": "An unrecognized aria-invalid value counts as invalid: toHaveAccessibleErrorMessage('Error message') resolves."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage should handle aria-invalid attribute > evaluated in true > aria-invalid=\"true\"",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleErrorMessage",
+      "evidence": "With aria-invalid=\"true\", toHaveAccessibleErrorMessage('Error message') resolves to the aria-errormessage target's text."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleErrorMessage should handle multiple aria-errormessage references",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleErrorMessage",
+      "evidence": "Two aria-errormessage ids join into 'First error message. Second error message.', each part matches by RegExp, and unreferenced text is excluded."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > toHaveAccessibleName",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAccessibleName",
+      "evidence": "The accessible name matches by string, ignoreCase and RegExp with the negations rejecting case mismatches, nbsp and newlines normalize to 'foo bar baz' for a button, and an option's leading nbsp is trimmed to 'HTML'; setContent is native setup only."
+    },
+    {
+      "id": "expect-to-have-accessible.spec.ts > toHaveRole",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveRole",
+      "evidence": "toHaveRole('button') matches an explicit role, not.toHaveRole('checkbox') resolves, and a RegExp argument rejects with exactly '\"role\" argument in toHaveRole must be a string'."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > not.toHaveText > fail",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "not.toHaveText('Text content') on a matching element rejects with 'Expected: not \"Text content\"' and the received text."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > not.toHaveText > pass",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "not.toHaveText resolves for a different string and for a case mismatch, so matching is case-sensitive by default."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toContainText with array > fail",
+      "method": "Locator._expect",
+      "matcher": "Locator.toContainText",
+      "evidence": "toContainText(['Text 2']) rejects with a diff that contains the '-   \"Text 2\"' line."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toContainText with array > pass",
+      "method": "Locator._expect",
+      "matcher": "Locator.toContainText",
+      "evidence": "An array of substrings and a RegExp matches a subsequence of the elements, including with ignoreCase: true."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toContainText with regex > fail",
+      "method": "Locator._expect",
+      "matcher": "Locator.toContainText",
+      "evidence": "toContainText(/ex2/) rejects with 'Expected pattern: /ex2/' and 'Received string:  \"Text content\"'."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toContainText with regex > pass",
+      "method": "Locator._expect",
+      "matcher": "Locator.toContainText",
+      "evidence": "toContainText matches a RegExp substring and, without whitespace normalization, /ext   cont/."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toContainText with string > fail",
+      "method": "Locator._expect",
+      "matcher": "Locator.toContainText",
+      "evidence": "toContainText('foo') rejects with Playwright's exact message (Expected substring: \"foo\", Received string: \"Text content\", Timeout: 1000ms, Call log)."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toContainText with string > pass",
+      "method": "Locator._expect",
+      "matcher": "Locator.toContainText",
+      "evidence": "toContainText('content') matches a substring of the element's text."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with array > fail on not+empty",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "not.toHaveText([]) with no matching elements rejects with the not.toHaveText failure header, 'Timeout:  1000ms' and the 'Expect \"not toHaveText\" with timeout 1000ms' call-log line."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with array > fail on repeating array matchers",
+      "method": "Locator._expect",
+      "matcher": "Locator.toContainText",
+      "evidence": "toContainText with three expected items against one element rejects, and its call log reports 'locator resolved to 1 element'."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with array > pass",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "An array matches elements in order with whitespace normalization for strings and none for a RegExp, and with ignoreCase: true."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with array > pass empty",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "toHaveText([]) resolves when the locator matches no elements."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with array > pass eventually empty",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "not.toHaveText([]) resolves while the locator matches a paragraph."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with array > pass lazy",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "An array expectation retries until an adapter Page.evaluate inserts the two matching paragraphs after 500ms."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with array > pass not empty",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "not.toHaveText([]) resolves when the locator matches one element."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with array > pass on empty",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "not.toHaveText(['Test']) resolves when the locator matches no elements."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with regex > fail",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "toHaveText(/Text 2/) rejects with Playwright's exact message (Expected pattern: /Text 2/, Received string: \"Text content\", Timeout: 1000ms, Call log)."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with regex > pass",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "A RegExp matches without whitespace normalization, ignoreCase: true makes it case-insensitive, and ignoreCase: false overrides the RegExp's own i flag."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with text > do not show \"element(s) not found\" when the real failure is a string mismatch",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "When the locator starts matching after 1s but the text never matches, the failure reports 'Received: \"Final value\"' instead of a not-found error."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with text > fail",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "toHaveText('Text') on \"Text content\" rejects with 'Expected: \"Text\"' and 'Received: \"Text content\"'."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with text > fail with impossible timeout",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "With timeout: 1, toHaveText('Text') still reports 'Expected: \"Text\"' and 'Received: \"Text content\"'."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with text > in shadow dom",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "toHaveText and toContainText read text through an open shadow root on both the inner span and the host, and with useInnerText the host does not pierce the shadow root (negated forms resolve)."
+    },
+    {
       "id": "expect-to-have-text.spec.ts > toHaveText with text > pass",
       "method": "Locator._expect",
       "matcher": "Locator.toHaveText",
       "evidence": "The public Locator matcher verifies normalized whitespace, zero-width whitespace, ignoreCase true/false, negation, and soft-hyphen normalization through the correlated Locator.toHaveText -> Locator._expect path."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with text > pass contain",
+      "method": "Locator._expect",
+      "matcher": "Locator.toContainText",
+      "evidence": "toContainText matches a substring, normalizes whitespace in the expected string, supports ignoreCase: true, and with ignoreCase: false the negated case mismatch resolves."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with text > pass eventually",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "toHaveText(/Text 2/) retries until an adapter Locator.evaluate changes the text after 1s."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > toHaveText with text > with userInnerText",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "With useInnerText: true, the text of a hidden span is excluded and toHaveText('Text content') resolves."
+    },
+    {
+      "id": "expect-to-have-value.spec.ts > should support failure",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveValue",
+      "evidence": "toHaveValue(/Text2/) rejects with a message containing the received value \"Text content\"."
+    },
+    {
+      "id": "expect-to-have-value.spec.ts > should work",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveValue",
+      "evidence": "After an adapter Locator.fill, toHaveValue('Text content') matches the input's value."
+    },
+    {
+      "id": "expect-to-have-value.spec.ts > should work with label",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveValue",
+      "evidence": "toHaveValue on a label retargets to its input and matches the value set by an adapter Locator.fill."
+    },
+    {
+      "id": "expect-to-have-value.spec.ts > should work with regex",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveValue",
+      "evidence": "toHaveValue(/Text/) matches the value set by an adapter Locator.fill."
+    },
+    {
+      "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > exact match with text failure",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveValues",
+      "evidence": "Strings match values exactly: toHaveValues(['R', 'G']) against selected 'RR' and 'GG' rejects with a diff containing '-   \"R\"' and '+   \"RR\"'."
+    },
+    {
+      "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > fails when items not selected",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveValues",
+      "evidence": "toHaveValues([/R/, /G/]) with only 'B' selected rejects with a diff containing '+   \"B\"'."
+    },
+    {
+      "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > fails when multiple not specified",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveValues",
+      "evidence": "toHaveValues on a select without the multiple attribute rejects with 'Not a select element with a multiple attribute'."
+    },
+    {
+      "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > fails when not a select element",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveValues",
+      "evidence": "toHaveValues on an input rejects with 'Not a select element with a multiple attribute'."
+    },
+    {
+      "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > follows labels",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveValues",
+      "evidence": "A locator on the label text retargets to its multi-select, and toHaveValues(['R', 'G']) matches the options selected through it."
+    },
+    {
+      "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > works with regex",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveValues",
+      "evidence": "toHaveValues([/R/, /G/]) matches the selected values of a multi-select."
+    },
+    {
+      "id": "expect-to-have-value.spec.ts > toHaveValues with multi-select > works with text",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveValues",
+      "evidence": "After an adapter Locator.selectOption(['R', 'G']), toHaveValues(['R', 'G']) matches the selected values of a multi-select."
     },
     {
       "id": "jshandle-as-element.spec.ts > should return ElementHandle for TextNodes",
@@ -4657,6 +5227,12 @@
       "id": "selectors-text.spec.ts > text-is() should ignore comments",
       "method": "Page.$eval",
       "evidence": "Upstream assertions verify text-is() should ignore comments through browser-side Page.$eval selector evaluation."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > generated snapshot includes text children when name is longer than text",
+      "method": "Locator._expect",
+      "matcher": "Locator.toMatchAriaSnapshot",
+      "evidence": "An inline /children: deep-equal snapshot matches a progressbar named \"Alpha Beta\" together with its text children \"Alpha 7\" through the public Locator matcher; setContent is native setup only."
     }
   ]
 }
