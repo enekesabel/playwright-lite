@@ -2476,6 +2476,41 @@ export class PageImpl {
   }
 
   /**
+   * Pinned client/frame.ts waits for the next `navigated` event whose URL
+   * matches, then for the lifecycle state, and resolves same-document
+   * navigations with null. Here the navigation is a change of the current URL
+   * seen by the observation `waitForURL` uses, so only same-document
+   * navigations resolve it; replacing the document ends this execution
+   * instead of reporting a navigation Response.
+   */
+  async waitForNavigation(
+    options: NonNullable<Parameters<Page["waitForNavigation"]>[0]> = {}
+  ): Promise<null> {
+    rejectUnsupportedOptions("waitForNavigation", options, [
+      "signal",
+      "timeout",
+      "url",
+      "waitUntil",
+    ]);
+    assertCurrentDocumentWaitTimeout("waitForNavigation", options.timeout);
+    const waitUntil = verifyLoadState("waitUntil", options.waitUntil ?? "load");
+    const { url } = options;
+    let current = this.window.location.href;
+    await this.waitForCurrentDocument(
+      "page.waitForNavigation",
+      waitUntil,
+      () => {
+        const href = this.window.location.href;
+        if (href === current) return false;
+        current = href;
+        return url === undefined || urlMatches(href, url);
+      },
+      options
+    );
+    return null;
+  }
+
+  /**
    * Pinned client/frame.ts first checks the current URL, then waits for a
    * matching navigation and its lifecycle state. Polling supplies the missing
    * browser navigation event for hash and History API changes without changing
@@ -3181,9 +3216,9 @@ export class PageImpl {
   /**
    * One set of `hashchange`/`popstate`/`load`/`readystatechange` listeners
    * plus one 20 ms poll, shared by every current-document consumer
-   * (`waitForURL`, `waitForLoadState`, `expect(page).toHaveURL`,
-   * `expect(page).toHaveTitle`, `framenavigated`) and running only while at
-   * least one observes.
+   * (`waitForURL`, `waitForLoadState`, `waitForNavigation`,
+   * `expect(page).toHaveURL`, `expect(page).toHaveTitle`, `framenavigated`)
+   * and running only while at least one observes.
    */
   private observeDocument(observer: () => void): () => void {
     this.documentObservers.add(observer);

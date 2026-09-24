@@ -900,6 +900,28 @@ test("adapter waitForURL does not resume across document replacement", async ({
   }
 });
 
+test("adapter waitForNavigation never reports a document replacement", async ({
+  page,
+  adapterPage,
+}) => {
+  const server = await TestServer.create();
+  try {
+    const arrived = page.waitForURL(server.EMPTY_PAGE, { waitUntil: "load" });
+    const waiting = adapterPage.waitForNavigation().then(
+      (response) => `resolved with ${response}`,
+      (error) => String(error)
+    );
+    await page.evaluate((url) => {
+      window.location.href = url;
+    }, server.EMPTY_PAGE);
+
+    await arrived;
+    expect(await waiting).toMatch(/execution context.*destroyed/i);
+  } finally {
+    await server.close();
+  }
+});
+
 test("adapter goto rejects unsupported options before changing the URL", async ({
   page,
   adapterPage,
