@@ -9,6 +9,7 @@ import type { ElementHandle } from "@playwright/test";
 type ElementHandleWaitOptions = { signal?: AbortSignal; timeout?: number };
 type ElementHandleSelectorWaitOptions = ElementHandleWaitOptions & {
   state?: "attached" | "detached" | "visible" | "hidden";
+  strict?: boolean;
 };
 
 /**
@@ -266,6 +267,10 @@ export class AdapterElementHandle extends AdapterJSHandle<Element> {
     );
   }
 
+  /**
+   * Pinned client/elementHandle.ts sends only the selector, so the `strict`
+   * option the public type declares never takes effect: the first match wins.
+   */
   async $(selector: string): Promise<AdapterElementHandle | null> {
     return this.ownerPage.elementHandleFor(
       this.ownerPage.resolveWithinElement(

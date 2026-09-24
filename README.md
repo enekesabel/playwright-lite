@@ -365,10 +365,9 @@ The `ElementHandle` and `JSHandle` objects this package returns, for example fro
 
 **Differences from Playwright:**
 
-| Member                            | playwright-lite               | Playwright                               |
-| --------------------------------- | ----------------------------- | ---------------------------------------- |
-| `ElementHandle.click()`           | Does not wait for navigation. | Waits for a navigation the click starts. |
-| `ElementHandle.waitForSelector()` | Rejects `strict`.             | Accepts `strict`.                        |
+| Member                  | playwright-lite               | Playwright                               |
+| ----------------------- | ----------------------------- | ---------------------------------------- |
+| `ElementHandle.click()` | Does not wait for navigation. | Waits for a navigation the click starts. |
 
 <details>
 <summary>Edge cases</summary>

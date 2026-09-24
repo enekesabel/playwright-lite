@@ -380,6 +380,41 @@ describe("option-validation", () => {
     );
   });
 
+  // Pinned protocol validation rejects a non-boolean `strict` on both forms.
+  const waitForSelectorForms: [
+    string,
+    (page: Page, options: unknown) => Promise<unknown>,
+  ][] = [
+    [
+      "page.waitForSelector",
+      (page, o) => page.waitForSelector("#button", o as any),
+    ],
+    [
+      "elementHandle.waitForSelector",
+      async (page, o) =>
+        (await page.$("body"))!.waitForSelector("#button", o as any),
+    ],
+  ];
+
+  it.each(waitForSelectorForms)(
+    "%s rejects a non-boolean strict",
+    async (apiName, run) => {
+      document.body.innerHTML = targets;
+      const page = createPage();
+      for (const strict of ["yes", 1, null]) {
+        const error = await run(page, { strict }).then(
+          () => undefined,
+          (error) => error
+        );
+        expect(error, `${apiName} ${strict}`).toBeInstanceOf(TypeError);
+        expect(error.message, `${apiName} ${strict}`).toBe(
+          "waitForSelector strict must be a boolean"
+        );
+      }
+      await expect(run(page, { strict: true })).resolves.toBeTruthy();
+    }
+  );
+
   it("ignores unsupported options whose values are undefined", async () => {
     document.body.innerHTML = "<button>ok</button>";
     const page = createPage();

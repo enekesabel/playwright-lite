@@ -638,15 +638,14 @@ export class PageImpl {
   async waitForSelectorWithinElement(
     root: Element,
     selector: string,
-    options: Omit<WaitForSelectorOptions, "strict"> = {}
+    options: WaitForSelectorOptions = {}
   ): Promise<AdapterElementHandle | null> {
     return await withAbortPrefix("elementHandle.waitForSelector", () =>
       this.waitForSelectorInRoot(
         root,
         selector,
         options,
-        "elementHandle.waitForSelector",
-        false
+        "elementHandle.waitForSelector"
       )
     );
   }
@@ -3501,10 +3500,9 @@ export class PageImpl {
     root: Document | Element,
     selector: string,
     options: WaitForSelectorOptions,
-    apiName = "page.waitForSelector",
-    allowsStrict = true
+    apiName = "page.waitForSelector"
   ): Promise<AdapterElementHandle | null> {
-    assertWaitForSelectorOptions(options, allowsStrict);
+    assertWaitForSelectorOptions(options);
     const state = options.state ?? "visible";
     const timeout = this.resolveTimeout(
       options.timeout,
@@ -5354,22 +5352,19 @@ function assertDollarOptions(options: Pick<SelectorQueryOptions, "strict">) {
   }
 }
 
-function assertWaitForSelectorOptions(
-  options: WaitForSelectorOptions,
-  allowsStrict: boolean
-) {
+function assertWaitForSelectorOptions(options: WaitForSelectorOptions) {
   for (const key of Object.keys(options)) {
     if (
       key !== "signal" &&
       key !== "state" &&
       key !== "timeout" &&
-      !(allowsStrict && key === "strict")
+      key !== "strict"
     )
       throw new Error(`Unsupported waitForSelector option: ${key}`);
   }
   validateSignal("waitForSelector", options.signal);
-  if (!allowsStrict && "strict" in options)
-    throw new Error("ElementHandle waitForSelector does not support strict");
+  if (options.strict !== undefined && typeof options.strict !== "boolean")
+    throw new TypeError("waitForSelector strict must be a boolean");
   if (
     options.state !== undefined &&
     !["attached", "detached", "visible", "hidden"].includes(options.state)
