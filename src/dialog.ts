@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { WrappedHostFunction } from "./hostGlobals";
+import { HostObservation, perWindow } from "./hostGlobals";
 import { validateString } from "./protocolValidation";
 
 /** `beforeunload` is out of scope: it belongs to document replacement (ADR-0001). */
@@ -60,7 +60,7 @@ export class Dialog {
   }
 }
 
-type Emit = (
+export type DialogReport = (
   type: DialogType,
   message: string,
   defaultValue: string,
@@ -84,53 +84,33 @@ function nativeReturnValue(
   return result.value ?? defaultValue;
 }
 
-const observations = new WeakMap<Window, DialogObservation>();
-
 /** The one observation of a window's dialogs, shared by every `Page` created for it (see `networkObservationFor`). */
-export function dialogObservationFor(
-  browserWindow: Window & typeof globalThis
-): DialogObservation {
-  let observation = observations.get(browserWindow);
-  if (!observation)
-    observations.set(
-      browserWindow,
-      (observation = new DialogObservation(browserWindow))
-    );
-  return observation;
-}
+export const dialogObservationFor = perWindow(
+  (browserWindow) => new DialogObservation(browserWindow)
+);
 
 type NativeDialogFn = (...args: unknown[]) => unknown;
 const DIALOG_HOST_MEMBERS = ["alert", "confirm", "prompt"] as const;
 
 /** Reports `window.alert`/`confirm`/`prompt` as Playwright's `dialog` event for as long as something is subscribed. */
 export class DialogObservation {
-  private readonly wrappers: WrappedHostFunction<NativeDialogFn>[];
-  private readonly subscribers = new Set<Emit>();
+  private readonly host: HostObservation<DialogReport>;
 
   constructor(private readonly window: Window & typeof globalThis) {
     const holder = window as unknown as Record<string, unknown>;
-    this.wrappers = DIALOG_HOST_MEMBERS.map(
-      (type) =>
-        new WrappedHostFunction<NativeDialogFn>(
-          holder,
-          type,
-          (original, thisArg, args) =>
-            this.observe(type, original, thisArg, args)
-        )
+    this.host = new HostObservation(
+      DIALOG_HOST_MEMBERS.map((type) => ({
+        holder,
+        name: type,
+        intercept: (original: NativeDialogFn, thisArg, args) =>
+          this.observe(type, original, thisArg, args),
+      }))
     );
   }
 
-  /** Reports to `emit` until the returned release is called. */
-  subscribe(emit: Emit): () => void {
-    this.subscribers.add(emit);
-    const releases = this.wrappers.map((wrapper) => wrapper.subscribe());
-    let released = false;
-    return () => {
-      if (released) return;
-      released = true;
-      this.subscribers.delete(emit);
-      for (const release of releases) release();
-    };
+  /** Reports to `report` until the returned release is called. */
+  subscribe(report: DialogReport): () => void {
+    return this.host.subscribe(report);
   }
 
   private observe(
@@ -148,8 +128,7 @@ export class DialogObservation {
     const box: SettlementBox = {};
     // Synchronous dispatch: a listener calling accept()/dismiss() while this
     // runs settles the dialog before the auto-dismiss below ever applies.
-    for (const subscriber of [...this.subscribers])
-      subscriber(type, message, defaultValue, box);
+    this.host.report(type, message, defaultValue, box);
     box.result ??= { accepted: false };
     return nativeReturnValue(type, defaultValue, box.result);
   }
