@@ -261,6 +261,215 @@ test("execution evidence records browser method entry and swallowed dispatch fai
   expect((page as any).__pwLiteTransportFailures.length).toBeGreaterThan(0);
 });
 
+// ── Transport failure classification ────────────────────────────────
+// A transport failure means the bridge could not carry a call, never that the
+// adapter or the page code it ran threw. The two can share a message, so the
+// classification cannot come from the message.
+
+test("an error the page code or the adapter raises is not a transport failure", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<button>hello</button>");
+  const raised: [string, () => Promise<unknown>, string][] = [
+    [
+      "page code calling a missing function",
+      () => adapterPage.evaluate(() => (window as any).missing()),
+      "missing is not a function",
+    ],
+    [
+      "page code throwing a serialization message",
+      () =>
+        adapterPage.evaluate(() => {
+          throw new Error("could not serialize the value");
+        }),
+      "could not serialize the value",
+    ],
+    [
+      "page code throwing an execution context message",
+      () =>
+        adapterPage.evaluate(() => {
+          throw new Error(
+            "Execution context was destroyed, most likely because of a navigation."
+          );
+        }),
+      "Execution context was destroyed",
+    ],
+    [
+      "page code throwing a closed target message",
+      () =>
+        adapterPage.evaluate(() => {
+          throw new Error("Target page, context or browser has been closed");
+        }),
+      "Target page, context or browser has been closed",
+    ],
+    [
+      "a locator callback calling a missing function",
+      () =>
+        adapterPage
+          .locator("button")
+          .evaluate(() => (window as any).missing()),
+      "missing is not a function",
+    ],
+    [
+      "a waitForFunction predicate calling a missing function",
+      () => adapterPage.waitForFunction(() => (window as any).missing()),
+      "missing is not a function",
+    ],
+    [
+      "the adapter refusing a function argument, as Playwright does",
+      () => adapterPage.evaluate((value) => value, { f() {} } as never),
+      "Attempting to serialize unexpected value",
+    ],
+  ];
+  for (const [, run, message] of raised)
+    await expect(run()).rejects.toThrow(message);
+  expect((page as any).__pwLiteTransportFailures).toEqual([]);
+});
+
+test("calling a disposed exposed function is a page error, not a transport failure", async ({
+  page,
+  adapterPage,
+}) => {
+  const binding = await adapterPage.exposeFunction(
+    "compute",
+    (a: number, b: number) => a * b
+  );
+  await expect(
+    adapterPage.evaluate(() => (window as any).compute(9, 4))
+  ).resolves.toBe(36);
+  await binding.dispose();
+  await expect(
+    adapterPage.evaluate(() => (window as any).compute(9, 4))
+  ).rejects.toThrow("window.compute is not a function");
+  expect((page as any).__pwLiteTransportFailures).toEqual([]);
+});
+
+test("an error a network object's member raises is not a transport failure", async ({
+  page,
+}) => {
+  await page.route("http://pw-lite.test/**", (route) =>
+    route.fulfill({ contentType: "text/html", body: "<p>ok</p>" })
+  );
+  await page.goto("http://pw-lite.test/");
+  const adapter = await createAdapterPage(page);
+  const [request] = await Promise.all([
+    adapter.waitForRequest("**/data"),
+    adapter.evaluate(() => {
+      void fetch("/data");
+    }),
+  ]);
+  await page.evaluate(() => {
+    for (const object of (window as any).__pwLiteNetworkObjects.values())
+      object.response = async () => (window as any).missing();
+  });
+  await expect(request.response()).rejects.toThrow(
+    "missing is not a function"
+  );
+  expect((page as any).__pwLiteTransportFailures).toEqual([]);
+});
+
+test("a call the bridge dispatches to a missing adapter member is a transport failure", async ({
+  page,
+  adapterPage,
+}) => {
+  await expect((adapterPage as any).missingBrowserOperation()).rejects.toThrow(
+    "__pwLiteAdapterPage.missingBrowserOperation is not a function"
+  );
+  expect((page as any).__pwLiteTransportFailures).toEqual([
+    expect.stringContaining(
+      "__pwLiteAdapterPage.missingBrowserOperation is not a function"
+    ),
+  ]);
+});
+
+test("a transport failure is recorded while the browser is still being asked about it", async ({
+  page,
+  adapterPage,
+}) => {
+  // Hold the browser's answer back, as a call nothing awaits would see it
+  // when the fixture reads the evidence at teardown.
+  await page.evaluate(() => {
+    const host = window as any;
+    const claim = host.__pwLiteClaimAdapterError;
+    host.__pwLiteClaimAdapterError = (line: string) => {
+      const until = Date.now() + 500;
+      while (Date.now() < until);
+      return claim(line);
+    };
+  });
+  let settled = false;
+  const call = (adapterPage as any)
+    .missingBrowserOperation()
+    .catch(() => (settled = true));
+  await expect
+    .poll(() => (page as any).__pwLiteTransportFailures.length)
+    .toBe(1);
+  expect(settled).toBe(false);
+  await call;
+  expect((page as any).__pwLiteTransportFailures).toEqual([
+    expect.stringContaining(
+      "__pwLiteAdapterPage.missingBrowserOperation is not a function"
+    ),
+  ]);
+});
+
+test("a missing bridge member is a transport failure", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.evaluate(() => {
+    delete (window as any).__pwLiteInvokeAdapter;
+  });
+  await expect(adapterPage.evaluate(() => 1)).rejects.toThrow(
+    "is not a function"
+  );
+  expect((page as any).__pwLiteTransportFailures).toEqual([
+    expect.stringContaining("__pwLiteInvokeAdapter is not a function"),
+  ]);
+});
+
+test("a value the transport cannot serialize is a transport failure", async ({
+  page,
+  // Creating the adapter page makes this page's evaluate the bridge transport.
+  adapterPage: _adapterPage,
+}) => {
+  await expect(
+    page.evaluate((value) => value, { f() {} } as never)
+  ).rejects.toThrow("Attempting to serialize unexpected value");
+  expect((page as any).__pwLiteTransportFailures).toEqual([
+    expect.stringContaining("Attempting to serialize unexpected value"),
+  ]);
+});
+
+test("a destroyed execution context is a transport failure even when page code caused it", async ({
+  page,
+  adapterPage,
+}) => {
+  await expect(
+    adapterPage.evaluate(() => {
+      setTimeout(() => location.reload());
+      return new Promise(() => {});
+    })
+  ).rejects.toThrow("Execution context was destroyed");
+  expect((page as any).__pwLiteTransportFailures).toEqual([
+    expect.stringContaining("Execution context was destroyed"),
+  ]);
+});
+
+test("a closed target is a transport failure", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.close();
+  await expect(adapterPage.evaluate(() => 1)).rejects.toThrow(
+    "Target page, context or browser has been closed"
+  );
+  expect((page as any).__pwLiteTransportFailures).toEqual([
+    expect.stringContaining("Target page, context or browser has been closed"),
+  ]);
+});
+
 corpusTest(
   "a spec setting the promotion switch does not sabotage the corpus fixture",
   async ({ page }) => {

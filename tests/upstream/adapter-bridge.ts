@@ -34,6 +34,12 @@ const FUNCTION_SOURCE_PAYLOAD = "__pwLiteFunctionSource";
 const TYPED_ARRAY_PAYLOAD = "__pwLiteTypedArray";
 const NATIVE_RESULT_MARKER = "__pwLiteNativeResult";
 const DEFAULT_TEST_ID_ATTRIBUTE = "data-testid";
+/**
+ * Playwright rejects `page.evaluate` with the calling API name followed by the
+ * browser's description of what the page function threw, whose first line is
+ * the first line of that error's `stack`.
+ */
+const EVALUATE_ERROR_PREFIX = "page.evaluate: ";
 
 /**
  * The pinned protocol serializer's typed-array vocabulary
@@ -755,17 +761,33 @@ export async function createAdapterPage(
   const failures: string[] = [];
   (realPage as any).__pwLiteTransportFailures = failures;
   (realPage as any).__pwLiteNativeOperations = [] as string[];
+  // The message only selects the failures worth asking about: an error the
+  // adapter or its page code raised can read exactly like a transport failure,
+  // so the browser side, which saw where it was thrown, decides.
+  const raisedByAdapter = async (firstLine: string) =>
+    firstLine.startsWith(EVALUATE_ERROR_PREFIX) &&
+    (await evaluate(
+      (line) => (window as any).__pwLiteClaimAdapterError?.(line) === true,
+      firstLine.slice(EVALUATE_ERROR_PREFIX.length)
+    ).catch(() => false));
   realPage.evaluate = (async (...args: any[]) => {
     try {
       return await (evaluate as any)(...args);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      const firstLine = message.split("\n")[0];
       if (
         /is not a function|serializ|execution context|target.*closed/i.test(
           message
         )
-      )
-        failures.push(message.split("\n")[0]);
+      ) {
+        // Recorded before the browser is asked, so evidence read while the
+        // question is still open (a call nothing awaited, at teardown) keeps
+        // the failure rather than losing it.
+        failures.push(firstLine);
+        if (await raisedByAdapter(firstLine))
+          failures.splice(failures.lastIndexOf(firstLine), 1);
+      }
       throw error;
     }
   }) as Page["evaluate"];
@@ -1916,6 +1938,42 @@ function initializeAdapterBridge(
     const id = options?.signal?.__pwLiteAbortSignal;
     return typeof id === "string" ? id : undefined;
   };
+  // An error thrown out of an adapter member — including one a page function
+  // the adapter ran threw — is the adapter's, not the bridge's: only that
+  // boundary knows, since a bridge dispatch error can carry the same message.
+  // A member's rejection is observed with a side reaction, so every caller
+  // still receives the adapter's own promise, settled on the same tick. That
+  // reaction handles the promise: the bridge awaits every member it calls, so
+  // only a rejected adapter-internal call nothing awaits would no longer reach
+  // `unhandledrejection`. A thrown primitive cannot be marked, so it stays
+  // classified by its message alone.
+  const adapterErrors = new WeakSet<object>();
+  const markAdapterError = (error: unknown) => {
+    if (typeof error === "object" && error !== null) adapterErrors.add(error);
+  };
+  const callAdapter = (call: () => any) => {
+    let result: any;
+    try {
+      result = call();
+    } catch (error) {
+      markAdapterError(error);
+      throw error;
+    }
+    if (result instanceof Promise) result.then(undefined, markAdapterError);
+    return result;
+  };
+  // Playwright rejects the Node side of an evaluation with the browser's
+  // description of the thrown error, which starts with its stack's first line.
+  // An adapter error leaving the bridge is recorded under that line until the
+  // Node side claims the rejection it caused, so a matching claim can only
+  // name an error the adapter raised.
+  const unclaimedAdapterErrors: string[] = [];
+  host.__pwLiteClaimAdapterError = (line: string) => {
+    const index = unclaimedAdapterErrors.indexOf(line);
+    if (index === -1) return false;
+    unclaimedAdapterErrors.splice(index, 1);
+    return true;
+  };
   host.__pwLiteInvokeAdapter = async function invoke(
     operation: () => any,
     encodedArgs?: any
@@ -1955,6 +2013,11 @@ function initializeAdapterBridge(
             error.cause === controller.signal.reason,
         };
       }
+      if (
+        adapterErrors.has(error as object) &&
+        typeof (error as Error).stack === "string"
+      )
+        unclaimedAdapterErrors.push((error as Error).stack!.split("\n")[0]);
       throw error;
     }
   };
@@ -2105,7 +2168,7 @@ function initializeAdapterBridge(
           throw new Error(
             `__pwLiteSabotagedMethod: ${recordedName} was withheld for promotion review.`
           );
-        const result = original.apply(this, args);
+        const result = callAdapter(() => original.apply(this, args));
         if (
           result &&
           typeof result.then !== "function" &&
@@ -2268,7 +2331,8 @@ function initializeAdapterBridge(
       );
     if (typeof target[member] !== "function")
       throw new TypeError(`__pwLiteAdapter${kind}.${member} is not a function`);
-    return target[member](...host.__pwLiteDecodeBridgeValue(args));
+    const decoded = host.__pwLiteDecodeBridgeValue(args);
+    return callAdapter(() => target[member](...decoded));
   };
   host.__pwLiteEncodeAdapterResult = function encode(value: any): any {
     if (Array.isArray(value)) return value.map(encode);
