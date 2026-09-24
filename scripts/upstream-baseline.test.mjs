@@ -278,6 +278,117 @@ describe("reviewed promotion", () => {
         )
       );
     });
+    // A test that reads the caught error's `matcherResult` fails on its own
+    // assertion; it proves the matcher only when that failure shows the marker.
+    it("judges a matcherResult reader by the marker in its own failure", () => {
+      const matcher = "Locator.toHaveText";
+      const marker = `__pwLiteSabotagedMatcher: ${matcher}`;
+      assert.doesNotThrow(() =>
+        sabotageVerdict(
+          [
+            {
+              id,
+              status: "failed",
+              error: `Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: \u001b[32m"heading \\"Title\\""\u001b[39m\nReceived string:    \u001b[31m"${marker} was withheld for promotion review."\u001b[39m`,
+            },
+          ],
+          id,
+          matcher,
+          marker
+        )
+      );
+      assert.throws(
+        () =>
+          sabotageVerdict(
+            [
+              {
+                id,
+                status: "failed",
+                error:
+                  "TypeError: Cannot read properties of undefined (reading 'ariaSnapshot')",
+              },
+            ],
+            id,
+            matcher,
+            marker
+          ),
+        /not for the expected reason/
+      );
+    });
+    describe("with errors reported outside any test", () => {
+      const strayErrors = [
+        "Error: page.apply: Target page, context or browser has been closed",
+      ];
+      it("still judges a test that failed on its own", () => {
+        assert.doesNotThrow(() =>
+          sabotageVerdict(
+            [
+              {
+                id,
+                status: "failed",
+                error:
+                  "Error: __pwLiteSabotagedMatcher: Locator.toHaveCount was withheld for promotion review.",
+              },
+            ],
+            id,
+            "Locator.toHaveCount",
+            "__pwLiteSabotagedMatcher: Locator.toHaveCount",
+            strayErrors
+          )
+        );
+        assert.doesNotThrow(() =>
+          sabotageVerdict(
+            [{ id, status: "timedOut", error: "Test timeout of 15000ms" }],
+            id,
+            "Locator._expect",
+            undefined,
+            strayErrors
+          )
+        );
+      });
+      it("refuses a test that failed for an unrelated reason", () => {
+        assert.throws(
+          () =>
+            sabotageVerdict(
+              [{ id, status: "failed", error: "some unrelated failure" }],
+              id,
+              "Locator.toHaveCount",
+              "__pwLiteSabotagedMatcher: Locator.toHaveCount",
+              strayErrors
+            ),
+          /not for the expected reason/
+        );
+      });
+      it("refuses a test that did not fail on its own", () => {
+        assert.throws(
+          () =>
+            sabotageVerdict(
+              [{ id, status: "passed" }],
+              id,
+              "Locator._expect",
+              undefined,
+              strayErrors
+            ),
+          /still passes/
+        );
+        assert.throws(
+          () =>
+            sabotageVerdict(
+              [{ id, status: "interrupted", error: null }],
+              id,
+              "Locator._expect",
+              undefined,
+              strayErrors
+            ),
+          /outside any test.*page\.apply: Target page/s
+        );
+        assert.throws(
+          () =>
+            sabotageVerdict([], id, "Locator._expect", undefined, strayErrors),
+          /did not run/
+        );
+      });
+    });
   });
 
   it("requires public expect evidence for existing _expect baseline entries", () => {

@@ -162,6 +162,44 @@ test("public matcher sabotage breaks the promoted expect path", async ({ page })
   ).rejects.toThrow("__pwLiteSabotagedMatcher: Locator.toHaveText");
 });
 
+// A test may catch the assertion error and read its `matcherResult` instead of
+// its message. Whatever text it reads there must still say the matcher was
+// withheld, so the promotion rerun can tell that failure from any other.
+test("a sabotaged matcher's matcherResult carries only the withheld marker", async ({
+  page,
+}) => {
+  const sabotaged = await createAdapterPage(page, {
+    sabotagedMatcher: "Locator.toHaveText",
+  });
+  await page.setContent("<h1>hello</h1>");
+  const withheld =
+    "__pwLiteSabotagedMatcher: Locator.toHaveText was withheld for promotion review.";
+
+  const error = await corpusExpect(sabotaged.locator("h1"))
+    .toHaveText("nope", { timeout: 1 })
+    .catch((e) => e);
+  expect(error.message).toBe(withheld);
+  expect(error.matcherResult).toEqual({
+    message: withheld,
+    ariaSnapshot: withheld,
+    log: [withheld],
+  });
+
+  // Every other matcher still reports the adapter's own result.
+  const other = await corpusExpect(sabotaged.locator("h1"))
+    .toHaveCount(2, { timeout: 1 })
+    .catch((e) => e);
+  expect(other.matcherResult).toMatchObject({
+    name: "toHaveCount",
+    pass: false,
+    actual: 1,
+    expected: 2,
+  });
+  expect(JSON.stringify(other.matcherResult)).not.toContain(
+    "__pwLiteSabotagedMatcher"
+  );
+});
+
 // ── Proxy presence ──────────────────────────────────────────────────
 
 for (const owner of ["Page", "Locator"] as const) {

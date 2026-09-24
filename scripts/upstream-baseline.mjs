@@ -287,9 +287,21 @@ export function reviewedPromotion(entries, id, method, evidence, matcher) {
  * still passes is vacuous about that method, whatever the recorded evidence
  * says.
  *
+ * Errors the rerun reported outside any test (a test's unawaited call that
+ * settles after the test ended, on a closed page) do not decide the verdict:
+ * the test's own failure does. When the rerun reported any, a test that did
+ * not fail on its own (interrupted, for instance) gets no verdict.
+ *
  * @param {Array} entries  Parsed entries of the sabotaged rerun.
+ * @param {string[]} [errorsOutsideTests]  The rerun report's top-level errors.
  */
-export function sabotageVerdict(entries, id, method, expectedError) {
+export function sabotageVerdict(
+  entries,
+  id,
+  method,
+  expectedError,
+  errorsOutsideTests = []
+) {
   const entry = entries.find((entry) => entry.id === id);
   if (!entry)
     throw new Error(
@@ -302,6 +314,14 @@ export function sabotageVerdict(entries, id, method, expectedError) {
   if (entry.status === "passed")
     throw new Error(
       `${id} still passes with ${method} sabotaged, so it does not prove ${method}.`
+    );
+  if (
+    errorsOutsideTests.length > 0 &&
+    entry.status !== "failed" &&
+    entry.status !== "timedOut"
+  )
+    throw new Error(
+      `The rerun with ${method} sabotaged reported errors outside any test and ${id} did not fail on its own (${entry.status}):\n  ${errorsOutsideTests.join("\n  ")}`
     );
   if (expectedError && !entry.error?.includes(expectedError))
     throw new Error(
@@ -533,13 +553,13 @@ function runSabotaged(entry, method, matcher) {
     SABOTAGE_REPORT_PATH
   );
   const raw = JSON.parse(readFileSync(SABOTAGE_REPORT_PATH, "utf8"));
-  const reportErrors = validateReportErrors(raw);
-  if (reportErrors.length > 0) {
-    console.error("ERROR: Sabotage rerun report contains runner errors:");
-    for (const e of reportErrors) console.error(`  ${e}`);
-    process.exit(2);
+  // sabotageVerdict decides whether these still allow a verdict.
+  const errorsOutsideTests = validateReportErrors(raw);
+  if (errorsOutsideTests.length > 0) {
+    console.warn("Sabotage rerun reported errors outside any test:");
+    for (const e of errorsOutsideTests) console.warn(`  ${e}`);
   }
-  return parseReport(raw);
+  return { entries: parseReport(raw), errorsOutsideTests };
 }
 
 // ── Commands ────────────────────────────────────────────────────────
@@ -614,14 +634,24 @@ function doUpdate(entries) {
     );
   for (const { id, method, matcher } of promotions) {
     const entry = entries.find((entry) => entry.id === id);
-    sabotageVerdict(runSabotaged(entry, method), id, method);
-    if (matcher)
+    const methodRerun = runSabotaged(entry, method);
+    sabotageVerdict(
+      methodRerun.entries,
+      id,
+      method,
+      undefined,
+      methodRerun.errorsOutsideTests
+    );
+    if (matcher) {
+      const matcherRerun = runSabotaged(entry, method, matcher);
       sabotageVerdict(
-        runSabotaged(entry, method, matcher),
+        matcherRerun.entries,
         id,
         matcher,
-        `__pwLiteSabotagedMatcher: ${matcher}`
+        `__pwLiteSabotagedMatcher: ${matcher}`,
+        matcherRerun.errorsOutsideTests
       );
+    }
   }
   const reviewed = [
     ...previous.reviewed.filter(
