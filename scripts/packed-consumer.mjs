@@ -96,6 +96,7 @@ try {
     "LICENSES/PLAYWRIGHT-NOTICE",
     "LICENSES/JEST-EXPECT-BUNDLE-LICENSES.txt",
     "LICENSES/YAML-LICENSE.txt",
+    "LICENSES/MIME-LICENSE.txt",
   ]) {
     assert.ok(files.has(file), `Missing package file: ${file}`);
   }

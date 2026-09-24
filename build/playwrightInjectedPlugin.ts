@@ -16,6 +16,10 @@ const expectedUtilityBytes = 11373;
 const expectedProtocolBytes = 7268;
 const expectedProtocolSha256 =
   "04db394dbb46a317b529271a013d034a82db1babfbd642a9be23c21adbe2ad2e";
+const mimeId = "virtual:playwright-lite-mime";
+const resolvedMimeId = `\0${mimeId}`;
+const expectedMimeTypesSha256 =
+  "f47892c751828bbe632fc7507f4cff6689d5eb59fa78a2c9cab55d2c7e1302c2";
 
 export function playwrightInjectedPlugin() {
   return {
@@ -23,8 +27,11 @@ export function playwrightInjectedPlugin() {
     resolveId(id: string) {
       if (id === injectedId) return resolvedInjectedId;
       if (id === evaluationId) return resolvedEvaluationId;
+      if (id === mimeId) return resolvedMimeId;
     },
     load(id: string) {
+      if (id === resolvedMimeId)
+        return `export const extensionToType = new Map(Object.entries(${readPinnedMimeTypes()}).flatMap(([type, extensions]) => extensions.map((extension) => [extension, type])));`;
       if (id === resolvedEvaluationId) {
         return [
           "const protocol = (() => {",
@@ -98,4 +105,28 @@ function readScriptSource(
   if (typeof source !== "string")
     throw new Error("InjectedScript source must be a string.");
   return source;
+}
+
+/**
+ * The extension table pinned server/fileUploadUtils.ts consults through
+ * `mime.getType(name)`: the mime@4.1.0 instance that playwright-core 1.62.1,
+ * the release of the pinned commit, bundles as utilsBundle's `mime`. Mime has
+ * no public enumeration, so the table comes from its `_getTestState()` hook,
+ * grouped by type to keep the browser bundle small.
+ */
+function readPinnedMimeTypes(): string {
+  const require = createRequire(import.meta.url);
+  const { mime } = require("playwright-core/lib/utilsBundle") as {
+    mime: { _getTestState(): { types: Map<string, string> } };
+  };
+  const byType: Record<string, string[]> = {};
+  for (const [extension, type] of mime._getTestState().types)
+    (byType[type] ??= []).push(extension);
+  const json = JSON.stringify(byType);
+  const sha256 = createHash("sha256").update(json).digest("hex");
+  if (sha256 !== expectedMimeTypesSha256)
+    throw new Error(
+      `The pinned Playwright mime table (sha256 ${sha256}) does not match the reviewed build.`
+    );
+  return json;
 }

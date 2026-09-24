@@ -1,11 +1,13 @@
 import type { Page } from "@playwright/test";
+import { extensionToType } from "virtual:playwright-lite-mime";
 
 export type InputFiles = Parameters<Page["setInputFiles"]>[1];
 
 /**
  * Pinned 26a9e47 client/elementHandle.ts converts payloads before resolving the
- * input; server/fileUploadUtils.ts encodes the bytes for InjectedScript. Keep
- * that format without importing Node's Buffer or filesystem into the browser.
+ * input; server/fileUploadUtils.ts encodes the bytes for InjectedScript and
+ * fills an empty or omitted MIME type from the name. Keep that format without
+ * importing Node's Buffer or filesystem into the browser.
  *
  * `Locator.drop` carries the same converted payloads in the pinned client, so
  * `method` names the member whose message a rejected payload belongs to.
@@ -22,12 +24,12 @@ export function inputFilePayloads(files: InputFiles, method = "setInputFiles") {
       typeof item === "string" ||
       item instanceof Blob ||
       typeof item.name !== "string" ||
-      typeof item.mimeType !== "string" ||
-      !item.mimeType ||
+      // `mimeType` is `string?` in the pinned protocol.
+      (item.mimeType !== undefined && typeof item.mimeType !== "string") ||
       !(item.buffer instanceof Uint8Array)
     )
       throw new TypeError(
-        `${method}: expected { name, mimeType, buffer } with a non-empty MIME type and byte buffer; File and Blob are not supported.`
+        `${method}: expected { name, mimeType, buffer } with a string MIME type and byte buffer; File and Blob are not supported.`
       );
     return item;
   });
@@ -43,6 +45,23 @@ export function inputFilePayloads(files: InputFiles, method = "setInputFiles") {
       binary += String.fromCharCode(
         ...item.buffer.subarray(offset, offset + 8192)
       );
-    return { name: item.name, mimeType: item.mimeType, buffer: btoa(binary) };
+    return {
+      name: item.name,
+      mimeType:
+        item.mimeType ||
+        mimeTypeForName(item.name) ||
+        "application/octet-stream",
+      buffer: btoa(binary),
+    };
   });
+}
+
+/** Pinned mime@4.1.0 `Mime.getType`, which the pinned server calls with the payload name. */
+function mimeTypeForName(name: string): string | null {
+  const last = name.replace(/^.*[/\\]/s, "").toLowerCase();
+  const extension = last.replace(/^.*\./s, "").toLowerCase();
+  const hasPath = last.length < name.length;
+  const hasDot = extension.length < last.length - 1;
+  if (!hasDot && hasPath) return null;
+  return extensionToType.get(extension) ?? null;
 }

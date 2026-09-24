@@ -107,3 +107,8 @@ declare module "virtual:playwright-lite-evaluation" {
     jsonValue(returnByValue: true, value: unknown): unknown;
   }
 }
+
+declare module "virtual:playwright-lite-mime" {
+  /** Pinned mime@4.1.0 extension (lowercase, no dot) to MIME type table. */
+  export const extensionToType: ReadonlyMap<string, string>;
+}
