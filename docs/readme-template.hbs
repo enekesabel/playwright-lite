@@ -2,6 +2,12 @@
 
 # playwright-lite
 
+[![npm](https://img.shields.io/npm/v/@enekesabel/playwright-lite)](https://www.npmjs.com/package/@enekesabel/playwright-lite)
+[![downloads](https://img.shields.io/npm/dm/@enekesabel/playwright-lite)](https://www.npmjs.com/package/@enekesabel/playwright-lite)
+[![CI](https://github.com/enekesabel/playwright-lite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/enekesabel/playwright-lite/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/@enekesabel/playwright-lite)](https://github.com/enekesabel/playwright-lite/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/enekesabel/playwright-lite)](https://github.com/enekesabel/playwright-lite)
+
 Use Playwright's `Page` and `Locator` APIs in the browser document you're already in.
 `playwright-lite` runs inside your application, without launching a browser or connecting to a Playwright server.
 
