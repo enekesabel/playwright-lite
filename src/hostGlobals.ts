@@ -100,9 +100,12 @@ export class HostObservation<Report extends (...args: never[]) => void> {
 
   /** Reports to `report` until the returned release is called. The release is idempotent. */
   subscribe(report: Report): () => void {
-    if (this.reporters.size === 0)
-      for (const wrapper of this.wrappers) wrapper.install();
+    const first = this.reporters.size === 0;
+    // Registered before installing: assigning a wrapper can run a Site
+    // accessor synchronously, which must already see an active subscription
+    // and must not start a second installation by subscribing again.
     this.reporters.set(report, (this.reporters.get(report) ?? 0) + 1);
+    if (first) for (const wrapper of this.wrappers) wrapper.install();
     let released = false;
     return () => {
       if (released) return;
