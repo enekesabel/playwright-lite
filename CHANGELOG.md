@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.5.0](https://github.com/enekesabel/playwright-lite/compare/v0.4.0...v0.5.0) (2026-09-24)
+
+
+### Features
+
+* add Page events emitter and pageerror ([1010656](https://github.com/enekesabel/playwright-lite/commit/10106563a4a72c67cb6476584663ade51083f2b2))
+* console event and consoleMessages ([#142](https://github.com/enekesabel/playwright-lite/issues/142)) ([5121823](https://github.com/enekesabel/playwright-lite/commit/5121823937a79efd13cbe056195cfce1dff2f242))
+* emit framenavigated for same-document URL changes ([28015b2](https://github.com/enekesabel/playwright-lite/commit/28015b2505ada94c00b51d422189921eeda906b9))
+* implement exposeFunction, exposeBinding and evaluate exposeFunctions ([#139](https://github.com/enekesabel/playwright-lite/issues/139)) ([a288729](https://github.com/enekesabel/playwright-lite/commit/a28872939a590f96b0fe3eabf8699e7c21c501b6))
+* implement pageErrors and clearPageErrors with listeners from page creation ([d44eae4](https://github.com/enekesabel/playwright-lite/commit/d44eae45c06a4b7681d580871dcb9302865cd603))
+* observe fetch as Page network events, waitForRequest and waitForResponse ([2e7c965](https://github.com/enekesabel/playwright-lite/commit/2e7c965d0484cf980515da97aa6bd3f942f052f2))
+* observe XMLHttpRequest through the shared network wrapper ([1915a3d](https://github.com/enekesabel/playwright-lite/commit/1915a3d9a6c1e1e257f27a68a2ce38e0fca5fcf7))
+* resolve networkidle over observed fetch and XHR ([#145](https://github.com/enekesabel/playwright-lite/issues/145)) ([624b013](https://github.com/enekesabel/playwright-lite/commit/624b0134ea1927a458b284684a7d45209c444f1b))
+* wrap window.alert/confirm/prompt as Page dialog events ([#140](https://github.com/enekesabel/playwright-lite/issues/140)) ([295472b](https://github.com/enekesabel/playwright-lite/commit/295472b6d16b14e4d4359030048e9c8dd79b4d66))
+
+
+### Bug Fixes
+
+* forward dialogs to the Site's wrapper once no dialog listener is left ([#150](https://github.com/enekesabel/playwright-lite/issues/150)) ([39f66b9](https://github.com/enekesabel/playwright-lite/commit/39f66b9a3b8f402a8f75f50eaa706004b063fcc3))
+* report each request once when requests() and a network listener are both active ([#147](https://github.com/enekesabel/playwright-lite/issues/147)) ([2d40504](https://github.com/enekesabel/playwright-lite/commit/2d405044058b48381ca37acd9c51ae3f92230132))
+
 ## [0.4.0](https://github.com/enekesabel/playwright-lite/compare/v0.3.0...v0.4.0) (2026-09-21)
 
 
