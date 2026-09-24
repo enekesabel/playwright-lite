@@ -380,7 +380,8 @@ describe("option-validation", () => {
     );
   });
 
-  // Pinned protocol validation rejects a non-boolean `strict` on both forms.
+  // Contract coverage: no upstream spec passes a non-boolean `strict` to
+  // waitForSelector. Pinned protocol validation rejects one on both forms.
   const waitForSelectorForms: [
     string,
     (page: Page, options: unknown) => Promise<unknown>,

@@ -120,7 +120,7 @@ export type LocatorVisibilityOptions = Omit<
   "strict"
 >;
 
-type WaitForSelectorOptions = {
+export type WaitForSelectorOptions = {
   signal?: AbortSignal;
   state?: "attached" | "detached" | "visible" | "hidden";
   strict?: boolean;
