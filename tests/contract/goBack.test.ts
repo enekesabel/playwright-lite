@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
-import { framePage, stateAfter, stubLoading } from "./history";
+import { framePage, popupPage, stateAfter, stubLoading } from "./history";
 import { assetUrl } from "./network";
 
 let originalURL: string | undefined;
@@ -28,6 +28,27 @@ describe("Page.goBack", () => {
 
     await expect(createPage().goBack({ timeout: 1_000 })).resolves.toBeNull();
     expect(history.state).toEqual({ entry: 1 });
+  });
+
+  it("waits until its timeout when the page cancels the traversal", async () => {
+    // Pinned Playwright waits for a navigation the canceled traversal never
+    // makes, so it rejects only when its timeout runs out. Only a top-level
+    // document can cancel a traversal, and the test window is a frame, so
+    // this runs in a same-origin popup.
+    const { page, popupWindow } = await popupPage(assetUrl());
+    popupWindow.history.pushState({}, "", "#first");
+    popupWindow.history.pushState({}, "", "#second");
+    let cancelable: boolean | undefined;
+    popupWindow.navigation.addEventListener("navigate", (event) => {
+      cancelable = event.cancelable;
+      event.preventDefault();
+    });
+
+    await expect(page.goBack({ timeout: 100 })).rejects.toThrow(
+      "page.goBack: Timeout 100ms exceeded."
+    );
+    expect(cancelable).toBe(true);
+    expect(popupWindow.location.hash).toBe("#second");
   });
 
   it("waits for the requested lifecycle state after the traversal", async () => {

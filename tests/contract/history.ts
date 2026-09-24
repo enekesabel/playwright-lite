@@ -7,17 +7,39 @@ import { PageImpl } from "../../src/page";
  * document replacement would end the test's own realm, so those tests drive a
  * same-origin frame through a `Page` for the frame's window; same-document
  * traversals run in the test's own window. Vitest browser mode runs that
- * window in a frame too, so no test here runs in a top-level document, whose
- * old document a cross-document navigation could put in the back/forward
- * cache and later restore.
+ * window in a frame too, so behaviour only a top-level document has runs in a
+ * same-origin popup. No test here observes an old document a cross-document
+ * navigation puts in the back/forward cache and later restores.
  */
 
 let frame: HTMLIFrameElement | undefined;
+let popup: Window | null = null;
 
 afterEach(() => {
   frame?.remove();
   frame = undefined;
+  popup?.close();
+  popup = null;
 });
+
+/** A `Page` for a same-origin top-level window showing `url`. */
+export async function popupPage(url: string) {
+  popup = window.open(url);
+  if (!popup) throw new Error("The browser blocked the test popup.");
+  const popupWindow = popup as Window & typeof globalThis;
+  await new Promise<void>((resolve) => {
+    const ready = () => {
+      if (
+        popupWindow.location.href === url &&
+        popupWindow.document.readyState === "complete"
+      )
+        resolve();
+      else setTimeout(ready, 10);
+    };
+    ready();
+  });
+  return { page: new PageImpl(popupWindow), popupWindow };
+}
 
 /** Resolves once the frame's next document has loaded. */
 function nextLoad(): Promise<void> {
