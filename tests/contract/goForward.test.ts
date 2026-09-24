@@ -10,4 +10,17 @@ describe("Page.goForward", () => {
     await expect(page.goForward()).resolves.toBeNull();
     expect(frameWindow().location.href).toBe(assetUrl());
   });
+
+  it("rejects with a named error without the Navigation API", async () => {
+    const { page, frameWindow } = await framePage(assetUrl());
+    Object.defineProperty(frameWindow(), "navigation", {
+      configurable: true,
+      value: undefined,
+    });
+
+    await expect(page.goForward()).rejects.toThrow(
+      "page.goForward: requires the Navigation API, which this browser does not provide"
+    );
+    expect(frameWindow().location.href).toBe(assetUrl());
+  });
 });

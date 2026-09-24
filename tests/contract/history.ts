@@ -6,7 +6,10 @@ import { PageImpl } from "../../src/page";
  * Helpers for the contract tests that traverse or replace a document. A
  * document replacement would end the test's own realm, so those tests drive a
  * same-origin frame through a `Page` for the frame's window; same-document
- * traversals run in the test's own window.
+ * traversals run in the test's own window. Vitest browser mode runs that
+ * window in a frame too, so no test here runs in a top-level document, whose
+ * old document a cross-document navigation could put in the back/forward
+ * cache and later restore.
  */
 
 let frame: HTMLIFrameElement | undefined;

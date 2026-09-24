@@ -107,7 +107,7 @@ const networkIdleNote =
   '`"networkidle"` resolves no sooner than 500 ms after the call, even when the document is already idle; see [Network idle](#network-idle).';
 
 const historyTraversalNote =
-  "Returns no `Response`; resolves to `null` without navigating when the adjacent entry belongs to another origin, where Playwright navigates to it; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call, even when already idle.";
+  "Needs the browser's Navigation API and rejects without it; returns no `Response`; resolves to `null` without navigating when the Navigation API does not list the adjacent entry (an entry of another origin, an entry beyond one, or any entry in an opaque-origin document such as a sandboxed frame), where Playwright navigates to it; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call, even when already idle.";
 
 /** The Page events this package fires, in README order. */
 export const events: readonly EventRow[] = [
@@ -385,7 +385,7 @@ export const pageLedger = {
   prependListener: partial(listenerNote),
   press: implemented(),
   reload: partial(
-    "Never resolves and returns no `Response`, since the reload [ends execution](#runtime-boundaries); rejects with a timeout only if the document is not replaced."
+    "Does not resolve in the old document, which the reload destroys, and returns no `Response`, since the reload [ends execution](#runtime-boundaries); rejects with a timeout only if the document is not replaced."
   ),
   removeAllListeners: partial(removalNote),
   removeListener: partial(removalNote),

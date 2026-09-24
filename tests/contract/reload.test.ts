@@ -4,7 +4,7 @@ import { framePage, stateAfter } from "./history";
 import { assetUrl } from "./network";
 
 describe("Page.reload", () => {
-  it("replaces the document and never resolves in the old one", async () => {
+  it("replaces the document and does not settle in the destroyed one", async () => {
     const { page, nextLoad, frameWindow } = await framePage(assetUrl());
     const oldWindow = frameWindow();
     (oldWindow as { marker?: boolean }).marker = true;
@@ -18,8 +18,9 @@ describe("Page.reload", () => {
     await replaced;
 
     expect((frameWindow() as { marker?: boolean }).marker).toBeUndefined();
-    // The old document's realm ended with its timers: neither success nor the
-    // timeout is ever reported.
+    // The old document is destroyed with its timers, so neither success nor
+    // the timeout is reported there. A top-level document restored from the
+    // back/forward cache would resume its timers; this frame is not restored.
     await expect(stateAfter(reload, 1_200)).resolves.toBe("pending");
   });
 });

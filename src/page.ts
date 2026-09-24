@@ -2520,11 +2520,12 @@ export class PageImpl {
    * Pinned server/page.ts waits for a navigation that commits a new document,
    * so same-document navigations never resolve it. A reload always replaces
    * the document, which ends this execution: like a cross-document `goto`, it
-   * starts the navigation and never resolves with a fabricated Response. It
-   * times out only if the document is not replaced.
+   * starts the navigation and never resolves in the old document, which is
+   * destroyed, so no Response is fabricated. It times out only if the
+   * document is not replaced.
    */
   async reload(options: CurrentDocumentWaitOptions = {}): Promise<null> {
-    const waitUntil = this.startNavigation("reload", options);
+    const waitUntil = this.validateNavigationOptions("reload", options);
     this.window.location.reload();
     await this.waitForCurrentDocument(
       "page.reload",
@@ -3025,7 +3026,7 @@ export class PageImpl {
    * before anything is sent, and rejects an already-aborted signal before the
    * navigation starts. Returns the verified `waitUntil`.
    */
-  private startNavigation(
+  private validateNavigationOptions(
     method: "goBack" | "goForward" | "reload",
     options: CurrentDocumentWaitOptions
   ): string {
@@ -3046,29 +3047,38 @@ export class PageImpl {
 
   /**
    * Traverses one entry of `navigation.entries()`: the entries of this
-   * window's history the document can see, which are those of its own origin.
-   * With no such entry the call resolves to null, the pinned result for a
-   * missing entry. Like the pinned wait, any navigation after the traversal
-   * starts ends the wait, observed as a change of `navigation.currentEntry`
-   * through the observation `waitForURL` uses, so an entry with the same URL
-   * still counts. A cross-document entry replaces the document, which ends
-   * this execution before anything is reported.
+   * window's history the document can see, which are those contiguous with
+   * and same-origin as the current one (none beyond the current entry in an
+   * opaque-origin document). With no such entry the call resolves to null,
+   * the pinned result for a missing entry. Like the pinned wait, any
+   * navigation after the traversal starts ends the wait, observed as a change
+   * of `navigation.currentEntry` through the observation `waitForURL` uses, so
+   * an entry with the same URL still counts. A cross-document entry replaces
+   * the document, which ends this execution before anything is reported.
+   * The Navigation API is the only in-document source of "no adjacent entry",
+   * so there is no `history.go()` fallback without it.
    */
   private async traverseHistory(
     method: "goBack" | "goForward",
     options: CurrentDocumentWaitOptions
   ): Promise<null> {
-    const waitUntil = this.startNavigation(method, options);
-    const navigation = this.window.navigation;
-    if (!(method === "goBack" ? navigation.canGoBack : navigation.canGoForward))
-      return null;
+    const waitUntil = this.validateNavigationOptions(method, options);
+    // The DOM typings declare `navigation` unconditionally.
+    const navigation = this.window.navigation as Navigation | undefined;
+    if (!navigation)
+      throw new Error(
+        `page.${method}: requires the Navigation API, which this browser does not provide`
+      );
+    const [canTraverse, traverse] =
+      method === "goBack"
+        ? [navigation.canGoBack, () => navigation.back()]
+        : [navigation.canGoForward, () => navigation.forward()];
+    if (!canTraverse) return null;
     const start = navigation.currentEntry;
-    const { committed, finished } =
-      method === "goBack" ? navigation.back() : navigation.forward();
+    const { committed, finished } = traverse();
     // An interrupted or replaced traversal rejects these; the wait below
     // reports the outcome instead.
-    committed?.catch(() => {});
-    finished?.catch(() => {});
+    void Promise.allSettled([committed, finished]);
     await this.waitForCurrentDocument(
       `page.${method}`,
       waitUntil,

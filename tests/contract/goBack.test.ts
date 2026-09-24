@@ -55,7 +55,7 @@ describe("Page.goBack", () => {
     }
   });
 
-  it("starts a cross-document traversal and never resolves in the old document", async () => {
+  it("starts a cross-document traversal and does not settle in the destroyed document", async () => {
     const { page, nextLoad, frameWindow } = await framePage(
       assetUrl(),
       assetUrl("?second")
@@ -66,8 +66,22 @@ describe("Page.goBack", () => {
     await replaced;
 
     expect(frameWindow().location.href).toBe(assetUrl());
-    // The old document's realm ended with its timers: neither success nor the
-    // timeout is ever reported.
+    // The old document is destroyed with its timers, so neither success nor
+    // the timeout is reported there. A top-level document restored from the
+    // back/forward cache would resume its timers; this frame is not restored.
     await expect(stateAfter(traversal, 1_200)).resolves.toBe("pending");
+  });
+
+  it("rejects with a named error without the Navigation API", async () => {
+    const { page, frameWindow } = await framePage(assetUrl());
+    Object.defineProperty(frameWindow(), "navigation", {
+      configurable: true,
+      value: undefined,
+    });
+
+    await expect(page.goBack()).rejects.toThrow(
+      "page.goBack: requires the Navigation API, which this browser does not provide"
+    );
+    expect(frameWindow().location.href).toBe(assetUrl());
   });
 });
