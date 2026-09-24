@@ -6,64 +6,126 @@
 
 type HostFunction = (...args: never[]) => unknown;
 
-/** Receives the call the wrapper intercepted, with the original to forward to. */
-export type HostCallInterceptor<T extends HostFunction> = (
-  original: T,
-  thisArg: unknown,
-  args: unknown[]
-) => unknown;
+type BrowserWindow = Window & typeof globalThis;
 
 /**
- * A host function replaced by a callable `Proxy` for as long as at least one
- * subscriber holds it.
+ * One instance per window, created by `create` on first use and shared by
+ * every later caller for the same window.
+ */
+export function perWindow<T>(
+  create: (browserWindow: BrowserWindow) => T
+): (browserWindow: BrowserWindow) => T {
+  const instances = new WeakMap<Window, T>();
+  return (browserWindow) => {
+    let instance = instances.get(browserWindow);
+    if (instance === undefined)
+      instances.set(browserWindow, (instance = create(browserWindow)));
+    return instance;
+  };
+}
+
+/**
+ * A host function to replace: `holder[name]`, and what receives each call.
+ * `intercept` gets the original to forward to, and is called directly by the
+ * proxy's `apply` trap, so the call chain above it has a fixed depth.
+ */
+export interface HostMember<T extends HostFunction = HostFunction> {
+  readonly holder: Record<string, unknown>;
+  readonly name: string;
+  intercept(original: T, thisArg: unknown, args: unknown[]): unknown;
+}
+
+/**
+ * A host function replaced by a callable `Proxy` between `install` and
+ * `restore`.
  *
  * The proxy traps only `apply`, so `name`, `length` and
  * `Function.prototype.toString` keep answering for the original function, and
  * `this` and the arguments reach it untouched: a call with a receiver the
- * platform object rejects still throws the same `TypeError`.
+ * platform object rejects still throws the same `TypeError`. A proxy that is
+ * no longer installed forwards every call to the original untouched, so a
+ * Site's wrapper that closed over it keeps working unobserved.
  */
-export class WrappedHostFunction<T extends HostFunction> {
-  private subscribers = 0;
-  private original: T | undefined;
-  private proxy: T | undefined;
+class WrappedHostFunction {
+  private original: HostFunction | undefined;
+  private proxy: HostFunction | undefined;
+
+  constructor(private readonly member: HostMember) {}
+
+  install() {
+    const { holder, name } = this.member;
+    const original = holder[name] as HostFunction;
+    const proxy: HostFunction = new Proxy(original, {
+      apply: (target, thisArg, args) =>
+        this.proxy === proxy
+          ? this.member.intercept(target, thisArg, args)
+          : Reflect.apply(target, thisArg, args),
+    });
+    this.original = original;
+    this.proxy = proxy;
+    holder[name] = proxy;
+  }
+
+  restore() {
+    const { holder, name } = this.member;
+    // A wrapper the host installed after ours closes over ours; assigning the
+    // original back would strip it. Leave the property alone unless it still
+    // holds the proxy this object installed.
+    if (holder[name] === this.proxy) holder[name] = this.original;
+    this.proxy = undefined;
+    this.original = undefined;
+  }
+}
+
+/**
+ * Host functions replaced together as one subscription, and the reporters
+ * subscribed to them. Every wrapper is installed when the first reporter
+ * subscribes and restored when the last one releases.
+ *
+ * This is the only subscription count: a reporter subscribed n times is
+ * reported to once per call, until its n-th release.
+ */
+export class HostObservation<Report extends (...args: never[]) => void> {
+  private readonly wrappers: readonly WrappedHostFunction[];
+  private readonly reporters = new Map<Report, number>();
 
   constructor(
-    private readonly holder: Record<string, unknown>,
-    private readonly name: string,
-    private readonly intercept: HostCallInterceptor<T>
-  ) {}
+    members: readonly HostMember[],
+    private readonly options: {
+      /** Runs after the last release has restored the wrappers. */
+      onLastRelease?: () => void;
+    } = {}
+  ) {
+    this.wrappers = members.map((member) => new WrappedHostFunction(member));
+  }
 
-  /**
-   * Installs the wrapper for the first subscriber. The returned release
-   * removes the last subscriber's wrapper, and is idempotent.
-   */
-  subscribe(): () => void {
-    if (this.subscribers++ === 0) this.install();
+  /** Reports to `report` until the returned release is called. The release is idempotent. */
+  subscribe(report: Report): () => void {
+    if (this.reporters.size === 0)
+      for (const wrapper of this.wrappers) wrapper.install();
+    this.reporters.set(report, (this.reporters.get(report) ?? 0) + 1);
     let released = false;
     return () => {
       if (released) return;
       released = true;
-      if (--this.subscribers === 0) this.restore();
+      const held = this.reporters.get(report)! - 1;
+      if (held > 0) {
+        this.reporters.set(report, held);
+        return;
+      }
+      this.reporters.delete(report);
+      if (this.reporters.size > 0) return;
+      for (const wrapper of this.wrappers) wrapper.restore();
+      this.options.onLastRelease?.();
     };
   }
 
-  private install() {
-    const original = this.holder[this.name] as T;
-    this.original = original;
-    this.proxy = new Proxy(original, {
-      apply: (target, thisArg, args) =>
-        this.intercept(target as T, thisArg, args),
-    });
-    this.holder[this.name] = this.proxy;
-  }
-
-  private restore() {
-    // A wrapper the host installed after ours closes over ours; assigning the
-    // original back would strip it. Leave the property alone unless it still
-    // holds the proxy this object installed.
-    if (this.holder[this.name] === this.proxy)
-      this.holder[this.name] = this.original;
-    this.proxy = undefined;
-    this.original = undefined;
+  /**
+   * Calls every subscribed reporter once, synchronously, over a snapshot
+   * taken now. A reporter's throw is not caught: it reaches the caller and
+   * skips the reporters after it.
+   */
+  report(...args: Parameters<Report>): void {
+    for (const reporter of [...this.reporters.keys()]) reporter(...args);
   }
 }

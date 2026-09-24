@@ -1,4 +1,4 @@
-import { WrappedHostFunction } from "./hostGlobals";
+import { HostObservation, perWindow } from "./hostGlobals";
 import { previewValue, tagOf, type AdapterJSHandle } from "./jsHandle";
 import type { ConsoleMessage, JSHandle, Page } from "@playwright/test";
 
@@ -129,7 +129,7 @@ type NativeConsoleMethod = (...args: unknown[]) => unknown;
 /**
  * Frames this module's own call chain adds, above the captured stack, before
  * the Site's own call site: `captureLocation` itself, `observe`, the
- * `WrappedHostFunction` interceptor callback, and the `Proxy` `apply` trap. A
+ * `HostMember` intercept callback, and the `Proxy` `apply` trap. A
  * bundled `dist/index.mjs` has no `console.ts`/`hostGlobals.ts` frame a
  * file-path marker could match — verified against the built bundle, where
  * that approach always named this module's own frame — so this call chain's
@@ -218,60 +218,36 @@ function formatConsoleText(args: readonly unknown[]): string {
     .join(" ");
 }
 
-const observations = new WeakMap<Window, ConsoleObservation>();
-
 /** The one observation of a window's `console`, shared by every `Page` of it. */
-export function consoleObservationFor(
-  browserWindow: Window & typeof globalThis
-): ConsoleObservation {
-  let observation = observations.get(browserWindow);
-  if (!observation)
-    observations.set(
-      browserWindow,
-      (observation = new ConsoleObservation(browserWindow))
-    );
-  return observation;
-}
+export const consoleObservationFor = perWindow(
+  (browserWindow) => new ConsoleObservation(browserWindow)
+);
 
 /**
  * Reports the document's `console.*` calls as Playwright's `console` event,
- * for as long as something is subscribed. Each wrapped method is its own
- * `WrappedHostFunction`, installed and restored together as one subscription.
+ * for as long as something is subscribed. Every wrapped method is installed
+ * and restored together as one subscription.
  */
 export class ConsoleObservation {
-  private readonly wrappers: WrappedHostFunction<NativeConsoleMethod>[] = [];
-  private readonly subscribers = new Set<Emit>();
+  private readonly host: HostObservation<Emit>;
 
   constructor(private readonly window: Window & typeof globalThis) {
-    const consoleObject = window.console as unknown as Record<string, unknown>;
-    for (const [method, type] of Object.entries(CONSOLE_METHOD_TYPES)) {
-      if (typeof consoleObject[method] !== "function") continue;
-      this.wrappers.push(
-        new WrappedHostFunction<NativeConsoleMethod>(
-          consoleObject,
-          method,
-          (original, thisArg, args) =>
-            this.observe(type, method, original, thisArg, args)
-        )
-      );
-    }
+    const holder = window.console as unknown as Record<string, unknown>;
+    this.host = new HostObservation(
+      Object.entries(CONSOLE_METHOD_TYPES)
+        .filter(([method]) => typeof holder[method] === "function")
+        .map(([method, type]) => ({
+          holder,
+          name: method,
+          intercept: (original: NativeConsoleMethod, thisArg, args) =>
+            this.observe(type, method, original, thisArg, args),
+        }))
+    );
   }
 
   /** Reports to `emit` until the returned release is called. */
   subscribe(emit: Emit): () => void {
-    this.subscribers.add(emit);
-    const releases = this.wrappers.map((wrapper) => wrapper.subscribe());
-    let released = false;
-    return () => {
-      if (released) return;
-      released = true;
-      this.subscribers.delete(emit);
-      for (const release of releases) release();
-    };
-  }
-
-  private emit(call: ConsoleCall) {
-    for (const subscriber of [...this.subscribers]) subscriber(call);
+    return this.host.subscribe(emit);
   }
 
   /** Guards one report against the reentrancy `observe` documents. */
@@ -312,7 +288,7 @@ export class ConsoleObservation {
         if (SUPPRESSED_WHEN_EMPTY.has(method)) return result;
         if (FALLBACK_TEXT_METHODS.has(method)) args = [`console.${method}`];
       }
-      this.emit({
+      this.host.report({
         type,
         args,
         text: formatConsoleText(args),

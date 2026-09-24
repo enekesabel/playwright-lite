@@ -3,6 +3,7 @@ import {
   kBindingsControllerProperty,
   kFunctionBindingPrefix,
 } from "virtual:playwright-lite-evaluation";
+import { perWindow } from "./hostGlobals";
 
 /** Pinned client/page.ts `exposeBinding`'s first callback argument, minus
  * `context`: this package has no `BrowserContext`. */
@@ -104,17 +105,7 @@ export class PageBindings {
   }
 }
 
-const controllers = new WeakMap<Window, PageBindings>();
-
 /** The one binding registry of a window, created for its first subscriber. */
-export function bindingsFor(
-  browserWindow: Window & typeof globalThis
-): PageBindings {
-  let controller = controllers.get(browserWindow);
-  if (!controller)
-    controllers.set(
-      browserWindow,
-      (controller = new PageBindings(browserWindow))
-    );
-  return controller;
-}
+export const bindingsFor = perWindow(
+  (browserWindow) => new PageBindings(browserWindow)
+);
