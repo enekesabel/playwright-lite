@@ -66,11 +66,6 @@
       "evidence": "The actual button handler changes result to Clicked after the browser ElementHandle click. Recorded native goto establishes the fixture only."
     },
     {
-      "id": "elementhandle-click.spec.ts > should work for Shadow DOM v1",
-      "method": "JSHandle.click",
-      "evidence": "Clicking the handle page.evaluateHandle returned for a button inside an open shadow root runs its click listener, so window.clicked becomes true. The bridge records evaluateHandle results as JSHandle, so this is ElementHandle.click on that handle. Native goto only establishes the document."
-    },
-    {
       "id": "elementhandle-convenience.spec.ts > getAttribute should work",
       "method": "ElementHandle.getAttribute",
       "evidence": "Reading name on #outer returns 'value' and an absent attribute returns null, so getAttribute reports the attribute value through the handle and reports a missing attribute as null."
@@ -3125,7 +3120,7 @@
     {
       "id": "page-select-option.spec.ts > should unselect with null",
       "method": "Page.selectOption",
-      "evidence": "On a multiple select that starts with black selected, Page.selectOption('select', null) leaves no option selected. The earlier reduce check only shows the returned values are among the requested ones. Native goto only establishes the document."
+      "evidence": "After Page.selectOption selects ['blue','black','magenta'] on the multiple select, Page.selectOption('select', null) leaves no option selected. Native goto only establishes the document."
     },
     {
       "id": "page-select-option.spec.ts > should wait for multiple options to be present",
