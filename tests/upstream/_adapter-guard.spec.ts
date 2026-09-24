@@ -322,9 +322,34 @@ test("an error the page code or the adapter raises is not a transport failure", 
       "Attempting to serialize unexpected value",
     ],
   ];
-  for (const [, run, message] of raised)
-    await expect(run()).rejects.toThrow(message);
+  for (const [label, run, message] of raised)
+    await expect(run(), label).rejects.toThrow(message);
   expect((page as any).__pwLiteTransportFailures).toEqual([]);
+});
+
+test("classifying an adapter rejection leaves unhandled-rejection reporting as it was", async ({
+  page,
+  adapterPage,
+}) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  // The bridge awaits the adapter call, so its rejection is handled.
+  await expect(
+    adapterPage.evaluate(() => (window as any).awaitedMissing())
+  ).rejects.toThrow("awaitedMissing is not a function");
+  // Page code that leaves an adapter call unawaited still gets an unhandled
+  // rejection, which the browser reports as a page error.
+  await page.evaluate(() => {
+    void (window as any).__pwLiteAdapterPage.evaluate(() =>
+      (window as any).floatingMissing()
+    );
+  });
+  await expect
+    .poll(() => pageErrors.some((message) => message.includes("floatingMissing")))
+    .toBe(true);
+  expect(
+    pageErrors.filter((message) => message.includes("awaitedMissing"))
+  ).toEqual([]);
 });
 
 test("calling a disposed exposed function is a page error, not a transport failure", async ({

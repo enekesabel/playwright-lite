@@ -785,8 +785,10 @@ export async function createAdapterPage(
         // question is still open (a call nothing awaited, at teardown) keeps
         // the failure rather than losing it.
         failures.push(firstLine);
-        if (await raisedByAdapter(firstLine))
-          failures.splice(failures.lastIndexOf(firstLine), 1);
+        if (await raisedByAdapter(firstLine)) {
+          const index = failures.lastIndexOf(firstLine);
+          if (index !== -1) failures.splice(index, 1);
+        }
       }
       throw error;
     }
@@ -1941,12 +1943,10 @@ function initializeAdapterBridge(
   // An error thrown out of an adapter member — including one a page function
   // the adapter ran threw — is the adapter's, not the bridge's: only that
   // boundary knows, since a bridge dispatch error can carry the same message.
-  // A member's rejection is observed with a side reaction, so every caller
-  // still receives the adapter's own promise, settled on the same tick. That
-  // reaction handles the promise: the bridge awaits every member it calls, so
-  // only a rejected adapter-internal call nothing awaits would no longer reach
-  // `unhandledrejection`. A thrown primitive cannot be marked, so it stays
-  // classified by its message alone.
+  // A member's rejection is marked on a derived promise that rethrows the
+  // same error, and the caller receives that promise: one it leaves unawaited
+  // still rejects unhandled, exactly as the adapter's own would. A thrown
+  // primitive cannot be marked, so it stays classified by its message alone.
   const adapterErrors = new WeakSet<object>();
   const markAdapterError = (error: unknown) => {
     if (typeof error === "object" && error !== null) adapterErrors.add(error);
@@ -1959,8 +1959,12 @@ function initializeAdapterBridge(
       markAdapterError(error);
       throw error;
     }
-    if (result instanceof Promise) result.then(undefined, markAdapterError);
-    return result;
+    return result instanceof Promise
+      ? result.then(undefined, (error) => {
+          markAdapterError(error);
+          throw error;
+        })
+      : result;
   };
   // Playwright rejects the Node side of an evaluation with the browser's
   // description of the thrown error, which starts with its stack's first line.
