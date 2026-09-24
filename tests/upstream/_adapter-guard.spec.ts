@@ -1168,6 +1168,90 @@ test("a member returning an array republishes each handle in it", async ({
   await expect(handle.jsonValue()).rejects.toThrow("Unknown or disposed");
 });
 
+// Every route that returns a handle records its members under the kind
+// Playwright's own API gives the handle, whatever the route's declared return
+// type: an element value is an ElementHandle and any other value a JSHandle.
+// Each route is driven with the same two values and the same member, so only
+// the value decides the recorded kind.
+const handleRoutes: [
+  string,
+  (
+    page: import("@playwright/test").Page,
+    expression: string
+  ) => Promise<import("@playwright/test").JSHandle>,
+][] = [
+  ["Page.evaluateHandle", (page, expression) => page.evaluateHandle(expression)],
+  [
+    "Page.waitForFunction",
+    (page, expression) => page.waitForFunction(expression),
+  ],
+  [
+    "JSHandle.getProperty",
+    async (page, expression) =>
+      (await page.evaluateHandle(`({ value: ${expression} })`)).getProperty(
+        "value"
+      ),
+  ],
+  [
+    "JSHandle.getProperties",
+    async (page, expression) =>
+      (
+        await (
+          await page.evaluateHandle(`({ value: ${expression} })`)
+        ).getProperties()
+      ).get("value")!,
+  ],
+];
+for (const [route, obtain] of handleRoutes) {
+  test(`a handle ${route} returns records members under the kind its value gives it`, async ({
+    page,
+    adapterPage,
+  }) => {
+    await page.setContent("<div>element</div>");
+    // The kinds recorded while one member runs on the handle: the member
+    // itself, plus whatever the adapter calls on the same handle internally.
+    const kindsDuring = async (call: () => Promise<unknown>) => {
+      const before = await page.evaluate(
+        () => (window as any).__pwLiteEvidence.entered.length
+      );
+      const result = await call();
+      const entered: string[] = await page.evaluate(
+        (from) => (window as any).__pwLiteEvidence.entered.slice(from),
+        before
+      );
+      return {
+        result,
+        evaluate: entered.filter((name) => name.endsWith(".evaluate")),
+        kinds: [...new Set(entered.map((name) => name.split(".")[0]))],
+      };
+    };
+
+    const element = await obtain(adapterPage, 'document.querySelector("div")');
+    expect(element.asElement()).toBe(element);
+    expect(
+      await kindsDuring(() =>
+        element.evaluate((value: any) => value.textContent)
+      )
+    ).toEqual({
+      result: "element",
+      evaluate: ["ElementHandle.evaluate"],
+      kinds: ["ElementHandle"],
+    });
+
+    const value = await obtain(adapterPage, "42");
+    expect(value.asElement()).toBeNull();
+    expect(
+      await kindsDuring(() => value.evaluate((value: any) => value))
+    ).toEqual({
+      result: 42,
+      evaluate: ["JSHandle.evaluate"],
+      kinds: ["JSHandle"],
+    });
+
+    expect((page as any).__pwLiteNativeOperations).toEqual([]);
+  });
+}
+
 test("adapter element handles keep native identity, scope queries, and release bridge references", async ({
   page,
   adapterPage,
