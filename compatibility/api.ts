@@ -104,7 +104,7 @@ const exposeBindingNote =
 const consoleMessagesNote =
   '`filter: "all"` and the default `"since-navigation"` return the same messages; see [ConsoleMessage](#consolemessage).';
 const networkIdleNote =
-  '`"networkidle"` resolves no sooner than 500 ms after the call, even when the document is already idle; see [Runtime boundaries](#runtime-boundaries).';
+  '`"networkidle"` resolves no sooner than 500 ms after the call, even when the document is already idle; see [Network idle](#network-idle).';
 
 /** The Page events this package fires, in README order. */
 export const events: readonly EventRow[] = [
@@ -164,7 +164,6 @@ export const objectSections: readonly ObjectSection[] = [
         playwright: "Accepts `strict`.",
       },
     ],
-    differences: ["`ElementHandle.$()` ignores `strict`."],
     edgeCases: [
       "`toString()` describes the value as it was when the handle was first converted to a string.",
       "`toString()` of a handle to a `Proxy` prints the target's class name, such as `Object`, where Playwright prints `Proxy(Object)`.",
@@ -223,8 +222,8 @@ export const objectSections: readonly ObjectSection[] = [
     edgeCases: [
       "An `XMLHttpRequest` opened again while in flight reports `failure().errorText` as `XMLHttpRequest: abort`.",
       "`body()`, `text()` and `json()` of an `XMLHttpRequest` with the default `responseType` return the body re-encoded as UTF-8, so a binary or non-UTF-8 body does not come back byte for byte; Playwright returns the bytes received.",
-      '`body()`, `text()` and `json()` of an `XMLHttpRequest` reject when it set `responseType` to `"json"` or `"document"`, because the browser then keeps only the parsed value.',
-      "`Response.finished()` resolves once the response body has ended. A `fetch()` response body is buffered as it arrives, so `body()`, `text()` and `json()` still answer after the page consumed it.",
+      '`body()`, `text()` and `json()` of an `XMLHttpRequest` reject when it set `responseType` to `"json"` or `"document"`.',
+      "`Response.finished()` resolves once the response body has ended. A `fetch()` response's `body()`, `text()` and `json()` still answer after the page consumed the body.",
     ],
   },
   {
@@ -349,8 +348,7 @@ export const pageLedger = {
     "Initiates browser navigation; execution ends on document replacement."
   ),
   goto: partial(
-    "Does not return a `Response`; resolves to `null` only for same-document hash navigation. Relative URLs use `document.baseURI`, not a configured Playwright `baseURL`. Rejects `referer` and `signal`. " +
-      networkIdleNote
+    "Returns no `Response` (`null` only for same-document hash navigation); relative URLs resolve against `document.baseURI`, with no `baseURL`; rejects `referer` and `signal`; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call, even when already idle."
   ),
   hideHighlight: implemented("Clears highlights in the current document."),
   hover: implemented(),
