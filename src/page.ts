@@ -2484,7 +2484,7 @@ export class PageImpl {
    * instead of reporting a navigation Response.
    */
   async waitForNavigation(
-    options: NonNullable<Parameters<Page["waitForNavigation"]>[0]> = {}
+    options: CurrentDocumentWaitOptions & { url?: URLMatch } = {}
   ): Promise<null> {
     rejectUnsupportedOptions("waitForNavigation", options, [
       "signal",

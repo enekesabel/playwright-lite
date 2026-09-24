@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { withReadyState } from "./readyState";
 
 // Contract coverage for the document-scoped wait. The corpus proves hash,
-// pushState, replaceState, traversal and URL matching through clicks; these
-// cover what it cannot reach: waiting for the next navigation rather than the
-// current URL, the lifecycle wait after it, and this package's timeout.
+// pushState, replaceState and URL matching through clicks. These cover what it
+// cannot reach: history traversal (the upstream back/forward test fails on the
+// bridge's cached URL and is not promoted), waiting for the next navigation
+// rather than the current URL, the lifecycle wait after it, and this package's
+// timeout.
 
 let originalURL: string | undefined;
 
@@ -13,23 +16,6 @@ afterEach(() => {
   if (originalURL) history.replaceState({}, "", originalURL);
   originalURL = undefined;
 });
-
-async function withReadyState<T>(
-  state: DocumentReadyState,
-  run: () => Promise<T>
-): Promise<T> {
-  const descriptor = Object.getOwnPropertyDescriptor(document, "readyState");
-  Object.defineProperty(document, "readyState", {
-    configurable: true,
-    value: state,
-  });
-  try {
-    return await run();
-  } finally {
-    if (descriptor) Object.defineProperty(document, "readyState", descriptor);
-    else delete (document as { readyState?: DocumentReadyState }).readyState;
-  }
-}
 
 describe("Page.waitForNavigation", () => {
   it("resolves with null on a hash change and leaves host history APIs alone", async () => {

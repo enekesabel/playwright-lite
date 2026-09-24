@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createPage } from "../../src/index";
 import { delayedUrl, idleWindow, sendXhr } from "./network";
 import { listenedPages } from "./pageEvents";
+import { withReadyState } from "./readyState";
 
 function waitForRuntimeLoadState(
   page: ReturnType<typeof createPage>,
@@ -13,23 +14,6 @@ function waitForRuntimeLoadState(
       waitForLoadState(state?: string): Promise<void>;
     }
   ).waitForLoadState(state);
-}
-
-async function withReadyState<T>(
-  state: DocumentReadyState,
-  run: () => Promise<T>
-): Promise<T> {
-  const descriptor = Object.getOwnPropertyDescriptor(document, "readyState");
-  Object.defineProperty(document, "readyState", {
-    configurable: true,
-    value: state,
-  });
-  try {
-    return await run();
-  } finally {
-    if (descriptor) Object.defineProperty(document, "readyState", descriptor);
-    else delete (document as { readyState?: DocumentReadyState }).readyState;
-  }
 }
 
 describe("Page.waitForLoadState", () => {
