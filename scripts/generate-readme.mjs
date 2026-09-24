@@ -182,7 +182,17 @@ export async function renderReadme(root = projectRoot) {
         ),
       },
     ],
-    objectSections,
+    // Strict templates reject missing fields; an omitted field renders nothing.
+    objectSections: objectSections.map((section) => ({
+      reported: "",
+      notReported: "",
+      covers: "",
+      notAvailable: "",
+      members: [],
+      differences: [],
+      edgeCases: [],
+      ...section,
+    })),
   });
   return format(markdown, { ...options, filepath });
 }

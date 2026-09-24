@@ -157,6 +157,18 @@ test("event-emitter rows stay one line and link the Events table", async () => {
   );
 });
 
+test("Edge cases folds keep their Markdown content renderable", async () => {
+  const readme = await renderReadme(root);
+  const folds = readme.split("<details>").slice(1);
+  assert.ok(folds.length >= 5);
+  for (const fold of folds) {
+    // GitHub renders Markdown inside <details> only after a blank line.
+    assert.match(fold, /^\n<summary>Edge cases<\/summary>\n\n- /);
+    assert.match(fold, /\n\n<\/details>\n/);
+  }
+  assert.doesNotMatch(readme, /\*\*Not available:\*\* none/);
+});
+
 test("generation is repeatable and check mode rejects drift without writing", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "playwright-lite-readme-"));
   t.after(() => rm(directory, { recursive: true, force: true }));

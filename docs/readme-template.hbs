@@ -35,19 +35,45 @@ await expect(page.locator(".notice")).toContainText("Saved");
 See [Expect](#expect) for the supported matchers and how a failed assertion surfaces.
 
 {{!--
-Runtime-wide constraints of executing inside the current document belong here.
-Do not repeat them in partial API notes or downgrade APIs because of them.
+Constraints of executing inside the current document, explained once here; an
+API keeps its status despite them. One short line per boundary. Mechanics that
+several APIs share (replaced page functions, network idle) get a subsection
+here instead of a row note.
 --}}
 ## Runtime boundaries
 
 - **Current document only.** No iframe traversal, `Frame`, or `FrameLocator` support.
-- **Navigation ends execution.** `goto()` can start navigation, but replacing the document destroys the JavaScript context running your script. Automation cannot continue across a full-page navigation or reload.
-- **Observing the network or console replaces `window.fetch`, three `XMLHttpRequest` methods, and `console.*`.** Adding the first `request`, `response`, `requestfinished` or `requestfailed` listener, the first call to `waitForRequest()`, `waitForResponse()` or `requests()`, or a `networkidle` wait, installs wrappers around `window.fetch` and `XMLHttpRequest.prototype.open`, `setRequestHeader` and `send`. Adding the first `console` listener, or the first call to `consoleMessages()`, wraps every `console.*` method Playwright's `ConsoleMessage` covers. Every wrapper forwards calls unchanged. Removing the last listener for a given kind puts its original functions back, unless the page replaced one of them itself in the meantime; `requests()` and `consoleMessages()` keep their wrappers installed so their logs keep filling, and a `networkidle` wait holds the network wrappers until it ends. A page you never subscribe on is left untouched.
-- **Network idle counts only `fetch()` and `XMLHttpRequest`.** Playwright documents `networkidle` as "**DISCOURAGED** consider operation to be finished when there are no network connections for at least `500` ms. Don't use this method for testing, rely on web assertions to assess readiness instead." Here, `waitForLoadState("networkidle")` and `waitUntil: "networkidle"` resolve once no `fetch()` or `XMLHttpRequest` call of the current document has been in flight for 500 ms, excluding `/favicon.ico` requests as Playwright does. When an image, script, stylesheet or other resource finishes loading, the 500 ms starts over, but a resource still loading never holds it. The end of each call and resource is noticed a few milliseconds late, so a wait can resolve slightly more than 500 ms after it. A call started before the wrappers above were installed is not seen, so a wait started while such a call is in flight can resolve before it ends. Calls from iframes, workers and other realms are not seen.
-- **Observing dialogs replaces `window.alert`, `window.confirm` and `window.prompt`.** Adding the first `dialog` listener wraps all three; removing the last one restores them, unless the page replaced one of them itself in the meantime. A page you never add a `dialog` listener to is left untouched, so a page relying on the browser's own modal keeps working. See [Dialog](#dialog) for how a wrapped dialog is settled.
-- **Synthetic input.** Input events are not browser-trusted. Native keyboard behavior such as cursor movement, deletion, and focus traversal is not simulated.
+- **Navigation ends execution.** `goto()` can start navigation, but replacing the document destroys the JavaScript context running your script, so automation cannot continue across a full-page navigation or reload.
+- **Synthetic input.** Input events are not browser-trusted; native keyboard behavior such as cursor movement, deletion and focus traversal is not simulated.
 - **No browser control.** No browser launch, browser contexts, or browser-level control over network traffic, downloads, or other tabs.
-- **Content Security Policy still applies.** Evaluation callbacks need dynamic JavaScript evaluation to be allowed by the page's policy; the library does not bypass it.
+- **Content Security Policy applies.** Evaluation callbacks need the page's policy to allow dynamic JavaScript evaluation; the library does not bypass it.
+
+### Page functions playwright-lite replaces
+
+| Functions | Replaced when you first… | Put back when… |
+| --- | --- | --- |
+| `window.fetch` and `XMLHttpRequest.prototype.open`, `setRequestHeader` and `send` | add a `request`, `response`, `requestfinished` or `requestfailed` listener, call `waitForRequest()`, `waitForResponse()` or `requests()`, or start a `networkidle` wait | the last of those listeners is removed and no `networkidle` wait is running. After a `requests()` call they stay, so its log keeps filling. |
+| Every `console.*` method Playwright's `ConsoleMessage` covers | add a `console` listener or call `consoleMessages()` | the last `console` listener is removed. After a `consoleMessages()` call they stay, so its log keeps filling. |
+| `window.alert`, `window.confirm` and `window.prompt` | add a `dialog` listener | the last `dialog` listener is removed. |
+
+Nothing is replaced until you subscribe, and a function the page replaced itself is never put back. The network and console replacements forward every call unchanged. The dialog replacements pass each dialog to your listeners instead of showing it; see [Dialog](#dialog).
+
+### Network idle
+
+`waitForLoadState("networkidle")` and `waitUntil: "networkidle"` resolve once no `fetch()` or `XMLHttpRequest` call of the current document has been in flight for 500 ms.
+
+- Only `fetch()` and `XMLHttpRequest` calls count as in flight. An image, script, stylesheet or other resource that finishes loading restarts the 500 ms, but one still loading never holds it.
+- `/favicon.ico` requests are excluded, as in Playwright.
+- A call started before you subscribed is not seen, so a wait started while such a call is in flight can resolve before it ends.
+- Calls from iframes, workers and other realms are not seen.
+- Playwright documents `networkidle` as "**DISCOURAGED** consider operation to be finished when there are no network connections for at least `500` ms. Don't use this method for testing, rely on web assertions to assess readiness instead."
+
+<details>
+<summary>Edge cases</summary>
+
+- The end of each call and resource is noticed a few milliseconds late, so a wait can resolve slightly more than 500 ms after it.
+
+</details>
 
 ## Use cases
 
@@ -77,6 +103,9 @@ consumer README.
   section. Rows link there.
 - Page and Locator tables print notes only for ⚠️ and 🚫 rows; the Events and
   Expect tables print every note, so their ✅ notes name real differences only.
+- An explanation stays only when it lets the reader predict behaviour beyond
+  the listed cases, as one short clause ("because `alert()` blocks the page's
+  script"). How this package works inside is left to the source.
 --}}
 ## Compatibility
 
@@ -133,22 +162,56 @@ A failed assertion throws an error whose `matcherResult` describes the failure: 
 {{/each}}
 {{!--
 Owned by `objectSections` in compatibility/api.ts. Every object section has the
-same layout: what it covers, then "Not available:" (the missing members), then
-"Differences from Playwright:" as short bullets, one behaviour each.
+same layout, and an empty part is omitted:
+1. What it covers (Request and Response: "Reported:" and "Not reported:").
+2. "Not available:" with the missing members.
+3. "Differences from Playwright:" as a Member | playwright-lite | Playwright
+   table for differences tied to one member, then one-line bullets for the rest.
+4. An "Edge cases" fold for differences a typical user of the object never runs
+   into.
 --}}
 {{#each objectSections}}
 ### {{name}}
 
+{{#if reported}}
+**Reported:** {{{reported}}}
+
+**Not reported:** {{{notReported}}}
+
+{{/if}}
+{{#if covers}}
 {{{covers}}}
 
+{{/if}}
+{{#if notAvailable}}
 **Not available:** {{{notAvailable}}}
 
+{{/if}}
 **Differences from Playwright:**
 
+{{#if members.length}}
+| Member | playwright-lite | Playwright |
+| --- | --- | --- |
+{{#each members}}
+| {{{member}}} | {{{lite}}} | {{{playwright}}} |
+{{/each}}
+
+{{/if}}
 {{#each differences}}
 - {{{this}}}
 {{/each}}
 
+{{#if edgeCases.length}}
+<details>
+<summary>Edge cases</summary>
+
+{{#each edgeCases}}
+- {{{this}}}
+{{/each}}
+
+</details>
+
+{{/if}}
 {{/each}}
 ## License
 

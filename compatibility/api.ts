@@ -56,12 +56,26 @@ const outOfScope = (limitations: string): CompatibilityEntry => ({
  * never imported by the browser runtime.
  */
 
-/** One `### ` section describing a returned object: see the README template. */
+/** One member-level difference: what this package does and what Playwright does. */
+export type MemberDifference = {
+  readonly member: string;
+  readonly lite: string;
+  readonly playwright: string;
+};
+
+/**
+ * One `### ` section describing a returned object; see the README template.
+ * Omitted fields render nothing.
+ */
 export type ObjectSection = {
   readonly name: string;
-  readonly covers: string;
-  readonly notAvailable: string;
-  readonly differences: readonly string[];
+  readonly reported?: string;
+  readonly notReported?: string;
+  readonly covers?: string;
+  readonly notAvailable?: string;
+  readonly members?: readonly MemberDifference[];
+  readonly differences?: readonly string[];
+  readonly edgeCases?: readonly string[];
 };
 
 /** One row of the README Events table. */
@@ -127,69 +141,140 @@ export const events: readonly EventRow[] = [
   },
 ];
 
-/** Returned objects, in README order. Each behaviour lives in one section. */
+/**
+ * Returned objects, in README order. Each behaviour lives in one section;
+ * `edgeCases` holds what a typical user of the object never runs into.
+ */
 export const objectSections: readonly ObjectSection[] = [
   {
     name: "ElementHandle and JSHandle",
     covers:
       "The `ElementHandle` and `JSHandle` objects this package returns, for example from `$()`, `waitForSelector()`, `evaluateHandle()` or `locator.elementHandle()`.",
     notAvailable:
-      "`ElementHandle.contentFrame()`, `ownerFrame()`, `screenshot()` and `tap()`. `JSHandle` has every member.",
-    differences: [
-      "`ElementHandle.$()` ignores `strict`.",
-      "`ElementHandle.click()` does not wait for navigation.",
-      "`ElementHandle.waitForSelector()` rejects `strict`.",
-      "`toString()` builds its preview from the referenced value inside the document instead of reading a browser-process object description, so it describes the value as it is when the handle is first converted to a string.",
+      "`ElementHandle.contentFrame()`, `ownerFrame()`, `screenshot()` and `tap()`.",
+    members: [
+      {
+        member: "`ElementHandle.click()`",
+        lite: "Does not wait for navigation.",
+        playwright: "Waits for a navigation the click starts.",
+      },
+      {
+        member: "`ElementHandle.waitForSelector()`",
+        lite: "Rejects `strict`.",
+        playwright: "Accepts `strict`.",
+      },
+    ],
+    differences: ["`ElementHandle.$()` ignores `strict`."],
+    edgeCases: [
+      "`toString()` describes the value as it was when the handle was first converted to a string.",
       "`toString()` of a handle to a `Proxy` prints the target's class name, such as `Object`, where Playwright prints `Proxy(Object)`.",
     ],
   },
   {
     name: "Request and Response",
+    reported:
+      'The `fetch()` and `XMLHttpRequest` calls the current document makes while you are subscribed, through `page.on("request" | "response" | "requestfinished" | "requestfailed")`, `page.waitForRequest()`, `page.waitForResponse()` and `page.requests()`.',
+    notReported:
+      "Images, scripts, stylesheets, `navigator.sendBeacon`, `WebSocket`, `EventSource`, form submissions and navigations; calls made by another realm, an iframe or a service worker; a `fetch()` started or an `XMLHttpRequest` opened before the first subscription.",
     covers:
-      '`page.on("request" | "response" | "requestfinished" | "requestfailed")`, `page.waitForRequest()`, `page.waitForResponse()` and `page.requests()` report the `fetch()` and `XMLHttpRequest` calls the current document makes while you are subscribed. Images, scripts, stylesheets, `navigator.sendBeacon`, `WebSocket`, `EventSource`, form submissions and navigations are not reported, and neither are `fetch()` and `XMLHttpRequest` calls made by another realm, by an iframe or by a service worker, nor a `fetch()` call started or an `XMLHttpRequest` opened before the first subscription. The package exports `Request` and `Response` types listing exactly the available members. Annotating a value with one of them is optional: `createPage()` returns Playwright\'s own `Page`, so code written against Playwright keeps type-checking here.',
+      "The package exports `Request` and `Response` types listing exactly the available members. Annotating with them is optional: `createPage()` returns Playwright's own `Page`, so code written against Playwright keeps type-checking.",
     notAvailable:
       "`Request.allHeaders()`, `existingResponse()`, `frame()`, `headersArray()`, `redirectedFrom()`, `redirectedTo()`, `serviceWorker()`, `sizes()` and `timing()`; `Response.allHeaders()`, `frame()`, `fromServiceWorker()`, `headersArray()`, `headerValues()`, `httpVersion()`, `securityDetails()` and `serverAddr()`. Calling one throws a `TypeError`.",
+    members: [
+      {
+        member: "`resourceType()`",
+        lite: '`"fetch"` or `"xhr"`.',
+        playwright: "The browser's resource type.",
+      },
+      {
+        member: "`isNavigationRequest()`",
+        lite: "Always `false`.",
+        playwright: "`true` for navigation requests.",
+      },
+      {
+        member: "`Request.headers()`, `Request.headerValue()`",
+        lite: "The headers the call set: the `Request` headers of a `fetch()`, the `setRequestHeader()` values of an `XMLHttpRequest`. `Cookie`, `Origin`, `User-Agent`, other browser-added headers and the `Content-Type` an `XMLHttpRequest` derives from its body are missing.",
+        playwright: "`headerValue()` reads the headers that went on the wire.",
+      },
+      {
+        member: "`Response.headers()`, `Response.headerValue()`",
+        lite: "The headers the browser exposes to the document: never `Set-Cookie`, and for a cross-origin response only the CORS-safelisted names plus those its `Access-Control-Expose-Headers` lists.",
+        playwright: "`headerValue()` reads the headers received on the wire.",
+      },
+      {
+        member: "`postData()`, `postDataBuffer()`, `postDataJSON()`",
+        lite: "Read a string, `URLSearchParams`, `ArrayBuffer` or typed-array body passed as the `fetch()` `body` option or the `send()` argument. A `Blob`, `FormData` or `ReadableStream` body, or one carried by a `Request` argument to `fetch()`, reports `null`.",
+        playwright: "Read the body the browser sent.",
+      },
+      {
+        member: "`postDataBuffer()`, `Response.body()`",
+        lite: "`Uint8Array`.",
+        playwright: "Node.js `Buffer`.",
+      },
+      {
+        member: "`failure().errorText`",
+        lite: "The name and message of the error `fetch()` rejected with, or its `AbortSignal`'s reason; for an `XMLHttpRequest`, `XMLHttpRequest:` plus the event that ended it: `error`, `timeout` or `abort`.",
+        playwright: "The browser's `net::ERR_*` code.",
+      },
+    ],
     differences: [
-      '`resourceType()` is `"fetch"` or `"xhr"`, and `isNavigationRequest()` is always `false`.',
-      "`Request.headers()` and `Request.headerValue()` report the headers the call set (the `Request` headers of a `fetch()`, the `setRequestHeader()` values of an `XMLHttpRequest`), not the headers that went on the wire: `Cookie`, `Origin`, `User-Agent` and the other headers the browser adds are missing, as is the `Content-Type` an `XMLHttpRequest` derives from its `send()` body. Playwright's `headerValue()` reads the wire headers.",
-      "`Response.headers()` and `Response.headerValue()` report the headers the browser exposes to the document: `Set-Cookie` is never among them, and a cross-origin response exposes only the CORS-safelisted names plus the ones its `Access-Control-Expose-Headers` lists.",
-      "`postData()`, `postDataBuffer()` and `postDataJSON()` answer without waiting, as Playwright's do, so they read only a body the call hands over synchronously: a string, `URLSearchParams`, an `ArrayBuffer` or a typed array, passed as the `fetch()` `body` option or as the `send()` argument. A `Blob`, `FormData` or `ReadableStream` body, and a body carried by a `Request` argument to `fetch()`, report `null`.",
-      "`postDataBuffer()` returns a `Uint8Array` and `Response.body()` resolves with a `Uint8Array`, where Playwright returns a Node.js `Buffer`.",
-      "`failure().errorText` is the name and message of the error the `fetch()` call rejected with, or the reason its `AbortSignal` carried. An `XMLHttpRequest` reports `XMLHttpRequest:` followed by the name of the event that ended it: `error`, `timeout` or `abort`, which is also what an `XMLHttpRequest` opened again while in flight reports. Playwright reports the browser's `net::ERR_*` code.",
-      "A redirect chain is one request and one response: the request reports the URL the document asked for, the response reports the final URL, and no event is emitted per hop.",
-      "`Response.finished()` resolves once the response body has ended. A `fetch()` response body is buffered as it arrives, so `body()`, `text()` and `json()` still answer after the document consumed it.",
-      '`body()`, `text()` and `json()` of an `XMLHttpRequest` read the body back from the request once it is done. With the default `responseType` the browser has already decoded it as text, so they return it re-encoded as UTF-8, and a binary or non-UTF-8 body does not come back byte for byte; Playwright returns the bytes received. They reject when the request set `responseType` to `"json"` or `"document"`, because the browser then keeps only the value it parsed.',
+      "A redirect chain is one request and one response: the request reports the URL the document asked for, the response the final URL, and no event fires per hop.",
+    ],
+    edgeCases: [
+      "An `XMLHttpRequest` opened again while in flight reports `failure().errorText` as `XMLHttpRequest: abort`.",
+      "`body()`, `text()` and `json()` of an `XMLHttpRequest` with the default `responseType` return the body re-encoded as UTF-8, so a binary or non-UTF-8 body does not come back byte for byte; Playwright returns the bytes received.",
+      '`body()`, `text()` and `json()` of an `XMLHttpRequest` reject when it set `responseType` to `"json"` or `"document"`, because the browser then keeps only the parsed value.',
+      "`Response.finished()` resolves once the response body has ended. A `fetch()` response body is buffered as it arrives, so `body()`, `text()` and `json()` still answer after the page consumed it.",
     ],
   },
   {
     name: "Dialog",
     covers:
       '`page.on("dialog")` reports the `window.alert()`, `window.confirm()` and `window.prompt()` calls the current document makes, wrapped as Playwright\'s `Dialog`. The package exports a `Dialog` type listing exactly its members.',
-    notAvailable: "none; `Dialog` has every member.",
+    members: [
+      {
+        member: "`accept()`, `dismiss()`",
+        lite: "Decide the result only when called synchronously in a `dialog` listener, because `alert()`, `confirm()` and `prompt()` block the page's script until they return.",
+        playwright: "Settle the dialog whenever they are called.",
+      },
+    ],
     differences: [
-      "A `dialog` listener must call `accept()` or `dismiss()` synchronously, before returning control to the wrapped call, for that call to decide the result: `window.alert()`, `window.confirm()` and `window.prompt()` block the document's own script until they return. Playwright settles a dialog whenever the listener calls `accept()` or `dismiss()`, however much later.",
-      "A dialog no listener settles synchronously is dismissed once every listener has run, and the wrapped call returns the dismissed value: `undefined` for `alert()`, `false` for `confirm()`, `null` for `prompt()`. Playwright auto-dismisses only when a page has no `dialog` listener at all.",
-      "With no `dialog` listener, the page is left untouched: the browser shows its own dialog and the page waits for a person, where Playwright dismisses it.",
-      'A dialog resolved from `waitForEvent("dialog")` is already dismissed by the time the promise resolves, so `(await page.waitForEvent("dialog")).accept()` rejects.',
-      "Pages sharing one window share one dialog settlement: the first `accept()` or `dismiss()` call, from any of them, wins, and a later one rejects.",
+      "A dialog no listener settles synchronously is dismissed once every listener has run: `alert()` returns `undefined`, `confirm()` `false`, `prompt()` `null`. Playwright auto-dismisses only when the page has no `dialog` listener.",
+      "With no `dialog` listener, the browser shows its own dialog and the page waits for a person, where Playwright dismisses it.",
+      'A dialog from `waitForEvent("dialog")` is already dismissed when the promise resolves, so `(await page.waitForEvent("dialog")).accept()` rejects.',
       "`beforeunload` dialogs are never reported.",
+    ],
+    edgeCases: [
+      "Pages sharing one window share one dialog settlement: the first `accept()` or `dismiss()` call from any of them wins, and a later one rejects.",
     ],
   },
   {
     name: "ConsoleMessage",
     covers:
       "`page.on(\"console\")` and `page.consoleMessages()` report the document's own `console.log()`, `debug()`, `info()`, `error()`, `warn()`, `dir()`, `dirxml()`, `table()`, `trace()`, `clear()`, `group()`, `groupCollapsed()`, `groupEnd()`, `assert()`, `profile()`, `profileEnd()`, `count()`, `timeEnd()` and `timeLog()` calls, wrapped as Playwright's `ConsoleMessage`.",
-    notAvailable: "none; `ConsoleMessage` has every member.",
+    members: [
+      {
+        member: "`text()` of `count()`, `timeEnd()`, `timeLog()`",
+        lite: "The label the call passed.",
+        playwright: "Includes the count or elapsed time the browser computes.",
+      },
+      {
+        member: "`page.consoleMessages()`",
+        lite: 'Returns the same messages for `filter: "all"` and the default `"since-navigation"`.',
+        playwright:
+          '`"since-navigation"` returns only messages since the last navigation.',
+      },
+    ],
     differences: [
-      'Only a `console.*` call made after you first subscribe with `page.on("console")` or call `page.consoleMessages()` is reported; an earlier call is never observed. `consoleMessages()` keeps reading calls made after that first read, the same way `requests()` does.',
-      '`consoleMessages()` returns the same messages for `filter: "all"` and the default `"since-navigation"`, since nothing ever marks the buffer at a navigation.',
-      "A browser-generated console entry, such as a failed resource load or a Content-Security-Policy violation report, never calls a `console.*` method, so it is never reported.",
-      "`timeEnd()`, `timeLog()` and `count()` report only the label the call passed, not the elapsed time or count the browser computes internally.",
-      "`text()`'s object and array previews list their own entries one level deep, each rendered the way this package's own `JSHandle` description renders it, rather than the browser's own preview algorithm: no truncation, no sparse-array markers, and a class instance passed directly as an argument lists its own members (`{a: 1}`) where Playwright prints its constructor name (`Foo`).",
-      "Building a `text()` preview never calls the page's getters, but it does run a `Proxy` argument's traps, which the browser's own preview never does. A trap that throws leaves that argument previewed as `Object`, and a revoked `Proxy` argument stops the message from being reported; the `console.*` call itself returns and behaves as it does unobserved.",
-      "`location()` is reconstructed from the calling script's own stack at the point of the call, not the browser's own recorded call-site data: engine stack-formatting differences and inlining can shift or drop a frame.",
-      "Wrapping a `console.*` method adds a frame of its own to any stack the browser captures while it is wrapped, including DevTools' own call-site link for a logged message and the stack `console.trace()` itself prints: both point partway into this package's own code, not only at the calling script.",
-      "A `console.*` call made from inside a `console` listener is forwarded to the real method but does not itself fire another `console` event, so a listener that logs cannot trigger itself.",
+      'Only `console.*` calls made after you first subscribe with `page.on("console")` or call `page.consoleMessages()` are reported. `consoleMessages()` keeps collecting from then on, as `requests()` does.',
+      "Browser-generated entries, such as a failed resource load or a Content-Security-Policy violation report, are never reported, because they never call a `console.*` method.",
+    ],
+    edgeCases: [
+      "`text()` previews objects and arrays one level deep, each entry rendered like a `JSHandle` preview, with no truncation and no sparse-array markers. A class instance passed directly lists its own members (`{a: 1}`) where Playwright prints its constructor name (`Foo`).",
+      "Building a `text()` preview never calls the page's getters, but it runs a `Proxy` argument's traps, which the browser's own preview never does. A trap that throws previews that argument as `Object`; a revoked `Proxy` argument stops the message from being reported, while the `console.*` call itself behaves as it does unobserved.",
+      "`location()` is best-effort and can be off by a frame.",
+      "While a `console.*` method is wrapped, stacks the browser captures gain a frame inside this package, including DevTools' call-site link for a logged message and the stack `console.trace()` prints.",
+      "A `console.*` call made inside a `console` listener is forwarded to the console but fires no further `console` event, so a listener that logs cannot trigger itself.",
     ],
   },
 ];

@@ -116,7 +116,9 @@ architecture, and corpus/baseline mechanics out of it. Installation instructions
 must describe a verified distribution path, not an assumed registry release.
 
 Runtime boundaries are constraints of running inside the current document.
-Explain them once in that section; an API keeps its status despite them.
+Explain them once in that section, one short line per boundary, with a
+subsection for mechanics several APIs share; an API keeps its status despite
+them.
 
 Compatibility documents only differences from the pinned Playwright public
 JavaScript API, each stated concretely as what Playwright does and what this
@@ -132,7 +134,14 @@ it, and every other mention is a link:
   matcher), and Generic expect (`expect(value)`, the `expect` members, and
   plain-text rows for assertion families with no in-document target).
 - Each returned-object section states what it covers, then "Not available:"
-  (the missing members), then "Differences from Playwright:" as short bullets.
+  (the missing members, omitted when there are none), then "Differences from
+  Playwright:": a Member | playwright-lite | Playwright table for differences
+  tied to one member, and one-line bullets for the rest.
+- A difference a typical user of that API would not run into goes in the
+  section's collapsed "Edge cases" block.
+- An explanation stays only when it lets the reader predict behaviour beyond the
+  listed cases, as one short clause. How this package works inside stays in the
+  source.
 
 Use Playwright's public JavaScript terminology and this package's public exports.
 Call the application under automation "the page" or "the document".
