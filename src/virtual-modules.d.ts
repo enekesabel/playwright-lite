@@ -18,6 +18,12 @@ declare module "virtual:playwright-lite-injected" {
 
   export function parseAriaSnapshot(text: string): unknown;
 
+  /** Pinned isomorphic/selectorParser.ts `parseSelector`; throws on invalid input. */
+  export function parseSelector(selector: string): ParsedSelector;
+
+  /** Pinned isomorphic/locatorGenerators.ts `asLocator`; returns the selector itself for invalid input. */
+  export function asLocator(lang: "javascript", selector: string): string;
+
   export function getByTestIdSelector(
     testIdAttributeName: string,
     testId: string | RegExp

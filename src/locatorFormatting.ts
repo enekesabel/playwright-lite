@@ -1,50 +1,43 @@
-type LocatorChainStep = readonly [string, readonly unknown[]];
+import {
+  asLocator,
+  parseSelector,
+  type ParsedSelector,
+} from "virtual:playwright-lite-injected";
 
-/** Formats facade labels, preserving custom description precedence. */
-export function formatLocatorDescription(
-  label: string,
-  description?: string
-): string {
-  if (description) return description;
-  return label
-    .replace(/^page\./, "")
-    .replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (_, encoded: string) =>
-      quoteString(JSON.parse(`"${encoded}"`))
-    );
-}
-
-export function locatorDescription(description?: string): string | null {
-  return description ?? null;
-}
-
-export function formatLocatorChainDescription(
-  chain: readonly LocatorChainStep[],
-  description?: string
-): string {
-  if (description) return description;
-  return (
-    chain
-      .map(([method, args]) => `${method}(${args.map(formatValue).join(", ")})`)
-      .join(".") || "locator(...)"
-  );
-}
-
-function formatValue(value: unknown): string {
-  if (typeof value === "string") return quoteString(value);
-  if (
-    value !== null &&
-    typeof value === "object" &&
-    value.toString === Object.prototype.toString
-  ) {
-    const entries = Object.entries(value)
-      .filter(([, entry]) => entry !== undefined)
-      .map(([key, entry]) => `${key}: ${formatValue(entry)}`);
-    return entries.length ? `{ ${entries.join(", ")} }` : "{}";
+/**
+ * Mirrors pinned 26a9e47 isomorphic/locatorGenerators.ts
+ * `asLocatorDescription('javascript', selector)`, which the pinned
+ * `Locator.toString()` returns. The bundle drops that wrapper, so it is
+ * rebuilt from the bundled `parseSelector` and `asLocator` it calls.
+ */
+export function asLocatorDescription(selector: string): string {
+  try {
+    const customDescription = parseCustomDescription(parseSelector(selector));
+    if (customDescription) return customDescription;
+    return asLocator("javascript", selector);
+  } catch {
+    // Tolerate invalid input.
+    return selector;
   }
-  return String(value);
 }
 
-function quoteString(value: string): string {
-  const encoded = JSON.stringify(value);
-  return `'${encoded.slice(1, -1).replace(/\\"/g, '"').replace(/'/g, "\\'")}'`;
+/**
+ * Mirrors pinned 26a9e47 isomorphic/locatorGenerators.ts
+ * `locatorCustomDescription`, which the pinned `Locator.description()` reads.
+ */
+export function locatorCustomDescription(selector: string): string | undefined {
+  try {
+    return parseCustomDescription(parseSelector(selector));
+  } catch {
+    return undefined;
+  }
+}
+
+function parseCustomDescription(parsed: ParsedSelector): string | undefined {
+  const lastPart = parsed.parts[parsed.parts.length - 1];
+  if (lastPart?.name === "internal:describe") {
+    const description: unknown = JSON.parse(lastPart.body as string);
+    if (typeof description === "string") return description;
+  }
+  return undefined;
 }

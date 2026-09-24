@@ -466,9 +466,7 @@ export const locatorLedger = {
   count: implemented(),
   dblclick: implemented(),
   describe: implemented(),
-  description: partial(
-    "`describe('').description()` returns `''` instead of `null`; `describe('x').filter({}).description()` returns `null` instead of `'x'`."
-  ),
+  description: implemented(),
   dispatchEvent: implemented(),
   dragTo: undecided(),
   drop: partial(
@@ -532,9 +530,7 @@ export const locatorLedger = {
   ),
   tap: undecided(),
   textContent: implemented(),
-  toString: partial(
-    "String representations can omit options: `filter({ hasText: 'x' })` prints `filter(...)`, and `page.getByRole('button', { disabled: true })` omits `disabled`."
-  ),
+  toString: implemented(),
   type: implemented(),
   uncheck: implemented(),
   waitFor: implemented(),
