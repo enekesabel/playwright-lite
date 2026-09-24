@@ -3740,6 +3740,11 @@
       "evidence": "The exposed function returns a Promise; the Site's await resolves to the promise's value, proving the binding call awaits a returned promise before delivering the result."
     },
     {
+      "id": "page-expose-function.spec.ts > should dispose",
+      "method": "Page.exposeFunction",
+      "evidence": "After the Disposable returned by exposeFunction('compute') is disposed, the same window['compute'](9, 4) call that first returned 36 rejects, and the assertion reads 'is not a function' from the page's own TypeError, proving dispose() removes the binding from window. With dispose() made a no-op the test fails at that assertion (e is 36); with Page.exposeFunction withheld the sabotage rerun fails."
+    },
+    {
       "id": "page-expose-function.spec.ts > should support throwing \"null\"",
       "method": "Page.exposeFunction",
       "evidence": "The exposed function throws null; the Site's caller catches exactly null, proving thrown values (not only Error instances) cross back by value."
