@@ -19,7 +19,7 @@ import {
 import {
   formatLocatorChainDescription,
   locatorDescription,
-} from "../../src/locatorFormatting";
+} from "./locatorChainDescription";
 import { statusFor } from "../../compatibility/api";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
