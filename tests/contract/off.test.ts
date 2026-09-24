@@ -2,8 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../src/index";
 import { listenedPages, report, swallowWindowErrors } from "./pageEvents";
-import { assetUrl, contractUrl, restoreFetch, xhrMethods } from "./network";
+import {
+  assetUrl,
+  contractUrl,
+  restoreFetch,
+  sendXhr,
+  xhrMethods,
+} from "./network";
 import { restoreConsole } from "./console";
+import { restoreDialogs } from "./dialog";
 
 swallowWindowErrors();
 
@@ -130,8 +137,40 @@ describe("Page.off", () => {
     expect(xhrMethods()).toEqual(native);
   });
 
+  it("leaves an XMLHttpRequest method the document replaced after ours in place", async () => {
+    const native = xhrMethods();
+    const page = createPage();
+    const listener = () => {};
+    page.on("request", listener);
+
+    const ours = XMLHttpRequest.prototype.send;
+    let calls = 0;
+    const theirs = function (
+      this: XMLHttpRequest,
+      body?: Document | XMLHttpRequestBodyInit | null
+    ) {
+      calls++;
+      return ours.call(this, body);
+    };
+    XMLHttpRequest.prototype.send = theirs;
+    try {
+      page.off("request", listener);
+
+      expect(XMLHttpRequest.prototype.send).toBe(theirs);
+      expect(XMLHttpRequest.prototype.open).toBe(native.open);
+      expect(XMLHttpRequest.prototype.setRequestHeader).toBe(
+        native.setRequestHeader
+      );
+      await expect(sendXhr(contractUrl(".")).ended).resolves.toBe("load");
+      expect(calls).toBe(1);
+    } finally {
+      XMLHttpRequest.prototype.send = native.send;
+    }
+  });
+
   // ── Dialog events ──────────────────────────────────────────────
 
+  restoreDialogs();
   const dialogPage = listenedPages();
 
   it("restores window.alert/confirm/prompt once the last dialog listener leaves", () => {
@@ -152,6 +191,23 @@ describe("Page.off", () => {
     expect(window.prompt).toBe(nativePrompt);
   });
 
+  it("restores window.alert/confirm/prompt only after every page has unsubscribed", () => {
+    const nativeConfirm = window.confirm;
+    const first = dialogPage();
+    const second = dialogPage();
+    const onFirst = () => {};
+    const onSecond = () => {};
+
+    first.on("dialog", onFirst);
+    second.on("dialog", onSecond);
+    expect(window.confirm).not.toBe(nativeConfirm);
+
+    first.off("dialog", onFirst);
+    expect(window.confirm).not.toBe(nativeConfirm);
+    second.off("dialog", onSecond);
+    expect(window.confirm).toBe(nativeConfirm);
+  });
+
   // ── Console events ──────────────────────────────────────────────
 
   restoreConsole();
@@ -169,6 +225,25 @@ describe("Page.off", () => {
     expect(console.log).not.toBe(native);
     page.off("console", second);
     expect(console.log).toBe(native);
+  });
+
+  it("leaves a console.log the document installed after ours in place", () => {
+    // Stands in for the native method, so the call can be observed.
+    const native: unknown[][] = [];
+    console.log = (...args: unknown[]) => void native.push(args);
+    const page = createPage();
+    const listener = () => {};
+    page.on("console", listener);
+
+    const ours = console.log;
+    const theirs = (...args: unknown[]) => ours("site:", ...args);
+    console.log = theirs;
+
+    page.off("console", listener);
+
+    expect(console.log).toBe(theirs);
+    console.log("hi");
+    expect(native).toEqual([["site:", "hi"]]);
   });
 
   it("restores console.log only after every page has unsubscribed", () => {

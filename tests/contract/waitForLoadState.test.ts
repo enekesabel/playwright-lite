@@ -132,6 +132,24 @@ describe("Page.waitForLoadState", () => {
     );
   });
 
+  it("does not hold networkidle for a fetch left in flight when the last subscriber left", async () => {
+    const controller = new AbortController();
+    cleanups.push(() => controller.abort());
+    let settled = false;
+    const listening = page();
+    const listener = () => {};
+    listening.on("request", listener);
+    fetch(delayedUrl(1_500), { signal: controller.signal }).then(
+      () => (settled = true),
+      () => (settled = true)
+    );
+    listening.off("request", listener);
+
+    await page().waitForLoadState("networkidle");
+
+    expect(settled).toBe(false);
+  });
+
   it("wraps fetch only while a networkidle wait is pending", async () => {
     const original = window.fetch;
     const waiting = page().waitForLoadState("networkidle");
