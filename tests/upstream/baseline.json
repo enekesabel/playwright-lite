@@ -1061,7 +1061,7 @@
     },
     {
       "id": "jshandle-as-element.spec.ts > should return ElementHandle for TextNodes",
-      "method": "JSHandle.asElement",
+      "method": "ElementHandle.asElement",
       "evidence": "A handle to a Text node is an element handle, and passing it back into Page.evaluate reports nodeType TEXT_NODE, so asElement covers every Node and not only Elements. Native setContent only establishes the document; the asserted calls run in the adapter."
     },
     {
@@ -1071,12 +1071,12 @@
     },
     {
       "id": "jshandle-as-element.spec.ts > should work @smoke",
-      "method": "JSHandle.asElement",
+      "method": "ElementHandle.asElement",
       "evidence": "A handle to document.body reports itself as an element: evaluateHandle produced an element handle for a node value, and asElement returns that same handle."
     },
     {
       "id": "jshandle-as-element.spec.ts > should work with nullified Node",
-      "method": "JSHandle.asElement",
+      "method": "ElementHandle.asElement",
       "evidence": "After the page deletes window.Node, a handle to a <section> still reports an element, so the node test uses the Node constructor captured when the adapter started rather than the live global. Native setContent only establishes the document."
     },
     {
