@@ -3274,6 +3274,11 @@
       "evidence": "Page.goto validates waitUntil before navigating and rejects networkidle2 with Playwright's waitUntil: expected one of (load|domcontentloaded|networkidle|commit)."
     },
     {
+      "id": "page-history.spec.ts > page.goBack should work with HistoryAPI",
+      "method": "Page.goBack",
+      "evidence": "After Page.evaluate pushes /first.html and /second.html, goBack() twice makes page.url() report /first.html and then the empty page, and goForward() returns to /first.html: goBack traverses one same-document History API entry per call and resolves only after the traversal has committed, and goForward traverses back in the other direction."
+    },
+    {
       "id": "page-keyboard.spec.ts > insertText should only emit input event",
       "method": "Keyboard.insertText",
       "evidence": "Keyboard.insertText('hello world') into the focused textarea fires only 'input': no keydown, keypress or keyup is recorded. Native goto only establishes the document."
