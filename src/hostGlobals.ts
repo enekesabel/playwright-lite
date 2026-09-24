@@ -6,15 +6,13 @@
 
 type HostFunction = (...args: never[]) => unknown;
 
-type BrowserWindow = Window & typeof globalThis;
-
 /**
  * One instance per window, created by `create` on first use and shared by
  * every later caller for the same window.
  */
 export function perWindow<T>(
-  create: (browserWindow: BrowserWindow) => T
-): (browserWindow: BrowserWindow) => T {
+  create: (browserWindow: Window & typeof globalThis) => T
+): (browserWindow: Window & typeof globalThis) => T {
   const instances = new WeakMap<Window, T>();
   return (browserWindow) => {
     let instance = instances.get(browserWindow);
@@ -42,9 +40,10 @@ export interface HostMember<T extends HostFunction = HostFunction> {
  * The proxy traps only `apply`, so `name`, `length` and
  * `Function.prototype.toString` keep answering for the original function, and
  * `this` and the arguments reach it untouched: a call with a receiver the
- * platform object rejects still throws the same `TypeError`. A proxy that is
- * no longer installed forwards every call to the original untouched, so a
- * Site's wrapper that closed over it keeps working unobserved.
+ * platform object rejects still throws the same `TypeError`. While nothing
+ * is installed, every proxy this object made forwards calls to its original
+ * untouched, so a Site's wrapper that closed over one keeps working
+ * unobserved.
  */
 class WrappedHostFunction {
   private original: HostFunction | undefined;
@@ -55,9 +54,9 @@ class WrappedHostFunction {
   install() {
     const { holder, name } = this.member;
     const original = holder[name] as HostFunction;
-    const proxy: HostFunction = new Proxy(original, {
+    const proxy = new Proxy(original, {
       apply: (target, thisArg, args) =>
-        this.proxy === proxy
+        this.proxy !== undefined
           ? this.member.intercept(target, thisArg, args)
           : Reflect.apply(target, thisArg, args),
     });

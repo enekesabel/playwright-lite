@@ -98,7 +98,7 @@ export interface Response {
   request(): Request;
 }
 
-type Emit = (event: NetworkEventName, payload: unknown) => void;
+type NetworkReport = (event: NetworkEventName, payload: unknown) => void;
 
 /** Pinned client/page.ts `waitForRequest`/`waitForResponse` first argument. */
 export type NetworkMatch<T> =
@@ -373,7 +373,7 @@ export class NetworkObservation {
    * The host functions this observation replaces. They are installed and
    * restored together, so one subscription is one decision about the document.
    */
-  private readonly host: HostObservation<Emit>;
+  private readonly host: HostObservation<NetworkReport>;
   /** What `open` recorded for an `XMLHttpRequest` this observation saw. */
   private readonly openedRequests = new WeakMap<XMLHttpRequest, OpenedXhr>();
   /**
@@ -388,7 +388,7 @@ export class NetworkObservation {
       string,
       unknown
     >;
-    this.host = new HostObservation<Emit>(
+    this.host = new HostObservation<NetworkReport>(
       [
         {
           holder: window as unknown as Record<string, unknown>,
@@ -419,9 +419,9 @@ export class NetworkObservation {
     );
   }
 
-  /** Reports to `emit` until the returned release is called. */
-  subscribe(emit: Emit): () => void {
-    return this.host.subscribe(emit);
+  /** Reports to `report` until the returned release is called. */
+  subscribe(report: NetworkReport): () => void {
+    return this.host.subscribe(report);
   }
 
   /**

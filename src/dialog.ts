@@ -108,9 +108,9 @@ export class DialogObservation {
     );
   }
 
-  /** Reports to `emit` until the returned release is called. */
-  subscribe(emit: DialogReport): () => void {
-    return this.host.subscribe(emit);
+  /** Reports to `report` until the returned release is called. */
+  subscribe(report: DialogReport): () => void {
+    return this.host.subscribe(report);
   }
 
   private observe(

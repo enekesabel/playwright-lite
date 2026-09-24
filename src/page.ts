@@ -304,7 +304,7 @@ type ActionableInjectedScript = {
 /**
  * One page's use of a host source. `start` subscribes this page and returns
  * the release; the feed holds a subscription while a listener wants the
- * source, and another for good once `retain` is called. For an observation,
+ * source, and another for good once `retain` is called. For a host observation,
  * `start` always subscribes the page's one stable reporter, which the
  * observation counts once per call, so holding both never reports a call twice.
  */
@@ -397,6 +397,8 @@ export class PageImpl {
     // One reporter per feed, built here: listening and retaining subscribe
     // the same reporter, and the observation counts subscriptions per
     // reporter, so each call is logged and emitted once on this page.
+    // The observation is shared by every `Page` of this window, so a call is
+    // intercepted once; the recent-request log stays per page.
     const reportNetwork = (event: NetworkEventName, payload: unknown) => {
       if (event === "request")
         recordRequest(this.requestLog, payload as NetworkRequest);

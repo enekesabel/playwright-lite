@@ -123,7 +123,7 @@ export type ConsoleCall = {
   timestamp: number;
 };
 
-type Emit = (call: ConsoleCall) => void;
+type ConsoleReport = (call: ConsoleCall) => void;
 type NativeConsoleMethod = (...args: unknown[]) => unknown;
 
 /**
@@ -229,7 +229,7 @@ export const consoleObservationFor = perWindow(
  * and restored together as one subscription.
  */
 export class ConsoleObservation {
-  private readonly host: HostObservation<Emit>;
+  private readonly host: HostObservation<ConsoleReport>;
 
   constructor(private readonly window: Window & typeof globalThis) {
     const holder = window.console as unknown as Record<string, unknown>;
@@ -245,9 +245,9 @@ export class ConsoleObservation {
     );
   }
 
-  /** Reports to `emit` until the returned release is called. */
-  subscribe(emit: Emit): () => void {
-    return this.host.subscribe(emit);
+  /** Reports to `report` until the returned release is called. */
+  subscribe(report: ConsoleReport): () => void {
+    return this.host.subscribe(report);
   }
 
   /** Guards one report against the reentrancy `observe` documents. */
