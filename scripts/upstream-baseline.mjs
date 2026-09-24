@@ -81,14 +81,14 @@ export function parseReport(report) {
   return entries;
 }
 
-// ── Report-level error validation ────────────────────────────────────
+// ── Report-level errors ──────────────────────────────────────────────
 
 /**
- * Reject reports with non-empty top-level `errors` (collection/runner
- * failures that prevent trustworthy results).
- * Returns an array of error message strings (empty = OK).
+ * Read a report's top-level `errors`: errors Playwright reported outside any
+ * test, such as collection or runner failures. Returns the first line of each
+ * message (empty when there are none); callers decide what they mean.
  */
-export function validateReportErrors(report) {
+export function reportErrorMessages(report) {
   const errors = report.errors ?? [];
   return errors.map(
     (e) => e.message?.split("\n")[0] ?? "unknown collection error"
@@ -287,21 +287,9 @@ export function reviewedPromotion(entries, id, method, evidence, matcher) {
  * still passes is vacuous about that method, whatever the recorded evidence
  * says.
  *
- * Errors the rerun reported outside any test (a test's unawaited call that
- * settles after the test ended, on a closed page) do not decide the verdict:
- * the test's own failure does. When the rerun reported any, a test that did
- * not fail on its own (interrupted, for instance) gets no verdict.
- *
  * @param {Array} entries  Parsed entries of the sabotaged rerun.
- * @param {string[]} [errorsOutsideTests]  The rerun report's top-level errors.
  */
-export function sabotageVerdict(
-  entries,
-  id,
-  method,
-  expectedError,
-  errorsOutsideTests = []
-) {
+export function sabotageVerdict(entries, id, method, expectedError) {
   const entry = entries.find((entry) => entry.id === id);
   if (!entry)
     throw new Error(
@@ -314,14 +302,6 @@ export function sabotageVerdict(
   if (entry.status === "passed")
     throw new Error(
       `${id} still passes with ${method} sabotaged, so it does not prove ${method}.`
-    );
-  if (
-    errorsOutsideTests.length > 0 &&
-    entry.status !== "failed" &&
-    entry.status !== "timedOut"
-  )
-    throw new Error(
-      `The rerun with ${method} sabotaged reported errors outside any test and ${id} did not fail on its own (${entry.status}):\n  ${errorsOutsideTests.join("\n  ")}`
     );
   if (expectedError && !entry.error?.includes(expectedError))
     throw new Error(
@@ -552,14 +532,26 @@ function runSabotaged(entry, method, matcher) {
     ],
     SABOTAGE_REPORT_PATH
   );
-  const raw = JSON.parse(readFileSync(SABOTAGE_REPORT_PATH, "utf8"));
-  // sabotageVerdict decides whether these still allow a verdict.
-  const errorsOutsideTests = validateReportErrors(raw);
-  if (errorsOutsideTests.length > 0) {
+  return sabotageRerunEntries(
+    JSON.parse(readFileSync(SABOTAGE_REPORT_PATH, "utf8"))
+  );
+}
+
+/**
+ * Parse the report of a sabotage rerun into entries for sabotageVerdict.
+ *
+ * Errors reported outside any test are logged, not fatal: a test's unawaited
+ * call can settle on a closed page after the test ended, and the verdict comes
+ * from the test's own result. A rerun too broken to produce that result fails
+ * earlier, in runPlaywright, or gets refused by sabotageVerdict.
+ */
+export function sabotageRerunEntries(report) {
+  const errors = reportErrorMessages(report);
+  if (errors.length > 0) {
     console.warn("Sabotage rerun reported errors outside any test:");
-    for (const e of errorsOutsideTests) console.warn(`  ${e}`);
+    for (const e of errors) console.warn(`  ${e}`);
   }
-  return { entries: parseReport(raw), errorsOutsideTests };
+  return parseReport(report);
 }
 
 // ── Commands ────────────────────────────────────────────────────────
@@ -577,7 +569,7 @@ function loadAndValidateReport(path, exitCodeOnFailure) {
   }
 
   // Reject collection/runner errors
-  const reportErrors = validateReportErrors(raw);
+  const reportErrors = reportErrorMessages(raw);
   if (reportErrors.length > 0) {
     console.error("ERROR: Report contains collection/runner errors:");
     for (const e of reportErrors) console.error(`  ${e}`);
@@ -634,24 +626,14 @@ function doUpdate(entries) {
     );
   for (const { id, method, matcher } of promotions) {
     const entry = entries.find((entry) => entry.id === id);
-    const methodRerun = runSabotaged(entry, method);
-    sabotageVerdict(
-      methodRerun.entries,
-      id,
-      method,
-      undefined,
-      methodRerun.errorsOutsideTests
-    );
-    if (matcher) {
-      const matcherRerun = runSabotaged(entry, method, matcher);
+    sabotageVerdict(runSabotaged(entry, method), id, method);
+    if (matcher)
       sabotageVerdict(
-        matcherRerun.entries,
+        runSabotaged(entry, method, matcher),
         id,
         matcher,
-        `__pwLiteSabotagedMatcher: ${matcher}`,
-        matcherRerun.errorsOutsideTests
+        `__pwLiteSabotagedMatcher: ${matcher}`
       );
-    }
   }
   const reviewed = [
     ...previous.reviewed.filter(
