@@ -2495,14 +2495,14 @@ export class PageImpl {
     assertCurrentDocumentWaitTimeout("waitForNavigation", options.timeout);
     const waitUntil = verifyLoadState("waitUntil", options.waitUntil ?? "load");
     const { url } = options;
-    let current = this.window.location.href;
+    let observedURL = this.window.location.href;
     await this.waitForCurrentDocument(
       "page.waitForNavigation",
       waitUntil,
       () => {
         const href = this.window.location.href;
-        if (href === current) return false;
-        current = href;
+        if (href === observedURL) return false;
+        observedURL = href;
         return url === undefined || urlMatches(href, url);
       },
       options

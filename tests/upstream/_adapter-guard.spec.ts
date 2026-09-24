@@ -922,6 +922,38 @@ test("adapter waitForNavigation never reports a document replacement", async ({
   }
 });
 
+test("adapter waitForNavigation times out on a navigation that keeps the document", async ({
+  page,
+  adapterPage,
+}) => {
+  const server = await TestServer.create();
+  try {
+    server.setRoute("/no-content", (_request, response) => {
+      response.statusCode = 204;
+      response.end();
+    });
+    await page.goto(server.EMPTY_PAGE);
+    await page.evaluate(() => {
+      (window as any).marker = "kept";
+    });
+    const waiting = adapterPage
+      .waitForNavigation({ timeout: 1000 })
+      .catch((error) => String(error));
+    const requested = server.waitForRequest("/no-content");
+    await page.evaluate((url) => {
+      window.location.href = url;
+    }, server.PREFIX + "/no-content");
+    await requested;
+
+    expect(await waiting).toContain(
+      "page.waitForNavigation: Timeout 1000ms exceeded."
+    );
+    expect(await page.evaluate(() => (window as any).marker)).toBe("kept");
+  } finally {
+    await server.close();
+  }
+});
+
 test("adapter goto rejects unsupported options before changing the URL", async ({
   page,
   adapterPage,
