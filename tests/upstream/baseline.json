@@ -121,6 +121,11 @@
       "evidence": "The unchanged regression test churns the target in requestAnimationFrame and awaits Page.isVisible ten times without rejection. Every Page.isVisible call enters the browser adapter; Page.setContent is setup only."
     },
     {
+      "id": "elementhandle-convenience.spec.ts > should have a nice preview for non-ascii attributes/children",
+      "method": "ElementHandle.toString",
+      "evidence": "String(handle) for a div whose title and text are each 100 '😛' is 'JSHandle@<div title=\"<100 emoji>\"><49 emoji>…</div>': the preview keeps the attribute whole and cuts the text child at 50 code points without splitting a surrogate pair, the pinned node preview."
+    },
+    {
       "id": "elementhandle-convenience.spec.ts > textContent should work",
       "method": "ElementHandle.textContent",
       "evidence": "The #inner handle returns 'Text,\\nmore text' with the source newline intact, so textContent returns the raw concatenated text of the subtree without rendering-time whitespace collapsing."
@@ -1080,6 +1085,11 @@
       "evidence": "After the page deletes window.Node, a handle to a <section> still reports an element, so the node test uses the Node constructor captured when the adapter started rather than the live global. Native setContent only establishes the document."
     },
     {
+      "id": "jshandle-evaluate.spec.ts > should work with expression",
+      "method": "JSHandle.evaluate",
+      "evidence": "JSHandle.evaluate('window.foo') on a handle to window returns [1, 2] by value, so a string expression is evaluated in the page and its result serialized back like a function's."
+    },
+    {
       "id": "jshandle-evaluate.spec.ts > should work with function @smoke",
       "method": "JSHandle.evaluate",
       "evidence": "Evaluating a callback against a handle to window returns window.foo as [1, 2]: the handle's value is passed to the page function as its first argument and the result comes back by value."
@@ -1185,6 +1195,16 @@
       "evidence": "With three divs containing A, B, and C, Locator.allTextContents returns ['A', 'B', 'C']."
     },
     {
+      "id": "locator-convenience.spec.ts > getAttribute should work",
+      "method": "Locator.getAttribute",
+      "evidence": "Locator.getAttribute on #outer returns 'value' for name and null for the absent foo, and Page.getAttribute agrees for both, so a missing attribute is reported as null rather than '' or undefined."
+    },
+    {
+      "id": "locator-convenience.spec.ts > innerHTML should work",
+      "method": "Locator.innerHTML",
+      "evidence": "Locator.innerHTML and Page.innerHTML on #outer both return '<div id=\"inner\">Text,\\nmore text</div>': the children serialized verbatim, newline included, without the element's own tag."
+    },
+    {
       "id": "locator-convenience.spec.ts > innerText should produce log",
       "method": "Locator.innerText",
       "evidence": "The unchanged assertion verifies the missing-locator wait log after Locator.innerText enters the browser adapter."
@@ -1193,6 +1213,16 @@
       "id": "locator-convenience.spec.ts > innerText should throw",
       "method": "Page.innerText",
       "evidence": "Page.innerText and Locator.innerText both reject an SVG node with an error containing 'Node is not an HTMLElement'."
+    },
+    {
+      "id": "locator-convenience.spec.ts > innerText should work",
+      "method": "Locator.innerText",
+      "evidence": "Locator.innerText and Page.innerText on #inner return 'Text, more text' where the markup holds 'Text,\\nmore text', so innerText reports rendered text with layout-collapsed whitespace."
+    },
+    {
+      "id": "locator-convenience.spec.ts > inputValue should work",
+      "method": "Locator.inputValue",
+      "evidence": "After selectOption and fill, inputValue reads 'foo', 'text value' and 'input value' from the select, textarea and input, Locator.inputValue matches Page.inputValue on #input, and both reject a div with 'Node is not an <input>, <textarea> or <select> element'."
     },
     {
       "id": "locator-convenience.spec.ts > isChecked should work",
@@ -1213,6 +1243,11 @@
       "id": "locator-convenience.spec.ts > isEnabled and isDisabled should work",
       "method": "Locator.isEnabled",
       "evidence": "Assertions verify Locator and Page enabled and disabled state across ordinary and disabled elements using InjectedScript element-state semantics."
+    },
+    {
+      "id": "locator-convenience.spec.ts > textContent should work",
+      "method": "Locator.textContent",
+      "evidence": "Locator.textContent and Page.textContent on #inner return 'Text,\\nmore text' with the source newline intact, the raw text of the subtree without rendering-time whitespace collapsing."
     },
     {
       "id": "locator-element-handle.spec.ts > should query existing element @smoke",
@@ -1343,6 +1378,26 @@
       "evidence": "Locator.setChecked(true) and Locator.setChecked(false) change the checkbox's checked DOM property to true and then false."
     },
     {
+      "id": "locator-misc-1.spec.ts > should clear input",
+      "method": "Locator.clear",
+      "evidence": "After fill leaves window.result at 'some value', Locator.clear() makes the page's input listener record '', so clear empties the field and dispatches input."
+    },
+    {
+      "id": "locator-misc-1.spec.ts > should dispatch click event via ElementHandles",
+      "method": "Locator.dispatchEvent",
+      "evidence": "Locator.dispatchEvent('click') on the button runs button.html's click handler, which sets window.result to 'Clicked' from its initial 'Was not clicked'."
+    },
+    {
+      "id": "locator-misc-1.spec.ts > should fill input",
+      "method": "Locator.fill",
+      "evidence": "Locator.fill('some value') on the input makes the page's own input listener record window.result === 'some value', so fill sets the value and dispatches the input event."
+    },
+    {
+      "id": "locator-misc-1.spec.ts > should select single option",
+      "method": "Locator.selectOption",
+      "evidence": "Locator.selectOption('blue') makes select.html's input and change handlers each record ['blue'], so the option is selected and both events fire."
+    },
+    {
       "id": "locator-misc-1.spec.ts > should uncheck the box",
       "method": "Locator.uncheck",
       "evidence": "Locator.uncheck changes a checked checkbox so the checked DOM property is false."
@@ -1373,9 +1428,24 @@
       "evidence": "Locator.pressSequentially('hello') leaves the input value equal to 'hello'."
     },
     {
+      "id": "locator-misc-2.spec.ts > should return bounding box",
+      "method": "Locator.boundingBox",
+      "evidence": "In a 500x500 viewport on grid.html, Locator.boundingBox for .box:nth-of-type(13) returns exactly {x:100,y:50,width:50,height:50}, the element's layout box in page coordinates."
+    },
+    {
+      "id": "locator-misc-2.spec.ts > should scroll into view",
+      "method": "Locator.scrollIntoViewIfNeeded",
+      "evidence": "For each of the 11 offscreen buttons, whose right edge starts 10*i px past the viewport, Locator.scrollIntoViewIfNeeded brings the right edge within the viewport (<= 0)."
+    },
+    {
       "id": "locator-misc-2.spec.ts > should scroll zero-sized element into view",
       "method": "Locator.scrollIntoViewIfNeeded",
       "evidence": "The unchanged assertions verify a zero-sized target is scrolled through the adapter and its bounding box changes as expected."
+    },
+    {
+      "id": "locator-misc-2.spec.ts > should select textarea",
+      "method": "Locator.selectText",
+      "evidence": "After the textarea's value is set to 'some value', Locator.selectText() makes window.getSelection().toString() return 'some value', so the whole field content is selected."
     },
     {
       "id": "locator-misc-2.spec.ts > should support filter(visible)",
@@ -1569,14 +1639,34 @@
       "evidence": "Inline module content is injected with the requested type and evaluates, so the polled window.__es6injected reaches 42."
     },
     {
+      "id": "page-add-script-tag.spec.ts > should work with a url",
+      "method": "Page.addScriptTag",
+      "evidence": "addScriptTag({ url: '/injectedfile.js' }) resolves with an ElementHandle whose asElement() is non-null, and window.__injected reads 42 afterwards, so the script loaded and ran before the call resolved."
+    },
+    {
       "id": "page-add-script-tag.spec.ts > should work with a url and type=module",
       "method": "Page.addScriptTag",
       "evidence": "Adding a module script by url makes the imported module run: window.__es6injected is 42 only because the adapter appended the tag with type=module and resolved on its load event."
     },
     {
+      "id": "page-add-script-tag.spec.ts > should work with content",
+      "method": "Page.addScriptTag",
+      "evidence": "addScriptTag({ content }) resolves with an ElementHandle whose asElement() is non-null, and window.__injected reads 35, so inline content is inserted as a script and executed."
+    },
+    {
       "id": "page-add-style-tag.spec.ts > should throw an error if no options are provided",
       "method": "Page.addStyleTag",
       "evidence": "A call with neither url, path nor content rejects with the pinned \"Provide an object with a url, path or content property\" message before any tag is inserted."
+    },
+    {
+      "id": "page-add-style-tag.spec.ts > should work with a url @smoke",
+      "method": "Page.addStyleTag",
+      "evidence": "addStyleTag({ url: '/injectedstyle.css' }) resolves with an ElementHandle whose asElement() is non-null, and body's computed background-color is rgb(255, 0, 0), so the stylesheet loaded and applied before the call resolved."
+    },
+    {
+      "id": "page-add-style-tag.spec.ts > should work with content",
+      "method": "Page.addStyleTag",
+      "evidence": "addStyleTag({ content }) resolves with an ElementHandle whose asElement() is non-null, and body's computed background-color becomes rgb(0, 128, 0), so inline CSS is inserted and applied."
     },
     {
       "id": "page-aria-snapshot-ai.spec.ts > emit generic roles for nodes w/o roles",
@@ -1807,10 +1897,21 @@
       "matcher": "Locator.toMatchAriaSnapshot"
     },
     {
+      "id": "page-aria-snapshot.spec.ts > should include frames on frameset pages",
+      "method": "Page.ariaSnapshot",
+      "evidence": "On a frameset page with two <frame> elements, Page.ariaSnapshot returns exactly '- iframe\\n- iframe': each frame is listed as an iframe node and its content is not included, the current-document-only snapshot."
+    },
+    {
       "id": "page-aria-snapshot.spec.ts > should include new line for block pseudo",
       "method": "Locator._expect",
       "evidence": "The unchanged upstream ARIA assertions verify should include new line for block pseudo through browser-side Locator._expect execution.",
       "matcher": "Locator.toMatchAriaSnapshot"
+    },
+    {
+      "id": "page-aria-snapshot.spec.ts > should include pseudo codepoints",
+      "method": "Locator._expect",
+      "matcher": "Locator.toMatchAriaSnapshot",
+      "evidence": "With codicon.css giving the paragraph a ::before content of U+EAB2, both Locator.ariaSnapshot and toMatchAriaSnapshot on body produce '- paragraph: \\ueab2hello', so the pseudo-element's private-use codepoint is part of the accessible text."
     },
     {
       "id": "page-aria-snapshot.spec.ts > should include pseudo in text",
@@ -1962,6 +2063,16 @@
       "id": "page-basic.spec.ts > has navigator.webdriver set to true",
       "method": "Page.evaluate",
       "evidence": "Assertion verifies an adapter-routed browser callback returns the expected boolean; it does not claim ownership of navigator.webdriver semantics."
+    },
+    {
+      "id": "page-basic.spec.ts > page.press should work",
+      "method": "Page.press",
+      "evidence": "Page.press('textarea', 'a') focuses the textarea and types into it: its value reads 'a' afterwards."
+    },
+    {
+      "id": "page-basic.spec.ts > page.title should return the page title",
+      "method": "Page.title",
+      "evidence": "After native setup navigation to title.html, Page.title() resolves to 'Woof-Woof', the document's <title>."
     },
     {
       "id": "page-basic.spec.ts > should have sane user agent",
@@ -2489,6 +2600,11 @@
       "evidence": "The listener checks type 'prompt', defaultValue 'yes.' and message 'question?' with the bound public expect, then accept('answer!'); the Node assertion reads 'answer!' back from prompt(), a value neither Playwright's native auto-dismiss (null) nor an accept without the text (the default 'yes.') can produce, proving Dialog.accept(promptText) becomes prompt()'s return value."
     },
     {
+      "id": "page-dialog.spec.ts > should be able to close context with open alert",
+      "method": "Page.waitForEvent",
+      "evidence": "waitForEvent('dialog') resolves for an alert() the document raises from a timer after the wait started; it would time out otherwise. The context-close-with-open-alert scenario in the title cannot arise here, because an unsettled dialog is dismissed synchronously."
+    },
+    {
       "id": "page-dispatchevent.spec.ts > should dispatch absolute device orientation event",
       "method": "Locator.dispatchEvent",
       "evidence": "Locator.dispatchEvent('deviceorientationabsolute') builds a DeviceOrientationEvent from eventInit: the page handler reads alpha 10, beta 20, gamma 30 and absolute true. Native goto only establishes the document."
@@ -2577,6 +2693,16 @@
       "id": "page-drop.spec.ts > should throw when target does not accept drop",
       "method": "Locator.drop",
       "evidence": "A dragover handler that does not call preventDefault makes drop reject with the pinned drop-target-did-not-accept message instead of dispatching drop."
+    },
+    {
+      "id": "page-evaluate-callback.spec.ts > should propagate callback errors with locator.evaluate",
+      "method": "Locator.evaluate",
+      "evidence": "With exposeFunctions: true, a callback that throws Error('boom') rejects the awaited call inside the page function, which catches it and returns a message containing 'boom' from Locator.evaluate."
+    },
+    {
+      "id": "page-evaluate-callback.spec.ts > should return the callback result with locator.evaluate",
+      "method": "Locator.evaluate",
+      "evidence": "With exposeFunctions: true, the page function receives the async double callback as a callable, awaits double(7) on the #target text, and Locator.evaluate resolves 14."
     },
     {
       "id": "page-evaluate-handle.spec.ts > should accept multiple nested handles",
@@ -2674,6 +2800,11 @@
       "evidence": "The callback returns a promise built from another window's Promise constructor and Page.evaluate still resolves it to 42, so the await path does not depend on the promise coming from the document's own realm."
     },
     {
+      "id": "page-evaluate.spec.ts > should be able to throw a tricky error",
+      "method": "Page.evaluate",
+      "evidence": "A page function that throws new Error(text), with text the message windowHandle.jsonValue() rejected with, rejects Page.evaluate with a message containing that text."
+    },
+    {
       "id": "page-evaluate.spec.ts > should evaluate date",
       "method": "Page.evaluate",
       "evidence": "A returned { date: new Date('2020-05-27T01:31:38.506Z') } compares equal to the same Date, so Page.evaluate round-trips Date values instead of flattening them to strings."
@@ -2754,6 +2885,11 @@
       "evidence": "A returned { toJSON: () => 'string', data: 'data' } arrives as { data: 'data', toJSON: {} }, so Page.evaluate serializes own properties instead of calling toJSON."
     },
     {
+      "id": "page-evaluate.spec.ts > should pass exception argument",
+      "method": "Page.evaluate",
+      "evidence": "An Error argument named 'foobar' reaches the page function with message 'error message', name 'foobar' and a stack containing innerFunction, so the argument serializer keeps an Error's message, name and stack."
+    },
+    {
       "id": "page-evaluate.spec.ts > should properly serialize null arguments",
       "method": "Page.evaluate",
       "evidence": "null passed as the argument is returned as null, so Page.evaluate does not collapse null into undefined or into a missing argument."
@@ -2762,6 +2898,11 @@
       "id": "page-evaluate.spec.ts > should properly serialize null fields",
       "method": "Page.evaluate",
       "evidence": "A returned { a: null } keeps its null field, so Page.evaluate's result serializer preserves null values."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should properly serialize PerformanceMeasure object",
+      "method": "Page.evaluate",
+      "evidence": "Returning performance.getEntriesByType('measure') yields one object with name 'my-measure', entryType 'measure' and numeric startTime and duration, so the result serializer reads a PerformanceMeasure's accessor properties instead of returning {}."
     },
     {
       "id": "page-evaluate.spec.ts > should properly serialize undefined arguments",
@@ -2829,6 +2970,11 @@
       "evidence": "The value returned for { a: undefined } still reports \"'a' in value\" as true, so the key survives even though the value compares equal to {}."
     },
     {
+      "id": "page-evaluate.spec.ts > should roundtrip date",
+      "method": "Page.evaluate",
+      "evidence": "A Date passed in and returned unchanged comes back as a Date with the same toUTCString(), so both serializers carry Date values as dates, not strings."
+    },
+    {
       "id": "page-evaluate.spec.ts > should roundtrip promise to unserializable values",
       "method": "Page.evaluate",
       "evidence": "A promise resolving to { infinity, nInfinity, nZero, nan } comes back with those exact values, so Page.evaluate awaits the promise and serializes the unserializable numbers inside it."
@@ -2847,6 +2993,11 @@
       "id": "page-evaluate.spec.ts > should roundtrip unserializable values",
       "method": "Page.evaluate",
       "evidence": "An object of Infinity, -Infinity, -0 and NaN passed in and returned unchanged compares equal, so both the argument and the result serializer carry unserializable numbers."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should roundtrip url",
+      "method": "Page.evaluate",
+      "evidence": "A URL passed in and returned unchanged stringifies to 'https://example.com/', so both serializers carry URL values instead of flattening them to {}."
     },
     {
       "id": "page-evaluate.spec.ts > should support thrown numbers as error messages",
@@ -2904,6 +3055,11 @@
       "evidence": "Object.is(result, NaN) holds for NaN passed as the argument and echoed back, so the argument serializer carries NaN."
     },
     {
+      "id": "page-evaluate.spec.ts > should transfer typed arrays",
+      "method": "Page.evaluate",
+      "evidence": "Each of the 11 typed array kinds, including Float32/Float64 and BigInt64/BigUint64, passed as the argument and returned unchanged compares equal to the original, so the argument and result serializers carry typed arrays with their element type."
+    },
+    {
       "id": "page-evaluate.spec.ts > should work @smoke",
       "method": "Page.evaluate",
       "evidence": "A self-contained callback returning 7 * 3 resolves to 21, so Page.evaluate ran the function in the document and returned its value."
@@ -2917,6 +3073,11 @@
       "id": "page-evaluate.spec.ts > should work for circular object",
       "method": "Page.evaluate",
       "evidence": "A self-referencing object is returned and compares equal to the same circular structure, so the result serializer resolves cycles instead of overflowing."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should work with a using declaration",
+      "method": "Page.evaluate",
+      "evidence": "A page function with a using block returns true from its Symbol.dispose callback, so Page.evaluate runs the function source as written, explicit resource management included."
     },
     {
       "id": "page-evaluate.spec.ts > should work with Array.from/map",
@@ -2999,6 +3160,11 @@
       "evidence": "The awaited adapter waitForEvent('request') resolves with the request the document's synchronous XMLHttpRequest started inside Page.evaluate, and the assertions read resourceType() 'xhr' and isNavigationRequest() false from the adapter's snapshot of the package's own request object; with Page.waitForEvent withheld, the sabotage rerun fails."
     },
     {
+      "id": "page-expose-function.spec.ts > exposeBinding should work in parallel",
+      "method": "Page.exposeBinding",
+      "evidence": "Two exposeBinding calls issued concurrently both install: the following evaluate calls window.foo() and window.bar() without a ReferenceError, which would reject it."
+    },
+    {
       "id": "page-expose-function.spec.ts > should await returned promise",
       "method": "Page.exposeFunction",
       "evidence": "The exposed function returns a Promise; the Site's await resolves to the promise's value, proving the binding call awaits a returned promise before delivering the result."
@@ -3027,6 +3193,31 @@
       "id": "page-expose-function.spec.ts > should work with overridden console object",
       "method": "Page.exposeFunction",
       "evidence": "exposeFunction and the exposed call still work after the Site sets window.console = null, proving the binding path does not depend on console."
+    },
+    {
+      "id": "page-expose-function.spec.ts > should work with setContent",
+      "method": "Page.exposeFunction",
+      "evidence": "compute, exposed before the native setContent, is still callable from the new markup's inline script, and window.result resolves to 6 from its returned Promise.resolve(3 * 2)."
+    },
+    {
+      "id": "page-filechooser.spec.ts > should abort with signal",
+      "method": "Page.waitForEvent",
+      "evidence": "Aborting the signal passed to waitForEvent('filechooser') rejects the wait with an Error named AbortError. The adapter's own cause was the abort reason it received, and the fixture restores that reason's identity across the evaluation boundary, so the entry certifies the adapter's abort rejection, not the cause object's identity across the bridge. No file chooser opens; this proves only the signal path."
+    },
+    {
+      "id": "page-filechooser.spec.ts > should prioritize exact timeout over default timeout",
+      "method": "Page.waitForEvent",
+      "evidence": "With setDefaultTimeout(0), which disables timeouts, waitForEvent('filechooser', { timeout: 1 }) still rejects with playwright.errors.TimeoutError, so an explicit timeout overrides the default. No file chooser opens; this proves only the timeout path."
+    },
+    {
+      "id": "page-filechooser.spec.ts > should respect default timeout when there is no custom timeout",
+      "method": "Page.waitForEvent",
+      "evidence": "After setDefaultTimeout(1), waitForEvent('filechooser') with no timeout option rejects with playwright.errors.TimeoutError, so the wait uses the page default. No file chooser opens; this proves only the timeout path."
+    },
+    {
+      "id": "page-filechooser.spec.ts > should respect timeout",
+      "method": "Page.waitForEvent",
+      "evidence": "waitForEvent('filechooser', { timeout: 1 }) rejects with playwright.errors.TimeoutError. This proves only the wait's explicit-timeout path: no file chooser opens, and the ledger's waitForEvent row says unsupported event names are accepted and time out."
     },
     {
       "id": "page-fill.spec.ts > fill back to back",
@@ -3494,6 +3685,11 @@
       "evidence": "With Page.waitForRequest withheld, the sabotage rerun fails this test: waitForRequest('**/post') is what resolves with the POST the document's own fetch sent to that URL after Page.evaluate made it, so the glob matched a real request that reached the server. The postDataJSON() value the test then asserts is read from the fixture's snapshot of that request, taken outside the recorded adapter execution, and is not covered by the rerun."
     },
     {
+      "id": "page-network-response.spec.ts > Response.formData() should parse multipart/form-data in page context",
+      "method": "Page.evaluate",
+      "evidence": "The awaited page function parses a multipart body with the document's own Response.formData(), and field1 'value1', filename 'test.txt' and file text 'hello' come back by value, so the injected adapter leaves the page's Response and FormData working."
+    },
+    {
       "id": "page-network-response.spec.ts > should wait until response completes",
       "method": "Response.text",
       "evidence": "The response awaited from waitForEvent('response') reports status 200 while the server has sent only 'hello ', and its text() resolves with 'hello world!' only after the server writes the rest and ends: text() reads the observed fetch's body to its end rather than returning what had arrived with the headers. The test's requestfinished assertion is vacuous here, because the fixture cannot deliver an event to a Node listener; the promoted evidence is the body assertion."
@@ -3647,6 +3843,11 @@
       "id": "page-select-option.spec.ts > should wait for select to be swapped",
       "method": "Locator.selectOption",
       "evidence": "selectOption stays pending while the select is replaced, then selects two on the new element, proving the locator re-resolves instead of holding a stale node."
+    },
+    {
+      "id": "page-set-input-files.spec.ts > input event.composed should be true and cross shadow dom boundary",
+      "method": "Locator.setInputFiles",
+      "evidence": "Locator.setInputFiles on a file input inside an open shadow root fires input with composed true and change with composed false on the input, and only input:true reaches the body listener, so input crosses the shadow boundary and change does not."
     },
     {
       "id": "page-set-input-files.spec.ts > should set from memory",
@@ -3810,14 +4011,39 @@
       "evidence": "The awaited adapter call rejects bad with the pinned state validation message naming load, domcontentloaded, networkidle, and commit."
     },
     {
+      "id": "page-wait-for-load-state.spec.ts > should work with broken blob-url iframe",
+      "method": "Page.waitForLoadState",
+      "evidence": "With an <iframe src=\"blob:\"> in the document, waitForLoadState resolves for domcontentloaded, load and networkidle in turn; the broken blob URL does not block any of them."
+    },
+    {
+      "id": "page-wait-for-load-state.spec.ts > should work with broken data-url iframe",
+      "method": "Page.waitForLoadState",
+      "evidence": "With an <iframe src=\"data:text/html\"> in the document, waitForLoadState resolves for domcontentloaded, load and networkidle in turn; the broken data URL does not block any of them."
+    },
+    {
+      "id": "page-wait-for-load-state.spec.ts > should work with javascript: iframe",
+      "method": "Page.waitForLoadState",
+      "evidence": "With an <iframe src=\"javascript:false\"> in the document, waitForLoadState resolves for domcontentloaded, load and networkidle in turn; an iframe that never loads a real document does not block any of them."
+    },
+    {
       "id": "page-wait-for-request.spec.ts > should log the url",
       "method": "Page.waitForRequest",
       "evidence": "waitForRequest with a 70-character url and timeout 1000 rejects with a message containing waiting for request \"long-long-…\", the pinned client trimUrl line: the wait reports the url it matched on, trimmed to 50 characters with an ellipsis."
     },
     {
+      "id": "page-wait-for-request.spec.ts > should respect default timeout",
+      "method": "Page.waitForEvent",
+      "evidence": "After setDefaultTimeout(1), waitForEvent('request', () => false) rejects with playwright.errors.TimeoutError, so a request wait with a predicate that never matches ends at the page default timeout."
+    },
+    {
       "id": "page-wait-for-response.spec.ts > should log the url",
       "method": "Page.waitForResponse",
       "evidence": "waitForResponse(\"foo.css\") and waitForResponse(/foo.css/i) reject with messages containing waiting for response \"foo.css\" and waiting for response /foo.css/i, so the string form is quoted and the regular-expression form keeps its source and flags, as the pinned trimUrl does."
+    },
+    {
+      "id": "page-wait-for-response.spec.ts > should respect timeout",
+      "method": "Page.waitForEvent",
+      "evidence": "waitForEvent('response', { predicate: () => false, timeout: 1 }) rejects with playwright.errors.TimeoutError, so the options-object form honours both its predicate and its explicit timeout."
     },
     {
       "id": "page-wait-for-selector-1.spec.ts > elementHandle.waitForSelector should immediately resolve if node exists",
@@ -3838,6 +4064,11 @@
       "id": "page-wait-for-selector-1.spec.ts > should immediately resolve promise if node exists",
       "method": "Page.waitForSelector",
       "evidence": "waitForSelector('*') against the existing document and waitForSelector('div', {state:'attached'}) after a div is appended both resolve without waiting, so an already-matching selector completes the call immediately."
+    },
+    {
+      "id": "page-wait-for-selector-1.spec.ts > should resolve promise when node is added",
+      "method": "Page.waitForSelector",
+      "evidence": "waitForSelector('div', { state: 'attached' }) stays pending past an added <br> and resolves with a handle whose tagName property is 'DIV' once a div is attached."
     },
     {
       "id": "page-wait-for-selector-1.spec.ts > should resolve promise when node is added in shadow dom",
@@ -3930,6 +4161,11 @@
       "evidence": "A scoped state:'hidden' wait for a descendant that never exists settles successfully although the scope button is removed from the document during the test; the test proves the wait does not reject, not when it completed."
     },
     {
+      "id": "page-wait-for-selector-2.spec.ts > should support >> selector syntax",
+      "method": "Page.waitForSelector",
+      "evidence": "waitForSelector('css=div >> css=span', { state: 'attached' }) resolves only after a span is appended inside the added div, with a handle whose tagName is 'SPAN', so the chained selector is matched step by step."
+    },
+    {
       "id": "page-wait-for-selector-2.spec.ts > should support some fancy xpath",
       "method": "Page.waitForSelector",
       "evidence": "The wait for '//p[normalize-space(.)=\"hello world\"]' returns the handle for '<p>hello  world  </p>' and not the 'red herring' paragraph, so an xpath selector using an XPath function is evaluated by the XPath engine."
@@ -3978,6 +4214,11 @@
       "id": "page-wait-for-url.spec.ts > should work with url match for same document navigations",
       "method": "Page.waitForURL",
       "evidence": "The adapter wait with a regular expression stays unresolved through two nonmatching pushState changes and resolves only after /third.html matches."
+    },
+    {
+      "id": "queryselector.spec.ts > $$ should work with bogus Array.from",
+      "method": "Page.$$",
+      "evidence": "With the page's Array.from replaced by () => [], Page.$$('div') still returns both divs, and the first handle is the same element an earlier evaluateHandle returned, so $$ does not depend on the page's Array.from."
     },
     {
       "id": "queryselector.spec.ts > should auto-detect css selector",
@@ -4205,6 +4446,11 @@
       "evidence": "Adjacent-sibling chains return the expected id lists, including ':scope+div', the leading '+ div' shorthand, 'div + :scope', and ':has(:scope > div + #div2)' matching while ':has(:scope > div + #div1)' does not."
     },
     {
+      "id": "selectors-css.spec.ts > should work with > combinator and spaces",
+      "method": "Page.$eval",
+      "evidence": "All 14 spellings of the child combinator, with any whitespace around '>' and one or two attribute selectors, resolve to the same <span></span> through Page.$eval."
+    },
+    {
       "id": "selectors-css.spec.ts > should work with ~",
       "method": "Page.$$eval",
       "evidence": "Subsequent-sibling chains return the expected id lists, including ':scope ~ div' and the leading '~ div' shorthand on a scoped step, and the counts for '#divN ~ div ~ div' decrease as the anchor moves later."
@@ -4405,6 +4651,11 @@
       "evidence": "The unchanged regression test exercises five display:contents DOM shapes and proves Page.waitForSelector resolves for the visible cases and for state:hidden when the element has no rendered content. All waitForSelector state checks execute through the adapter; Page.setContent is setup only."
     },
     {
+      "id": "selectors-misc.spec.ts > should work for open shadow roots",
+      "method": "Page.$eval",
+      "evidence": "On deep-shadow.html, id= and data-testid= selectors pierce open shadow roots ('Hello from root2', 'Hello from root1', 3 matches for $$eval), while their :light variants find nothing through $ and $$."
+    },
+    {
       "id": "selectors-misc.spec.ts > should work with :nth-match",
       "method": "Page.waitForSelector",
       "evidence": "Indexed queries assert IDs and invalid-index errors; a pending wait returns the asserted third element after insertion."
@@ -4439,6 +4690,11 @@
       "id": "selectors-misc.spec.ts > should work with internal:has-not=",
       "method": "Page.$$eval",
       "evidence": "Upstream assertions verify should work with internal:has-not= through browser-side Page.$$eval selector evaluation."
+    },
+    {
+      "id": "selectors-misc.spec.ts > should work with internal:has=",
+      "method": "Page.$$eval",
+      "evidence": "internal:has= filters by descendants, including shadow-DOM, comma-list, text=, xpath= and chained inner selectors, with the exact counts and outerHTML asserted, and malformed or leading uses reject with the pinned parser messages."
     },
     {
       "id": "selectors-misc.spec.ts > should work with internal:or=",
@@ -4616,6 +4872,11 @@
       "id": "selectors-text.spec.ts > should work across nodes",
       "method": "Page.$",
       "evidence": "Text spanning child nodes is matched with asserted markup and counts; nonmatching exact text returns null."
+    },
+    {
+      "id": "selectors-text.spec.ts > should work for open shadow roots",
+      "method": "Page.$eval",
+      "evidence": "On deep-shadow.html, text= selectors find 'Hello from root1', 'Hello from root2' and 'Hello from root3' inside nested open shadow roots, including when scoped with >>, while text:light= finds none of them."
     },
     {
       "id": "selectors-text.spec.ts > should work with :has-text",
