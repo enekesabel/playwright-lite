@@ -143,6 +143,11 @@ export class DialogObservation {
     // ever reported, the same as the network wrapper lets a bad fetch receiver throw.
     if (thisArg !== undefined && thisArg !== null && thisArg !== this.window)
       return Reflect.apply(original, thisArg, args);
+    // With no subscriber left, a wrapper the Site installed over ours still
+    // calls through this proxy; the browser's own dialog appears, as it does
+    // for a page nobody subscribed on.
+    if (this.subscribers.size === 0)
+      return Reflect.apply(original, thisArg, args);
     const message = stringArg(args[0]);
     const defaultValue = type === "prompt" ? stringArg(args[1]) : "";
     const box: SettlementBox = {};

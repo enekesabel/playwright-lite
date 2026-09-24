@@ -390,6 +390,32 @@ describe("Page.on", () => {
     expect(messages).toEqual([{ type: "log", text: "label-only" }]);
   });
 
+  it("reports the script and line of the document's own console call", async () => {
+    // Pinned page-event-console.spec.ts "should have location for console API
+    // calls" reads url, line and lineNumber; columns differ across engines.
+    const page = consolePage();
+    const message = page.waitForEvent("console");
+    const url = URL.createObjectURL(
+      new Blob(["\n\nconsole.log('from the site');\n"], {
+        type: "text/javascript",
+      })
+    );
+    const script = document.createElement("script");
+    script.src = url;
+    const loaded = new Promise((resolve) => (script.onload = resolve));
+    document.head.append(script);
+    await loaded;
+    script.remove();
+    URL.revokeObjectURL(url);
+
+    const { url: reported, line, lineNumber } = (await message).location();
+    expect({ url: reported, line, lineNumber }).toEqual({
+      url,
+      line: 2,
+      lineNumber: 2,
+    });
+  });
+
   it("does not recurse when a listener throws or itself calls a wrapped console method", () => {
     const logged = vi
       .spyOn(window.console, "error")
@@ -584,6 +610,19 @@ describe("Page.on", () => {
 
   restoreDialogs();
   const dialogPage = listenedPages();
+
+  it("leaves window.alert/confirm/prompt alone until the first dialog listener", () => {
+    const { alert, confirm, prompt } = window;
+    const page = dialogPage();
+    page.on("pageerror", () => {});
+    expect(window.alert).toBe(alert);
+    expect(window.confirm).toBe(confirm);
+    expect(window.prompt).toBe(prompt);
+    page.on("dialog", () => {});
+    expect(window.alert).not.toBe(alert);
+    expect(window.confirm).not.toBe(confirm);
+    expect(window.prompt).not.toBe(prompt);
+  });
 
   it("dismisses a dialog no listener settles synchronously", () => {
     dialogPage().on("dialog", () => {

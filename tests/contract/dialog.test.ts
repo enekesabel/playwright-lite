@@ -14,6 +14,29 @@ describe("Dialog", () => {
     expect(window.prompt("question?", "yes.")).toBe("answer!");
   });
 
+  it("reports one call to each subscribed page, which settle it once between them", async () => {
+    const first = dialogPage();
+    const second = dialogPage();
+    const seen: string[] = [];
+    let late: Promise<void> | undefined;
+    first.on("dialog", (dialog) => {
+      seen.push(`first:${dialog.message()}`);
+      expect(dialog.page()).toBe(first);
+      void dialog.accept("from first");
+    });
+    second.on("dialog", (dialog) => {
+      seen.push(`second:${dialog.message()}`);
+      expect(dialog.page()).toBe(second);
+      late = dialog.accept("from second");
+    });
+
+    expect(window.prompt("question?")).toBe("from first");
+    expect(seen).toEqual(["first:question?", "second:question?"]);
+    await expect(late).rejects.toThrow(
+      "dialog.accept: Cannot accept dialog which is already handled!"
+    );
+  });
+
   it("rejects a non-string accept value", async () => {
     const page = dialogPage();
     const settled = new Promise<unknown>((resolve) => {
