@@ -208,6 +208,36 @@ describe("Page.off", () => {
     expect(window.confirm).toBe(nativeConfirm);
   });
 
+  it("leaves a dialog function the document installed after ours in place, reaching the native one", () => {
+    // Stand in for the native dialogs, which would block the runner.
+    const shown: string[] = [];
+    window.alert = (message?: unknown) => void shown.push(`alert:${message}`);
+    window.prompt = (message?: string) => {
+      shown.push(`prompt:${message}`);
+      return "native answer";
+    };
+    const page = dialogPage();
+    const listener = () => {};
+    page.on("dialog", listener);
+
+    // Called without a receiver, as a Site's wrapper calls what it replaced.
+    const { alert: ourAlert, prompt: ourPrompt } = window;
+    const theirs = {
+      alert: (message?: unknown) => ourAlert(`site ${message}`),
+      prompt: (message?: string) => ourPrompt(`site ${message}`),
+    };
+    window.alert = theirs.alert;
+    window.prompt = theirs.prompt;
+
+    page.off("dialog", listener);
+
+    expect(window.alert).toBe(theirs.alert);
+    expect(window.prompt).toBe(theirs.prompt);
+    window.alert("hi");
+    expect(window.prompt("name?")).toBe("native answer");
+    expect(shown).toEqual(["alert:site hi", "prompt:site name?"]);
+  });
+
   // ── Console events ──────────────────────────────────────────────
 
   restoreConsole();
