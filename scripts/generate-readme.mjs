@@ -7,11 +7,11 @@ import { format, resolveConfig } from "prettier";
 import {
   pageLedger,
   locatorLedger,
-  expectLedger,
-  elementHandleLimitations,
-  networkLimitations,
-  dialogLimitations,
-  consoleMessageLimitations,
+  locatorAssertionLedger,
+  pageAssertionLedger,
+  genericExpectLedger,
+  events,
+  objectSections,
 } from "../compatibility/api.ts";
 
 const projectRoot = new URL("../", import.meta.url);
@@ -35,11 +35,8 @@ const selectorAliases = new Map([
   ["$$eval", "eval-on-selector-all"],
 ]);
 
-const expectMemberUrls = new Map([
-  [
-    "expect(value)",
-    "https://playwright.dev/docs/test-assertions#generic-matchers",
-  ],
+const genericExpectUrls = new Map([
+  ["expect(value)", "https://playwright.dev/docs/api/class-genericassertions"],
   [
     "expect.extend()",
     "https://playwright.dev/docs/test-assertions#add-custom-matchers-using-expectextend",
@@ -51,20 +48,49 @@ const expectMemberUrls = new Map([
   ["expect.poll()", "https://playwright.dev/docs/test-assertions#expectpoll"],
   ["toPass()", "https://playwright.dev/docs/test-assertions#expecttopass"],
   [
-    "expect(page).toHaveTitle()",
-    "https://playwright.dev/docs/api/class-pageassertions#page-assertions-to-have-title",
-  ],
-  [
-    "expect(page).toHaveURL()",
-    "https://playwright.dev/docs/api/class-pageassertions#page-assertions-to-have-url",
-  ],
-  [
     "expect.soft()",
     "https://playwright.dev/docs/test-assertions#soft-assertions",
   ],
 ]);
 
-function rowsFor(owner, ledger, showAllNotes = false) {
+// Page event names are one lowercase word; their anchors split the words.
+const eventAnchors = new Map([
+  ["framenavigated", "frame-navigated"],
+  ["pageerror", "page-error"],
+  ["requestfailed", "request-failed"],
+  ["requestfinished", "request-finished"],
+]);
+
+// Overloaded members whose first documented form carries a numeric suffix.
+const suffixedAnchors = new Set(["toHaveScreenshot"]);
+
+function kebab(name) {
+  return name
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .toLowerCase();
+}
+
+/** Links a member of a Playwright API class, e.g. `class-page#page-click`. */
+function classMemberUrl(owner, anchorPrefix = owner) {
+  return (name) => {
+    const anchor = selectorAliases.get(name) ?? kebab(name);
+    const suffix = suffixedAnchors.has(name) ? "-1" : "";
+    return `https://playwright.dev/docs/api/class-${owner}#${anchorPrefix}-${anchor}${suffix}`;
+  };
+}
+
+function memberUrl(owner) {
+  const url = classMemberUrl(owner);
+  return (name) => specialMemberUrls.get(name) ?? url(name);
+}
+
+/** Plain-text category rows carry no API name to format or link. */
+function isCategory(name) {
+  return /^[A-Z]/.test(name) && name.includes(" ");
+}
+
+function rowsFor(ledger, url, showAllNotes = false) {
   return Reflect.ownKeys(ledger)
     .map((key) => {
       const entry = ledger[key];
@@ -75,19 +101,12 @@ function rowsFor(owner, ledger, showAllNotes = false) {
       const excluded = entry.status === "out-of-scope";
       if ((partial || excluded) && !entry.limitations?.trim())
         throw new Error(`Missing compatibility note for ${name}`);
-      const anchor =
-        selectorAliases.get(name) ??
-        name
-          .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
-          .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-          .toLowerCase();
+      const label =
+        key === Symbol.asyncDispose ? "[Symbol.asyncDispose]()" : name;
       return {
         name,
-        label: key === Symbol.asyncDispose ? "[Symbol.asyncDispose]()" : name,
-        url: owner
-          ? (specialMemberUrls.get(name) ??
-            `https://playwright.dev/docs/api/class-${owner}#${owner}-${anchor}`)
-          : expectMemberUrls.get(name),
+        label: isCategory(name) ? label : `\`${label}\``,
+        url: isCategory(name) ? undefined : url(name),
         status:
           entry.status === "implemented"
             ? partial
@@ -107,7 +126,11 @@ function rowsFor(owner, ledger, showAllNotes = false) {
             .replace(/\r?\n/g, "<br>") ?? "",
       };
     })
-    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    .sort(
+      (a, b) =>
+        isCategory(a.name) - isCategory(b.name) ||
+        (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)
+    );
 }
 
 export async function renderReadme(root = projectRoot) {
@@ -119,16 +142,47 @@ export async function renderReadme(root = projectRoot) {
   ]);
   const pkg = JSON.parse(packageJson);
   const markdown = Handlebars.compile(template, { strict: true })({
-    elementHandleLimitations,
-    networkLimitations,
-    dialogLimitations,
-    consoleMessageLimitations,
     playwrightVersion: pkg.devDependencies["@playwright/test"],
-    tables: [
-      { name: "Expect", rows: rowsFor(undefined, expectLedger, true) },
-      { name: "Page", rows: rowsFor("page", pageLedger) },
-      { name: "Locator", rows: rowsFor("locator", locatorLedger) },
+    apiTables: [
+      { name: "Page", rows: rowsFor(pageLedger, memberUrl("page")) },
+      { name: "Locator", rows: rowsFor(locatorLedger, memberUrl("locator")) },
     ],
+    events: events.map((row) => ({
+      ...row,
+      events: row.events.map((name) => ({
+        name,
+        url: `https://playwright.dev/docs/api/class-page#page-event-${eventAnchors.get(name) ?? name}`,
+      })),
+    })),
+    expectTables: [
+      {
+        name: "Locator assertions",
+        receiver: "expect(locator)",
+        rows: rowsFor(
+          locatorAssertionLedger,
+          classMemberUrl("locatorassertions", "locator-assertions"),
+          true
+        ),
+      },
+      {
+        name: "Page assertions",
+        receiver: "expect(page)",
+        rows: rowsFor(
+          pageAssertionLedger,
+          classMemberUrl("pageassertions", "page-assertions"),
+          true
+        ),
+      },
+      {
+        name: "Generic expect",
+        rows: rowsFor(
+          genericExpectLedger,
+          (name) => genericExpectUrls.get(name),
+          true
+        ),
+      },
+    ],
+    objectSections,
   });
   return format(markdown, { ...options, filepath });
 }

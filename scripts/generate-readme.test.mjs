@@ -13,7 +13,12 @@ import { pathToFileURL } from "node:url";
 import { test } from "node:test";
 
 import { generateReadme, renderReadme } from "./generate-readme.mjs";
-import { pageLedger, locatorLedger } from "../compatibility/api.ts";
+import {
+  pageLedger,
+  locatorLedger,
+  locatorAssertionLedger,
+  pageAssertionLedger,
+} from "../compatibility/api.ts";
 
 const root = new URL("../", import.meta.url);
 
@@ -34,10 +39,10 @@ test("README renders API compatibility without repeating runtime boundaries", as
   );
   assert.ok(
     readme.indexOf("### Locator") <
-      readme.indexOf("### ElementHandle compatibility")
+      readme.indexOf("### ElementHandle and JSHandle")
   );
   assert.ok(
-    readme.indexOf("### ElementHandle compatibility") <
+    readme.indexOf("### ElementHandle and JSHandle") <
       readme.indexOf("## License")
   );
   assert.doesNotMatch(readme, /\[\^element-handle\]/);
@@ -111,6 +116,45 @@ test("README lists every Page and Locator member once, including symbols", async
       .sort();
     assert.deepEqual(names, expected, `${name} members`);
   }
+});
+
+test("README lists every assertion once under Expect, in order", async () => {
+  const readme = await renderReadme(root);
+  const expectSection = readme.split("### Expect\n")[1].split(/\n### /)[0];
+  const headings = [...expectSection.matchAll(/^#### (.+)$/gm)].map(
+    (match) => match[1]
+  );
+  assert.deepEqual(headings, [
+    "Locator assertions",
+    "Page assertions",
+    "Generic expect",
+  ]);
+  for (const [name, ledger] of [
+    ["Locator assertions", locatorAssertionLedger],
+    ["Page assertions", pageAssertionLedger],
+  ]) {
+    const table = expectSection.split(`#### ${name}\n`)[1].split(/\n#### /)[0];
+    const names = [...table.matchAll(/^\|\s*\[`([^`]+)`/gm)].map(
+      (match) => match[1]
+    );
+    assert.deepEqual(names, Object.keys(ledger).sort(), name);
+  }
+  assert.match(expectSection, /^\| API response assertions\s*\|\s*🚫/m);
+  // The matcher list appears once, in the Locator assertions table.
+  assert.equal(readme.match(/`toHaveAccessibleErrorMessage`/g).length, 1);
+});
+
+test("event-emitter rows stay one line and link the Events table", async () => {
+  const readme = await renderReadme(root);
+  const rows = readme.split("\n").filter((line) => line.startsWith("|"));
+  for (const name of ["on", "once", "addListener", "prependListener"]) {
+    const row = rows.find((line) => line.includes(`[\`${name}\`]`));
+    assert.match(row, /\[supported events\]\(#events\)/, name);
+  }
+  assert.match(
+    readme,
+    /\[`requestfinished`\]\(https:\/\/playwright\.dev\/docs\/api\/class-page#page-event-request-finished\)/
+  );
 });
 
 test("generation is repeatable and check mode rejects drift without writing", async (t) => {
