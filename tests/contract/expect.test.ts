@@ -700,6 +700,17 @@ describe("Page assertions", () => {
     );
     expect(aborted.message).not.toContain("Timeout:");
 
+    const alreadyAborted = new AbortController();
+    alreadyAborted.abort(new Error("already aborted"));
+    const rejected = (await browserExpect(page)
+      .toHaveTitle("Hello", { timeout: 200, signal: alreadyAborted.signal })
+      .catch((error: Error) => error)) as Error;
+    expect(rejected.message).toBe(
+      "expect(page).toHaveTitle(expected) failed\n\n" +
+        'Expected: "Hello"\n' +
+        "Error: The assertion was aborted: already aborted\n"
+    );
+
     const custom = (await browserExpect(page, "custom title")
       .toHaveTitle("Hello", { timeout: 20 })
       .catch((error: Error) => error)) as Error;

@@ -1323,6 +1323,12 @@
       "evidence": "Aborting the signal 300ms into toMatchAriaSnapshot({ timeout: 5000, signal }) rejects with an expect(locator).toMatchAriaSnapshot(expected) failed error whose name is not AbortError."
     },
     {
+      "id": "expect-timeout.spec.ts > should fail the assertion when the signal is already aborted",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "With a signal aborted before the assertion starts, toBeVisible rejects with Playwright's exact expect(locator) message: header, Locator and Expected lines, then the abort reason as the error line and no call log, because the pinned client rejects before reaching the server; the same holds for toHaveURL on the page. setContent is native setup only."
+    },
+    {
       "id": "expect-timeout.spec.ts > should have timeout error name",
       "method": "Page.waitForSelector",
       "evidence": "Page.waitForSelector('#not-found', { timeout: 1 }) rejects with an error whose name is TimeoutError."
