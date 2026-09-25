@@ -158,11 +158,6 @@ export const objectSections: readonly ObjectSection[] = [
         lite: "Does not wait for navigation.",
         playwright: "Waits for a navigation the click starts.",
       },
-      {
-        member: "`ElementHandle.waitForSelector()`",
-        lite: "Rejects `strict`.",
-        playwright: "Accepts `strict`.",
-      },
     ],
     edgeCases: [
       "`toString()` describes the value as it was when the handle was first converted to a string.",

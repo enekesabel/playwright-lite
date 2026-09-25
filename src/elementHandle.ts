@@ -2,14 +2,15 @@ import type { EvaluationFunction } from "./evaluation";
 import { AdapterJSHandle, assertMaxArguments } from "./jsHandle";
 import { rejectUnsupportedOptions, validateForce } from "./protocolValidation";
 import type { InputFiles } from "./inputFiles";
-import type { PageImpl, SelectOptionValues } from "./page";
+import type {
+  PageImpl,
+  SelectOptionValues,
+  WaitForSelectorOptions,
+} from "./page";
 import { withAbortPrefix } from "./page";
 import type { ElementHandle } from "@playwright/test";
 
 type ElementHandleWaitOptions = { signal?: AbortSignal; timeout?: number };
-type ElementHandleSelectorWaitOptions = ElementHandleWaitOptions & {
-  state?: "attached" | "detached" | "visible" | "hidden";
-};
 
 /**
  * A browser-native, fixed reference to one node in the controlled document.
@@ -266,6 +267,10 @@ export class AdapterElementHandle extends AdapterJSHandle<Element> {
     );
   }
 
+  /**
+   * Pinned client/elementHandle.ts sends only the selector, so the `strict`
+   * option the public type declares never takes effect: the first match wins.
+   */
   async $(selector: string): Promise<AdapterElementHandle | null> {
     return this.ownerPage.elementHandleFor(
       this.ownerPage.resolveWithinElement(
@@ -414,7 +419,7 @@ export class AdapterElementHandle extends AdapterJSHandle<Element> {
 
   async waitForSelector(
     selector: string,
-    options: ElementHandleSelectorWaitOptions = {}
+    options: WaitForSelectorOptions = {}
   ): Promise<AdapterElementHandle | null> {
     return await this.ownerPage.waitForSelectorWithinElement(
       this.requireElement(),

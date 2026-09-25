@@ -107,6 +107,72 @@ describe("ElementHandle", () => {
     ).rejects.toThrow("elementHandle.waitForSelector: Timeout 25ms exceeded.");
   });
 
+  // Contract coverage: no upstream spec passes `strict` to the handle form.
+  // Pinned Frame.waitForSelector parses the selector with the caller's
+  // `strict` and callMatchedElements throws the strict mode violation before
+  // any state check, so every state rejects; matches outside the handle do not
+  // count.
+  it.each(["attached", "visible", "hidden", "detached"] as const)(
+    "waitForSelector with strict rejects several matches within the handle for state %s",
+    async (state) => {
+      document.body.innerHTML =
+        '<section id="root"><span>span1</span><div><span>target</span></div></section>' +
+        "<span>outside</span>";
+      const root = (await createPage().$("#root"))!;
+
+      const error = await root
+        .waitForSelector("span", { strict: true, state, timeout: 100 })
+        .then(
+          () => null,
+          (error: Error) => error
+        );
+
+      expect(error?.message).toContain(
+        "strict mode violation: locator('span') resolved to 2 elements:"
+      );
+      expect(error?.message).toContain(
+        "1) <span>span1</span> aka getByText('span1')"
+      );
+      expect(error?.message).toContain(
+        "2) <span>target</span> aka getByText('target')"
+      );
+      expect(error?.message).not.toContain("outside");
+    }
+  );
+
+  it("waitForSelector with strict resolves the single match within the handle", async () => {
+    document.body.innerHTML =
+      '<section id="root"><span>target</span></section><span>outside</span>';
+    const root = (await createPage().$("#root"))!;
+
+    const found = await root.waitForSelector("span", { strict: true });
+
+    await expect(found!.textContent()).resolves.toBe("target");
+  });
+
+  it("waitForSelector with strict false resolves the first match", async () => {
+    document.body.innerHTML =
+      '<section id="root"><span>first</span><span>second</span></section>';
+    const root = (await createPage().$("#root"))!;
+
+    const found = await root.waitForSelector("span", { strict: false });
+
+    await expect(found!.textContent()).resolves.toBe("first");
+  });
+
+  // Contract coverage: pinned client ElementHandle.$ sends only the selector
+  // over the protocol, so `strict` never reaches the server and the first
+  // match wins even though the public type declares the option.
+  it("$ resolves the first match even with strict, as the pinned client does", async () => {
+    document.body.innerHTML =
+      '<section id="root"><span>span1</span><div><span>target</span></div></section>';
+    const root = (await createPage().$("#root"))!;
+
+    const found = await root.$("span", { strict: true });
+
+    await expect(found!.textContent()).resolves.toBe("span1");
+  });
+
   it("resolves Locator.elementHandle strictly as an attached fixed element", async () => {
     document.body.innerHTML = "<p>first</p><p>second</p>";
     const page = createPage();
