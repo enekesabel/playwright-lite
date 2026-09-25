@@ -2,6 +2,8 @@ import type { Page, PlaywrightTestOptions } from "@playwright/test";
 
 export { expect } from "./expect";
 export type { Expect } from "./expect";
+/** Playwright's `selectors`, for registering custom selector engines. */
+export { selectors } from "./selectors";
 /**
  * The `Request` and `Response` objects the network events and waits report.
  * They are subsets of Playwright's, carrying only the members the current

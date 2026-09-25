@@ -4,6 +4,7 @@ import type {
   Locator,
   Mouse,
   Page,
+  Selectors,
   Touchscreen,
 } from "@playwright/test";
 
@@ -656,6 +657,14 @@ export const touchscreenLedger = {
   tap: planned("Synthetic functional input only."),
 } as const satisfies Ledger<Touchscreen>;
 
+/** The package's `selectors` export, Playwright's `selectors`. */
+export const selectorsLedger = {
+  register: partial(
+    "A `script` of `{ path }` rejects; pass `content`. `contentScript: true` has no effect: the engine runs in the page's own JavaScript world. An engine also applies to pages already in use, where Playwright applies it to documents loaded afterwards."
+  ),
+  setTestIdAttribute: undecided(),
+} as const satisfies Ledger<Selectors>;
+
 /**
  * Assertion names `expect(target)` offers for `T` in pinned Playwright, minus
  * the generic matchers every target shares.
@@ -755,6 +764,7 @@ export const ledgers = {
   Keyboard: keyboardLedger,
   Mouse: mouseLedger,
   Touchscreen: touchscreenLedger,
+  Selectors: selectorsLedger,
 } as const;
 
 export function statusFor(owner: keyof typeof ledgers, member: string) {

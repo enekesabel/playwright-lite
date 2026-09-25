@@ -36,6 +36,13 @@ declare module "virtual:playwright-lite-injected" {
 
   export class InjectedScript {
     constructor(browserWindow: Window, options: InjectedScriptOptions);
+    /**
+     * Pinned private selector engine registry. The constructor fills it from
+     * `customEngines` with `this._engines.set(name, this.eval(source))`.
+     */
+    readonly _engines: Map<string, unknown>;
+    /** Pinned `eval`: evaluates the expression in this script's window. */
+    eval(expression: string): unknown;
     ariaSnapshot(
       node: Element,
       options: {

@@ -331,6 +331,15 @@ Targets Playwright **1.62.1**. Statuses describe API compatibility within the ru
 | [`waitFor`](https://playwright.dev/docs/api/class-locator#locator-wait-for)                                  |   ✅   |                                                                                                                                                                  |
 | [`waitForFunction`](https://playwright.dev/docs/api/class-locator#locator-wait-for-function)                 |   ⚠️   | A promise returned by the page function is awaited before its value is judged; Playwright treats the returned promise object itself as truthy and stops waiting. |
 
+### Selectors
+
+Playwright's `selectors`, exported as `import { selectors } from "@enekesabel/playwright-lite"`.
+
+| API                                                                                                     | Status | Notes                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------- | :----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`register`](https://playwright.dev/docs/api/class-selectors#selectors-register)                        |   ⚠️   | A `script` of `{ path }` rejects; pass `content`. `contentScript: true` has no effect: the engine runs in the page's own JavaScript world. An engine also applies to pages already in use, where Playwright applies it to documents loaded afterwards. |
+| [`setTestIdAttribute`](https://playwright.dev/docs/api/class-selectors#selectors-set-test-id-attribute) |   ❌   |                                                                                                                                                                                                                                                        |
+
 ### Actions
 
 How the Page, Locator and ElementHandle actions report a failure.

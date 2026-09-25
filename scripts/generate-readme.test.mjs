@@ -73,6 +73,8 @@ test("README links documented APIs, including selector aliases, without inventin
     ["$eval", "class-page#page-eval-on-selector"],
     ["$$eval", "class-page#page-eval-on-selector-all"],
     ["setInputFiles", "class-locator#locator-set-input-files"],
+    ["register", "class-selectors#selectors-register"],
+    ["setTestIdAttribute", "class-selectors#selectors-set-test-id-attribute"],
   ]) {
     assert.ok(
       readme.includes(

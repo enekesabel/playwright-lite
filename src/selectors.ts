@@ -1,6 +1,133 @@
+import type { Selectors } from "@playwright/test";
 import { JSON } from "virtual:playwright-lite-globals";
 
+import { registerSelectorEngine } from "./injected";
+import { validateString } from "./protocolValidation";
+
 export { getByTestIdSelector } from "virtual:playwright-lite-injected";
+
+type SelectorEngineScript =
+  | string
+  | ((...args: unknown[]) => unknown)
+  | { path?: string; content?: string };
+
+/**
+ * Pinned server/selectors.ts `_builtinEngines` ("keep in sync with
+ * InjectedScript class"), plus the `zs` names it keeps for future use.
+ */
+const predefinedEngines = new Set([
+  "css",
+  "css:light",
+  "xpath",
+  "xpath:light",
+  "_react",
+  "_vue",
+  "text",
+  "text:light",
+  "id",
+  "id:light",
+  "data-testid",
+  "data-testid:light",
+  "data-test-id",
+  "data-test-id:light",
+  "data-test",
+  "data-test:light",
+  "nth",
+  "visible",
+  "internal:control",
+  "internal:has",
+  "internal:has-not",
+  "internal:has-text",
+  "internal:has-not-text",
+  "internal:and",
+  "internal:or",
+  "internal:chain",
+  "role",
+  "internal:attr",
+  "internal:label",
+  "internal:text",
+  "internal:role",
+  "internal:testid",
+  "internal:describe",
+  "aria-ref",
+  "zs",
+  "zs:light",
+]);
+
+/**
+ * Pinned client/clientHelper.ts `evaluationScript(script, undefined, false)`,
+ * which reads `path` from disk; this runtime has no file system to read.
+ */
+function engineSource(script: SelectorEngineScript): unknown {
+  if (typeof script === "function") return `(${script.toString()})(undefined)`;
+  if (typeof script === "string") return script;
+  if (script.content !== undefined) return script.content;
+  if (script.path !== undefined)
+    throw new Error(
+      "selectors.register: the `path` property is not supported; pass `content`."
+    );
+  throw new Error("Either path or content property must be present");
+}
+
+/**
+ * Pinned client/selectors.ts `Selectors.register`, followed by the checks the
+ * pinned protocol validator and server/selectors.ts `register` apply once the
+ * engine reaches a browser context. The current document always has one, so
+ * they always apply. `contentScript` is validated and has no effect: engines
+ * run in the page's own JavaScript world, the only one there is.
+ */
+class SelectorsImpl {
+  private readonly names = new Set<string>();
+
+  async register(
+    name: string,
+    script: SelectorEngineScript,
+    options: { contentScript?: boolean } = {}
+  ): Promise<void> {
+    if (this.names.has(name))
+      throw new Error(
+        `selectors.register: "${name}" selector engine has been already registered`
+      );
+    const engine = { ...options, name, source: engineSource(script) };
+    let engineName: string;
+    let source: string;
+    try {
+      engineName = validateString(engine.name, "selectorEngine.name");
+      source = validateString(engine.source, "selectorEngine.source");
+      const contentScript = engine.contentScript as unknown;
+      if (
+        contentScript !== undefined &&
+        typeof contentScript !== "boolean" &&
+        !(contentScript instanceof Boolean)
+      )
+        throw new Error(
+          `selectorEngine.contentScript: expected boolean, got ${typeof contentScript}`
+        );
+      if (!/^[a-zA-Z_0-9-]+$/.test(engineName))
+        throw new Error(
+          "Selector engine name may only contain [a-zA-Z0-9_] characters"
+        );
+      if (predefinedEngines.has(engineName))
+        throw new Error(`"${engineName}" is a predefined selector engine`);
+      if (this.names.has(engineName))
+        throw new Error(
+          `"${engineName}" selector engine has been already registered`
+        );
+    } catch (error) {
+      throw new Error(`selectors.register: ${(error as Error).message}`, {
+        cause: error,
+      });
+    }
+    registerSelectorEngine(engineName, source);
+    this.names.add(engineName);
+  }
+}
+
+/**
+ * Playwright's `selectors`. A registered engine resolves in every `Page` of
+ * this package, including those created before it was registered.
+ */
+export const selectors = new SelectorsImpl() as unknown as Selectors;
 
 export function escapeForAttributeSelector(
   value: string | RegExp,
