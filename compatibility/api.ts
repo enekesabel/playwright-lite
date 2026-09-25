@@ -94,7 +94,7 @@ const listenerNote =
 const removalNote =
   "Only the [supported events](#events) ever fire; other names are accepted.";
 const waitForEventNote =
-  "Resolves only for the [supported events](#events); other names time out.";
+  "Resolves only for the [supported events](#events); other names time out, or reject when the page closes.";
 const networkObservationNote =
   "`fetch()` and `XMLHttpRequest` calls of the current document only; see [Request and Response](#request-and-response).";
 const exposeFunctionNote =
@@ -106,11 +106,20 @@ const consoleMessagesNote =
 const networkIdleNote =
   '`"networkidle"` resolves no sooner than 500 ms after the call, even when the document is already idle; see [Network idle](#network-idle).';
 
+const closingLink = "see [Closing a page](#closing-a-page)";
+
 const historyTraversalNote =
   "Needs the browser's Navigation API and rejects without it; returns no `Response`; resolves to `null` without navigating when the Navigation API does not list the adjacent entry (an entry of another origin, an entry beyond one, or any entry in an opaque-origin document such as a sandboxed frame), where Playwright navigates to it; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call, even when already idle.";
 
 /** The Page events this package fires, in README order. */
 export const events: readonly EventRow[] = [
+  {
+    events: ["close"],
+    firesFor:
+      "The first `close()` or `[Symbol.asyncDispose]()` call, once, with the `Page`.",
+    differences:
+      "Fires when the `Page` object is disposed, not when the document goes away: the document stays open, and `window.close()` or closing the tab fires nothing. See [Closing a page](#closing-a-page).",
+  },
   {
     events: ["dialog"],
     firesFor:
@@ -291,7 +300,9 @@ export const objectSections: readonly ObjectSection[] = [
 ];
 
 export const pageLedger = {
-  [Symbol.asyncDispose]: undecided(),
+  [Symbol.asyncDispose]: partial(
+    `Closes as \`close()\` does, disposing only the \`Page\` object; ${closingLink}.`
+  ),
   $: partial(elementHandleNote),
   $$: partial(elementHandleNote),
   $$eval: implemented(
@@ -319,7 +330,9 @@ export const pageLedger = {
   clearPageErrors: implemented(),
   click: partial("The action does not wait for navigation."),
   clock: undecided(),
-  close: undecided(),
+  close: partial(
+    `Disposes the \`Page\` object, not the document, and rejects \`runBeforeUnload: true\`; ${closingLink}.`
+  ),
   consoleMessages: partial(consoleMessagesNote),
   content: implemented("Serializes the current controlled document."),
   context: outOfScope(
@@ -366,7 +379,9 @@ export const pageLedger = {
   innerText: implemented(),
   inputValue: implemented(),
   isChecked: implemented(),
-  isClosed: undecided(),
+  isClosed: partial(
+    `Reports whether this \`Page\` object was closed; the document stays open; ${closingLink}.`
+  ),
   isDisabled: implemented(),
   isEditable: implemented(),
   isEnabled: implemented(),

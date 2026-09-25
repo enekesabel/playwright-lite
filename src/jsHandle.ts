@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Playwright evaluation accepts arbitrary JavaScript values. */
+import type { JSHandle } from "@playwright/test";
 import type { AdapterElementHandle } from "./elementHandle";
+import { guardLifetimeCalls, type LifetimeCalls } from "./lifetime";
 import type {
   Evaluation,
   EvaluationFunction,
@@ -27,6 +29,22 @@ export function assertMaxArguments(count: number, maximum: number): void {
 }
 
 /**
+ * Every async `JSHandle` member, refused once the handle's page has closed;
+ * see `guardLifetimeCalls`. `dispose` still resolves, as the pinned client
+ * ignores a closed target there.
+ */
+const JS_HANDLE_LIFETIME_CALLS: Record<
+  Exclude<LifetimeCalls<AdapterJSHandle, JSHandle>, "dispose">,
+  true
+> = {
+  evaluate: true,
+  evaluateHandle: true,
+  getProperties: true,
+  getProperty: true,
+  jsonValue: true,
+};
+
+/**
  * A reference to one value in the controlled document.
  *
  * Mirrors pinned 26a9e47 client/jsHandle.ts and server/javascript.ts: the value
@@ -34,6 +52,15 @@ export function assertMaxArguments(count: number, maximum: number): void {
  * copies it out through the pinned serializers.
  */
 export class AdapterJSHandle<T = unknown> {
+  static {
+    guardLifetimeCalls(
+      AdapterJSHandle.prototype,
+      JS_HANDLE_LIFETIME_CALLS,
+      (handle) => (handle.asElement() ? "elementHandle" : "jsHandle"),
+      (handle) => handle.evaluation.page.lifetime
+    );
+  }
+
   protected readonly disposedError: string = "JSHandle is disposed!";
   private disposed = false;
   private preview: string | undefined;

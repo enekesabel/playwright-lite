@@ -8,9 +8,56 @@ import type {
   WaitForSelectorOptions,
 } from "./page";
 import { withAbortPrefix } from "./page";
-import type { ElementHandle } from "@playwright/test";
+import { guardLifetimeCalls, type LifetimeCalls } from "./lifetime";
+import type { ElementHandle, JSHandle } from "@playwright/test";
 
 type ElementHandleWaitOptions = { signal?: AbortSignal; timeout?: number };
+
+/**
+ * Every async `ElementHandle` member beyond the `JSHandle` ones, refused once
+ * the handle's page has closed; see `guardLifetimeCalls`.
+ */
+const ELEMENT_HANDLE_LIFETIME_CALLS: Record<
+  Exclude<
+    LifetimeCalls<AdapterElementHandle, ElementHandle>,
+    LifetimeCalls<AdapterJSHandle, JSHandle> | "dispose"
+  >,
+  true
+> = {
+  $: true,
+  $$: true,
+  $$eval: true,
+  $eval: true,
+  boundingBox: true,
+  check: true,
+  click: true,
+  dblclick: true,
+  dispatchEvent: true,
+  fill: true,
+  focus: true,
+  getAttribute: true,
+  hover: true,
+  innerHTML: true,
+  innerText: true,
+  inputValue: true,
+  isChecked: true,
+  isDisabled: true,
+  isEditable: true,
+  isEnabled: true,
+  isHidden: true,
+  isVisible: true,
+  press: true,
+  scrollIntoViewIfNeeded: true,
+  selectOption: true,
+  selectText: true,
+  setChecked: true,
+  setInputFiles: true,
+  textContent: true,
+  type: true,
+  uncheck: true,
+  waitForElementState: true,
+  waitForSelector: true,
+};
 
 /**
  * A browser-native, fixed reference to one node in the controlled document.
@@ -21,6 +68,15 @@ type ElementHandleWaitOptions = { signal?: AbortSignal; timeout?: number };
  * replaces a matching node.
  */
 export class AdapterElementHandle extends AdapterJSHandle<Element> {
+  static {
+    guardLifetimeCalls(
+      AdapterElementHandle.prototype,
+      ELEMENT_HANDLE_LIFETIME_CALLS,
+      "elementHandle",
+      (handle) => handle.ownerPage.lifetime
+    );
+  }
+
   protected override readonly disposedError = "ElementHandle has been disposed";
 
   constructor(

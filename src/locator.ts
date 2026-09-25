@@ -10,6 +10,7 @@ import type {
   SelectOptionValues,
 } from "./page";
 import { withAbortPrefix } from "./page";
+import { guardLifetimeCalls, type LifetimeCalls } from "./lifetime";
 import { AdapterElementHandle } from "./elementHandle";
 import type { InputFiles } from "./inputFiles";
 import {
@@ -79,7 +80,71 @@ export type LocatorOptions = {
 type HighlightOptions = NonNullable<Parameters<Locator["highlight"]>[0]>;
 type HighlightDisposable = Awaited<ReturnType<Locator["highlight"]>>;
 
+/**
+ * Every async `Locator` member, refused once the locator's page has closed;
+ * see `guardLifetimeCalls`.
+ */
+const LOCATOR_LIFETIME_CALLS: Record<
+  LifetimeCalls<LocatorImpl, Locator>,
+  true
+> = {
+  all: true,
+  allInnerTexts: true,
+  allTextContents: true,
+  ariaSnapshot: true,
+  blur: true,
+  boundingBox: true,
+  check: true,
+  clear: true,
+  click: true,
+  count: true,
+  dblclick: true,
+  dispatchEvent: true,
+  drop: true,
+  elementHandle: true,
+  elementHandles: true,
+  evaluate: true,
+  evaluateAll: true,
+  evaluateHandle: true,
+  fill: true,
+  focus: true,
+  getAttribute: true,
+  highlight: true,
+  hideHighlight: true,
+  hover: true,
+  innerHTML: true,
+  innerText: true,
+  inputValue: true,
+  isChecked: true,
+  isDisabled: true,
+  isEditable: true,
+  isEnabled: true,
+  isHidden: true,
+  isVisible: true,
+  press: true,
+  pressSequentially: true,
+  scrollIntoViewIfNeeded: true,
+  selectOption: true,
+  selectText: true,
+  setChecked: true,
+  setInputFiles: true,
+  textContent: true,
+  type: true,
+  uncheck: true,
+  waitFor: true,
+  waitForFunction: true,
+};
+
 export class LocatorImpl {
+  static {
+    guardLifetimeCalls(
+      LocatorImpl.prototype,
+      LOCATOR_LIFETIME_CALLS,
+      "locator",
+      (locator) => locator.ownerPage.lifetime
+    );
+  }
+
   /**
    * Brand property carrying the structured payload.
    * Validated through {@link requireBrand} — no private-field casts needed.
