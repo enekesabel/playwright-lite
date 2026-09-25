@@ -242,6 +242,14 @@ function certifiesBrowserMethod(entry, method, matcher) {
   );
 }
 
+/**
+ * The only members a promotable test may have run on the native driver: they
+ * set up the document the test works in. Any other native operation, and any
+ * member called on what a native call returned, produced part of the test's
+ * result without the adapter.
+ */
+const NATIVE_SETUP_MEMBERS = ["Page.goto", "Page.setContent"];
+
 export function reviewedPromotion(entries, id, method, evidence, matcher) {
   const entry = entries.find((entry) => entry.id === id);
   if (isOutOfScopeMethod(method))
@@ -251,6 +259,21 @@ export function reviewedPromotion(entries, id, method, evidence, matcher) {
   if (entry?.execution?.native?.includes(method))
     throw new Error(
       `${method} was executed natively and cannot be promoted as browser compatibility evidence.`
+    );
+  const nativeBeyondSetup = [
+    ...new Set(
+      entry?.execution?.native?.filter(
+        (member) => !NATIVE_SETUP_MEMBERS.includes(member)
+      )
+    ),
+  ];
+  if (nativeBeyondSetup.length)
+    throw new Error(
+      `${id} ran ${nativeBeyondSetup.join(", ")} on the native driver; a promotable test runs only document setup (${NATIVE_SETUP_MEMBERS.join(", ")}) natively.`
+    );
+  if (entry?.execution?.answeredInNode?.includes(method))
+    throw new Error(
+      `${method} was answered by the bridge in Node, not by the adapter; contract tests prove it, never the corpus.`
     );
   if (
     !entry ||

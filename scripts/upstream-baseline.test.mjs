@@ -222,6 +222,97 @@ describe("reviewed promotion", () => {
       )
     );
   });
+  it("accepts only document setup among a test's native operations", () => {
+    for (const native of [
+      undefined,
+      [],
+      ["Page.goto"],
+      ["Page.setContent"],
+      ["Page.goto", "Page.setContent", "Page.goto"],
+    ])
+      assert.deepEqual(
+        reviewedPromotion(
+          [{ ...entry, execution: { ...entry.execution, native } }],
+          "test",
+          "Page.evaluate",
+          "evaluates in the adapter"
+        ),
+        {
+          id: "test",
+          method: "Page.evaluate",
+          evidence: "evaluates in the adapter",
+        }
+      );
+    for (const [native, members] of [
+      [["Page.goto", "Response.status"], "Response.status"],
+      [["Locator.contentFrame"], "Locator.contentFrame"],
+      [
+        ["Page.setContent", "Page.frames", "Frame.evaluate", "Page.frames"],
+        "Page.frames, Frame.evaluate",
+      ],
+    ])
+      assert.throws(
+        () =>
+          reviewedPromotion(
+            [{ ...entry, execution: { ...entry.execution, native } }],
+            "test",
+            "Page.evaluate",
+            "evaluates in the adapter"
+          ),
+        {
+          message: `test ran ${members} on the native driver; a promotable test runs only document setup (Page.goto, Page.setContent) natively.`,
+        }
+      );
+  });
+  it("refuses a method the bridge answered in Node", () => {
+    for (const method of [
+      "Page.url",
+      "Locator.toString",
+      "Locator.description",
+    ])
+      assert.throws(
+        () =>
+          reviewedPromotion(
+            [
+              {
+                ...entry,
+                execution: {
+                  entered: [method, "Page.evaluate"],
+                  answeredInNode: [method],
+                  failures: [],
+                },
+              },
+            ],
+            "test",
+            method,
+            "reads the synchronous answer"
+          ),
+        {
+          message: `${method} was answered by the bridge in Node, not by the adapter; contract tests prove it, never the corpus.`,
+        }
+      );
+    assert.deepEqual(
+      reviewedPromotion(
+        [
+          {
+            ...entry,
+            execution: {
+              ...entry.execution,
+              answeredInNode: ["Page.url", "Locator.toString"],
+            },
+          },
+        ],
+        "test",
+        "Page.evaluate",
+        "a Node answer the test did not assert"
+      ),
+      {
+        id: "test",
+        method: "Page.evaluate",
+        evidence: "a Node answer the test did not assert",
+      }
+    );
+  });
   describe("sabotage rerun", () => {
     const id = "locator-click.spec.ts > should click";
     it("refuses a test that still passes without the reviewed method", () => {

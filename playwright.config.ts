@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import { defineConfig, devices } from "@playwright/test";
 
 // `sabotagedMethod` names one adapter method to withhold from the browser
@@ -11,6 +13,13 @@ export default defineConfig<{
 }>({
   testDir: "./tests/upstream",
   testMatch: "*.spec.ts",
+  // The bridge imports src/locatorFormatting.ts, whose build-time virtual
+  // modules this tsconfig maps to Node stand-ins. The path is absolute
+  // because the promotion rerun's generated configuration, which spreads this
+  // one, lives in another directory.
+  tsconfig: fileURLToPath(
+    new URL("./tests/upstream/tsconfig.json", import.meta.url)
+  ),
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 0,

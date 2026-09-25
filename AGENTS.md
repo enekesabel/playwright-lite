@@ -54,6 +54,15 @@ A harness change is accepted on tests that fail with an adapter error instead of
 a bridge error, not on tests turning green: the remaining failure must come from
 the adapter under test. A harness pull request promotes nothing.
 
+Out-of-scope `Page` and `Locator` members run on the native driver so tests that
+mix them with in-scope members stay diagnostic. Each such call, and each member
+called on what one returns, is recorded in the evidence's `native` log.
+`Page.url()`, `Locator.toString()` and `Locator.description()` are synchronous,
+so the bridge answers them in Node: `url()` replays the adapter's latest answer,
+and the locator members format the selector Playwright's own Locator builds for
+the same chain with the package's `src/locatorFormatting.ts`. Each call is
+recorded in the evidence's `answeredInNode` log (ADR-0002).
+
 Functions cannot cross `realPage.evaluate`, so the bridge carries a function
 argument as its source and rebuilds it in the browser, normalizing a method
 shorthand the way the pinned server normalizes a page function. The rebuilt
@@ -92,6 +101,13 @@ Treat newly passing upstream tests as candidates for review. Before promoting ea
 4. Record the exact test ID, method, and a concise explanation of what the assertion proves in the existing baseline through the promotion command.
 5. The promotion command reruns each candidate alone with that method sabotaged: its in-browser adapter dispatch throws instead of executing, on the fixture's page and on every page a library test creates, and the test's execution evidence records each withheld dispatch in `withheld`, which only a method-sabotaged run's evidence has; evidence carrying it never certifies an ordinary pass. A sabotaged public matcher is not dispatched either: it fails with its withheld marker as the error's `message` and as `matcherResult.message`, `.ariaSnapshot` and `.log`, with no other `matcherResult` field. The test must fail or time out with no transport failure in its evidence; a test that still passes proves nothing about the method and is refused. The method rerun is accepted only when the evidence records a withheld dispatch of the reviewed method, whatever the failure's text, so a test that asserts the error's class or reads its `matcherResult` still counts and a failure that never reached the method is refused. The matcher rerun needs `__pwLiteSabotagedMatcher: <matcher>` in the reported failure. Errors the rerun reports outside any test are logged and leave the verdict to the test's own result. The rerun passes the method as a fixture option in a configuration it generates for that run alone; no environment variable is involved, so the switch is off in every ordinary corpus run and no upstream spec sets it.
 6. Run the package compatibility checks and inspect the baseline diff. Review each new entry as part of the PR; ordinary test runs must never promote entries automatically.
+
+Promotion refuses a test whose `native` log holds any member other than the
+document setup members `Page.goto` and `Page.setContent`, and a test whose
+reviewed method is in its `answeredInNode` log; contract tests prove those
+members. Review refuses a test that asserts a transport artefact (user
+activation, the CSP `eval` exemption, CDP error text) or a callback that must run
+in Node; such tests stay diagnostic (ADR-0002).
 
 Execution tracking is necessary evidence, not proof that an assertion is adequate. The implementing agent performs this review; individual promotions do not require separate user approval. Preserve existing reviewed entries when adding support, and investigate regressions instead of deleting entries to make CI pass.
 

@@ -16,11 +16,11 @@ import {
   type Page,
   type Playwright,
 } from "@playwright/test";
-import {
-  formatLocatorChainDescription,
-  locatorDescription,
-} from "./locatorChainDescription";
 import { statusFor } from "../../compatibility/api";
+import {
+  asLocatorDescription,
+  locatorCustomDescription,
+} from "../../src/locatorFormatting";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ADAPTER_DIST_PATH = resolve(__dirname, "../../dist/index.mjs");
@@ -83,6 +83,17 @@ function isOutOfScope(owner: "Page" | "Locator", member: string) {
 
 function nativeOperationLog(realPage: Page) {
   return (realPage as any).__pwLiteNativeOperations as string[];
+}
+
+/**
+ * The synchronous members the bridge answers in Node, one entry per call.
+ * Playwright's API returns them synchronously, but the test's calls reach the
+ * browser adapter asynchronously, so the adapter cannot answer them. The
+ * execution evidence carries this log as `answeredInNode`, and promotion
+ * refuses a test whose reviewed method is in it.
+ */
+function answeredInNodeLog(realPage: Page) {
+  return (realPage as any).__pwLiteAnsweredInNode as string[];
 }
 
 function nativeKind(value: object): string {
@@ -200,6 +211,7 @@ const LOCATOR_CHAIN_METHODS = new Set([
   "last",
   "and",
   "or",
+  "describe",
 ]);
 
 function encodeBridgeValue(
@@ -1387,6 +1399,7 @@ export async function createAdapterPage(
   const failures: string[] = [];
   (realPage as any).__pwLiteTransportFailures = failures;
   (realPage as any).__pwLiteNativeOperations = [] as string[];
+  (realPage as any).__pwLiteAnsweredInNode = [] as string[];
   // The message only selects the failures worth asking about: an error the
   // adapter or its page code raised can read exactly like a transport failure,
   // so the browser side, which saw where it was thrown, decides. It answers
@@ -1497,7 +1510,11 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
 
       // Page.url() is synchronous in Playwright's public API, so it replays
       // the adapter's own answer from the latest round trip.
-      if (prop === "url") return () => observedUrls.get(realPage);
+      if (prop === "url")
+        return () => {
+          answeredInNodeLog(realPage).push("Page.url");
+          return observedUrls.get(realPage);
+        };
 
       // Keyboard is a synchronous Page property whose methods must execute in
       // the browser adapter. Do not leak the native Playwright keyboard.
@@ -2307,8 +2324,7 @@ function createDisposableProxy(realPage: Page, id: string): Disposable {
 function createLocatorProxy(
   realPage: Page,
   state: AdapterPageState,
-  chain: ChainStep[],
-  description?: string
+  chain: ChainStep[]
 ): Locator {
   const handler: ProxyHandler<object> = {
     get(_, prop) {
@@ -2317,19 +2333,20 @@ function createLocatorProxy(
       if (prop === "_apiName") return "Locator";
       if (prop === "then") return undefined;
 
-      if (prop === "description") return () => locatorDescription(description);
-      if (prop === "toString")
-        return () => formatLocatorChainDescription(chain, description);
-
-      if (prop === "describe") {
-        return (nextDescription: string) =>
-          createLocatorProxy(
-            realPage,
-            state,
-            [...chain, ["describe", [nextDescription]]],
-            nextDescription
-          );
-      }
+      // Both are synchronous in Playwright's public API. They format the
+      // selector with the package's own formatter; the selector comes from
+      // Playwright's Locator for the same chain, which builds it without a
+      // protocol call by the pinned rules the adapter's selectors mirror.
+      if (prop === "description" || prop === "toString")
+        return () => {
+          answeredInNodeLog(realPage).push(`Locator.${prop}`);
+          const selector: string = (
+            nativeLocatorForChain(realPage, chain) as any
+          )._selector;
+          return prop === "description"
+            ? locatorCustomDescription(selector) || null
+            : asLocatorDescription(selector);
+        };
 
       // Chain methods (including first/last): extend the chain and let
       // the actual adapter determine support/behavior.
