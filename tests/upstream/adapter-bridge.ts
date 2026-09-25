@@ -890,6 +890,9 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       // Keyboard is a synchronous Page property whose methods must execute in
       // the browser adapter. Do not leak the native Playwright keyboard.
       if (prop === "keyboard") return createKeyboardProxy(realPage);
+      // Touchscreen is the same kind of property; its tap executes in the
+      // browser adapter and never on the native Playwright touchscreen.
+      if (prop === "touchscreen") return createTouchscreenProxy(realPage);
       if (prop === "localStorage" || prop === "sessionStorage")
         return storage[prop];
 
@@ -1371,6 +1374,29 @@ function createKeyboardProxy(realPage: Page) {
     insertText: (text: string) => call("insertText", [text]),
     type: (text: string, options?: unknown) => call("type", [text, options]),
     press: (key: string, options?: unknown) => call("press", [key, options]),
+  };
+}
+
+function createTouchscreenProxy(realPage: Page): Page["touchscreen"] {
+  return {
+    tap: (x: number, y: number) =>
+      evaluateAdapter<void>(
+        realPage,
+        ({ args: rawArgs }) => {
+          const host = window as any;
+          return host.__pwLiteInvokeAdapter(() => {
+            const touchscreen = host.__pwLiteAdapterPage.touchscreen;
+            // A missing member is reported as such, like a Page member the
+            // adapter does not have.
+            if (typeof touchscreen?.tap !== "function")
+              throw new TypeError(
+                "__pwLiteAdapterPage.touchscreen.tap is not a function"
+              );
+            return touchscreen.tap(...host.__pwLiteDecodeBridgeValue(rawArgs));
+          });
+        },
+        { args: encodeBridgeValueForPage([x, y], realPage) as unknown[] }
+      ),
   };
 }
 

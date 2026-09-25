@@ -3,7 +3,7 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 2087,
+  "selectedTestCount": 2096,
   "reviewed": [
     {
       "id": "elementhandle-bounding-box.spec.ts > should force a layout",

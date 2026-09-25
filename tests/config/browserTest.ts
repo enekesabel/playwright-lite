@@ -9,6 +9,14 @@ import { createAdapterPage } from "../upstream/adapter-bridge";
 
 export { expect } from "../upstream/pageTest";
 
+/** The pinned `contextTest`: a page on a fresh context built from the test's
+ * context options. The adapter page fixture already runs on Playwright Test's
+ * per-test context, which applies `use()` context options itself, so
+ * `use({ hasTouch: true })` gives the document touch emulation
+ * (`navigator.maxTouchPoints > 0`) without the harness computing anything.
+ */
+export { test as contextTest } from "../upstream/pageTest";
+
 type ContextRecord = {
   context: BrowserContext;
   pages: Page[];

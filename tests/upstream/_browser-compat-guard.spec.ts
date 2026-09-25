@@ -1,6 +1,6 @@
 import { test as base, expect, type Page } from "@playwright/test";
 import { createAdapterPage } from "./adapter-bridge";
-import { browserTest } from "../config/browserTest";
+import { browserTest, contextTest } from "../config/browserTest";
 
 // Transport guards, not upstream compatibility promotions. Native navigation
 // establishes a document before the adapter exists; no adapter goto is faked.
@@ -189,6 +189,19 @@ browserTest("library-created pages use the same adapter before context cleanup",
   await context.close();
 });
 
+contextTest.describe("contextTest with hasTouch", () => {
+  contextTest.use({ hasTouch: true });
+
+  contextTest("emulates touch in the adapter page's document", async ({ page }) => {
+    expect((page as any).__pwLiteAdapter).toBe(true);
+    expect(await page.evaluate(() => navigator.maxTouchPoints)).toBeGreaterThan(0);
+  });
+});
+
+contextTest("contextTest without hasTouch leaves the document without touch", async ({ page }) => {
+  expect((page as any).__pwLiteAdapter).toBe(true);
+  expect(await page.evaluate(() => navigator.maxTouchPoints)).toBe(0);
+});
 
 base("explicit navigation setup preserves browser evidence and failures", async ({ page }) => {
   await page.route("http://pw-lite.test/**", route => route.fulfill({
