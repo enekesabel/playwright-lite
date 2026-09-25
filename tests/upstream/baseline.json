@@ -3740,6 +3740,11 @@
       "evidence": "The exposed function returns a Promise; the Site's await resolves to the promise's value, proving the binding call awaits a returned promise before delivering the result."
     },
     {
+      "id": "page-expose-function.spec.ts > should dispose",
+      "method": "Page.exposeFunction",
+      "evidence": "The Disposable returned by the adapter's exposeFunction('compute') removes window.compute: the same window['compute'](9, 4) call that first returned 36 rejects after dispose(), and the assertion reads 'is not a function' from the page's own TypeError. The returned Disposable's dispose() is the adapter's plain object and is not an instrumented member, so it cannot be recorded or withheld: the rerun with Page.exposeFunction withheld fails at the exposeFunction call before disposal runs, and disposal sensitivity rests on a manual check, where a no-op dispose() fails this assertion (e is 36)."
+    },
+    {
       "id": "page-expose-function.spec.ts > should support throwing \"null\"",
       "method": "Page.exposeFunction",
       "evidence": "The exposed function throws null; the Site's caller catches exactly null, proving thrown values (not only Error instances) cross back by value."
