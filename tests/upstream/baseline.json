@@ -5764,10 +5764,220 @@
       "evidence": "Upstream assertions verify text-is() should ignore comments through browser-side Page.$eval selector evaluation."
     },
     {
+      "id": "to-match-aria-snapshot.spec.ts > call log should contain actual snapshot",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "A mismatching expect(page).toMatchAriaSnapshot with timeout 3000 rejects with a call log that contains `unexpected value \"- heading \"todos\" [level=1]\"`, the raw received snapshot; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > checked attribute",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for `checkbox`, `[checked]` and `[checked=true]`, rejects with the page header and `Timeout:  1000ms` for `[checked=false]` and `[checked=mixed]`, and rejects `[checked=5]` with the pinned YAML attribute error; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > details visibility",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for `group: \"Summary\"` against a closed <details>, whose hidden content is excluded; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > disabled attribute",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for `button`, `[disabled]` and `[disabled=true]`, rejects with the page header and `Timeout:  1000ms` for `[disabled=false]`, and rejects `[disabled=invalid]` with the pinned YAML attribute error; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > expanded attribute",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for `button`, `[expanded]` and `[expanded=true]`, rejects with the page header and `Timeout:  1000ms` for `[expanded=false]`, and rejects `[expanded=invalid]` with the pinned YAML attribute error; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > expected formatter",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "A mismatching expect(page).toMatchAriaSnapshot with timeout 1 rejects with the exact pinned message: page header, `Timeout: 1ms`, and a `- Expected - 2 / + Received + 4` diff whose received side is the rendered banner subtree without regular expressions, then the call log heading; setContent is native setup only."
+    },
+    {
       "id": "to-match-aria-snapshot.spec.ts > generated snapshot includes text children when name is longer than text",
       "method": "Locator._expect",
       "matcher": "Locator.toMatchAriaSnapshot",
       "evidence": "An inline /children: deep-equal snapshot matches a progressbar named \"Alpha Beta\" together with its text children \"Alpha 7\" through the public Locator matcher; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > integration test",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for a heading, text, and a list holding a `group: Verified` details element and a `link \"Sponsor\"`; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > integration test 2",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for a heading and a textbox named by its placeholder inside a header; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > invalid attribute",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for `[invalid]`, `[invalid=true|false]`, `[invalid=grammar]` and `[invalid=spelling]` on the matching documents, and a `[invalid]` template against aria-invalid=grammar rejects with a message showing `[invalid=grammar]`; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > level attribute",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for `heading` and `[level=2]`, rejects with the page header and `Timeout:  1000ms` for `[level=3]`, and rejects `[level=two]` with the pinned YAML attribute error; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > pressed attribute",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot matches `[pressed]`, `[pressed=true]` and `[pressed=mixed]` on the matching documents, rejects with the page header and `Timeout:  1000ms` for the mismatching states, and rejects `[pressed=5]` with the pinned YAML attribute error; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > selected attribute",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for row templates with `[selected]`, `[selected=true]` and `[selected=false]`, and a mismatch rejects with the exact pinned page header, `Timeout: 1000ms`, the Expected/Received diff of the table's rows and the call log heading; `[selected=invalid]` rejects with the pinned YAML attribute error; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should allow restoring contain mode inside deep-equal",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot with `/children: deep-equal` rejects with the page header and a diff containing the missing `listitem: \"1.2\"`, and resolves once a nested `/children: contain` restores contain matching; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should allow text nodes",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for a heading followed by a quoted `text:` node; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should detect unexpected children: deep-equal",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for partial nested lists by default and with `/children: equal`, and with `/children: deep-equal` rejects with the page header and a diff containing the missing `listitem: \"1.2\"`; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should detect unexpected children: equal",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for a list template missing a middle item, and with `/children: equal` rejects with the page header and a diff containing `+   - listitem: Two`; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should fail page with timeout",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "A mismatching expect(page).toMatchAriaSnapshot with timeout 2000 rejects with the `expect(page).toMatchAriaSnapshot(expected) failed` header, an aligned `Timeout:  2000ms` line and no Locator line; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should match",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for `- heading \"title\"` against <h1>title</h1>; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should match complex",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for a list > listitem > link \"link\" template; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should match deep item",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for a heading template whose heading is nested inside a div: the template matches below the body root; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should match in list",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for one heading template against a page with two headings: in contain mode the template may match a subset of the page's children; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should match list with accessible name",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for `list \"my list\"` with two listitem text children, matching the aria-label name and the list items; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should match page",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for `- heading \"title\"` against <h1>title</h1>, through the correlated Page.toMatchAriaSnapshot -> Page._expect path; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should match page complex",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for a heading, a text node and a nested list > listitem > link template matching the page's rendered ARIA tree; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should match page with not",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).not.toMatchAriaSnapshot resolves for `- heading \"wrong\"` against <h1>title</h1>: the pinned comparison rejects a heading whose name differs; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should match regex",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for heading names given as regular expressions, including escaped `/`, `[` and `]` characters, across four documents; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should match url",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for a link whose `/url` property is matched by the regular expression /.*example.com/; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should not match what is not matched",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "A mismatching expect(page).toMatchAriaSnapshot for `paragraph` with a `button \"bogus\"` child rejects with a diff whose received side is `- paragraph: Text`; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should not unshift actual template text",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "A mismatching expect(page).toMatchAriaSnapshot whose first template line is indented deeper rejects with a message that keeps that line's extra indentation: only the common indentation is removed; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should parse attributes",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for `button [pressed=mixed ]` with whitespace inside the attribute brackets; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should report error in YAML",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot with a non-sequence template and with a nested compact mapping rejects with the exact pinned message: page header, `Expected:` of the unshifted template, the pinned YAML parser error with its caret excerpt, and a call log holding only the step title with the 10000ms corpus expect timeout; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should report error in YAML keys",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot rejects each malformed template key (unterminated string and regex, non-number level, non-boolean expanded, invalid checked, empty level, unsupported attribute, unexpected input) with the exact pinned message: page header, `Expected:`, the pinned parser error with its caret excerpt, and a call log holding only the step title with the 10000ms corpus expect timeout; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > should unpack escaped names",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "expect(page).toMatchAriaSnapshot resolves for button and heading names written with quoted YAML scalars, escaped quotes, backslashes, slashes in regular expressions and a multi-line block scalar; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > top-level deep-equal",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "A top-level `/children: deep-equal` template with a bare `- list` rejects with a diff whose received side is the whole nested list subtree; setContent is native setup only."
+    },
+    {
+      "id": "to-match-aria-snapshot.spec.ts > treat bad regex as a string",
+      "method": "Page._expect",
+      "matcher": "Page.toMatchAriaSnapshot",
+      "evidence": "A `/url: /[a/` template, an invalid regular expression, is compared as a string and rejects with the page header and a diff of `/url: /[a/` against `/url: /foo`; setContent is native setup only."
     }
   ]
 }
