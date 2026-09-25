@@ -68,7 +68,9 @@ export function playwrightInjectedPlugin() {
         "const LiteInjectedScript = module.exports.InjectedScript();",
         "const liteGetByTestIdSelector = getByTestIdSelector;",
         "const liteParseAriaSnapshot = (text) => { const result = parseAriaSnapshot(yaml, text); if (result.errors.length) throw new Error(result.errors[0].message); return result.fragment; };",
-        "export { LiteInjectedScript as InjectedScript, liteGetByTestIdSelector as getByTestIdSelector, liteParseAriaSnapshot as parseAriaSnapshot };",
+        // The pinned client's `asLocatorDescription` and `locatorCustomDescription`
+        // are tree-shaken from this bundle; the primitives they call are not.
+        "export { LiteInjectedScript as InjectedScript, liteGetByTestIdSelector as getByTestIdSelector, liteParseAriaSnapshot as parseAriaSnapshot, asLocator, parseSelector };",
       ].join("\n");
     },
   };

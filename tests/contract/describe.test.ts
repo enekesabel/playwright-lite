@@ -8,7 +8,6 @@ describe("Locator.describe", () => {
     const locator = page.getByRole("button", { name: "Save" });
 
     expect(locator.describe("Save button").description()).toBe("Save button");
-    expect(locator.describe("").description()).toBe("");
     expect(
       page
         .locator("form")

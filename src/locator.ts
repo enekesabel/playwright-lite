@@ -13,8 +13,8 @@ import { withAbortPrefix } from "./page";
 import { AdapterElementHandle } from "./elementHandle";
 import type { InputFiles } from "./inputFiles";
 import {
-  formatLocatorDescription,
-  locatorDescription,
+  asLocatorDescription,
+  locatorCustomDescription,
 } from "./locatorFormatting";
 import {
   escapeForTextSelector,
@@ -94,8 +94,7 @@ export class LocatorImpl {
     private readonly ownerPage: PageImpl,
     private selector: string,
     private readonly label: string,
-    options?: LocatorOptions,
-    private readonly customDescription?: string
+    options?: LocatorOptions
   ) {
     // Mirrors pinned 26a9e47 Locator constructor option processing
     if (options?.hasText)
@@ -141,18 +140,18 @@ export class LocatorImpl {
     return new LocatorImpl(
       this.ownerPage,
       `${this.selector} >> internal:describe=${JSON.stringify(description)}`,
-      this.label,
-      undefined,
-      description
+      this.label
     );
   }
 
+  /** Mirrors pinned 26a9e47 Locator.description: read from the selector. */
   description(): string | null {
-    return locatorDescription(this.customDescription);
+    return locatorCustomDescription(this.selector) || null;
   }
 
+  /** Mirrors pinned 26a9e47 Locator.toString: derived from the selector. */
   toString(): string {
-    return formatLocatorDescription(this.label, this.customDescription);
+    return asLocatorDescription(this.selector);
   }
 
   getByRole(role: string, options: ByRoleOptions = {}) {
