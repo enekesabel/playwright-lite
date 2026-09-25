@@ -13,3 +13,7 @@ The generic matcher library is based on Playwright's pinned Jest-derived expect 
 YAML
 Copyright 2018, 2019, 2020 Eemeli Aro and contributors.
 Bundled under the ISC license. See LICENSES/YAML-LICENSE.txt.
+
+mime
+Copyright (c) 2023 Robert Kieffer.
+The file-name-to-MIME-type table and lookup of mime@4.1.0, as bundled by the pinned Playwright release, are included under the MIT license. See LICENSES/MIME-LICENSE.txt.

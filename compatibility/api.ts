@@ -409,7 +409,7 @@ export const pageLedger = {
     "Browser-level request header configuration is excluded."
   ),
   setInputFiles: partial(
-    "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported. Empty `mimeType` throws instead of inferring a MIME type."
+    "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported."
   ),
   setViewportSize: outOfScope("Browser viewport resizing is excluded."),
   tap: planned("Synthetic functional input only."),
@@ -466,7 +466,7 @@ export const locatorLedger = {
   dispatchEvent: implemented(),
   dragTo: undecided(),
   drop: partial(
-    "Accepts only in-memory `{ name, mimeType, buffer }` file payloads; file paths are unsupported. Empty `mimeType` throws instead of inferring a MIME type."
+    "Accepts only in-memory `{ name, mimeType, buffer }` file payloads; file paths are unsupported."
   ),
   elementHandle: partial(elementHandleNote),
   elementHandles: partial(elementHandleNote),
@@ -522,7 +522,7 @@ export const locatorLedger = {
   selectText: implemented(),
   setChecked: implemented(),
   setInputFiles: partial(
-    "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported. Empty `mimeType` throws instead of inferring a MIME type."
+    "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported."
   ),
   tap: undecided(),
   textContent: implemented(),
