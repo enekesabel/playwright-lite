@@ -2444,6 +2444,15 @@ function initializeAdapterBridge(
       for (let j = 0; j < earlier.length; j++) current[j] = earlier[j];
     }
   };
+  // A promotion rerun withholds its sabotaged method from the test: the
+  // dispatch is recorded and throws instead of executing.
+  const withhold = (name: string) => {
+    if (name !== sabotagedMethod) return;
+    append(host.__pwLiteEvidence.withheld, name);
+    throw new Error(
+      `__pwLiteSabotagedMethod: ${name} was withheld for promotion review.`
+    );
+  };
   host.__pwLiteSabotagedMatcher = sabotagedMatcher;
   host.__pwLiteAbortSignals = new Map<string, AbortController>();
   host.__pwLitePendingAborts = new Map<string, unknown>();
@@ -2721,12 +2730,7 @@ function initializeAdapterBridge(
         // Every adapter call the evidence records routes through here, so this
         // is the one place a promotion rerun can withhold a method from the
         // test that claims to prove it.
-        if (recordedName === sabotagedMethod) {
-          append(host.__pwLiteEvidence.withheld, recordedName);
-          throw new Error(
-            `__pwLiteSabotagedMethod: ${recordedName} was withheld for promotion review.`
-          );
-        }
+        withhold(recordedName);
         const result = callAdapter(() => apply(original, this, args));
         if (
           result &&
@@ -2898,12 +2902,7 @@ function initializeAdapterBridge(
     if (!target) throw new Error(`Unknown adapter ${kind}: ${id}`);
     const recorded = `${kind}.${member}`;
     append(host.__pwLiteEvidence.entered, recorded);
-    if (recorded === sabotagedMethod) {
-      append(host.__pwLiteEvidence.withheld, recorded);
-      throw new Error(
-        `__pwLiteSabotagedMethod: ${recorded} was withheld for promotion review.`
-      );
-    }
+    withhold(recorded);
     if (typeof target[member] !== "function")
       throw new TypeError(`__pwLiteAdapter${kind}.${member} is not a function`);
     const decoded = host.__pwLiteDecodeBridgeValue(args);

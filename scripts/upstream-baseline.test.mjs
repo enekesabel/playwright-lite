@@ -75,6 +75,14 @@ describe("reviewed promotion", () => {
       null,
       { entered: ["Page.setContent"], failures: [] },
       { entered: ["Locator.click"], failures: ["serialization failed"] },
+      // Evidence carrying `withheld` comes from a method rerun, even when
+      // nothing was withheld; an ordinary run never has it.
+      { entered: ["Locator.click"], failures: [], withheld: [] },
+      {
+        entered: ["Locator.click"],
+        failures: [],
+        withheld: ["Locator.click"],
+      },
     ]) {
       const result = compareBaseline(
         [{ id: "test", file: "test.ts", status: "passed", execution }],
@@ -247,20 +255,53 @@ describe("reviewed promotion", () => {
     });
     const methodMarker =
       "__pwLiteSabotagedMethod: Locator.click was withheld for promotion review.";
-    it("accepts a method rerun that fails with the method's withheld marker", () => {
-      assert.doesNotThrow(() =>
-        sabotageVerdict(
-          [
-            {
+    const refusedUnreached = `${id} failed with Locator.click sabotaged, but never reached it: its evidence records no withheld dispatch of Locator.click.`;
+    it("refuses a method rerun whose marker is not backed by withheld evidence", () => {
+      for (const execution of [
+        null,
+        { entered: ["Page.setContent"], failures: [], withheld: [] },
+      ])
+        assert.throws(
+          () =>
+            sabotageVerdict(
+              [
+                {
+                  id,
+                  status: "failed",
+                  error: `page.evaluate: Error: ${methodMarker}\n    at eval`,
+                  execution,
+                },
+              ],
               id,
-              status: "failed",
-              error: `page.evaluate: Error: ${methodMarker}\n    at eval`,
-            },
-          ],
-          id,
-          "Locator.click"
-        )
-      );
+              "Locator.click"
+            ),
+          (e) => e.message === refusedUnreached
+        );
+    });
+    it("refuses a rerun whose evidence records transport failures", () => {
+      const execution = {
+        entered: ["Locator.click"],
+        failures: ["bridge: cannot serialize function"],
+        withheld: ["Locator.click"],
+      };
+      for (const matcher of [undefined, "Locator.toHaveText"])
+        assert.throws(
+          () =>
+            sabotageVerdict(
+              [
+                {
+                  id,
+                  status: "failed",
+                  error: `Error: ${methodMarker} __pwLiteSabotagedMatcher: Locator.toHaveText`,
+                  execution,
+                },
+              ],
+              id,
+              matcher ? "Locator._expect" : "Locator.click",
+              matcher
+            ),
+          /but its evidence records transport failures: bridge: cannot serialize function$/
+        );
     });
     // The test's own reading of the error a withheld method threw: its class,
     // or a `matcherResult` the withheld method never produced.
@@ -300,13 +341,13 @@ describe("reviewed promotion", () => {
         // No withheld dispatch: the test failed before reaching the method.
         { error: ownReading[0], execution: execution([]) },
         { error: ownReading[1], execution: execution([]) },
-        // Another member's withheld dispatch or marker is not this method's.
+        // Another member's withheld dispatch is not this method's.
         {
           error:
             "Error: __pwLiteSabotagedMethod: Locator.dblclick was withheld for promotion review.",
           execution: execution(["Locator.dblclick"]),
         },
-        // No evidence of a rerun at all, and no marker.
+        // No evidence of a rerun at all.
         { error: ownReading[0], execution: execution() },
         { error: null, execution: null },
       ])
@@ -317,9 +358,7 @@ describe("reviewed promotion", () => {
               id,
               "Locator.click"
             ),
-          (e) =>
-            e.message ===
-            `${id} failed with Locator.click sabotaged, but never reached it: its evidence records no withheld dispatch of Locator.click and the failure does not show ${methodMarker}`
+          (e) => e.message === refusedUnreached
         );
     });
     it("refuses a rerun that neither failed nor timed out, whatever its evidence", () => {
@@ -812,7 +851,7 @@ describe("blockingRegressions", () => {
           blockingRegressions(entries, baseline, names, [promotion], new Set()),
         (e) =>
           e.message ===
-          `${promotion.id} is already reviewed as ${baseline.reviewed.find((r) => r.id === promotion.id).method}; promoting it as ${promotion.method} would replace that method. Pass --re-record to correct its owner.`
+          `${promotion.id} is already reviewed as ${baseline.reviewed.find((r) => r.id === promotion.id).method}; promoting it as ${promotion.method} would replace that claim. Pass --re-record to correct its method's owner; a re-record keeps the matcher.`
       );
     // A regressed entry is refused the same way, pointing at --re-record
     // rather than at the regression.
@@ -829,6 +868,70 @@ describe("blockingRegressions", () => {
           new Set()
         ),
       /already reviewed as JSHandle\.asElement.*--re-record/
+    );
+  });
+
+  it("refuses to change a reviewed entry's matcher under the same method without --re-record", () => {
+    const expectId = "jshandle.spec.ts > asserts";
+    const expectBaseline = {
+      reviewed: [
+        {
+          id: expectId,
+          method: "Locator._expect",
+          matcher: "Locator.toHaveText",
+          evidence: "reviewed",
+        },
+      ],
+    };
+    const asserting = {
+      ...passing(expectId, ["Locator._expect"]),
+      execution: {
+        entered: ["Locator._expect"],
+        failures: [],
+        expect: ["Locator.toHaveText", "Locator.toContainText"],
+        expectPaths: [
+          { matcher: "Locator.toHaveText", method: "Locator._expect" },
+          { matcher: "Locator.toContainText", method: "Locator._expect" },
+        ],
+      },
+    };
+    const promote = (matcher) =>
+      blockingRegressions(
+        [asserting],
+        expectBaseline,
+        names,
+        [{ id: expectId, method: "Locator._expect", matcher }],
+        new Set()
+      );
+    for (const matcher of ["Locator.toContainText", undefined])
+      assert.throws(
+        () => promote(matcher),
+        (e) =>
+          e.message ===
+          `${expectId} is already reviewed as Locator._expect --matcher Locator.toHaveText; promoting it as Locator._expect${matcher ? ` --matcher ${matcher}` : ""} would replace that claim. Pass --re-record to correct its method's owner; a re-record keeps the matcher.`
+      );
+    // The same method and matcher is a re-review, not a change.
+    assert.deepEqual(promote("Locator.toHaveText"), []);
+  });
+
+  it("refuses --re-record on an id with no reviewed entry", () => {
+    const unreviewed = "jshandle.spec.ts > new";
+    assert.throws(
+      () =>
+        blockingRegressions(
+          [
+            passing(renamed, ["JSHandle.asElement"]),
+            passing(other, ["Page.evaluate"]),
+            passing(unreviewed, ["ElementHandle.asElement"]),
+          ],
+          baseline,
+          names,
+          [{ id: unreviewed, method: "ElementHandle.asElement" }],
+          new Set([unreviewed])
+        ),
+      (e) =>
+        e.message ===
+        `--re-record corrects an existing reviewed entry; ${unreviewed} has none.`
     );
   });
 

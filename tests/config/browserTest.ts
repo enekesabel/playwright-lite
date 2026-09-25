@@ -34,16 +34,18 @@ type Evidence = {
   native: string[];
   withheld?: string[];
 };
-// The promotion rerun's sabotage options, which pages created here get exactly
-// as the `page` fixture does. They are test options, so the worker-scoped
-// browser reads them through the test.
-type Sabotage = {
-  sabotagedMethod: string | undefined;
-  sabotagedMatcher: string | undefined;
+// What the worker-scoped browser needs from the current test: where to record
+// its contexts and evidence, and the promotion rerun's sabotage options, which
+// pages created here get exactly as the `page` fixture does.
+type LibraryTest = {
+  records: ContextRecord[];
+  result: Evidence;
+  sabotage: {
+    sabotagedMethod: string | undefined;
+    sabotagedMatcher: string | undefined;
+  };
 };
-const contexts = new WeakMap<TestInfo, ContextRecord[]>();
-const evidence = new WeakMap<TestInfo, Evidence>();
-const sabotage = new WeakMap<TestInfo, Sabotage>();
+const libraryTests = new WeakMap<TestInfo, LibraryTest>();
 
 async function capture(record: ContextRecord, result: Evidence) {
   for (const page of record.pages) {
@@ -91,14 +93,14 @@ export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
               );
             return async (...args: Parameters<typeof browser.newContext>) => {
               const info = base.info();
-              const result = evidence.get(info)!;
+              const { records, result, sabotage } = libraryTests.get(info)!;
               const context = await target.newContext(...args);
               const record: ContextRecord = {
                 context,
                 pages: [],
                 captured: new Set(),
               };
-              contexts.get(info)!.push(record);
+              records.push(record);
               result.native.push("Browser.newContext");
               return new Proxy(context, {
                 get(nativeContext, member) {
@@ -113,7 +115,7 @@ export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
                         expectTimeout: configuredExpectTimeout(info),
                         nativeNavigationForSetup: true,
                         underTest: true,
-                        ...sabotage.get(info),
+                        ...sabotage,
                       });
                     };
                   }
@@ -142,9 +144,11 @@ export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
     async ({ sabotagedMethod, sabotagedMatcher }, use, info) => {
       const records: ContextRecord[] = [];
       const result: Evidence = { entered: [], failures: [], native: [] };
-      contexts.set(info, records);
-      evidence.set(info, result);
-      sabotage.set(info, { sabotagedMethod, sabotagedMatcher });
+      libraryTests.set(info, {
+        records,
+        result,
+        sabotage: { sabotagedMethod, sabotagedMatcher },
+      });
       try {
         await use();
       } finally {
@@ -158,9 +162,7 @@ export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
             type: "adapter-execution",
             description: JSON.stringify(result),
           });
-          contexts.delete(info);
-          evidence.delete(info);
-          sabotage.delete(info);
+          libraryTests.delete(info);
         }
       }
     },
