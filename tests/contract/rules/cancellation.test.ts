@@ -44,6 +44,7 @@ describe("cancellation", () => {
         (o) =>
           page.waitForURL(location.href, { ...o, waitUntil: "networkidle" }),
       ],
+      ["page.waitForNavigation", (o) => page.waitForNavigation(o)],
       ["page.goBack", (o) => page.goBack(o), () => prepareTraversal("back")],
       [
         "page.goForward",

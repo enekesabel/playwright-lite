@@ -430,7 +430,9 @@ export const pageLedger = {
   waitForEvent: partial(waitForEventNote),
   waitForFunction: partial(handlePreviewNote),
   waitForLoadState: partial(networkIdleNote),
-  waitForNavigation: undecided(),
+  waitForNavigation: partial(
+    "Returns `null`, never a `Response`: only same-document URL changes resolve it, observed like [`framenavigated`](#events), so a `pushState` or `replaceState` to the current URL is not seen; a cancelled navigation, such as a `204`, times out instead of rejecting; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call; its [timeout error](#navigation-timeouts) has no navigation log."
+  ),
   waitForRequest: partial(networkObservationNote),
   waitForResponse: partial(networkObservationNote),
   waitForSelector: partial(elementHandleNote),

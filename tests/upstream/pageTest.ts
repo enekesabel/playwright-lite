@@ -127,6 +127,7 @@ const nativeNavigationForSetupSpecs = new Set([
   "page-set-input-files.spec.ts",
   "page-wait-for-function.spec.ts",
   "page-wait-for-load-state.spec.ts",
+  "page-wait-for-navigation.spec.ts",
   "page-wait-for-selector-1.spec.ts",
   "page-wait-for-selector-2.spec.ts",
   "page-wait-for-url.spec.ts",

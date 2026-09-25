@@ -61,6 +61,11 @@ describe("option-validation", () => {
       /waitForURL signal must be an AbortSignal/,
     ],
     [
+      "waitForNavigation",
+      (page, options) => page.waitForNavigation(options as any),
+      /waitForNavigation signal must be an AbortSignal/,
+    ],
+    [
       "waitForEvent",
       (page, options) => page.waitForEvent("load", options as any),
       /waitForEvent signal must be an AbortSignal/,
@@ -169,6 +174,11 @@ describe("option-validation", () => {
       "waitForURL",
       (page) => page.waitForURL(location.href, { unexpected: true } as any),
       /waitForURL\(\): unsupported Playwright option\(s\): unexpected/,
+    ],
+    [
+      "waitForNavigation",
+      (page) => page.waitForNavigation({ unexpected: true } as any),
+      /waitForNavigation\(\): unsupported Playwright option\(s\): unexpected/,
     ],
     [
       "waitForEvent",

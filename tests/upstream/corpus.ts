@@ -214,6 +214,8 @@ export const corpus = {
       "b758da2196bf60d560528fc77eec6dfef23e191de9211fb0e6570909a61e0d7f",
     "page-network-idle.spec.ts":
       "be5cea8a33c9413dbe9347d8cf1370ffbc119128d5c7aa53478a2c9165172242",
+    "page-wait-for-navigation.spec.ts":
+      "b3798a0e8539aa4c1b033bb201cc5d1e8ff3159df2cb2e15547758db3d2ee044",
   },
 } as const;
 

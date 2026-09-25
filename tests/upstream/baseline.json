@@ -3,7 +3,7 @@
     "repository": "microsoft/playwright",
     "commit": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
   },
-  "selectedTestCount": 2072,
+  "selectedTestCount": 2087,
   "reviewed": [
     {
       "id": "elementhandle-bounding-box.spec.ts > should force a layout",
@@ -4700,6 +4700,26 @@
       "id": "page-wait-for-load-state.spec.ts > should work with javascript: iframe",
       "method": "Page.waitForLoadState",
       "evidence": "With an <iframe src=\"javascript:false\"> in the document, waitForLoadState resolves for domcontentloaded, load and networkidle in turn; an iframe that never loads a real document does not block any of them."
+    },
+    {
+      "id": "page-wait-for-navigation.spec.ts > should work with clicking on anchor links",
+      "method": "Page.waitForNavigation",
+      "evidence": "Awaited together with an adapter click on an in-page #foobar anchor, the adapter wait resolves with null for the same-document hash navigation, and the adapter-observed URL is the empty page with #foobar."
+    },
+    {
+      "id": "page-wait-for-navigation.spec.ts > should work with history.pushState()",
+      "method": "Page.waitForNavigation",
+      "evidence": "Awaited together with an adapter click whose handler calls history.pushState, the adapter wait resolves with null for the same-document navigation, and the adapter-observed URL is /wow.html."
+    },
+    {
+      "id": "page-wait-for-navigation.spec.ts > should work with history.replaceState()",
+      "method": "Page.waitForNavigation",
+      "evidence": "Awaited together with an adapter click whose handler calls history.replaceState, the adapter wait resolves with null for the same-document navigation, and the adapter-observed URL is /replaced.html."
+    },
+    {
+      "id": "page-wait-for-navigation.spec.ts > should work with url match for same document navigations",
+      "method": "Page.waitForNavigation",
+      "evidence": "The adapter wait with a /third\\.html/ url option stays unresolved through the pushState navigations to /first.html and /second.html and resolves only after the navigation to /third.html matches."
     },
     {
       "id": "page-wait-for-request.spec.ts > should log the url",
