@@ -446,6 +446,46 @@ test("a call the bridge dispatches to a missing adapter member is a transport fa
   ]);
 });
 
+test("a bridge error is not withdrawn by a concurrent adapter error with the same first line", async ({
+  page,
+  adapterPage,
+}) => {
+  // The adapter raises the error the page's title getter throws. The line
+  // break in the member name ends the bridge's dispatch error on the same
+  // first line; only the bridge error then reads like a transport failure, so
+  // the adapter error's own evaluation never asks to withdraw anything.
+  await page.evaluate(() => {
+    Object.defineProperty(document, "title", {
+      get() {
+        throw new TypeError("__pwLiteAdapterPage.shared");
+      },
+    });
+  });
+  const [adapterError, bridgeError] = await Promise.allSettled([
+    adapterPage.title(),
+    (adapterPage as any)["shared\nmember"](),
+  ]);
+  expect(adapterError).toMatchObject({
+    status: "rejected",
+    reason: {
+      message: expect.stringMatching(
+        /^page\.evaluate: TypeError: __pwLiteAdapterPage\.shared\n {4}at /
+      ),
+    },
+  });
+  expect(bridgeError).toMatchObject({
+    status: "rejected",
+    reason: {
+      message: expect.stringMatching(
+        /^page\.evaluate: TypeError: __pwLiteAdapterPage\.shared\nmember is not a function\n/
+      ),
+    },
+  });
+  expect((page as any).__pwLiteTransportFailures).toEqual([
+    "page.evaluate: TypeError: __pwLiteAdapterPage.shared",
+  ]);
+});
+
 test("a transport failure is recorded while the browser is still being asked about it", async ({
   page,
   adapterPage,
