@@ -1,4 +1,5 @@
 import type { Locator } from "@playwright/test";
+import { Date, Map, Math, Promise } from "virtual:playwright-lite-globals";
 import { asLocator } from "virtual:playwright-lite-injected";
 
 import type { PageImpl } from "./page";
