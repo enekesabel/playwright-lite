@@ -4,11 +4,12 @@ import {
   parseReport,
   compareBaseline,
   validateCompleteness,
-  validateReportErrors,
+  reportErrorMessages,
   reviewedPromotion,
   failurePhase,
   sabotageVerdict,
   sabotageGrep,
+  sabotageRerunEntries,
 } from "./upstream-baseline.mjs";
 
 // ── parseReport ─────────────────────────────────────────────────────
@@ -276,6 +277,67 @@ describe("reviewed promotion", () => {
           id,
           "Locator.click"
         )
+      );
+    });
+    // A test's unawaited call can settle after the test ended, on a closed
+    // page; Playwright then reports that error outside any test.
+    it("still judges the test when the rerun reported errors outside any test", (t) => {
+      const warn = t.mock.method(console, "warn", () => {});
+      const stray =
+        "Error: page.apply: Target page, context or browser has been closed";
+      const rerun = (error) => ({
+        errors: [{ message: `${stray}\n\nFailed worker ran 1 test:` }],
+        suites: [
+          {
+            title: "expect-misc.spec.ts",
+            file: "expect-misc.spec.ts",
+            suites: [
+              {
+                title: "toHaveCount",
+                specs: [
+                  {
+                    title: "eventually pass non-zero",
+                    file: "expect-misc.spec.ts",
+                    tests: [
+                      {
+                        results: [
+                          { status: "failed", error: { message: error } },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+      const testId =
+        "expect-misc.spec.ts > toHaveCount > eventually pass non-zero";
+      const marker = "__pwLiteSabotagedMatcher: Locator.toHaveCount";
+
+      assert.doesNotThrow(() =>
+        sabotageVerdict(
+          sabotageRerunEntries(
+            rerun(`Error: ${marker} was withheld for promotion review.`)
+          ),
+          testId,
+          "Locator.toHaveCount",
+          marker
+        )
+      );
+      assert.throws(
+        () =>
+          sabotageVerdict(
+            sabotageRerunEntries(rerun("Error: some unrelated failure")),
+            testId,
+            "Locator.toHaveCount",
+            marker
+          ),
+        /not for the expected reason/
+      );
+      assert.ok(
+        warn.mock.calls.some((call) => call.arguments.join(" ").includes(stray))
       );
     });
   });
@@ -600,18 +662,18 @@ describe("parseReport", () => {
   });
 });
 
-// ── validateReportErrors ─────────────────────────────────────────────
+// ── reportErrorMessages ──────────────────────────────────────────────
 
-describe("validateReportErrors", () => {
+describe("reportErrorMessages", () => {
   it("returns empty array for report with no errors", () => {
-    assert.deepEqual(validateReportErrors({ suites: [], errors: [] }), []);
+    assert.deepEqual(reportErrorMessages({ suites: [], errors: [] }), []);
   });
 
   it("returns empty array when errors key is missing", () => {
-    assert.deepEqual(validateReportErrors({ suites: [] }), []);
+    assert.deepEqual(reportErrorMessages({ suites: [] }), []);
   });
 
-  it("rejects report with collection errors", () => {
+  it("returns the first line of a collection error", () => {
     const report = {
       suites: [],
       errors: [
@@ -621,17 +683,17 @@ describe("validateReportErrors", () => {
         },
       ],
     };
-    const errs = validateReportErrors(report);
+    const errs = reportErrorMessages(report);
     assert.equal(errs.length, 1);
     assert.ok(errs[0].includes("Cannot find module"));
   });
 
-  it("rejects report with multiple errors", () => {
+  it("returns every top-level error", () => {
     const report = {
       suites: [],
       errors: [{ message: "Error: first" }, { message: "Error: second" }],
     };
-    assert.equal(validateReportErrors(report).length, 2);
+    assert.equal(reportErrorMessages(report).length, 2);
   });
 });
 

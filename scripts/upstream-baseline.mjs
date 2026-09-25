@@ -81,14 +81,14 @@ export function parseReport(report) {
   return entries;
 }
 
-// ── Report-level error validation ────────────────────────────────────
+// ── Report-level errors ──────────────────────────────────────────────
 
 /**
- * Reject reports with non-empty top-level `errors` (collection/runner
- * failures that prevent trustworthy results).
- * Returns an array of error message strings (empty = OK).
+ * Read a report's top-level `errors`: errors Playwright reported outside any
+ * test, such as collection or runner failures. Returns the first line of each
+ * message (empty when there are none); callers decide what they mean.
  */
-export function validateReportErrors(report) {
+export function reportErrorMessages(report) {
   const errors = report.errors ?? [];
   return errors.map(
     (e) => e.message?.split("\n")[0] ?? "unknown collection error"
@@ -532,14 +532,26 @@ function runSabotaged(entry, method, matcher) {
     ],
     SABOTAGE_REPORT_PATH
   );
-  const raw = JSON.parse(readFileSync(SABOTAGE_REPORT_PATH, "utf8"));
-  const reportErrors = validateReportErrors(raw);
-  if (reportErrors.length > 0) {
-    console.error("ERROR: Sabotage rerun report contains runner errors:");
-    for (const e of reportErrors) console.error(`  ${e}`);
-    process.exit(2);
+  return sabotageRerunEntries(
+    JSON.parse(readFileSync(SABOTAGE_REPORT_PATH, "utf8"))
+  );
+}
+
+/**
+ * Parse the report of a sabotage rerun into entries for sabotageVerdict.
+ *
+ * Errors reported outside any test are logged, not fatal: a test's unawaited
+ * call can settle on a closed page after the test ended, and the verdict comes
+ * from the test's own result. A rerun too broken to produce that result fails
+ * earlier, in runPlaywright, or gets refused by sabotageVerdict.
+ */
+export function sabotageRerunEntries(report) {
+  const errors = reportErrorMessages(report);
+  if (errors.length > 0) {
+    console.warn("Sabotage rerun reported errors outside any test:");
+    for (const e of errors) console.warn(`  ${e}`);
   }
-  return parseReport(raw);
+  return parseReport(report);
 }
 
 // ── Commands ────────────────────────────────────────────────────────
@@ -557,7 +569,7 @@ function loadAndValidateReport(path, exitCodeOnFailure) {
   }
 
   // Reject collection/runner errors
-  const reportErrors = validateReportErrors(raw);
+  const reportErrors = reportErrorMessages(raw);
   if (reportErrors.length > 0) {
     console.error("ERROR: Report contains collection/runner errors:");
     for (const e of reportErrors) console.error(`  ${e}`);

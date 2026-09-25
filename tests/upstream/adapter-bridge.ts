@@ -1220,10 +1220,25 @@ export async function runPublicExpectMatcher(
                   );
             const recordedName = `${receiver.kind}.${matcher}`;
             host.__pwLiteEvidence.expect.push(recordedName);
-            if (recordedName === host.__pwLiteSabotagedMatcher)
-              throw new Error(
-                `__pwLiteSabotagedMatcher: ${recordedName} was withheld for promotion review.`
-              );
+            if (recordedName === host.__pwLiteSabotagedMatcher) {
+              // A withheld matcher produces no result. Its marker is the only
+              // text a test can read from the failure, in the thrown message
+              // and in each text field of `matcherResult`, so a test that
+              // inspects the result still fails on the marker.
+              const withheld = `__pwLiteSabotagedMatcher: ${recordedName} was withheld for promotion review.`;
+              return {
+                ok: false,
+                error: {
+                  name: "Error",
+                  message: withheld,
+                  matcherResult: {
+                    message: withheld,
+                    ariaSnapshot: withheld,
+                    log: [withheld],
+                  },
+                },
+              } as const;
+            }
 
             const configured = configuration
               ? host.__pwLiteAdapter.expect.configure(configuration)
