@@ -1058,8 +1058,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
                       ? host.__pwLiteReconstructFunction(expression)
                       : expression,
                     host.__pwLiteDecodeBridgeValue(a)
-                  ),
-                  "JSHandle"
+                  )
                 ),
                 url: host.__pwLiteAdapterPage.url(),
               }));
@@ -1094,7 +1093,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
                   host.__pwLiteDecodeBridgeValue(opts)
                 );
                 return {
-                  id: host.__pwLiteStoreElementHandle(handle, "JSHandle"),
+                  id: host.__pwLiteStoreElementHandle(handle),
                   url: host.__pwLiteAdapterPage.url(),
                 };
               });
@@ -1473,8 +1472,7 @@ async function createElementHandleProxy(
                 host.__pwLiteStoreElementHandle(
                   await host
                     .__pwLiteElementHandleForId(handleId)
-                    .getProperty(propertyName),
-                  "JSHandle"
+                    .getProperty(propertyName)
                 )
               );
             },
@@ -1497,7 +1495,7 @@ async function createElementHandleProxy(
                     .getProperties(),
                   ([name, handle]: [string, unknown]) => [
                     name,
-                    host.__pwLiteStoreElementHandle(handle, "JSHandle"),
+                    host.__pwLiteStoreElementHandle(handle),
                   ]
                 )
               );
@@ -2234,24 +2232,38 @@ function initializeAdapterBridge(
     host.__pwLiteLocators.set(id, instrument(locator, "Locator"));
     return { id, selector: locator.selector };
   };
+  // A handle is stored under the kind Playwright's own API gives it, told by
+  // what `asElement()` answers: a handle that answers with itself is an
+  // ElementHandle and any other is a JSHandle, whatever the returning member
+  // declares (`evaluateHandle`, `waitForFunction` and `getProperty` answer an
+  // ElementHandle for an element value). The answer is read only before the
+  // handle is instrumented, so it is not execution evidence; a handle stored
+  // again keeps the kind it was first instrumented under. Only a Disposable,
+  // which is not a handle, names its own kind.
   host.__pwLiteStoreElementHandle = function store(
     handle: any,
-    kind = "ElementHandle"
+    kind?: "Disposable"
   ): string | null {
     if (!handle) return null;
     const id = `${handleContext}:element-${++nextElementHandleId}`;
-    host.__pwLiteElementHandles.set(id, instrument(handle, kind));
+    if (wrapped.has(handle)) {
+      host.__pwLiteElementHandles.set(id, handle);
+      return id;
+    }
+    const element =
+      typeof handle.asElement === "function" && handle.asElement() === handle;
+    host.__pwLiteElementHandles.set(
+      id,
+      instrument(handle, kind ?? (element ? "ElementHandle" : "JSHandle"))
+    );
     return id;
   };
   // A member the bridge has no dedicated route for still returns the adapter's
   // own handles, which cannot cross the evaluation boundary by value. Store
   // each one and report a reference the Node side republishes as a proxy.
   // A handle is recognized by the surface the adapter's ElementHandle and
-  // JSHandle share — `dispose` together with `asElement` or `jsonValue`. The
-  // two kinds are told apart the way Playwright's own API does it, by what
-  // `asElement()` answers: a handle that answers with itself is an
-  // ElementHandle, and one that answers `null` is a JSHandle, so the execution
-  // evidence keeps the names the dedicated routes give. A Disposable
+  // JSHandle share — `dispose` together with `asElement` or `jsonValue` — and
+  // stored under its kind like a dedicated route's handle. A Disposable
   // (Locator.highlight, Page.exposeFunction, Page.exposeBinding) has
   // `dispose` alone, so it stays with its own route.
   // A Request or Response the adapter reported. Playwright answers most of
@@ -2366,14 +2378,7 @@ function initializeAdapterBridge(
         typeof value.jsonValue !== "function")
     )
       return value;
-    const element =
-      typeof value.asElement === "function" && value.asElement() === value;
-    return {
-      __pwLiteElementHandleRef: host.__pwLiteStoreElementHandle(
-        value,
-        element ? "ElementHandle" : "JSHandle"
-      ),
-    };
+    return { __pwLiteElementHandleRef: host.__pwLiteStoreElementHandle(value) };
   };
   host.__pwLiteElementHandleForId = function resolve(id: string): any {
     const handle = host.__pwLiteElementHandles.get(id);

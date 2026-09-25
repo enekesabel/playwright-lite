@@ -4,7 +4,12 @@
  *
  * Commands:
  *   check   verify corpus integrity → run tests → gate against baseline
- *   promote <test-id> <method> <evidence>  rerun corpus and promote a reviewed test
+ *   promote <test-id> <method> [--matcher <matcher> | --re-record] <evidence>
+ *           rerun corpus and promote a reviewed test; each flag goes after <method>
+ *     --matcher <matcher>  the public matcher an _expect promotion proves
+ *     --re-record          correct an existing entry whose method's owner the harness
+ *                          renamed, by a pair listed in OWNER_CORRECTIONS;
+ *                          it sets no matcher, so it cannot be combined with --matcher
  */
 import {
   existsSync,
@@ -279,6 +284,87 @@ export function reviewedPromotion(entries, id, method, evidence, matcher) {
     ...(matcher ? { matcher } : {}),
     evidence: evidence.trim(),
   };
+}
+
+/**
+ * The owner corrections `--re-record` accepts, as [reviewed owner, new owner]
+ * pairs for the same member. Each pair is a harness change that renamed the
+ * owner it records a member under; adding one is itself a reviewed harness
+ * change.
+ */
+const OWNER_CORRECTIONS = [["JSHandle", "ElementHandle"]];
+
+function isOwnerCorrection(reviewedMethod, method) {
+  const split = (method) => {
+    const dot = method.indexOf(".");
+    return [method.slice(0, dot), method.slice(dot + 1)];
+  };
+  const [reviewedOwner, reviewedMember] = split(reviewedMethod);
+  const [owner, member] = split(method);
+  return (
+    member === reviewedMember &&
+    OWNER_CORRECTIONS.some(
+      ([from, to]) => from === reviewedOwner && to === owner
+    )
+  );
+}
+
+/**
+ * The baseline regressions that block a promotion run.
+ *
+ * A promotion listed in `reRecords` corrects an existing reviewed entry that
+ * regressed only because the harness renamed its recorded method's owner (it
+ * now records `ElementHandle.asElement` where it recorded
+ * `JSHandle.asElement`): the test still passes with clean execution evidence,
+ * the new method is the same member under the new owner of a pair in
+ * `OWNER_CORRECTIONS`, and the matcher is unchanged. Such an entry does not
+ * block its own correction. An entry whose recorded method now runs natively
+ * regressed, whatever the new method is. A re-record that is not such a
+ * correction is refused, and every other regression still blocks. The
+ * re-recorded method still goes through the sabotage rerun like any
+ * promotion.
+ *
+ * @param {Array} entries  Parsed test entries.
+ * @param {{ reviewed: Array<{id: string, method: string, matcher?: string}> }} baseline  Recorded baseline.
+ * @param {readonly string[]} names  Corpus spec filenames.
+ * @param {Array<{id: string, method: string, matcher?: string}>} promotions  Checked promotions.
+ * @param {ReadonlySet<string>} reRecords  IDs of promotions that correct an existing entry.
+ */
+export function blockingRegressions(
+  entries,
+  baseline,
+  names,
+  promotions,
+  reRecords
+) {
+  const { regressions } = compareBaseline(entries, baseline, names);
+  for (const id of reRecords) {
+    const promotion = promotions.find((promotion) => promotion.id === id);
+    const reviewed = baseline.reviewed.find((review) => review.id === id);
+    const entry = entries.find((entry) => entry.id === id);
+    if (!promotion || !reviewed)
+      throw new Error(
+        `--re-record corrects an existing reviewed entry; ${id} has none.`
+      );
+    if (!regressions.includes(id))
+      throw new Error(
+        `${id} still certifies ${reviewed.method}, so there is nothing to re-record.`
+      );
+    if (entry?.execution?.native?.includes(reviewed.method))
+      throw new Error(
+        `${id} now runs ${reviewed.method} natively; that is a regression to investigate, never an owner rename to re-record.`
+      );
+    if (
+      !entry ||
+      !isCandidate(entry) ||
+      !isOwnerCorrection(reviewed.method, promotion.method) ||
+      promotion.matcher !== reviewed.matcher
+    )
+      throw new Error(
+        `${id} can be re-recorded from ${reviewed.method} as ${promotion.method} only if that is a listed owner correction (${OWNER_CORRECTIONS.map(([from, to]) => `${from} -> ${to}`).join(", ")}) of the same member, with the same matcher and the test still passing.`
+      );
+  }
+  return regressions.filter((id) => !reRecords.has(id));
 }
 
 /**
@@ -590,6 +676,48 @@ function loadAndValidateReport(path, exitCodeOnFailure) {
   return { entries, specCount, testCount };
 }
 
+/**
+ * Splits `promote` arguments into promotion requests. Each request is
+ * `<test-id> <method>`, then `--matcher <matcher>` or `--re-record` in any
+ * order, then `<evidence>`. A re-record sets no matcher, so the two flags
+ * conflict.
+ *
+ * @param {readonly string[]} args  Arguments after `promote` (and `--`).
+ * @returns {{ requests: Array<{id: string, method: string, matcher?: string, evidence: string}>, reRecords: Set<string> }}
+ */
+export function parsePromotionArgs(args) {
+  const requests = [];
+  const reRecords = new Set();
+  for (let index = 0; index < args.length;) {
+    const id = args[index++];
+    const method = args[index++];
+    if (!id || !method)
+      throw new Error("Each promotion requires a test ID and adapter method.");
+    let matcher;
+    let reRecord = false;
+    for (;;) {
+      if (args[index] === "--matcher") {
+        matcher = args[index + 1];
+        if (!matcher || matcher.startsWith("--"))
+          throw new Error("--matcher requires a public matcher name.");
+        index += 2;
+      } else if (args[index] === "--re-record") {
+        reRecord = true;
+        index++;
+      } else break;
+    }
+    if (reRecord && matcher)
+      throw new Error(
+        `${id}: --re-record cannot be combined with --matcher; a re-record corrects only the owner of the entry's method and sets no matcher.`
+      );
+    if (reRecord) reRecords.add(id);
+    const evidence = args[index++];
+    if (!evidence) throw new Error("Each promotion requires review evidence.");
+    requests.push({ id, method, ...(matcher ? { matcher } : {}), evidence });
+  }
+  return { requests, reRecords };
+}
+
 function doUpdate(entries) {
   const corpusSpecs = new Set(specNames);
   const corpusEntries = entries.filter((e) => corpusSpecs.has(e.file));
@@ -598,31 +726,25 @@ function doUpdate(entries) {
   if (args[0] === "--") args.shift();
   if (!args.length)
     throw new Error(
-      "Provide one or more <test-id> <method> [--matcher <matcher>] <evidence> promotions."
+      "Provide one or more <test-id> <method> [--matcher <matcher> | --re-record] <evidence> promotions."
     );
-  const promotions = [];
-  for (let index = 0; index < args.length;) {
-    const id = args[index++];
-    const method = args[index++];
-    if (!id || !method)
-      throw new Error("Each promotion requires a test ID and adapter method.");
-    let matcher;
-    if (args[index] === "--matcher") {
-      matcher = args[index + 1];
-      if (!matcher)
-        throw new Error("--matcher requires a public matcher name.");
-      index += 2;
-    }
-    const evidence = args[index++];
-    if (!evidence) throw new Error("Each promotion requires review evidence.");
-    promotions.push(reviewedPromotion(entries, id, method, evidence, matcher));
-  }
+  const { requests, reRecords } = parsePromotionArgs(args);
+  const promotions = requests.map(({ id, method, evidence, matcher }) =>
+    reviewedPromotion(entries, id, method, evidence, matcher)
+  );
   if (new Set(promotions.map((entry) => entry.id)).size !== promotions.length)
     throw new Error("Each promoted test ID must be unique.");
   const previous = JSON.parse(readFileSync(BASELINE_PATH, "utf8"));
-  if (compareBaseline(entries, previous, specNames).regressions.length)
+  const blocking = blockingRegressions(
+    entries,
+    previous,
+    specNames,
+    promotions,
+    reRecords
+  );
+  if (blocking.length)
     throw new Error(
-      "Resolve existing baseline regressions before promoting tests."
+      `Resolve existing baseline regressions before promoting tests: ${blocking.join(", ")}`
     );
   for (const { id, method, matcher } of promotions) {
     const entry = entries.find((entry) => entry.id === id);
@@ -800,7 +922,7 @@ if (isMain) {
     }
     default:
       console.error(
-        "Usage: upstream-baseline.mjs check [--report <path>] | promote <test-id> <method> [--matcher <matcher>] <evidence>"
+        "Usage: upstream-baseline.mjs check [--report <path>] | promote <test-id> <method> [--matcher <matcher> | --re-record] <evidence>"
       );
       process.exit(1);
   }

@@ -6,6 +6,8 @@ import {
   validateCompleteness,
   reportErrorMessages,
   reviewedPromotion,
+  blockingRegressions,
+  parsePromotionArgs,
   failurePhase,
   sabotageVerdict,
   sabotageGrep,
@@ -526,6 +528,232 @@ describe("reviewed promotion", () => {
         "checks returned value"
       ),
       { id: "test", method: "Page.evaluate", evidence: "checks returned value" }
+    );
+  });
+});
+
+describe("blockingRegressions", () => {
+  const names = ["jshandle.spec.ts"];
+  const passing = (id, entered) => ({
+    id,
+    file: "jshandle.spec.ts",
+    status: "passed",
+    execution: { entered, failures: [] },
+  });
+  const renamed = "jshandle.spec.ts > renamed owner";
+  const other = "jshandle.spec.ts > other";
+  const baseline = {
+    reviewed: [
+      { id: renamed, method: "JSHandle.asElement", evidence: "reviewed" },
+      { id: other, method: "Page.evaluate", evidence: "reviewed" },
+    ],
+  };
+  const correction = { id: renamed, method: "ElementHandle.asElement" };
+
+  it("lets an entry whose method only changed owner be re-recorded", () => {
+    const entries = [
+      passing(renamed, ["Page.evaluateHandle", "ElementHandle.asElement"]),
+      passing(other, ["Page.evaluate"]),
+    ];
+    assert.deepEqual(compareBaseline(entries, baseline, names).regressions, [
+      renamed,
+    ]);
+    assert.deepEqual(
+      blockingRegressions(
+        entries,
+        baseline,
+        names,
+        [correction],
+        new Set([renamed])
+      ),
+      []
+    );
+  });
+
+  it("keeps a regression blocking unless its promotion is a re-record", () => {
+    const entries = [
+      passing(renamed, ["ElementHandle.asElement"]),
+      { ...passing(other, ["Page.evaluate"]), status: "failed" },
+    ];
+    // Not listed as a re-record, the renamed entry blocks like any regression.
+    assert.deepEqual(
+      blockingRegressions(entries, baseline, names, [correction], new Set()),
+      [other, renamed].sort()
+    );
+    // Re-recording one entry leaves every other regression blocking.
+    assert.deepEqual(
+      blockingRegressions(
+        entries,
+        baseline,
+        names,
+        [correction],
+        new Set([renamed])
+      ),
+      [other]
+    );
+  });
+
+  it("refuses a re-record that is not an owner rename of a regressed entry", () => {
+    const refused = [
+      // Nothing to correct: the recorded method still certifies.
+      [[passing(renamed, ["JSHandle.asElement"])], correction],
+      // Another member is a new promotion, not a correction.
+      [
+        [passing(renamed, ["ElementHandle.click"])],
+        { id: renamed, method: "ElementHandle.click" },
+      ],
+      // The same method cannot be a rename.
+      [
+        [passing(renamed, ["ElementHandle.asElement"])],
+        { id: renamed, method: "JSHandle.asElement" },
+      ],
+      // A failing test is a regression to investigate.
+      [
+        [
+          {
+            ...passing(renamed, ["ElementHandle.asElement"]),
+            status: "failed",
+          },
+        ],
+        correction,
+      ],
+      // A matcher change is not a rename.
+      [
+        [passing(renamed, ["ElementHandle.asElement"])],
+        { ...correction, matcher: "Locator.toBeVisible" },
+      ],
+      // Only an existing reviewed entry can be re-recorded.
+      [
+        [passing("jshandle.spec.ts > new", ["ElementHandle.asElement"])],
+        { id: "jshandle.spec.ts > new", method: "ElementHandle.asElement" },
+      ],
+    ];
+    for (const [entries, promotion] of refused)
+      assert.throws(
+        () =>
+          blockingRegressions(
+            [...entries, passing(other, ["Page.evaluate"])],
+            baseline,
+            names,
+            [promotion],
+            new Set([promotion.id])
+          ),
+        /re-record/
+      );
+  });
+
+  it("refuses an owner change that is not a listed owner correction", () => {
+    // Page.evaluate regressed while a Locator.evaluate in the same test still
+    // runs: renaming the owner would hide an unrelated regression.
+    const entries = [
+      passing(renamed, ["JSHandle.asElement"]),
+      passing(other, ["Locator.evaluate"]),
+    ];
+    assert.deepEqual(compareBaseline(entries, baseline, names).regressions, [
+      other,
+    ]);
+    assert.throws(
+      () =>
+        blockingRegressions(
+          entries,
+          baseline,
+          names,
+          [{ id: other, method: "Locator.evaluate" }],
+          new Set([other])
+        ),
+      /from Page\.evaluate as Locator\.evaluate only if that is a listed owner correction \(JSHandle -> ElementHandle\)/
+    );
+  });
+
+  it("refuses a re-record when the entry's method now runs natively", () => {
+    const native = (entered, nativeMethods) => ({
+      ...passing(renamed, entered),
+      execution: { entered, failures: [], native: nativeMethods },
+    });
+    // Whether or not the adapter still records the old method, running it
+    // natively is a regression, never an owner rename.
+    for (const entry of [
+      native(["ElementHandle.asElement"], ["JSHandle.asElement"]),
+      native(
+        ["JSHandle.asElement", "ElementHandle.asElement"],
+        ["JSHandle.asElement"]
+      ),
+    ])
+      assert.throws(
+        () =>
+          blockingRegressions(
+            [entry, passing(other, ["Page.evaluate"])],
+            baseline,
+            names,
+            [correction],
+            new Set([renamed])
+          ),
+        /runs JSHandle\.asElement natively/
+      );
+  });
+});
+
+describe("parsePromotionArgs", () => {
+  const id = "jshandle.spec.ts > a";
+
+  it("reads a plain promotion, a matcher and a re-record", () => {
+    assert.deepEqual(
+      parsePromotionArgs([
+        id,
+        "Page.click",
+        "clicks",
+        "x.spec.ts > b",
+        "Locator._expect",
+        "--matcher",
+        "Locator.toHaveText",
+        "matches",
+        "x.spec.ts > c",
+        "ElementHandle.asElement",
+        "--re-record",
+        "renamed",
+      ]),
+      {
+        requests: [
+          { id, method: "Page.click", evidence: "clicks" },
+          {
+            id: "x.spec.ts > b",
+            method: "Locator._expect",
+            matcher: "Locator.toHaveText",
+            evidence: "matches",
+          },
+          {
+            id: "x.spec.ts > c",
+            method: "ElementHandle.asElement",
+            evidence: "renamed",
+          },
+        ],
+        reRecords: new Set(["x.spec.ts > c"]),
+      }
+    );
+  });
+
+  it("names the conflict when --re-record and --matcher are combined, in either order", () => {
+    for (const flags of [
+      ["--matcher", "Locator.toHaveText", "--re-record"],
+      ["--re-record", "--matcher", "Locator.toHaveText"],
+    ])
+      assert.throws(
+        () => parsePromotionArgs([id, "Locator._expect", ...flags, "evidence"]),
+        /--re-record cannot be combined with --matcher/
+      );
+  });
+
+  it("refuses a flag as the matcher name", () => {
+    assert.throws(
+      () =>
+        parsePromotionArgs([
+          id,
+          "Locator._expect",
+          "--matcher",
+          "--re-record",
+          "evidence",
+        ]),
+      /--matcher requires a public matcher name/
     );
   });
 });
