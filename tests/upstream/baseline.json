@@ -3382,6 +3382,11 @@
       "evidence": "With exposeFunctions: true, the page function receives the async double callback as a callable, awaits double(7) on the #target text, and Locator.evaluate resolves 14."
     },
     {
+      "id": "page-evaluate-callback.spec.ts > should throw without the exposeFunctions option",
+      "method": "Page.evaluate",
+      "evidence": "Without the exposeFunctions option, Page.evaluate(({ cb }) => cb(), { cb: () => {} }) rejects with 'Attempting to serialize unexpected value at position \"cb\": () => {}' instead of exposing cb as a callable binding. The bridge rebuilds the argument's function in the browser from its source, so the adapter receives a real function at cb."
+    },
+    {
       "id": "page-evaluate-handle.spec.ts > should accept multiple nested handles",
       "method": "Page.evaluate",
       "evidence": "Three handles nested at different depths of one argument are each replaced by their values in place."
@@ -3690,6 +3695,26 @@
       "id": "page-evaluate.spec.ts > should throw error with detailed information on exception inside promise ",
       "method": "Page.evaluate",
       "evidence": "A throw inside the promise the callback returns rejects Page.evaluate with 'Error in promise', so a rejection of the awaited promise is reported rather than swallowed."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should throw usable message for unserializable array nested function",
+      "method": "Page.evaluate",
+      "evidence": "Page.evaluate(arg => arg, { a: { inner: ['firstValue', { property: () => {} }] } }) rejects with 'Attempting to serialize unexpected value at position \"a.inner[1].property\": () => {}', writing the array index in brackets. The bridge rebuilds the nested function in the browser from its source, so the adapter serializes a real function there."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should throw usable message for unserializable object nested function",
+      "method": "Page.evaluate",
+      "evidence": "Page.evaluate(arg => arg, { a: { inner: { property: () => {} } } }) rejects with 'Attempting to serialize unexpected value at position \"a.inner.property\": () => {}', the dotted path to the function. The bridge rebuilds the nested function in the browser from its source, so the adapter serializes a real function there."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should throw usable message for unserializable object one deep function",
+      "method": "Page.evaluate",
+      "evidence": "Page.evaluate(arg => arg, { aProperty: () => {} }) rejects with 'Attempting to serialize unexpected value at position \"aProperty\": () => {}', naming the property that holds the function. The bridge rebuilds the nested function in the browser from its source, so the adapter serializes a real function there."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should throw usable message for unserializable shallow function",
+      "method": "Page.evaluate",
+      "evidence": "Page.evaluate(arg => arg, () => {}) rejects with the pinned serializer's 'Attempting to serialize unexpected value: () => {}', with no position for a function passed as the whole argument. The bridge rebuilds the function argument in the browser from its source, so the adapter serializes a real function whose source is the caller's."
     },
     {
       "id": "page-evaluate.spec.ts > should transfer -0",
