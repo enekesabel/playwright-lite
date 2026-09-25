@@ -177,6 +177,37 @@ test("noWaitAfter uses the pinned method-specific validation", async ({ page, ad
   }
 });
 
+// The promotion rerun's generated configuration sets `sabotagedMethod` in its
+// `use` block; a library-created page must honour it like the page fixture.
+browserTest.describe("library-created pages under a sabotaged method", () => {
+  browserTest.use({ sabotagedMethod: "Locator.click" });
+
+  browserTest("withhold the method and record each withheld dispatch", async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.setContent('<button onclick="window.clicked = true">Library</button>');
+    await expect(page.locator("button").click()).rejects.toThrow(
+      "__pwLiteSabotagedMethod: Locator.click was withheld for promotion review."
+    );
+    expect(await page.locator("button").textContent()).toBe("Library");
+    const evidence = await page.evaluate(() => (window as any).__pwLiteEvidence);
+    expect(evidence.withheld).toEqual(["Locator.click"]);
+    expect(await page.evaluate(() => (window as any).clicked)).toBe(undefined);
+    await context.close();
+  });
+});
+
+browserTest("library-created pages record no withheld dispatch in an ordinary run", async ({ browser }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.setContent("<button>Library</button>");
+  await page.locator("button").click();
+  const evidence = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  expect(evidence.entered).toContain("Locator.click");
+  expect(evidence).not.toHaveProperty("withheld");
+  await context.close();
+});
+
 browserTest("library-created pages use the same adapter before context cleanup", async ({ browser, server }) => {
   const context = await browser.newContext();
   const page = await context.newPage();

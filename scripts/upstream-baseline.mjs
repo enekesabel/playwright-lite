@@ -187,11 +187,17 @@ export function compareBaseline(entries, baseline, names) {
   };
 }
 
+/**
+ * A passing test with clean adapter evidence. Evidence that carries `withheld`,
+ * even empty, comes from a method rerun, never from an ordinary run, so it
+ * certifies nothing.
+ */
 export function isCandidate(entry) {
   return (
     entry.status === "passed" &&
     entry.execution?.entered?.length > 0 &&
-    entry.execution?.failures?.length === 0
+    entry.execution?.failures?.length === 0 &&
+    entry.execution?.withheld === undefined
   );
 }
 
@@ -313,17 +319,18 @@ function isOwnerCorrection(reviewedMethod, method) {
 /**
  * The baseline regressions that block a promotion run.
  *
- * A promotion listed in `reRecords` corrects an existing reviewed entry that
- * regressed only because the harness renamed its recorded method's owner (it
- * now records `ElementHandle.asElement` where it recorded
- * `JSHandle.asElement`): the test still passes with clean execution evidence,
- * the new method is the same member under the new owner of a pair in
- * `OWNER_CORRECTIONS`, and the matcher is unchanged. Such an entry does not
- * block its own correction. An entry whose recorded method now runs natively
- * regressed, whatever the new method is. A re-record that is not such a
- * correction is refused, and every other regression still blocks. The
- * re-recorded method still goes through the sabotage rerun like any
- * promotion.
+ * A promotion never changes a reviewed entry's method or matcher unless it is
+ * listed in `reRecords`; one that would is refused. A promotion listed in `reRecords`
+ * corrects an existing reviewed entry that regressed only because the harness
+ * renamed its recorded method's owner (it now records
+ * `ElementHandle.asElement` where it recorded `JSHandle.asElement`): the test
+ * still passes with clean execution evidence, the new method is the same
+ * member under the new owner of a pair in `OWNER_CORRECTIONS`, and the matcher
+ * is unchanged. Such an entry does not block its own correction. An entry
+ * whose recorded method now runs natively regressed, whatever the new method
+ * is. A re-record that is not such a correction is refused, and every other
+ * regression still blocks. The re-recorded method still goes through the
+ * sabotage rerun like any promotion.
  *
  * @param {Array} entries  Parsed test entries.
  * @param {{ reviewed: Array<{id: string, method: string, matcher?: string}> }} baseline  Recorded baseline.
@@ -338,6 +345,21 @@ export function blockingRegressions(
   promotions,
   reRecords
 ) {
+  const claim = ({ method, matcher }) =>
+    matcher ? `${method} --matcher ${matcher}` : method;
+  for (const promotion of promotions) {
+    const reviewed = baseline.reviewed.find(
+      (review) => review.id === promotion.id
+    );
+    if (
+      reviewed &&
+      claim(reviewed) !== claim(promotion) &&
+      !reRecords.has(promotion.id)
+    )
+      throw new Error(
+        `${promotion.id} is already reviewed as ${claim(reviewed)}; promoting it as ${claim(promotion)} would replace that claim. Pass --re-record to correct its method's owner; a re-record keeps the matcher.`
+      );
+  }
   const { regressions } = compareBaseline(entries, baseline, names);
   for (const id of reRecords) {
     const promotion = promotions.find((promotion) => promotion.id === id);
@@ -370,36 +392,61 @@ export function blockingRegressions(
 
 /**
  * Verdict of the sabotage rerun: the same test re-run with the reviewed
- * method's in-browser dispatch throwing instead of executing. A test that
- * still passes is vacuous about that method, whatever the recorded evidence
- * says.
+ * method's in-browser dispatch throwing instead of executing, or, given a
+ * matcher, with that public matcher withheld. A test that still passes is
+ * vacuous about what was withheld, whatever the recorded evidence says. A test
+ * must fail or time out, and only because of what was withheld; a failure with
+ * another cause proves nothing either:
+ *
+ * - Its evidence records no transport failure, so the failure is not a bridge
+ *   error.
+ * - A method rerun needs its evidence to record a withheld dispatch of the
+ *   method (`withheld`, which only a method rerun's evidence has). The
+ *   failure's text is not consulted: a test that reads the error it gets back,
+ *   such as its class or `matcherResult`, fails without printing the marker.
+ * - A matcher rerun needs the reported failure to show the matcher's withheld
+ *   marker, which a withheld matcher returns in every text field of its
+ *   failure. A test that compares a whole message with `toBe` fails with
+ *   Playwright's diff, whose ANSI inverse-video codes can split the marker, so
+ *   the message is read with those codes removed.
  *
  * @param {Array} entries  Parsed entries of the sabotaged rerun.
- * @param {string} [expectedError]  Text the failure message must contain.
- *   A test that compares a whole message with `toBe` fails with Playwright's
- *   diff, which wraps the differing characters in ANSI inverse-video codes and
- *   can split that text; the check reads the message with those codes removed.
+ * @param {string} id  The promoted test.
+ * @param {string} method  The reviewed method.
+ * @param {string} [matcher]  The public matcher the rerun withheld instead.
  */
-export function sabotageVerdict(entries, id, method, expectedError) {
+export function sabotageVerdict(entries, id, method, matcher) {
+  const subject = matcher ?? method;
   const entry = entries.find((entry) => entry.id === id);
   if (!entry)
     throw new Error(
-      `The rerun with ${method} sabotaged did not run ${id}; promotion needs that observation.`
+      `The rerun with ${subject} sabotaged did not run ${id}; promotion needs that observation.`
     );
   if (entry.status === "skipped")
     throw new Error(
-      `The rerun with ${method} sabotaged skipped ${id}, so it observed nothing.`
+      `The rerun with ${subject} sabotaged skipped ${id}, so it observed nothing.`
     );
   if (entry.status === "passed")
     throw new Error(
-      `${id} still passes with ${method} sabotaged, so it does not prove ${method}.`
+      `${id} still passes with ${subject} sabotaged, so it does not prove ${subject}.`
     );
-  if (
-    expectedError &&
-    !stripVTControlCharacters(entry.error ?? "").includes(expectedError)
-  )
+  if (entry.status !== "failed" && entry.status !== "timedOut")
     throw new Error(
-      `${id} failed with ${method} sabotaged, but not for the expected reason: ${expectedError}`
+      `The rerun with ${subject} sabotaged ended ${id} as ${entry.status}; promotion needs it to fail or time out.`
+    );
+  if (entry.execution?.failures?.length)
+    throw new Error(
+      `${id} failed with ${subject} sabotaged, but its evidence records transport failures: ${entry.execution.failures.join("; ")}`
+    );
+  if (matcher) {
+    const marker = `__pwLiteSabotagedMatcher: ${matcher}`;
+    if (!stripVTControlCharacters(entry.error ?? "").includes(marker))
+      throw new Error(
+        `${id} failed with ${matcher} sabotaged, but not for the expected reason: ${marker}`
+      );
+  } else if (!entry.execution?.withheld?.includes(method))
+    throw new Error(
+      `${id} failed with ${method} sabotaged, but never reached it: its evidence records no withheld dispatch of ${method}.`
     );
 }
 
@@ -761,8 +808,8 @@ function doUpdate(entries) {
       sabotageVerdict(
         runSabotaged(entry, method, matcher),
         id,
-        matcher,
-        `__pwLiteSabotagedMatcher: ${matcher}`
+        method,
+        matcher
       );
   }
   const reviewed = [

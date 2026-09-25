@@ -28,9 +28,24 @@ type ContextRecord = {
   pages: Page[];
   captured: Set<Page>;
 };
-type Evidence = { entered: string[]; failures: string[]; native: string[] };
-const contexts = new WeakMap<TestInfo, ContextRecord[]>();
-const evidence = new WeakMap<TestInfo, Evidence>();
+type Evidence = {
+  entered: string[];
+  failures: string[];
+  native: string[];
+  withheld?: string[];
+};
+// What the worker-scoped browser needs from the current test: where to record
+// its contexts and evidence, and the promotion rerun's sabotage options, which
+// pages created here get exactly as the `page` fixture does.
+type LibraryTest = {
+  records: ContextRecord[];
+  result: Evidence;
+  sabotage: {
+    sabotagedMethod: string | undefined;
+    sabotagedMatcher: string | undefined;
+  };
+};
+const libraryTests = new WeakMap<TestInfo, LibraryTest>();
 
 async function capture(record: ContextRecord, result: Evidence) {
   for (const page of record.pages) {
@@ -42,6 +57,8 @@ async function capture(record: ContextRecord, result: Evidence) {
         throw new Error("Adapter execution evidence is unavailable");
       result.entered.push(...observed.entered);
       result.failures.push(...(observed.failures ?? []));
+      if (observed.withheld)
+        (result.withheld ??= []).push(...observed.withheld);
     } catch (error) {
       // Missing evidence is a diagnostic failure, never a passing fallback.
       result.failures.push(String(error));
@@ -76,14 +93,14 @@ export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
               );
             return async (...args: Parameters<typeof browser.newContext>) => {
               const info = base.info();
-              const result = evidence.get(info)!;
+              const { records, result, sabotage } = libraryTests.get(info)!;
               const context = await target.newContext(...args);
               const record: ContextRecord = {
                 context,
                 pages: [],
                 captured: new Set(),
               };
-              contexts.get(info)!.push(record);
+              records.push(record);
               result.native.push("Browser.newContext");
               return new Proxy(context, {
                 get(nativeContext, member) {
@@ -98,6 +115,7 @@ export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
                         expectTimeout: configuredExpectTimeout(info),
                         nativeNavigationForSetup: true,
                         underTest: true,
+                        ...sabotage,
                       });
                     };
                   }
@@ -123,11 +141,14 @@ export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
     { scope: "worker" },
   ],
   _libraryEvidence: [
-    async ({}, use, info) => {
+    async ({ sabotagedMethod, sabotagedMatcher }, use, info) => {
       const records: ContextRecord[] = [];
       const result: Evidence = { entered: [], failures: [], native: [] };
-      contexts.set(info, records);
-      evidence.set(info, result);
+      libraryTests.set(info, {
+        records,
+        result,
+        sabotage: { sabotagedMethod, sabotagedMatcher },
+      });
       try {
         await use();
       } finally {
@@ -141,8 +162,7 @@ export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
             type: "adapter-execution",
             description: JSON.stringify(result),
           });
-          contexts.delete(info);
-          evidence.delete(info);
+          libraryTests.delete(info);
         }
       }
     },
