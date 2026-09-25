@@ -34,12 +34,6 @@ const FUNCTION_SOURCE_PAYLOAD = "__pwLiteFunctionSource";
 const TYPED_ARRAY_PAYLOAD = "__pwLiteTypedArray";
 const NATIVE_RESULT_MARKER = "__pwLiteNativeResult";
 const DEFAULT_TEST_ID_ATTRIBUTE = "data-testid";
-/**
- * Playwright rejects `page.evaluate` with the calling API name followed by the
- * browser's description of what the page function threw, whose first line is
- * the first line of that error's `stack`.
- */
-const EVALUATE_ERROR_PREFIX = "page.evaluate: ";
 
 /**
  * The pinned protocol serializer's typed-array vocabulary
@@ -578,6 +572,17 @@ const abortErrorsCarryingTheirReason = new WeakSet<Error>();
 
 const testIdAttributeSynchronizers = new WeakMap<Page, () => Promise<void>>();
 
+/**
+ * Per page, evaluates a page function that enters the adapter under a token
+ * of its own, so an adapter error can be claimed only by the evaluation it
+ * left.
+ */
+const adapterEvaluations = new WeakMap<
+  Page,
+  (pageFunction: unknown, arg: unknown) => Promise<unknown>
+>();
+let lastEvaluationToken = 0;
+
 type SelectorsWithWritableTestIdAttribute = Playwright["selectors"] & {
   setTestIdAttribute: (attributeName: string) => void;
 };
@@ -665,13 +670,9 @@ async function evaluateAdapter<Result>(
   arg: unknown
 ): Promise<Result> {
   await testIdAttributeSynchronizers.get(realPage)?.();
+  const evaluateInScope = adapterEvaluations.get(realPage)!;
   return unwrapBridgeEnvelope(
-    await (
-      realPage.evaluate as (
-        callback: unknown,
-        argument: unknown
-      ) => Promise<BridgeEnvelope<Result>>
-    )(pageFunction, arg)
+    (await evaluateInScope(pageFunction, arg)) as BridgeEnvelope<Result>
   );
 }
 
@@ -763,16 +764,19 @@ export async function createAdapterPage(
   (realPage as any).__pwLiteNativeOperations = [] as string[];
   // The message only selects the failures worth asking about: an error the
   // adapter or its page code raised can read exactly like a transport failure,
-  // so the browser side, which saw where it was thrown, decides.
-  const raisedByAdapter = async (firstLine: string) =>
-    firstLine.startsWith(EVALUATE_ERROR_PREFIX) &&
-    (await evaluate(
-      (line) => (window as any).__pwLiteClaimAdapterError?.(line) === true,
-      firstLine.slice(EVALUATE_ERROR_PREFIX.length)
-    ).catch(() => false));
-  realPage.evaluate = (async (...args: any[]) => {
+  // so the browser side, which saw where it was thrown, decides. It answers
+  // for one evaluation only: two errors can share their text, never a token.
+  const raisedByAdapter = (token: number) =>
+    evaluate(
+      (t) => (window as any).__pwLiteClaimAdapterError?.(t) === true,
+      token
+    ).catch(() => false);
+  const recordTransportFailures = async (
+    evaluation: () => Promise<unknown>,
+    token?: number
+  ) => {
     try {
-      return await (evaluate as any)(...args);
+      return await evaluation();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const firstLine = message.split("\n")[0];
@@ -785,14 +789,31 @@ export async function createAdapterPage(
         // question is still open (a call nothing awaited, at teardown) keeps
         // the failure rather than losing it.
         failures.push(firstLine);
-        if (await raisedByAdapter(firstLine)) {
+        if (token !== undefined && (await raisedByAdapter(token))) {
           const index = failures.lastIndexOf(firstLine);
           if (index !== -1) failures.splice(index, 1);
         }
       }
       throw error;
     }
-  }) as Page["evaluate"];
+  };
+  realPage.evaluate = ((...args: any[]) =>
+    recordTransportFailures(() =>
+      (evaluate as any)(...args)
+    )) as Page["evaluate"];
+  // Composed here rather than rebuilt in the page, whose CSP may refuse eval,
+  // so the page function still reaches the page as Playwright sends any.
+  adapterEvaluations.set(realPage, (pageFunction, arg) => {
+    const token = ++lastEvaluationToken;
+    const inScope = new Function(
+      "{ token, arg }",
+      `return window.__pwLiteInEvaluation(token, ${String(pageFunction)}, arg);`
+    ) as (payload: { token: number; arg: unknown }) => unknown;
+    return recordTransportFailures(
+      () => evaluate(inScope, { token, arg }),
+      token
+    );
+  });
   const state: AdapterPageState = {
     nativeNavigationForSetup: timeoutDefaults.nativeNavigationForSetup,
     url: await evaluateAdapter(
@@ -1979,22 +2000,33 @@ function initializeAdapterBridge(
         })
       : result;
   };
-  // Playwright rejects the Node side of an evaluation with the browser's
-  // description of the thrown error, which starts with its stack's first line.
-  // An adapter error leaving the bridge is recorded under that line until the
-  // Node side claims the rejection it caused, so a matching claim can only
-  // name an error the adapter raised.
-  const unclaimedAdapterErrors: string[] = [];
-  host.__pwLiteClaimAdapterError = (line: string) => {
-    const index = unclaimedAdapterErrors.indexOf(line);
-    if (index === -1) return false;
-    unclaimedAdapterErrors.splice(index, 1);
-    return true;
+  // The Node side runs each page function that enters the adapter under a
+  // token of its own evaluation. An adapter error leaving the bridge is
+  // recorded under that token until the Node side claims the rejection it
+  // caused, so a claim can only name an error the adapter raised in the
+  // caller's own evaluation. Every such page function enters the bridge before
+  // it first awaits, so the token in scope is still its own.
+  let evaluationToken: number | undefined;
+  host.__pwLiteInEvaluation = (
+    token: number,
+    pageFunction: (arg: unknown) => unknown,
+    arg: unknown
+  ) => {
+    evaluationToken = token;
+    try {
+      return pageFunction(arg);
+    } finally {
+      evaluationToken = undefined;
+    }
   };
+  const unclaimedAdapterErrors = new Set<number>();
+  host.__pwLiteClaimAdapterError = (token: number) =>
+    unclaimedAdapterErrors.delete(token);
   host.__pwLiteInvokeAdapter = async function invoke(
     operation: () => any,
     encodedArgs?: any
   ) {
+    const token = evaluationToken;
     try {
       return { kind: "value", value: await operation() };
     } catch (error) {
@@ -2030,11 +2062,8 @@ function initializeAdapterBridge(
             error.cause === controller.signal.reason,
         };
       }
-      if (
-        adapterErrors.has(error as object) &&
-        typeof (error as Error).stack === "string"
-      )
-        unclaimedAdapterErrors.push((error as Error).stack!.split("\n")[0]);
+      if (adapterErrors.has(error as object) && token !== undefined)
+        unclaimedAdapterErrors.add(token);
       throw error;
     }
   };
