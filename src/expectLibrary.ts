@@ -522,7 +522,7 @@ export const notCloseTo = (expected: number, precision?: number): CloseTo =>
 
 const printSubstring = (val: string): string => val.replace(/"|\\/g, "\\$&");
 
-const printReceivedStringContainExpectedSubstring = (
+export const printReceivedStringContainExpectedSubstring = (
   received: string,
   start: number,
   length: number

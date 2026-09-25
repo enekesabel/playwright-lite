@@ -25,6 +25,7 @@ import {
   notCloseTo,
   objectContaining,
   objectNotContaining,
+  printReceivedStringContainExpectedSubstring,
   stringContaining,
   stringMatching,
   stringNotContaining,
@@ -39,7 +40,12 @@ import {
 import type { Locator } from "@playwright/test";
 import { isPlaywrightLiteLocator, type LocatorImpl } from "./locator";
 import type { Page } from "@playwright/test";
-import { isPlaywrightLitePage } from "./page";
+import {
+  isPlaywrightLitePage,
+  type LocatorExpectationOptions,
+  type LocatorExpectationResult,
+} from "./page";
+import { rejectUnsupportedOptions } from "./protocolValidation";
 import {
   Promise,
   Error,
@@ -230,6 +236,10 @@ interface PageAssertions {
     expected: PageURLExpected,
     options?: PageURLAssertionOptions
   ): Promise<void>;
+  toMatchAriaSnapshot(
+    expected: string,
+    options?: PageAssertionOptions
+  ): Promise<void>;
 }
 
 interface ExpectMatcherUtils {
@@ -378,6 +388,10 @@ type PageExpectationTarget = {
   title(): Promise<string>;
   url(): string;
   _expect(
+    expression: "to.match.aria",
+    options: LocatorExpectationOptions & { title?: string }
+  ): Promise<LocatorExpectationResult>;
+  _expect(
     expression: "to.have.title" | "to.have.url",
     options: {
       expected: string | RegExp | PageURLExpected;
@@ -508,7 +522,7 @@ async function toPass(
 
 type LocatorExpectationReceiver = LocatorImpl;
 
-type LocatorMatcherKind = "truthy" | "text" | "equal" | "aria";
+type LocatorMatcherKind = "truthy" | "text" | "equal";
 type LocatorMatcherCall = {
   expression: string;
   expected: unknown;
@@ -565,21 +579,6 @@ function assertTextExpected(
     );
 }
 
-function dedentAriaSnapshot(snapshot: string): string {
-  const lines = snapshot.split("\n");
-  let whitespacePrefixLength = 100;
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    const match = line.match(/^(\s*)/);
-    if (match && match[1].length < whitespacePrefixLength)
-      whitespacePrefixLength = match[1].length;
-  }
-  return lines
-    .filter((line) => line.trim())
-    .map((line) => line.substring(whitespacePrefixLength))
-    .join("\n");
-}
-
 function locatorMatcher(
   matcherName: string,
   build: (args: unknown[]) => LocatorMatcherCall
@@ -624,16 +623,12 @@ function locatorMatcher(
       call,
       received,
       pass,
-      !!this.isNot,
       result.errorMessage
     );
     return {
       name: matcherName,
       expected: call.expected,
-      actual:
-        call.kind === "aria"
-          ? (received as { raw?: string } | undefined)?.raw
-          : received,
+      actual: received,
       ariaSnapshot: result.received?.ariaSnapshot,
       log: result.log,
       pass,
@@ -660,7 +655,6 @@ function locatorFailureDetails(
   call: LocatorMatcherCall,
   received: unknown,
   pass: boolean,
-  isNot: boolean,
   errorMessage?: string
 ): Pick<
   LocatorMatcherMessage,
@@ -673,29 +667,6 @@ function locatorFailureDetails(
       printedReceived: errorMessage
         ? ""
         : `Received: ${pass ? expected : String(received)}`,
-    };
-  }
-
-  if (call.kind === "aria") {
-    const expected = call.expected as string;
-    const receivedRaw = (received as { raw?: string } | undefined)?.raw ?? "";
-    if (errorMessage)
-      return {
-        printedExpected: `Expected: ${isNot ? "not " : ""}${matcherUtils.printExpected(expected)}`,
-      };
-    if (pass)
-      return {
-        printedExpected: `Expected: not ${matcherUtils.printExpected(expected)}`,
-        printedReceived: `Received: ${matcherUtils.printReceived(receivedRaw)}`,
-      };
-    return {
-      printedDiff: matcherUtils.printDiffOrStringify(
-        expected,
-        receivedRaw,
-        "Expected",
-        "Received",
-        false
-      ),
     };
   }
 
@@ -763,7 +734,8 @@ type LocatorMatcherMessage = {
   promise: string;
   matcherName: string;
   expectation: string;
-  locator: string;
+  /** Absent for a page receiver, as in pinned `formatMatcherMessage`. */
+  locator?: string;
   timeout: number;
   timedOut?: boolean;
   printedExpected?: string;
@@ -777,7 +749,8 @@ function formatLocatorMatcherMessage(
   matcherUtils: ExpectMatcherUtils,
   details: LocatorMatcherMessage
 ): string {
-  let message = `expect(locator)${details.promise ? `.${details.promise}` : ""}${details.isNot ? ".not" : ""}.${details.matcherName}(${details.expectation}) failed\n\n`;
+  const receiver = details.locator ? "locator" : "page";
+  let message = `expect(${receiver})${details.promise ? `.${details.promise}` : ""}${details.isNot ? ".not" : ""}.${details.matcherName}(${details.expectation}) failed\n\n`;
   const diffLines = details.printedDiff?.split("\n");
   if (diffLines?.length === 2) {
     details.printedExpected = diffLines[0];
@@ -789,7 +762,8 @@ function formatLocatorMatcherMessage(
     details.printedExpected?.startsWith("Expected:") &&
     (!details.printedReceived ||
       details.printedReceived.startsWith("Received:"));
-  message += `Locator: ${align ? " " : ""}${details.locator}\n`;
+  if (details.locator)
+    message += `Locator: ${align ? " " : ""}${details.locator}\n`;
   if (details.printedExpected) message += `${details.printedExpected}\n`;
   if (details.printedReceived) message += `${details.printedReceived}\n`;
   if (details.timedOut)
@@ -1119,26 +1093,7 @@ const locatorMatchers: MatchersObject = {
     kind: "equal",
     expectation: "expected",
   })),
-  toMatchAriaSnapshot: locatorMatcher(
-    "toMatchAriaSnapshot",
-    ([expected, options]) => {
-      if (typeof expected !== "string")
-        throw new Error(
-          "toMatchAriaSnapshot accepts only an inline string in playwright-lite."
-        );
-      const snapshot = dedentAriaSnapshot(expected);
-      return {
-        expression: "to.match.aria",
-        expected: snapshot,
-        options: {
-          ...timingOptions(options),
-          expectedValue: snapshot,
-        },
-        kind: "aria",
-        expectation: "expected",
-      };
-    }
-  ),
+  toMatchAriaSnapshot,
 };
 
 function textMatcher(
@@ -1216,6 +1171,141 @@ function classMatcher(
           expectation: "expected",
         };
   });
+}
+
+const SNAPSHOT_FILE_UNSUPPORTED =
+  "toMatchAriaSnapshot(): the options-only form reads the expected snapshot from a Playwright Test snapshot file, which playwright-lite has none of; pass the expected snapshot as a string.";
+const MISSING_BASELINE_UNSUPPORTED =
+  "toMatchAriaSnapshot(): an empty expected snapshot is a missing baseline, which Playwright Test passes while suggesting one; playwright-lite has no test runner to report that, so pass the expected snapshot as a string.";
+
+/**
+ * Mirrors pinned 26a9e47 matchers/toMatchAriaSnapshot.ts for an inline
+ * expected string. The options-only form reads a snapshot file, and an empty
+ * string passes with a suggested baseline and a soft error, both through the
+ * test runner, which this document has none of; those forms reject instead.
+ */
+async function toMatchAriaSnapshot(
+  this: MatcherContext,
+  receiver: unknown,
+  expectedParam?: unknown,
+  suppliedOptions?: unknown
+): Promise<MatcherResult> {
+  const matcherName = "toMatchAriaSnapshot";
+  // Registered only for Page and Locator receivers.
+  const locator = isLocatorExpectationReceiver(receiver) ? receiver : undefined;
+  const page = receiver as PageExpectationTarget;
+
+  if (typeof expectedParam !== "string") {
+    rejectUnsupportedOptions(
+      matcherName,
+      expectedParam as Record<string, unknown> | undefined,
+      ["signal", "timeout"]
+    );
+    throw new Error(SNAPSHOT_FILE_UNSUPPORTED);
+  }
+  // Pinned: under the default `updateSnapshots: 'missing'`, an empty expected
+  // snapshot is a missing baseline.
+  if (!expectedParam) {
+    if (this.isNot)
+      return {
+        pass: true,
+        message: () => `Matchers using ".not" can't generate new baselines`,
+        name: matcherName,
+      };
+    throw new Error(MISSING_BASELINE_UNSUPPORTED);
+  }
+
+  const options = timingOptions(suppliedOptions);
+  const expected = unshiftAriaSnapshot(expectedParam);
+  const timeout =
+    options.timeout ?? (this as MatcherContext & { timeout: number }).timeout;
+  const expectParams = {
+    expectedValue: expected,
+    isNot: !!this.isNot,
+    timeout,
+    signal: options.signal,
+  };
+  const {
+    matches: pass,
+    received,
+    log,
+    timedOut,
+    errorMessage,
+  }: LocatorExpectationResult = locator
+    ? await locator._expect("to.match.aria", expectParams, stepTitle(this))
+    : await page._expect("to.match.aria", {
+        ...expectParams,
+        title: stepTitle(this),
+      });
+  const typedReceived = received?.value as { raw: string } | undefined;
+
+  const message = () => {
+    let printedExpected: string | undefined;
+    let printedReceived: string | undefined;
+    let printedDiff: string | undefined;
+    if (errorMessage) {
+      printedExpected = `Expected: ${this.isNot ? "not " : ""}${this.utils.printExpected(expected)}`;
+    } else if (pass) {
+      const receivedString = printReceivedStringContainExpectedSubstring(
+        typedReceived!.raw,
+        typedReceived!.raw.indexOf(expected),
+        expected.length
+      );
+      printedExpected = `Expected: not ${this.utils.printExpected(expected)}`;
+      printedReceived = `Received: ${receivedString}`;
+    } else {
+      printedDiff = this.utils.printDiffOrStringify(
+        expected,
+        typedReceived!.raw,
+        "Expected",
+        "Received",
+        false
+      );
+    }
+    return formatLocatorMatcherMessage(this.utils, {
+      isNot: !!this.isNot,
+      promise: this.promise ?? "",
+      matcherName,
+      expectation: "expected",
+      locator: locator?.toString(),
+      timeout,
+      timedOut,
+      printedExpected,
+      printedReceived,
+      printedDiff,
+      errorMessage,
+      log,
+    });
+  };
+
+  if (errorMessage)
+    return { pass: !!this.isNot, message, name: matcherName, expected };
+
+  return {
+    name: matcherName,
+    expected,
+    message,
+    pass,
+    actual: typedReceived?.raw,
+    log,
+    timeout: timedOut ? timeout : undefined,
+  };
+}
+
+/** Pinned 26a9e47 matchers/toMatchAriaSnapshot.ts `unshift`. */
+function unshiftAriaSnapshot(snapshot: string): string {
+  const lines = snapshot.split("\n");
+  let whitespacePrefixLength = 100;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const match = line.match(/^(\s*)/);
+    if (match && match[1].length < whitespacePrefixLength)
+      whitespacePrefixLength = match[1].length;
+  }
+  return lines
+    .filter((line) => line.trim())
+    .map((line) => line.substring(whitespacePrefixLength))
+    .join("\n");
 }
 
 function expressionToMatcherName(expression: string): string {
@@ -1404,7 +1494,11 @@ async function toHaveURL(
   };
 }
 
-const pageMatchers: MatchersObject = { toHaveTitle, toHaveURL };
+const pageMatchers: MatchersObject = {
+  toHaveTitle,
+  toHaveURL,
+  toMatchAriaSnapshot,
+};
 
 const allBuiltinMatchers: MatchersObject = {
   ...genericMatchers,
