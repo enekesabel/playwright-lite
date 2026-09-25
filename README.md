@@ -59,6 +59,7 @@ npm add @enekesabel/playwright-lite
 - **No browser control.** No browser launch, browser contexts, or browser-level control over network traffic, downloads, or other tabs.
 - **Content Security Policy applies.** Evaluation callbacks need the page's policy to allow dynamic JavaScript evaluation; the library does not bypass it.
 - **Closing keeps the document.** `close()` disposes the `Page` object, not the document; see [Closing a page](#closing-a-page).
+- **Shared JavaScript globals.** The library runs alongside the page's own scripts, so some changes the page makes to built-in globals reach it; see [Page globals](#page-globals).
 
 ### Page functions playwright-lite replaces
 
@@ -105,6 +106,21 @@ Nothing is replaced until you subscribe, and a function the page replaced itself
 - A pending `request.response()` or `response.finished()` is not interrupted by `close()`, where Playwright rejects it.
 - Highlights added with `locator.highlight()` stay in the document, where Playwright's go with the closed page.
 - The closed error has no call log, where Playwright appends the log of the interrupted call.
+
+</details>
+
+### Page globals
+
+Playwright runs its page scripts in an isolated world, which no change the page makes to a global reaches. playwright-lite instead keeps its own reference to `Node`, `Element`, `NodeFilter`, `HTMLElement`, `Document`, `ShadowRoot`, `MutationObserver`, `Event`, `CustomEvent`, `EventTarget`, `Map`, `Set`, `WeakMap`, `WeakSet`, `Promise`, `Symbol`, `Error`, `TypeError`, `RegExp`, `Array`, `Object`, `JSON`, `Math`, `URL` and `Date`, taken when it loads, so a page that later deletes or replaces one of them does not affect it.
+
+- A global the page changed before playwright-lite loaded is used as the page left it.
+- A change to a built-in's methods or prototype, such as `Array.prototype.push = null` or `JSON.stringify = null`, reaches playwright-lite.
+- Every other global, such as `MouseEvent`, `KeyboardEvent`, `InputEvent`, `DataTransfer` or `getComputedStyle`, is read from the page when playwright-lite uses it.
+
+<details>
+<summary>Edge cases</summary>
+
+- A failing `expect` assertion builds its message, and `toMatchAriaSnapshot()` reads its template, with the page's current globals, so after the page deletes `Object`, `Array` or `Math` they can throw that `ReferenceError` instead.
 
 </details>
 

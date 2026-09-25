@@ -23,17 +23,9 @@ type EvaluationTarget = Element | Element[] | AdapterJSHandle;
 /** Uses the pinned UtilityScript for by-value calls without a browser protocol. */
 export class Evaluation {
   private utility: UtilityScript | undefined;
-  /**
-   * The pinned protocol reports a node as a remote-object subtype. In the
-   * document that test is `instanceof Node`, so the constructor is captured
-   * before a page script can delete the global.
-   */
-  private readonly node: typeof Node;
 
   /** `page` is also the owner of this evaluation's handles. */
-  constructor(readonly page: PageImpl) {
-    this.node = page.window.Node;
-  }
+  constructor(readonly page: PageImpl) {}
 
   private get script(): UtilityScript {
     return (this.utility ??= new UtilityScript(this.page.window, false));
@@ -84,9 +76,13 @@ export class Evaluation {
     return parseEvaluationResultValue(serialized, handles);
   }
 
-  /** Pinned crExecutionContext.ts:142 answers a node with an ElementHandle. */
+  /**
+   * Pinned crExecutionContext.ts:142 answers a node with an ElementHandle: the
+   * protocol reports it as a remote-object subtype, which in the document is
+   * `instanceof Node`, the constructor as it was when the adapter loaded.
+   */
   handleFor(value: unknown): AdapterJSHandle {
-    return value instanceof this.node
+    return value instanceof Node
       ? new AdapterElementHandle(this.page, value as Element)
       : new AdapterJSHandle(value, this);
   }

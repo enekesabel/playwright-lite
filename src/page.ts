@@ -3843,7 +3843,7 @@ export class PageImpl {
 
     while (true) {
       const element =
-        root instanceof this.window.Element
+        root instanceof Element
           ? this.resolveWithinElement(root, selector, options.strict === true)
           : this.resolveLocatorElement(selector, options.strict === true);
       const visible =
@@ -4844,7 +4844,7 @@ export class PageImpl {
             data,
             inputType,
           })
-        : new this.window.Event("input", { bubbles: true, composed: true })
+        : new Event("input", { bubbles: true, composed: true })
     );
   }
 
