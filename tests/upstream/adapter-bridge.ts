@@ -29,6 +29,7 @@ const ELEMENT_HANDLE_REF_PAYLOAD = "__pwLiteElementHandleRef";
 const NETWORK_REF_PAYLOAD = "__pwLiteNetworkRef";
 const NETWORK_BYTES_PAYLOAD = "__pwLiteNetworkBytes";
 const CONSOLE_MESSAGE_REF_PAYLOAD = "__pwLiteConsoleMessageRef";
+const FILE_CHOOSER_REF_PAYLOAD = "__pwLiteFileChooserRef";
 const ABORT_SIGNAL_PAYLOAD = "__pwLiteAbortSignal";
 const FUNCTION_SOURCE_PAYLOAD = "__pwLiteFunctionSource";
 const NATIVE_RESULT_MARKER = "__pwLiteNativeResult";
@@ -43,6 +44,10 @@ type AdapterPageState = {
   // a new one, since every message this test observes belongs to the one
   // page the adapter bridge creates.
   pageProxy?: Page;
+  // One proxy per `FileChooser` the adapter reported, by its stored id: every
+  // listener of one activation receives the same chooser in Playwright, and
+  // the adapter hands them one object, so its crossings share one proxy.
+  fileChoosers?: Map<string, Promise<object>>;
 };
 
 type AdapterPageReference = {
@@ -295,6 +300,11 @@ async function decodeBridgeResult(
       state,
       value as EncodedConsoleMessage
     );
+  if (
+    typeof (value as Record<string, unknown>)[FILE_CHOOSER_REF_PAYLOAD] ===
+    "string"
+  )
+    return fileChooserProxy(realPage, state, value as EncodedFileChooser);
   const reference = (value as Record<string, unknown>)[
     ELEMENT_HANDLE_REF_PAYLOAD
   ];
@@ -356,6 +366,64 @@ async function createConsoleMessageProxy(
     type: () => encoded.type,
     worker: () => encoded.worker,
   };
+}
+
+type EncodedFileChooser = {
+  [FILE_CHOOSER_REF_PAYLOAD]: string;
+  isMultiple: boolean;
+  // Whether the chooser's own page() is the adapter page this bridge
+  // created, read from the chooser itself; see `__pwLiteStoreFileChooser`.
+  page: boolean;
+  // The handle reference envelope `__pwLiteEncodeAdapterResult` gives the
+  // chooser's element().
+  element: unknown;
+};
+
+/**
+ * Republishes a `FileChooser` the adapter reported. `element()`, `isMultiple()`
+ * and `page()` are synchronous in Playwright, so the browser side reads them
+ * when the chooser crosses the boundary and this proxy replays them;
+ * `setFiles()` round-trips to the adapter's own chooser. A chooser that
+ * crosses again, for another listener of the same activation, gets the proxy
+ * it got the first time.
+ */
+function fileChooserProxy(
+  realPage: Page,
+  state: AdapterPageState,
+  encoded: EncodedFileChooser
+): Promise<object> {
+  const id = encoded[FILE_CHOOSER_REF_PAYLOAD];
+  const proxies = (state.fileChoosers ??= new Map());
+  let proxy = proxies.get(id);
+  if (!proxy) proxies.set(id, (proxy = createFileChooserProxy()));
+  return proxy;
+
+  async function createFileChooserProxy(): Promise<object> {
+    const element = await decodeBridgeResult(encoded.element, realPage, state);
+    return {
+      __pwLiteAdapter: true,
+      element: () => element,
+      isMultiple: () => encoded.isMultiple,
+      page: () => (encoded.page ? state.pageProxy : null),
+      setFiles: async (...args: unknown[]) =>
+        decodeBridgeResult(
+          await evaluateAdapter(
+            realPage,
+            ({ id: chooserId, args: a }) => {
+              const host = window as any;
+              return host.__pwLiteInvokeAdapter(async () =>
+                host.__pwLiteEncodeAdapterResult(
+                  await host.__pwLiteFileChooserCall(chooserId, "setFiles", a)
+                )
+              );
+            },
+            { id, args: encodeBridgeValueForPage(args, realPage) as unknown[] }
+          ),
+          realPage,
+          state
+        ),
+    };
+  }
 }
 
 type EncodedNetworkObject = {
@@ -2870,6 +2938,51 @@ function initializeAdapterBridge(
       args: host.__pwLiteEncodeAdapterResult(value.args()),
     };
   };
+  // A `FileChooser`, told apart from the other reported objects by its own
+  // member set. Like a `ConsoleMessage` its synchronous members are read
+  // here, when it crosses the boundary, which is bookkeeping and stays out of
+  // the execution evidence; `page` records only whether it was this test's
+  // adapter page. The chooser keeps one id however often it crosses, so the
+  // Node side can hand every listener of one activation the same proxy.
+  const isFileChooserObject = (value: any) =>
+    !!value &&
+    typeof value === "object" &&
+    typeof value.setFiles === "function" &&
+    typeof value.isMultiple === "function" &&
+    typeof value.element === "function";
+  host.__pwLiteFileChoosers = new Map<string, any>();
+  const fileChooserIds = new WeakMap<object, string>();
+  host.__pwLiteStoreFileChooser = function store(value: any): any {
+    let id = fileChooserIds.get(value);
+    if (id === undefined) {
+      id = `${handleContext}:filechooser-${++nextElementHandleId}`;
+      fileChooserIds.set(value, id);
+      host.__pwLiteFileChoosers.set(id, value);
+    }
+    return {
+      __pwLiteFileChooserRef: id,
+      isMultiple: value.isMultiple(),
+      page: value.page() === host.__pwLiteAdapterPage,
+      element: host.__pwLiteEncodeAdapterResult(value.element()),
+    };
+  };
+  host.__pwLiteFileChooserCall = function call(
+    id: string,
+    member: string,
+    args: any[]
+  ) {
+    const target = host.__pwLiteFileChoosers.get(id);
+    if (!target) throw new Error(`Unknown adapter FileChooser: ${id}`);
+    const recorded = `FileChooser.${member}`;
+    append(host.__pwLiteEvidence.entered, recorded);
+    withhold(recorded);
+    if (typeof target[member] !== "function")
+      throw new TypeError(
+        `__pwLiteAdapterFileChooser.${member} is not a function`
+      );
+    const decoded = host.__pwLiteDecodeBridgeValue(args);
+    return callAdapter(() => apply(target[member], target, decoded));
+  };
   host.__pwLiteStoreNetworkObject = function store(value: any): any {
     const kind =
       typeof value.resourceType === "function" ? "Request" : "Response";
@@ -2913,6 +3026,7 @@ function initializeAdapterBridge(
     if (isNetworkObject(value)) return host.__pwLiteStoreNetworkObject(value);
     if (isConsoleMessageObject(value))
       return host.__pwLiteStoreConsoleMessage(value);
+    if (isFileChooserObject(value)) return host.__pwLiteStoreFileChooser(value);
     if (
       !value ||
       typeof value !== "object" ||
