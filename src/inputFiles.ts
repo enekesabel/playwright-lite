@@ -1,5 +1,4 @@
 import type { Page } from "@playwright/test";
-import { extensionToType } from "virtual:playwright-lite-mime";
 
 export type InputFiles = Parameters<Page["setInputFiles"]>[1];
 
@@ -11,8 +10,14 @@ export type InputFiles = Parameters<Page["setInputFiles"]>[1];
  *
  * `Locator.drop` carries the same converted payloads in the pinned client, so
  * `method` names the member whose message a rejected payload belongs to.
+ *
+ * The pinned mime table is a separate chunk, loaded only when a payload needs
+ * its type inferred, so callers that always pass `mimeType` never fetch it.
  */
-export function inputFilePayloads(files: InputFiles, method = "setInputFiles") {
+export async function inputFilePayloads(
+  files: InputFiles,
+  method = "setInputFiles"
+) {
   const items = Array.isArray(files) ? files : [files];
   if (items.some((item) => typeof item === "string"))
     throw new Error(
@@ -39,6 +44,12 @@ export function inputFilePayloads(files: InputFiles, method = "setInputFiles") {
     50 * 1024 * 1024
   )
     throw new Error(`${method}: in-memory payloads must total less than 50Mb.`);
+  // Only consulted for a payload without `mimeType`.
+  const extensionToType: ReadonlyMap<string, string> = payloads.some(
+    (item) => !item.mimeType
+  )
+    ? (await import("virtual:playwright-lite-mime")).extensionToType
+    : new Map();
   return payloads.map((item) => {
     let binary = "";
     for (let offset = 0; offset < item.buffer.byteLength; offset += 8192)
@@ -49,7 +60,7 @@ export function inputFilePayloads(files: InputFiles, method = "setInputFiles") {
       name: item.name,
       mimeType:
         item.mimeType ||
-        mimeTypeForName(item.name) ||
+        mimeTypeForName(item.name, extensionToType) ||
         "application/octet-stream",
       buffer: btoa(binary),
     };
@@ -57,7 +68,10 @@ export function inputFilePayloads(files: InputFiles, method = "setInputFiles") {
 }
 
 /** Pinned mime@4.1.0 `Mime.getType`, which the pinned server calls with the payload name. */
-function mimeTypeForName(name: string): string | null {
+function mimeTypeForName(
+  name: string,
+  extensionToType: ReadonlyMap<string, string>
+): string | null {
   const last = name.replace(/^.*[/\\]/s, "").toLowerCase();
   const extension = last.replace(/^.*\./s, "").toLowerCase();
   const hasPath = last.length < name.length;

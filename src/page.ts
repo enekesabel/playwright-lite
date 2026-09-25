@@ -1375,7 +1375,7 @@ export class PageImpl {
     ]);
     if (options.strict !== undefined && typeof options.strict !== "boolean")
       throw new TypeError("setInputFiles strict must be a boolean");
-    const payloads = inputFilePayloads(files);
+    const payloads = await inputFilePayloads(files);
     const deadline = this.createActionDeadline(options.timeout);
     this.attachActionSignal(deadline, options.signal);
     await this.query(
@@ -1429,7 +1429,7 @@ export class PageImpl {
     const files =
       payload?.files === undefined
         ? []
-        : inputFilePayloads(payload.files, "drop");
+        : await inputFilePayloads(payload.files, "drop");
     const data = Object.entries(payload?.data ?? {});
     if (files.length === 0 && data.length === 0)
       throw new Error('At least one of "files" or "data" must be provided.');

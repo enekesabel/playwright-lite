@@ -11,16 +11,16 @@ function payload(
   return { name, mimeType, buffer: bytes as Buffer };
 }
 
-it("rejects malformed payloads and oversized buffers before encoding", () => {
-  expect(() =>
+it("rejects malformed payloads and oversized buffers before encoding", async () => {
+  await expect(
     inputFilePayloads({ ...payload(), mimeType: 1 as unknown as string })
-  ).toThrow("MIME type");
-  expect(() =>
+  ).rejects.toThrow("MIME type");
+  await expect(
     inputFilePayloads(payload("huge", new Uint8Array(50 * 1024 * 1024)))
-  ).toThrow("less than 50Mb");
+  ).rejects.toThrow("less than 50Mb");
 });
 
-it("infers an empty MIME type from the name like pinned mime.getType", () => {
+it("infers an empty MIME type from the name like pinned mime.getType", async () => {
   // Expected values are what pinned playwright-core 1.62.1's bundled
   // mime.getType returns for each name, or its octet-stream fallback for null.
   const cases: [string, string][] = [
@@ -37,8 +37,8 @@ it("infers an empty MIME type from the name like pinned mime.getType", () => {
     ["a.unknownext", "application/octet-stream"],
     ["", "application/octet-stream"],
   ];
-  const inferred = inputFilePayloads(
-    cases.map(([name]) => payload(name, undefined, ""))
+  const inferred = (
+    await inputFilePayloads(cases.map(([name]) => payload(name, undefined, "")))
   ).map((item) => item.mimeType);
   expect(inferred).toEqual(cases.map(([, mimeType]) => mimeType));
 });
