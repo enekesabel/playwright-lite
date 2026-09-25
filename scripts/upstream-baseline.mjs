@@ -18,6 +18,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
+import { stripVTControlCharacters } from "node:util";
 import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
@@ -374,6 +375,10 @@ export function blockingRegressions(
  * says.
  *
  * @param {Array} entries  Parsed entries of the sabotaged rerun.
+ * @param {string} [expectedError]  Text the failure message must contain.
+ *   A test that compares a whole message with `toBe` fails with Playwright's
+ *   diff, which wraps the differing characters in ANSI inverse-video codes and
+ *   can split that text; the check reads the message with those codes removed.
  */
 export function sabotageVerdict(entries, id, method, expectedError) {
   const entry = entries.find((entry) => entry.id === id);
@@ -389,7 +394,10 @@ export function sabotageVerdict(entries, id, method, expectedError) {
     throw new Error(
       `${id} still passes with ${method} sabotaged, so it does not prove ${method}.`
     );
-  if (expectedError && !entry.error?.includes(expectedError))
+  if (
+    expectedError &&
+    !stripVTControlCharacters(entry.error ?? "").includes(expectedError)
+  )
     throw new Error(
       `${id} failed with ${method} sabotaged, but not for the expected reason: ${expectedError}`
     );

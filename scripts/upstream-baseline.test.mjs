@@ -272,6 +272,33 @@ describe("reviewed promotion", () => {
         )
       );
     });
+    // A test that compares the whole message with `toBe` fails with
+    // Playwright's diff, whose ANSI inverse-video codes can split the marker.
+    it("finds the failure reason through the ANSI codes of a message diff", () => {
+      const inverse = (text) => `\u001b[7m${text}\u001b[27m`;
+      const received =
+        `Error: expect(received).toBe(expected) // Object.is equality\n\n` +
+        `Expected: "Locator expected to be visible"\n` +
+        `Received: "${inverse("Error: __pwLiteSabotagedMatcher: L")}ocator${inverse(".toBeVisible was withheld for promotion review.")}"`;
+      assert.doesNotThrow(() =>
+        sabotageVerdict(
+          [{ id, status: "failed", error: received }],
+          id,
+          "Locator._expect",
+          "__pwLiteSabotagedMatcher: Locator.toBeVisible"
+        )
+      );
+      assert.throws(
+        () =>
+          sabotageVerdict(
+            [{ id, status: "failed", error: received }],
+            id,
+            "Locator._expect",
+            "__pwLiteSabotagedMatcher: Locator.toHaveText"
+          ),
+        /not for the expected reason/
+      );
+    });
     it("accepts a test that fails once the method is sabotaged", () => {
       assert.doesNotThrow(() =>
         sabotageVerdict(
