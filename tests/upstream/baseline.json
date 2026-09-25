@@ -71,6 +71,11 @@
       "evidence": "The <button> that shadow.html appends to document.body's open shadow root is reached through Page.evaluateHandle, whose handle is an ElementHandle, and ElementHandle.click on it runs the actionability, hit-target and pointer pipeline (Page.clickSelector) into the shadow tree; its click listener sets the page's top-level `clicked` binding, which Page.evaluate reads as true. Native goto only loads shadow.html."
     },
     {
+      "id": "elementhandle-click.spec.ts > should work with Node removed",
+      "method": "ElementHandle.click",
+      "evidence": "After the page deletes window.Node, clicking the button through its ElementHandle still sets window.result to 'Clicked', so the click's retargeting and actionability checks no longer read the page's Node global."
+    },
+    {
       "id": "elementhandle-convenience.spec.ts > getAttribute should work",
       "method": "ElementHandle.getAttribute",
       "evidence": "Reading name on #outer returns 'value' and an absent attribute returns null, so getAttribute reports the attribute value through the handle and reports a missing attribute as null."
@@ -189,6 +194,11 @@
       "id": "elementhandle-misc.spec.ts > should fill input",
       "method": "ElementHandle.fill",
       "evidence": "After fill on an <input> handle the page's own input listener has recorded window.result === 'some value', so fill sets the value through the element and dispatches the input event the page observes."
+    },
+    {
+      "id": "elementhandle-misc.spec.ts > should fill input when Node is removed",
+      "method": "ElementHandle.fill",
+      "evidence": "With window.Node deleted, ElementHandle.fill('some value') still fills the input and the page's input listener records 'some value' in window.result, so fill's element-state checks keep the Node constructor taken when the adapter loaded."
     },
     {
       "id": "elementhandle-misc.spec.ts > should focus a button",
@@ -1908,6 +1918,11 @@
       "evidence": "Locator.click on button.html fires the button's click listener, which sets window.result to 'Clicked'. Native goto only establishes the document."
     },
     {
+      "id": "locator-click.spec.ts > should work with Node removed",
+      "method": "Locator.click",
+      "evidence": "After the page deletes window.Node, Locator.click on the button still sets window.result to 'Clicked', so the locator's click path no longer reads the page's Node global."
+    },
+    {
       "id": "locator-convenience.spec.ts > allInnerTexts should work",
       "method": "Locator.allInnerTexts",
       "evidence": "With three divs containing A, B, and C, Locator.allInnerTexts returns ['A', 'B', 'C']."
@@ -2119,6 +2134,11 @@
       "id": "locator-misc-1.spec.ts > should fill input",
       "method": "Locator.fill",
       "evidence": "Locator.fill('some value') on the input makes the page's own input listener record window.result === 'some value', so fill sets the value and dispatches the input event."
+    },
+    {
+      "id": "locator-misc-1.spec.ts > should fill input when Node is removed",
+      "method": "Locator.fill",
+      "evidence": "With window.Node deleted, Locator.fill('some value') still fills the input and the page's input listener records 'some value' in window.result, so the locator's fill path keeps the Node constructor taken when the adapter loaded."
     },
     {
       "id": "locator-misc-1.spec.ts > should select single option",
@@ -3092,6 +3112,11 @@
       "id": "page-click.spec.ts > should click the button behind sticky header",
       "method": "Page.click",
       "evidence": "After initial scroll places the target under a fixed header, the adapter finds an actionable scroll position and the target handler runs."
+    },
+    {
+      "id": "page-click.spec.ts > should click the button if window.Node is removed",
+      "method": "Page.click",
+      "evidence": "After the page deletes window.Node, page.click('button') still sets result to 'Clicked', so selector resolution, actionability and dispatch no longer read the page's Node global."
     },
     {
       "id": "page-click.spec.ts > should click the button when window.innerWidth is corrupted",
@@ -4619,6 +4644,11 @@
       "evidence": "selectOption stays pending while the select is replaced, then selects two on the new element, proving the locator re-resolves instead of holding a stale node."
     },
     {
+      "id": "page-select-option.spec.ts > should work when re-defining top-level Event class",
+      "method": "Page.selectOption",
+      "evidence": "With window.Event set to null, selectOption('select', 'blue') still selects blue and select.html records ['blue'] in both result.onInput and result.onChange, so the input and change events are built with the Event constructor taken when the adapter loaded."
+    },
+    {
       "id": "page-set-input-files.spec.ts > input event.composed should be true and cross shadow dom boundary",
       "method": "Locator.setInputFiles",
       "evidence": "Locator.setInputFiles on a file input inside an open shadow root fires input with composed true and change with composed false on the input, and only input:true reaches the body listener, so input crosses the shadow boundary and change does not."
@@ -4873,6 +4903,11 @@
       "id": "page-wait-for-selector-1.spec.ts > should work when node is added through innerHTML",
       "method": "Page.waitForSelector",
       "evidence": "A pending state:'attached' wait for 'h3 div' resolves after both nodes appear through one innerHTML assignment, so the wait notices subtrees inserted wholesale rather than only element-by-element insertions."
+    },
+    {
+      "id": "page-wait-for-selector-1.spec.ts > should work with removed MutationObserver",
+      "method": "Page.waitForSelector",
+      "evidence": "With window.MutationObserver deleted, waitForSelector('.zombo') still resolves for markup set concurrently, and the returned handle's textContent is 'anything', so the wait and the InjectedScript it creates use the MutationObserver taken when the adapter loaded."
     },
     {
       "id": "page-wait-for-selector-2.spec.ts > hidden should wait for display: none",
