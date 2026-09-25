@@ -173,6 +173,25 @@ Targets Playwright **{{playwrightVersion}}**. Statuses describe API compatibilit
 
 {{/each}}
 {{!--
+Failure-message differences shared by the Page, Locator and ElementHandle
+actions. The pointer-action call log otherwise mirrors pinned frames.ts
+`_retryWithProgressIfNotConnected` and dom.ts `_retryAction`, rendered through
+server/callLog.ts `compressCallLog`.
+--}}
+### Actions
+
+How the Page, Locator and ElementHandle actions report a failure.
+
+<details>
+<summary>Edge cases</summary>
+
+- An action timeout's first line also names the last failure, as in `locator.click: Timeout 5000ms exceeded. Element is not visible`, where Playwright ends it at `exceeded.`
+- `fill()`, `clear()` and `selectOption()` keep a shorter call log, where Playwright logs every step as it does for `click()`.
+- A pointer action looks its locator up again before each retry and moves on to a different element that now matches first, where Playwright keeps the element it resolved until that element leaves the DOM.
+
+</details>
+
+{{!--
 Owned by `events` in compatibility/api.ts: one row per event, or per group of
 events sharing a payload. The Page event-emitter rows link here; payload detail
 that belongs to an object links to that object's section. The excluded list

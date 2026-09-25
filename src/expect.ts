@@ -42,8 +42,10 @@ import { isPlaywrightLiteLocator, type LocatorImpl } from "./locator";
 import type { Page } from "@playwright/test";
 import {
   isPlaywrightLitePage,
+  isURLPredicateExpectation,
   type LocatorExpectationOptions,
   type LocatorExpectationResult,
+  type PageExpectationResult,
 } from "./page";
 import { rejectUnsupportedOptions } from "./protocolValidation";
 import {
@@ -372,16 +374,6 @@ type InternalMatcherResult = SyncExpectationResult & {
   log?: string[];
   name?: string;
   timeout?: number;
-};
-
-type PageExpectationResult = {
-  matches: boolean;
-  received?: { value?: string; ariaSnapshot?: string };
-  timeout?: number;
-  timedOut?: boolean;
-  invalid?: boolean;
-  errorMessage?: string;
-  log?: string[];
 };
 
 type PageExpectationTarget = {
@@ -1337,18 +1329,11 @@ function isRegExp(value: unknown): value is RegExp {
   );
 }
 
-function isURLPattern(value: unknown): boolean {
-  const constructor = (
-    globalThis as { URLPattern?: new (...args: unknown[]) => object }
-  ).URLPattern;
-  return typeof constructor === "function" && value instanceof constructor;
-}
-
 function pageMatcherMessage(
   context: MatcherContext,
   matcherName: "toHaveTitle" | "toHaveURL",
   expected: unknown,
-  result: PageExpectationResult
+  result: PageExpectationResult & { invalid?: boolean; timeout?: number }
 ): string {
   const isNot = !!context.isNot;
   let message = `expect(page)${isNot ? ".not" : ""}.${matcherName}(expected) failed\n\n`;
@@ -1357,7 +1342,7 @@ function pageMatcherMessage(
     return message;
   }
   const received = result.received?.value;
-  const isPredicate = typeof expected === "function" || isURLPattern(expected);
+  const isPredicate = isURLPredicateExpectation(expected);
   const expectedSuffix = isRegExp(expected) ? " pattern" : "";
   const receivedSuffix = isRegExp(expected) ? " string" : "";
   if (isPredicate) {
@@ -1365,10 +1350,7 @@ function pageMatcherMessage(
     if (!result.errorMessage && received !== undefined)
       message += `Received: ${context.utils.printReceived(received)}\n`;
     if (result.timedOut) {
-      const timeout =
-        result.timeout ??
-        (context as MatcherContext & { timeout: number }).timeout;
-      message += `Timeout:  ${timeout}ms\n`;
+      message += `Timeout:  ${result.timeout}ms\n`;
     }
     if (result.errorMessage) message += `${result.errorMessage}\n`;
     return message;
@@ -1392,11 +1374,8 @@ function pageMatcherMessage(
     message += `Expected: ${context.utils.printExpected(expected)}\n`;
   }
   if (result.timedOut) {
-    const timeout =
-      result.timeout ??
-      (context as MatcherContext & { timeout: number }).timeout;
     const aligned = !result.errorMessage && !expectedSuffix && !receivedSuffix;
-    message += `Timeout: ${aligned ? " " : ""}${timeout}ms\n`;
+    message += `Timeout: ${aligned ? " " : ""}${result.timeout}ms\n`;
   }
   if (result.errorMessage) message += `${result.errorMessage}\n`;
   return message + callLogText(result.log);
@@ -1456,8 +1435,7 @@ async function toHaveURL(
   if (
     typeof expected !== "string" &&
     !isRegExp(expected) &&
-    !isURLPattern(expected) &&
-    typeof expected !== "function"
+    !isURLPredicateExpectation(expected)
   )
     throw new Error(
       pageMatcherMessage(this, "toHaveURL", expected, {
@@ -1486,10 +1464,10 @@ async function toHaveURL(
 }
 
 /**
- * The failure fields pinned 26a9e47 matchers/toMatchText.ts returns for a
- * string or RegExp, and matchers/toHaveURL.ts `toHaveURLWithPredicate` for a
- * URL predicate or pattern: the latter has no call log or ARIA snapshot and
- * always reports its timeout.
+ * The fields pinned 26a9e47 matchers/toMatchText.ts returns for a string or
+ * RegExp, and matchers/toHaveURL.ts `toHaveURLWithPredicate` for a URL
+ * predicate or pattern: the latter has no `expected`, call log or ARIA
+ * snapshot, and a failure always reports its timeout.
  */
 function pageMatcherResult(
   context: MatcherContext,
@@ -1499,10 +1477,13 @@ function pageMatcherResult(
   result: PageExpectationResult
 ): MatcherResult {
   const message = () =>
-    pageMatcherMessage(context, matcherName, expected, result);
+    pageMatcherMessage(context, matcherName, expected, { ...result, timeout });
+  const predicate = isURLPredicateExpectation(expected);
   if (result.matches === !context.isNot)
-    return { name: matcherName, message, pass: result.matches, expected };
-  if (typeof expected === "function" || isURLPattern(expected))
+    return predicate
+      ? { name: matcherName, pass: result.matches, message }
+      : { name: matcherName, message, pass: result.matches, expected };
+  if (predicate)
     return {
       name: matcherName,
       message,

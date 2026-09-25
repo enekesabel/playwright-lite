@@ -6,10 +6,17 @@
  */
 
 /**
- * Copied from pinned 26a9e47 server/callLog.ts, which the pinned dispatcher
+ * Adapted from pinned 26a9e47 server/callLog.ts, which the pinned dispatcher
  * applies to the raw progress log of every failed call. Each raw line nests by
  * its own leading spaces; a run of repeated lines prints once, headed by
- * `N × `. scripts/generate-injected.mjs asserts parity with the pinned source.
+ * `N × `.
+ *
+ * Deviations from the pinned file: Prettier formatting, this shortened licence
+ * header, `"  " + (leadingWhitespace?.[0] ?? "")` for the pinned
+ * `'  ' + leadingWhitespace?.[0] || ''` (equal, since the pattern `^\s*`
+ * always matches), and no `findRepeatedSubsequencesForTest` export. The equivalence
+ * claim is the parity assertion in scripts/generate-injected.mjs, which runs
+ * both copies on the same logs and requires identical output.
  */
 export function compressCallLog(log: string[]): string[] {
   const lines: string[] = [];

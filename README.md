@@ -330,6 +330,19 @@ Targets Playwright **1.62.1**. Statuses describe API compatibility within the ru
 | [`waitFor`](https://playwright.dev/docs/api/class-locator#locator-wait-for)                                  |   ✅   |                                                                                                                                                                  |
 | [`waitForFunction`](https://playwright.dev/docs/api/class-locator#locator-wait-for-function)                 |   ⚠️   | A promise returned by the page function is awaited before its value is judged; Playwright treats the returned promise object itself as truthy and stops waiting. |
 
+### Actions
+
+How the Page, Locator and ElementHandle actions report a failure.
+
+<details>
+<summary>Edge cases</summary>
+
+- An action timeout's first line also names the last failure, as in `locator.click: Timeout 5000ms exceeded. Element is not visible`, where Playwright ends it at `exceeded.`
+- `fill()`, `clear()` and `selectOption()` keep a shorter call log, where Playwright logs every step as it does for `click()`.
+- A pointer action looks its locator up again before each retry and moves on to a different element that now matches first, where Playwright keeps the element it resolved until that element leaves the DOM.
+
+</details>
+
 ### Events
 
 Listeners added with `on()`, `once()`, `addListener()` or `prependListener()`, and `waitForEvent()`, receive only these events.
