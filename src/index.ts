@@ -15,6 +15,8 @@ export type { Request, Response } from "./network";
  * this is optional.
  */
 export type { Dialog } from "./dialog";
+/** Playwright's `FileChooser`, which a `filechooser` listener receives, re-exported for optional annotation; `createPage` still returns Playwright's own `Page` type unchanged. */
+export type { FileChooser } from "@playwright/test";
 /** Playwright's `ConsoleMessage`, re-exported for optional annotation; `createPage` still returns Playwright's own `Page` type unchanged. */
 export type { ConsoleMessage } from "./console";
 

@@ -1758,10 +1758,8 @@ export class PageImpl {
     selector: string | Element,
     files: InputFiles,
     options: PageSetInputFilesOptions = {},
-    strict = false,
-    // Only names a selector that found nothing, which a handle never reports.
-    label = typeof selector === "string" ? selector : "elementHandle",
-    method = "setInputFiles"
+    // `method` names the member in validation and timeout messages.
+    { strict = false, method = "setInputFiles" } = {}
   ): Promise<void> {
     assertPageActionOptions(method, options, ["noWaitAfter", "strict"]);
     if (options.strict !== undefined && typeof options.strict !== "boolean")
@@ -1795,7 +1793,7 @@ export class PageImpl {
     if (typeof selector !== "string") return assign(selector);
     await this.query(
       selector,
-      label,
+      selector,
       { signal: options.signal, timeout: options.timeout },
       strict || options.strict === true,
       assign,

@@ -51,25 +51,56 @@ describe("FileChooser", () => {
     expect(seen.map((chooser) => chooser.isMultiple())).toEqual([false]);
   });
 
-  it("reports the page's own click() and showPicker(), and cancels the activating click", () => {
+  it("reports the page's own click() and showPicker(), cancelling the click once the input's listeners have run", () => {
     document.body.innerHTML = "<input type=file>";
     const input = document.querySelector("input")!;
     const seen = choosers(listenedPage());
-    let prevented: boolean | undefined;
-    // Runs before the observer's window listener.
-    const record = (event: Event) => (prevented = event.defaultPrevented);
-    document.addEventListener("click", record);
+    const prevented: [string, boolean][] = [];
+    const record = (where: string) => (event: Event) =>
+      prevented.push([where, event.defaultPrevented]);
+    const documentListener = new AbortController();
+    input.addEventListener("click", record("input"));
+    document.addEventListener("click", record("document"), {
+      signal: documentListener.signal,
+    });
 
     input.click();
     input.showPicker();
-    const dispatched = input.dispatchEvent(
-      new MouseEvent("click", { bubbles: true, cancelable: true })
-    );
-    document.removeEventListener("click", record);
+    documentListener.abort();
 
-    expect(prevented).toBe(false);
+    expect(prevented).toEqual([
+      ["input", false],
+      ["document", true],
+    ]);
+    expect(seen).toHaveLength(2);
+  });
+
+  it("reports a click the input's own listener stops, and a dispatched click that does not bubble", async () => {
+    document.body.innerHTML = "<input type=file>";
+    const input = document.querySelector("input")!;
+    input.addEventListener("click", (event) => event.stopPropagation());
+    const page = listenedPage();
+    const seen = choosers(page);
+
+    await page.click("input");
+    const dispatched = input.dispatchEvent(
+      new MouseEvent("click", { cancelable: true })
+    );
+
     expect(dispatched).toBe(false);
-    expect(seen).toHaveLength(3);
+    expect(seen).toHaveLength(2);
+  });
+
+  it("reports a click an ancestor cancels while it bubbles", () => {
+    document.body.innerHTML = "<div><input type=file></div>";
+    document
+      .querySelector("div")!
+      .addEventListener("click", (event) => event.preventDefault());
+    const seen = choosers(listenedPage());
+
+    document.querySelector("input")!.click();
+
+    expect(seen).toHaveLength(1);
   });
 
   it("reports click() on an input outside the document and sets its files", async () => {

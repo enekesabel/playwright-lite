@@ -1,6 +1,15 @@
-import type { ElementHandle, Page } from "@playwright/test";
+import type {
+  ElementHandle,
+  FileChooser as PlaywrightFileChooser,
+  Page,
+} from "@playwright/test";
 import type { AdapterElementHandle } from "./elementHandle";
-import { HostObservation, perWindow, type HostMember } from "./hostGlobals";
+import {
+  HostObservation,
+  perWindow,
+  type HostFunction,
+  type HostMember,
+} from "./hostGlobals";
 import type { InputFiles } from "./inputFiles";
 import { guardLifetimeCalls, type PageLifetime } from "./lifetime";
 
@@ -8,7 +17,7 @@ import { guardLifetimeCalls, type PageLifetime } from "./lifetime";
  * Pinned client/fileChooser.ts: the file input the page activated, reported
  * once per activation to every `filechooser` listener of one page.
  */
-export class FileChooser {
+export class FileChooser implements PlaywrightFileChooser {
   static {
     guardLifetimeCalls(
       FileChooser.prototype,
@@ -45,7 +54,8 @@ export class FileChooser {
     await this._element.assignInputFiles(
       files,
       options,
-      "fileChooser.setFiles"
+      "fileChooser",
+      "setFiles"
     );
   }
 }
@@ -57,8 +67,6 @@ export const fileChooserObservationFor = perWindow(
   (browserWindow) => new FileChooserObservation(browserWindow)
 );
 
-type HostCall = (...args: unknown[]) => unknown;
-
 /**
  * Reports each activation of an `<input type=file>` as Playwright's
  * `filechooser` event for as long as something is subscribed, in place of the
@@ -68,12 +76,15 @@ type HostCall = (...args: unknown[]) => unknown;
  *
  * Every activation but `showPicker()` is a `click` event on the input: a
  * user's or an adapter click, a click forwarded by a `<label>`, a key
- * activating it, or `input.click()`. A `window` listener sees each one that
- * reaches the document, runs the pinned `_onFileChooserOpened` in its place
- * and cancels the event, which is what keeps the picker closed. Replacing a
- * host function is the last resort (see `hostGlobals`), so only what no
- * listener can see is wrapped: `click()` on an input the `window` listener
- * cannot reach (one outside the document or inside a closed shadow root), and
+ * activating it, `input.click()`, or a click the page dispatches. A capturing
+ * `window` listener sees each one that reaches the document, before the
+ * input does, and hands it to a listener on the input itself, which runs after
+ * the input's own listeners whether the click bubbles or they stop it. That
+ * listener runs the pinned `_onFileChooserOpened` in place of the picker and
+ * cancels the click, which is what keeps the picker closed. Replacing a host
+ * function is the last resort (see `hostGlobals`), so only what no listener
+ * can see is wrapped: `click()` on an input the `window` listener cannot reach
+ * (one outside the document or inside a closed shadow root), and
  * `showPicker()`, which fires no event.
  */
 export class FileChooserObservation {
@@ -87,7 +98,7 @@ export class FileChooserObservation {
           unknown
         >,
         name: "click",
-        intercept: (original: HostCall, thisArg, args) =>
+        intercept: (original: HostFunction, thisArg, args) =>
           this.observeClickCall(original, thisArg, args),
       },
     ];
@@ -99,14 +110,14 @@ export class FileChooserObservation {
           unknown
         >,
         name: "showPicker",
-        intercept: (original: HostCall, thisArg, args) =>
+        intercept: (original: HostFunction, thisArg, args) =>
           this.observeShowPicker(original, thisArg, args),
       });
     this.host = new HostObservation(members, {
       onFirstSubscribe: () =>
-        window.addEventListener("click", this.observeClick),
+        window.addEventListener("click", this.observeCapture, true),
       onLastRelease: () =>
-        window.removeEventListener("click", this.observeClick),
+        window.removeEventListener("click", this.observeCapture, true),
     });
   }
 
@@ -116,11 +127,28 @@ export class FileChooserObservation {
   }
 
   /**
-   * Registered on `window`, bubbling, so it runs after the listeners of every
-   * node on the path. A click some listener already cancelled activates
-   * nothing, and a disabled input opens no picker; neither is reported.
+   * Hands a click aimed at a file input to a one-shot listener on the input.
+   * One listener per click: a click stopped before it reached the input
+   * leaves its listener behind, and the next click only removes it.
    */
-  private readonly observeClick = (event: Event) => {
+  private readonly observeCapture = (event: Event) => {
+    const input = event.composedPath()[0];
+    if (!this.isFileInput(input)) return;
+    input.addEventListener(
+      "click",
+      (seen) => {
+        if (seen === event) this.observeClick(event);
+      },
+      { once: true }
+    );
+  };
+
+  /**
+   * Runs as the input's last listener. A click one of them cancelled
+   * activates nothing, and a disabled input opens no picker; neither is
+   * reported.
+   */
+  private observeClick(event: Event): void {
     const input = event.composedPath()[0];
     if (
       !(event instanceof this.window.MouseEvent) ||
@@ -131,24 +159,21 @@ export class FileChooserObservation {
       return;
     event.preventDefault();
     this.host.report(input);
-  };
+  }
 
   private observeClickCall(
-    original: HostCall,
+    original: HostFunction,
     thisArg: unknown,
     args: unknown[]
   ): unknown {
     if (!this.isFileInput(thisArg) || this.reachesWindow(thisArg))
       return Reflect.apply(original, thisArg, args);
-    // The input's own tree root is the last node its click reaches that can
-    // see the input; a listener per call keeps nested calls apart.
-    const root = thisArg.getRootNode();
     const listener = (event: Event) => this.observeClick(event);
-    root.addEventListener("click", listener);
+    thisArg.addEventListener("click", listener);
     try {
       return Reflect.apply(original, thisArg, args);
     } finally {
-      root.removeEventListener("click", listener);
+      thisArg.removeEventListener("click", listener);
     }
   }
 
@@ -158,7 +183,7 @@ export class FileChooserObservation {
    * an adapter click never grants it, where a Playwright click does.
    */
   private observeShowPicker(
-    original: HostCall,
+    original: HostFunction,
     thisArg: unknown,
     args: unknown[]
   ): unknown {

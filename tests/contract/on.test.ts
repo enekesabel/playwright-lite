@@ -647,6 +647,8 @@ describe("Page.on", () => {
 
   // ── File chooser events ────────────────────────────────────────
 
+  const fileChooserPage = listenedPages();
+
   it("patches file input activation only while a filechooser listener exists", () => {
     const click = HTMLElement.prototype.click;
     const showPicker = HTMLInputElement.prototype.showPicker;
@@ -657,7 +659,7 @@ describe("Page.on", () => {
       !input.dispatchEvent(
         new MouseEvent("click", { bubbles: true, cancelable: true })
       );
-    const page = dialogPage();
+    const page = fileChooserPage();
     const listener = () => {};
 
     page.on("pageerror", () => {});

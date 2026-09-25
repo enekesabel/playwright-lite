@@ -6,7 +6,7 @@ import { Map, WeakMap } from "virtual:playwright-lite-globals";
  * Playwright reports. A page nobody subscribed on replaces nothing.
  */
 
-type HostFunction = (...args: never[]) => unknown;
+export type HostFunction = (...args: never[]) => unknown;
 
 /**
  * One instance per window, created by `create` on first use and shared by

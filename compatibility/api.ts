@@ -132,7 +132,7 @@ export const events: readonly EventRow[] = [
   {
     events: ["filechooser"],
     firesFor:
-      "Each activation of an `<input type=file>` while a listener is registered: a click on the input or its `<label>`, including the document's own `input.click()`, and `input.showPicker()`. The file picker does not open meanwhile.",
+      "Each activation of an `<input type=file>` while a listener is registered: a click on the input or its `<label>`, including the document's own `input.click()`, and `input.showPicker()`.",
     differences:
       "Fires while the activating click is dispatched or `showPicker()` runs, before either returns, where Playwright fires once the browser has opened the picker. See [FileChooser](#filechooser).",
   },
@@ -290,9 +290,10 @@ export const objectSections: readonly ObjectSection[] = [
       },
     ],
     edgeCases: [
-      "The activating `click` event is cancelled after the listeners on the input and its ancestors have run: a `window` listener added after the first `filechooser` subscription sees `defaultPrevented` as `true`, and a `dispatchEvent()` of the click returns `false`.",
+      "The activating `click` event is cancelled once the input's own listeners have run, so its ancestors' listeners see `defaultPrevented` as `true` and a `dispatchEvent()` of the click returns `false`. An ancestor that cancels the click itself does not stop the report, where in Playwright no picker opens.",
       "`showPicker()` is reported without the transient user activation the browser requires, since a click this package dispatches never grants it; Playwright's trusted click does.",
       "A `click` event the page dispatches with `dispatchEvent()` on an input outside the document, or on one inside a closed shadow root, is not reported, and the browser handles it itself.",
+      "Once the document calls `document.open()`, a click on a file input in the document is no longer reported until the last `filechooser` listener leaves and a new one subscribes, as `document.open()` also stops `pageerror`; `showPicker()` and `click()` on an input outside the document are still reported.",
     ],
   },
   {

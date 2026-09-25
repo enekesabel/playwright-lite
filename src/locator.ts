@@ -590,7 +590,9 @@ export class LocatorImpl {
       "timeout",
     ]);
     await withAbortPrefix("locator.setInputFiles", () =>
-      this.ownerPage.setInputFilesSelector(this.selector, files, options, true)
+      this.ownerPage.setInputFilesSelector(this.selector, files, options, {
+        strict: true,
+      })
     );
   }
 
