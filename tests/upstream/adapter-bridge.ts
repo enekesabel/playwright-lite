@@ -2938,6 +2938,26 @@ function initializeAdapterBridge(
       args: host.__pwLiteEncodeAdapterResult(value.args()),
     };
   };
+  // A member call on a reported object the browser side stored under `id`
+  // (a Request, Response or FileChooser): recorded as `<kind>.<member>`,
+  // withheld when sabotaged, and run through the adapter call path.
+  const callStored = (
+    objects: Map<string, any>,
+    id: string,
+    kind: string,
+    member: string,
+    args: any[]
+  ) => {
+    const target = objects.get(id);
+    if (!target) throw new Error(`Unknown adapter ${kind}: ${id}`);
+    const recorded = `${kind}.${member}`;
+    append(host.__pwLiteEvidence.entered, recorded);
+    withhold(recorded);
+    if (typeof target[member] !== "function")
+      throw new TypeError(`__pwLiteAdapter${kind}.${member} is not a function`);
+    const decoded = host.__pwLiteDecodeBridgeValue(args);
+    return callAdapter(() => apply(target[member], target, decoded));
+  };
   // A `FileChooser`, told apart from the other reported objects by its own
   // member set. Like a `ConsoleMessage` its synchronous members are read
   // here, when it crosses the boundary, which is bookkeeping and stays out of
@@ -2971,17 +2991,13 @@ function initializeAdapterBridge(
     member: string,
     args: any[]
   ) {
-    const target = host.__pwLiteFileChoosers.get(id);
-    if (!target) throw new Error(`Unknown adapter FileChooser: ${id}`);
-    const recorded = `FileChooser.${member}`;
-    append(host.__pwLiteEvidence.entered, recorded);
-    withhold(recorded);
-    if (typeof target[member] !== "function")
-      throw new TypeError(
-        `__pwLiteAdapterFileChooser.${member} is not a function`
-      );
-    const decoded = host.__pwLiteDecodeBridgeValue(args);
-    return callAdapter(() => apply(target[member], target, decoded));
+    return callStored(
+      host.__pwLiteFileChoosers,
+      id,
+      "FileChooser",
+      member,
+      args
+    );
   };
   host.__pwLiteStoreNetworkObject = function store(value: any): any {
     const kind =
@@ -3011,15 +3027,7 @@ function initializeAdapterBridge(
     member: string,
     args: any[]
   ) {
-    const target = host.__pwLiteNetworkObjects.get(id);
-    if (!target) throw new Error(`Unknown adapter ${kind}: ${id}`);
-    const recorded = `${kind}.${member}`;
-    append(host.__pwLiteEvidence.entered, recorded);
-    withhold(recorded);
-    if (typeof target[member] !== "function")
-      throw new TypeError(`__pwLiteAdapter${kind}.${member} is not a function`);
-    const decoded = host.__pwLiteDecodeBridgeValue(args);
-    return callAdapter(() => apply(target[member], target, decoded));
+    return callStored(host.__pwLiteNetworkObjects, id, kind, member, args);
   };
   host.__pwLiteEncodeAdapterResult = function encode(value: any): any {
     if (isArray(value)) return each(value, encode);
