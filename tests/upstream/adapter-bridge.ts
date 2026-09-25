@@ -695,6 +695,135 @@ export async function installTestIdAttributeSynchronization(
   };
 }
 
+/**
+ * Routes Playwright's `selectors.register` into the adapter's public
+ * `selectors` for the fixture's lifetime; the native registry is never
+ * touched. Playwright applies a registered engine to every document the page
+ * loads, while the adapter's registry lives in the document, so a
+ * registration the adapter accepted is also added as an init script that
+ * makes the same call, unrecorded, in each later document. A test's own call
+ * is recorded as `Selectors.register` and can be sabotaged like any member.
+ *
+ * `initScripts` is where that init script goes: the page, or in a guard its
+ * context, whose scripts run before the page's adapter bootstrap. The returned
+ * function restores Playwright's member and records the repeats that failed
+ * in the current document.
+ */
+export function installSelectorsRegisterRoute(
+  realPage: Page,
+  playwright: Playwright,
+  initScripts: Pick<Page, "addInitScript"> = realPage
+): () => Promise<void> {
+  const selectors = playwright.selectors;
+  const originalRegister = selectors.register;
+  selectors.register = async (...args: Parameters<typeof originalRegister>) => {
+    const encodedArgs = encodeBridgeValueForPage(args, realPage);
+    await evaluateAdapter(
+      realPage,
+      (a: unknown[]) => {
+        const host = window as any;
+        return host.__pwLiteInvokeAdapter(
+          () => host.__pwLiteSelectorsCall("register", a),
+          a
+        );
+      },
+      encodedArgs
+    );
+    await initScripts.addInitScript(
+      replaySelectorsRegistration,
+      encodedArgs as unknown[]
+    );
+    pagesRepeatingRegistrations.add(realPage);
+  };
+  return async () => {
+    selectors.register = originalRegister;
+    await recordSelectorsReplayFailures(realPage);
+  };
+}
+
+/**
+ * The init script that repeats an accepted registration. Playwright leaves
+ * the order of init scripts undefined, so it runs the call once the adapter
+ * bootstrap has signalled (`signalAdapterBootstrap`), whichever script runs
+ * first. A repeat that fails is recorded, never substituted: the adapter
+ * accepted the same call once, so a failure here is the transport's.
+ */
+function replaySelectorsRegistration(args: unknown[]) {
+  const host = window as any;
+  // Runs after the bootstrap, so the evidence and its builtins exist. The
+  // failure lands in the evidence's `failures`, which a native setup
+  // navigation carries into the next document like the rest of the evidence.
+  const replay = () => {
+    const evidence = host.__pwLiteEvidence;
+    const append = host.__pwLiteAppend;
+    new Promise((resolve) =>
+      resolve(
+        Reflect.apply(
+          host.__pwLiteAdapter.selectors.register,
+          host.__pwLiteAdapter.selectors,
+          host.__pwLiteDecodeBridgeValue(args)
+        )
+      )
+    ).catch((error: unknown) =>
+      append(
+        evidence.failures,
+        `Selectors.register replay: ${error instanceof Error ? error.message : String(error)}`
+      )
+    );
+  };
+  if (host.__pwLiteBootstrapped) replay();
+  else
+    (host.__pwLiteOnBootstrap ??= []).push(
+      Object.assign(replay, { selectorsReplay: true })
+    );
+}
+
+/** Ends the adapter bootstrap: runs what waited for it, in arrival order. */
+function signalAdapterBootstrap() {
+  const host = window as any;
+  host.__pwLiteBootstrapped = true;
+  for (const callback of host.__pwLiteOnBootstrap?.splice(0) ?? []) callback();
+}
+
+/**
+ * The repeats in the page's current document still waiting for an adapter
+ * bootstrap that never ran there, each reported once. Such a document has no
+ * evidence and no transport, so this is a plain evaluation.
+ */
+export async function selectorsReplaysWithoutBootstrap(
+  page: Page
+): Promise<string[]> {
+  return page.evaluate(() => {
+    const host = window as any;
+    const failures: string[] = [];
+    if (!host.__pwLiteBootstrapped)
+      for (const waiting of host.__pwLiteOnBootstrap ?? [])
+        if (waiting.selectorsReplay && !waiting.reported) {
+          waiting.reported = true;
+          failures.push(
+            "Selectors.register replay: the adapter bootstrap never ran in this document"
+          );
+        }
+    return failures;
+  });
+}
+
+/** Pages whose later documents repeat a registration. */
+const pagesRepeatingRegistrations = new WeakSet<Page>();
+
+/**
+ * Adds the current document's repeats that never met a bootstrap to the
+ * transport failures, before that document is replaced and when the fixture
+ * ends. Only a page that repeats registrations is read, and a closed one has
+ * no document left.
+ */
+async function recordSelectorsReplayFailures(realPage: Page): Promise<void> {
+  if (!pagesRepeatingRegistrations.has(realPage) || realPage.isClosed()) return;
+  (realPage as any).__pwLiteTransportFailures?.push(
+    ...(await selectorsReplaysWithoutBootstrap(realPage))
+  );
+}
+
 function unwrapBridgeEnvelope<Result>(
   envelope: BridgeEnvelope<Result>
 ): Result {
@@ -1175,13 +1304,21 @@ function buildAdapterBundle(): string {
 
   const dist = readFileSync(ADAPTER_DIST_PATH, "utf8");
 
-  // Strip ES module export declaration so the code runs as a script.
-  const js = dist.replace(/^export\s+\{[^}]*\}.*$/gm, "");
+  // Strip ES module export declaration so the code runs as a script, and
+  // publish the same exports, under their exported names, as its result.
+  const exported: string[] = [];
+  const js = dist.replace(/^export\s+\{([^}]*)\}.*$/gm, (_, list: string) => {
+    for (const specifier of list.split(",")) {
+      const [local, name = local] = specifier.trim().split(/\s+as\s+/);
+      if (local) exported.push(`${JSON.stringify(name)}: ${local}`);
+    }
+    return "";
+  });
 
   cachedBundle = [
     "window.__pwLiteAdapter = (function() {",
     js,
-    "return { createPage: createPage, expect: expect };",
+    `return { ${exported.join(", ")} };`,
     "})();",
   ].join("\n");
 
@@ -1231,7 +1368,8 @@ export async function createAdapterPage(
       sabotagedMethod: timeoutDefaults.sabotagedMethod ?? null,
       sabotagedMatcher: timeoutDefaults.sabotagedMatcher ?? null,
       expectTimeout: timeoutDefaults.expectTimeout ?? null,
-    } satisfies BridgeSettings)}, (${createTransportCodec.toString()})("page"));`;
+    } satisfies BridgeSettings)}, (${createTransportCodec.toString()})("page"));` +
+    `\n(${signalAdapterBootstrap.toString()})();`;
 
   // Single init script: on every navigation, inject the adapter bundle
   // and create the adapter page from the current window.
@@ -1384,10 +1522,16 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
             entered: string[];
           };
           // The bridge's own url() reads stay out of the evidence, so every
-          // recorded member is one the test entered.
-          if (previous.entered.length > 0)
-            return adapterMember("goto")(...args);
+          // recorded member is one the test entered. A selector engine
+          // registration configures every document the page loads, and is
+          // repeated in the next one, so it leaves no state for a navigation
+          // to discard.
+          const enteredByTest = (previous.entered as string[]).filter(
+            (member) => member !== "Selectors.register"
+          );
+          if (enteredByTest.length > 0) return adapterMember("goto")(...args);
           nativeOperationLog(realPage).push("Page.goto");
+          await recordSelectorsReplayFailures(realPage);
           const response = await realPage.goto(...args);
           await evaluateInPageTransport(
             realPage,
@@ -2983,6 +3127,23 @@ function initializeAdapterBridge(
       args: host.__pwLiteEncodeAdapterResult(value.args()),
     };
   };
+  // Records `kind.member`, withholds it when sabotaged, and calls it on an
+  // adapter object that has no instrumented members of its own.
+  const recordedCall = (
+    target: any,
+    kind: string,
+    targetName: string,
+    member: string,
+    args: any[]
+  ) => {
+    const recorded = `${kind}.${member}`;
+    append(host.__pwLiteEvidence.entered, recorded);
+    withhold(recorded);
+    if (typeof target?.[member] !== "function")
+      throw new TypeError(`${targetName}.${member} is not a function`);
+    const decoded = host.__pwLiteDecodeBridgeValue(args);
+    return callAdapter(() => apply(target[member], target, decoded));
+  };
   // A member call on a reported object the browser side stored under `id`
   // (a Request, Response or FileChooser): recorded as `<kind>.<member>`,
   // withheld when sabotaged, and run through the adapter call path.
@@ -2995,13 +3156,7 @@ function initializeAdapterBridge(
   ) => {
     const target = objects.get(id);
     if (!target) throw new Error(`Unknown adapter ${kind}: ${id}`);
-    const recorded = `${kind}.${member}`;
-    append(host.__pwLiteEvidence.entered, recorded);
-    withhold(recorded);
-    if (typeof target[member] !== "function")
-      throw new TypeError(`__pwLiteAdapter${kind}.${member} is not a function`);
-    const decoded = host.__pwLiteDecodeBridgeValue(args);
-    return callAdapter(() => apply(target[member], target, decoded));
+    return recordedCall(target, kind, `__pwLiteAdapter${kind}`, member, args);
   };
   // A `FileChooser`, told apart from the other reported objects by its own
   // member set. Like a `ConsoleMessage` its synchronous members are read
@@ -3074,6 +3229,16 @@ function initializeAdapterBridge(
   ) {
     return callStored(host.__pwLiteNetworkObjects, id, kind, member, args);
   };
+  // The adapter's public `selectors`, which the Node side routes Playwright's
+  // `selectors.register` into. Recorded and sabotaged like a Page member.
+  host.__pwLiteSelectorsCall = (member: string, args: any[]) =>
+    recordedCall(
+      host.__pwLiteAdapter.selectors,
+      "Selectors",
+      "__pwLiteAdapter.selectors",
+      member,
+      args
+    );
   host.__pwLiteEncodeAdapterResult = function encode(value: any): any {
     if (isArray(value)) return each(value, encode);
     if (isNetworkObject(value)) return host.__pwLiteStoreNetworkObject(value);

@@ -63,6 +63,27 @@ test.describe.serial("page fixture setup cleanup", () => {
   });
 });
 
+let nativeSelectorsRegister: unknown;
+
+test.describe.serial("page fixture selectors.register route", () => {
+  test("routes selectors.register while the adapter page is in use", async ({
+    page,
+    playwright,
+  }) => {
+    nativeSelectorsRegister = Object.getPrototypeOf(
+      playwright.selectors
+    ).register;
+    expect(page).toBeDefined();
+    expect(playwright.selectors.register).not.toBe(nativeSelectorsRegister);
+  });
+
+  test("restores the native selectors.register after the test", async ({
+    playwright,
+  }) => {
+    expect(playwright.selectors.register).toBe(nativeSelectorsRegister);
+  });
+});
+
 test.describe("pageTest timeout configuration", () => {
   test.use({ actionTimeout: 15, navigationTimeout: 20 });
 
