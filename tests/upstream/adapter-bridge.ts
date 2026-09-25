@@ -31,29 +31,9 @@ const NETWORK_BYTES_PAYLOAD = "__pwLiteNetworkBytes";
 const CONSOLE_MESSAGE_REF_PAYLOAD = "__pwLiteConsoleMessageRef";
 const ABORT_SIGNAL_PAYLOAD = "__pwLiteAbortSignal";
 const FUNCTION_SOURCE_PAYLOAD = "__pwLiteFunctionSource";
-const TYPED_ARRAY_PAYLOAD = "__pwLiteTypedArray";
 const NATIVE_RESULT_MARKER = "__pwLiteNativeResult";
 const DEFAULT_TEST_ID_ATTRIBUTE = "data-testid";
 
-/**
- * The pinned protocol serializer's typed-array vocabulary
- * (playwright-core `protocol/serializers`: `typedArrayKindToConstructor`).
- * Reused here so a typed array keeps its element kind across the fixture's
- * `realPage.evaluate` boundary, which cannot carry a Node `Buffer` view.
- */
-const TYPED_ARRAY_KINDS = [
-  ["i8", Int8Array],
-  ["ui8", Uint8Array],
-  ["ui8c", Uint8ClampedArray],
-  ["i16", Int16Array],
-  ["ui16", Uint16Array],
-  ["i32", Int32Array],
-  ["ui32", Uint32Array],
-  ["f32", Float32Array],
-  ["f64", Float64Array],
-  ["bi64", BigInt64Array],
-  ["bui64", BigUint64Array],
-] as const;
 let nextAbortSignalId = 0;
 type ChainStep = [string, unknown[]];
 type AdapterPageState = {
@@ -247,23 +227,6 @@ function encodeBridgeValue(
   const previous = seen.get(value);
   if (previous !== undefined) return previous;
 
-  // Transport only. The runtime receives bytes and owns file assignment.
-  // Buffer extends Uint8Array; preserve subarray offsets by copying its view.
-  const typedArrayKind = TYPED_ARRAY_KINDS.find(
-    ([, constructor]) => value instanceof constructor
-  )?.[0];
-  if (typedArrayKind) {
-    const view = value as ArrayBufferView;
-    return {
-      [TYPED_ARRAY_PAYLOAD]: {
-        k: typedArrayKind,
-        b: Array.from(
-          new Uint8Array(view.buffer, view.byteOffset, view.byteLength)
-        ),
-      },
-    };
-  }
-
   if (Array.isArray(value)) {
     const encoded: unknown[] = [];
     seen.set(value, encoded);
@@ -272,14 +235,16 @@ function encodeBridgeValue(
     return encoded;
   }
 
-  // Playwright's own protocol serializer already carries these across
-  // realPage.evaluate with their identity intact, exactly as it does for a
-  // client-side evaluate argument, so they travel unchanged.
+  // The transport codec carries these with their kind intact, as the pinned
+  // serializers do for a client-side evaluate argument, so they travel
+  // unchanged. A typed array keeps its view (a Buffer subarray arrives as
+  // those bytes); the runtime owns what the bytes mean, such as a file.
   if (
     value instanceof RegExp ||
     value instanceof Date ||
     value instanceof URL ||
-    value instanceof Error
+    value instanceof Error ||
+    (ArrayBuffer.isView(value) && !(value instanceof DataView))
   )
     return value;
   // A live Playwright driver object reached the test through an out-of-scope
@@ -730,11 +695,17 @@ type TransportCodec = {
  * The format and its value rules are the pinned utility script's
  * (`packages/isomorphic/utilityScriptSerializers.ts`), which is what the
  * payload met on its way through Playwright before: `Date`, `URL`, `RegExp`,
- * `Error`, `BigInt`, typed arrays and the special numbers keep their kind, a
- * repeated or circular reference stays one object, and any other object
- * travels as its own enumerable properties. Node's side refuses a function
- * the way Playwright's client serializer does; the page's side drops one the
- * way the utility script does.
+ * `Error`, `BigInt`, typed arrays, `ArrayBuffer` and the special numbers keep
+ * their kind, a repeated or circular reference stays one object, and any
+ * other object travels as its own enumerable properties. Node's side refuses
+ * what Playwright's client refuses (`packages/protocol/src/serializers.ts`
+ * and its validator): a function and an invalid `Date`. The page's side drops
+ * a function the way the utility script does.
+ *
+ * The tags are the pinned ones: `v` a special value, `d` Date, `u` URL, `bi`
+ * BigInt, `e` Error (`n`ame, `m`essage, `s`tack), `r` RegExp (`p`attern,
+ * `f`lags), `ta` typed array (`b`ase64, `k`ind), `ab` ArrayBuffer, `a` array
+ * and `o` object (`k`ey/`v`alue entries), each with an `id` that `ref` names.
  *
  * Like the pinned UtilityScript, which takes its builtins when it is
  * constructed, the codec takes every builtin it calls when it is created (in
@@ -785,6 +756,9 @@ function createTransportCodec(side: "node" | "page"): TransportCodec {
   const toBase64 = host.btoa.bind(host) as (text: string) => string;
   const fromBase64 = host.atob.bind(host) as (text: string) => string;
   const Bytes = Uint8Array;
+  // Present in current Chromium; the pinned serializer prefers it too.
+  const nativeToBase64 = (Uint8Array.prototype as any).toBase64;
+  const ArrayBufferConstructor = ArrayBuffer;
   const typedArrayPrototype = getPrototypeOf(Int8Array.prototype);
   const viewBuffer = getOwnPropertyDescriptor(
     typedArrayPrototype,
@@ -848,15 +822,12 @@ function createTransportCodec(side: "node" | "page"): TransportCodec {
       return false;
     }
   };
-  const bytesToBase64 = (view: any) => {
-    const length = apply(viewByteLength, view, []);
-    const bytes = new Bytes(
-      apply(viewBuffer, view, []),
-      apply(viewByteOffset, view, []),
-      length
-    );
+  const bytesToBase64 = (bytes: Uint8Array) => {
+    if (typeof nativeToBase64 === "function")
+      return apply(nativeToBase64, bytes, []) as string;
+    const length = apply(viewByteLength, bytes, []);
     let binary = "";
-    for (let i = 0; i < length; i++) binary += fromCharCode(bytes[i]);
+    for (let i = 0; i < length; i++) binary += fromCharCode(bytes[i]!);
     return toBase64(binary);
   };
   const base64ToBytes = (base64: string) => {
@@ -927,10 +898,14 @@ function createTransportCodec(side: "node" | "page"): TransportCodec {
     }
     if (isKind(value, DateConstructor, "[object Date]")) {
       const time = apply(dateValue, value, []);
-      return tagged(
-        "d",
-        isFiniteNumber(time) ? apply(dateToISOString, value, []) : null
-      );
+      if (isFiniteNumber(time))
+        return tagged("d", apply(dateToISOString, value, []));
+      // The protocol validator requires the ISO string an invalid Date lacks.
+      if (!pageSide)
+        throw new TypeError(
+          "Attempting to serialize an invalid Date: expected string, got object"
+        );
+      return tagged("d", null);
     }
     if (isKind(value, URLConstructor, "[object URL]"))
       return tagged("u", apply(urlToJSON, value, []));
@@ -944,10 +919,21 @@ function createTransportCodec(side: "node" | "page"): TransportCodec {
       const kind = typedArrayKinds[i]!;
       if (isKind(value, kind[1], kind[2])) {
         const typedArray = create(null);
-        typedArray.b = bytesToBase64(value);
+        typedArray.b = bytesToBase64(
+          new Bytes(
+            apply(viewBuffer, value, []),
+            apply(viewByteOffset, value, []),
+            apply(viewByteLength, value, [])
+          )
+        );
         typedArray.k = kind[0];
         return tagged("ta", typedArray);
       }
+    }
+    if (isKind(value, ArrayBufferConstructor, "[object ArrayBuffer]")) {
+      const arrayBuffer = create(null);
+      arrayBuffer.b = bytesToBase64(new Bytes(value));
+      return tagged("ab", arrayBuffer);
     }
 
     const id = apply(visitedGet, visitor.visited, [value]);
@@ -1042,6 +1028,8 @@ function createTransportCodec(side: "node" | "page"): TransportCodec {
           return new kind[1](apply(viewBuffer, base64ToBytes(value.ta.b), []));
       }
     }
+    if (owns(value, "ab"))
+      return apply(viewBuffer, base64ToBytes(value.ab.b), []);
     return value;
   }
 
@@ -1088,13 +1076,26 @@ async function evaluateInTransport(
   );
 }
 
+/**
+ * Runs `pageFunctionSource` with `arg` on the transport through `realPage`'s
+ * own evaluate. Page code has no access to it, so it serves the fixture's
+ * bookkeeping and the guards that prove the codec.
+ */
+export function evaluateInPageTransport(
+  realPage: Page,
+  pageFunctionSource: string,
+  arg?: unknown
+): Promise<unknown> {
+  return evaluateInTransport(
+    (pageFunction, payload) => realPage.evaluate(pageFunction, payload),
+    pageFunctionSource,
+    arg
+  );
+}
+
 /** The execution evidence the bridge recorded in the page's document. */
 export function readAdapterEvidence(realPage: Page): Promise<unknown> {
-  return evaluateInTransport(
-    (pageFunction, arg) => realPage.evaluate(pageFunction, arg),
-    "() => window.__pwLiteEvidence",
-    undefined
-  );
+  return evaluateInPageTransport(realPage, "() => window.__pwLiteEvidence");
 }
 
 // ── Adapter bundle ──────────────────────────────────────────────────
@@ -1158,11 +1159,11 @@ export async function createAdapterPage(
           });
         }`
       : "") +
-    `\n(${initializeAdapterBridge.toString()})(${JSON.stringify(
-      timeoutDefaults.sabotagedMethod ?? null
-    )}, ${JSON.stringify(
-      timeoutDefaults.sabotagedMatcher ?? null
-    )}, ${JSON.stringify(timeoutDefaults.expectTimeout ?? null)}, (${createTransportCodec.toString()})("page"));`;
+    `\n(${initializeAdapterBridge.toString()})(${JSON.stringify({
+      sabotagedMethod: timeoutDefaults.sabotagedMethod ?? null,
+      sabotagedMatcher: timeoutDefaults.sabotagedMatcher ?? null,
+      expectTimeout: timeoutDefaults.expectTimeout ?? null,
+    } satisfies BridgeSettings)}, (${createTransportCodec.toString()})("page"));`;
 
   // Single init script: on every navigation, inject the adapter bundle
   // and create the adapter page from the current window.
@@ -1318,8 +1319,8 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
             return adapterMember("goto")(...args);
           nativeOperationLog(realPage).push("Page.goto");
           const response = await realPage.goto(...args);
-          await evaluateInTransport(
-            (pageFunction, arg) => realPage.evaluate(pageFunction, arg),
+          await evaluateInPageTransport(
+            realPage,
             "(prior) => window.__pwLiteRestoreEvidence(prior)",
             previous
           );
@@ -2375,10 +2376,14 @@ function installBuiltins() {
   };
 }
 
+type BridgeSettings = {
+  sabotagedMethod: string | null;
+  sabotagedMatcher: string | null;
+  expectTimeout: number | null;
+};
+
 function initializeAdapterBridge(
-  sabotagedMethod: string | null,
-  sabotagedMatcher: string | null,
-  expectTimeout: number | null,
+  { sabotagedMethod, sabotagedMatcher, expectTimeout }: BridgeSettings,
   transport: TransportCodec
 ) {
   const host = window as any;
@@ -2390,7 +2395,6 @@ function initializeAdapterBridge(
   const isArray = Array.isArray;
   const { defineProperty, getPrototypeOf, keys } = Object;
   const objectPrototype = Object.prototype;
-  const Bytes = Uint8Array;
   const trim = String.prototype.trim;
   const startsWith = String.prototype.startsWith;
   const slice = String.prototype.slice;
@@ -2570,25 +2574,13 @@ function initializeAdapterBridge(
       throw error;
     }
   };
-  const typedArrayConstructors: Record<string, any> = {
-    i8: Int8Array,
-    ui8: Uint8Array,
-    ui8c: Uint8ClampedArray,
-    i16: Int16Array,
-    ui16: Uint16Array,
-    i32: Int32Array,
-    ui32: Uint32Array,
-    f32: Float32Array,
-    f64: Float64Array,
-    bi64: BigInt64Array,
-    bui64: BigUint64Array,
-  };
   // Mirrors pinned server/javascript.ts normalizeExpression: a method
   // shorthand (`foo() {}`) only becomes an expression once it is prefixed.
   // Rebuilding the caller's function keeps its source, which the adapter
   // stringifies again for its own serialization and error messages. The
   // callback has no Node closure, but the name `expect` resolves to the
-  // adapter's public expect, so a handler can assert on its generic matchers.
+  // adapter's public expect (configured with the runner's expect timeout), so
+  // a handler can assert on its generic matchers.
   host.__pwLiteReconstructFunction = function reconstruct(source: string) {
     let result = apply(trim, source, []);
     try {
@@ -2607,12 +2599,6 @@ function initializeAdapterBridge(
     if (isArray(value)) return each(value, decode);
     if (typeof value.__pwLiteFunctionSource === "string")
       return host.__pwLiteReconstructFunction(value.__pwLiteFunctionSource);
-    if (value.__pwLiteTypedArray) {
-      const { k, b } = value.__pwLiteTypedArray;
-      const bytes = new Bytes(b.length);
-      for (let i = 0; i < b.length; i++) bytes[i] = b[i];
-      return new typedArrayConstructors[k](bytes.buffer);
-    }
     if (typeof value.__pwLiteAbortSignal === "string") {
       let controller = host.__pwLiteAbortSignals.get(value.__pwLiteAbortSignal);
       if (!controller) {

@@ -13,7 +13,11 @@ import {
   test as base,
   expect,
 } from "@playwright/test";
-import { createAdapterPage, readAdapterEvidence } from "./adapter-bridge";
+import {
+  createAdapterPage,
+  evaluateInPageTransport,
+  readAdapterEvidence,
+} from "./adapter-bridge";
 import { test as corpusTest, expect as corpusExpect } from "./pageTest";
 import { TestServer } from "./testServer";
 
@@ -591,6 +595,123 @@ test("the transport does not depend on the page's prototypes", async ({
     expect.arrayContaining(["Page.title", "Page.evaluate"])
   );
   expect((page as any).__pwLiteTransportFailures).toEqual([]);
+});
+
+// The codec's value rules, proven without the adapter: every pinned value
+// kind crosses to a page whose Array.prototype is busted and comes back.
+test("the transport round-trips every pinned value kind on a busted page", async ({
+  page,
+  adapterPage: _adapterPage,
+}) => {
+  await page.evaluate(() => {
+    (Array.prototype as any).map = null;
+    (Array.prototype as any).push = null;
+    (Array.prototype as any).toJSON = () => "busted array";
+    (Object.prototype as any).toJSON = () => "busted object";
+  });
+  const error = new Error("boom");
+  error.name = "CustomError";
+  const shared = { shared: true };
+  const cycle: Record<string, unknown> = { name: "cycle" };
+  cycle.self = cycle;
+  const typedArrays = [
+    new Int8Array([-1, 2]),
+    new Uint8Array([0, 255]),
+    new Uint8ClampedArray([0, 255]),
+    new Int16Array([-300, 300]),
+    new Uint16Array([0, 65535]),
+    new Int32Array([-70000, 70000]),
+    new Uint32Array([0, 4294967295]),
+    new Float32Array([1.5, -2.5]),
+    new Float64Array([Math.PI, -0]),
+    new BigInt64Array([-1n, 2n]),
+    new BigUint64Array([0n, 18446744073709551615n]),
+  ];
+  const value = {
+    special: [undefined, null, NaN, Infinity, -Infinity, -0],
+    bigint: 12345678901234567890n,
+    error,
+    date: new Date("2020-05-27T01:31:38.506Z"),
+    url: new URL("https://example.com/path?q=1"),
+    regexp: /hel+o/gim,
+    typedArrays,
+    arrayBuffer: new Uint8Array([1, 2, 3]).buffer,
+    references: [shared, shared],
+    cycle,
+  };
+
+  const echoed = (await evaluateInPageTransport(
+    page,
+    String((received: any) => ({
+      received,
+      inPage: {
+        special: [
+          received.special.length,
+          received.special[0] === undefined,
+          received.special[1] === null,
+          Number.isNaN(received.special[2]),
+          received.special[3] === Infinity,
+          received.special[4] === -Infinity,
+          Object.is(received.special[5], -0),
+        ],
+        bigint: typeof received.bigint,
+        error: [received.error instanceof Error, received.error.name],
+        date: received.date instanceof Date,
+        url: received.url instanceof URL,
+        regexp: received.regexp instanceof RegExp,
+        typedArrays: Array.from(received.typedArrays as unknown[], (item) =>
+          Object.prototype.toString.call(item)
+        ),
+        arrayBuffer: received.arrayBuffer instanceof ArrayBuffer,
+        references: received.references[0] === received.references[1],
+        cycle: received.cycle.self === received.cycle,
+      },
+    })),
+    value
+  )) as { received: typeof value; inPage: Record<string, unknown> };
+
+  expect(echoed.inPage).toEqual({
+    special: [6, true, true, true, true, true, true],
+    bigint: "bigint",
+    error: [true, "CustomError"],
+    date: true,
+    url: true,
+    regexp: true,
+    typedArrays: typedArrays.map((item) => Object.prototype.toString.call(item)),
+    arrayBuffer: true,
+    references: true,
+    cycle: true,
+  });
+  const { received } = echoed;
+  expect(received.special).toHaveLength(6);
+  expect(received.special.slice(0, 5)).toEqual([
+    undefined,
+    null,
+    NaN,
+    Infinity,
+    -Infinity,
+  ]);
+  expect(Object.is(received.special[5], -0)).toBe(true);
+  expect(received.bigint).toBe(12345678901234567890n);
+  expect(received.error).toBeInstanceOf(Error);
+  expect([received.error.name, received.error.message]).toEqual([
+    "CustomError",
+    "boom",
+  ]);
+  expect(received.date).toEqual(value.date);
+  expect(received.url).toEqual(value.url);
+  expect(received.regexp).toEqual(value.regexp);
+  expect(received.typedArrays).toEqual(typedArrays);
+  expect(received.arrayBuffer).toBeInstanceOf(ArrayBuffer);
+  expect([...new Uint8Array(received.arrayBuffer)]).toEqual([1, 2, 3]);
+  expect(received.references[0]).toBe(received.references[1]);
+  expect(received.cycle.self).toBe(received.cycle);
+  expect((page as any).__pwLiteTransportFailures).toEqual([]);
+
+  // An invalid Date never reaches the page, as Playwright's validator refuses it.
+  await expect(
+    evaluateInPageTransport(page, "(value) => value", new Date(NaN))
+  ).rejects.toThrow("Attempting to serialize an invalid Date");
 });
 
 test("a destroyed execution context is a transport failure even when page code caused it", async ({
