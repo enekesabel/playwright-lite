@@ -126,6 +126,11 @@
       "evidence": "The unchanged regression test churns the target in requestAnimationFrame and awaits Page.isVisible ten times without rejection. Every Page.isVisible call enters the browser adapter; Page.setContent is setup only."
     },
     {
+      "id": "elementhandle-convenience.spec.ts > should have a nice preview",
+      "method": "ElementHandle.toString",
+      "evidence": "After native goto loads dom.html, String() on the Page.$ handles for #outer, #inner and #check, and on the Text-node handle that ElementHandle.evaluateHandle returns for #inner's firstChild, gives the pinned node previews: 'JSHandle@<div id=\"outer\" name=\"value\">…</div>', 'JSHandle@<div id=\"inner\">Text,↵more text</div>', 'JSHandle@#text=Text,↵more text' and 'JSHandle@<input checked id=\"check\" foo=\"bar\"\" type=\"checkbox\"/>'. The adapter computes each description in the browser when the handle is created; the bridge's handle proxy replays that adapter-produced description for the synchronous JSHandle.toString()."
+    },
+    {
       "id": "elementhandle-convenience.spec.ts > should have a nice preview for non-ascii attributes/children",
       "method": "ElementHandle.toString",
       "evidence": "String(handle) for a div whose title and text are each 100 '😛' is 'JSHandle@<div title=\"<100 emoji>\"><49 emoji>…</div>': the preview keeps the attribute whole and cuts the text child at 50 code points without splitting a surrogate pair, the pinned node preview."
@@ -134,6 +139,11 @@
       "id": "elementhandle-convenience.spec.ts > textContent should work",
       "method": "ElementHandle.textContent",
       "evidence": "The #inner handle returns 'Text,\\nmore text' with the source newline intact, so textContent returns the raw concatenated text of the subtree without rendering-time whitespace collapsing."
+    },
+    {
+      "id": "elementhandle-convenience.spec.ts > textContent should work on ShadowRoot",
+      "method": "ElementHandle.textContent",
+      "evidence": "The ShadowRoot handle that ElementHandle.evaluateHandle(div => div.shadowRoot) returns reads textContent 'hello' from its <div>hello</div> child, and ElementHandle.$$(':scope div') on it returns [], so :scope does not match a ShadowRoot. Native setContent only establishes the document."
     },
     {
       "id": "elementhandle-eval-on-selector.spec.ts > should not throw in case of missing selector for all",
@@ -1922,6 +1932,11 @@
       "evidence": "Assertions verify Locator and Page enabled and disabled state across ordinary and disabled elements using InjectedScript element-state semantics."
     },
     {
+      "id": "locator-convenience.spec.ts > should have a nice preview",
+      "method": "ElementHandle.toString",
+      "evidence": "After native goto loads dom.html, the Text-node handle that Locator.evaluateHandle(e => e.firstChild) returns for locator('#outer').locator('#inner') prints 'JSHandle@#text=Text,↵more text'. The adapter computes that description in the browser when the handle is created, and the bridge's handle proxy replays that adapter-produced description for the synchronous JSHandle.toString(). The three String(locator) assertions are answered by the bridge in Node and prove nothing about the adapter."
+    },
+    {
       "id": "locator-convenience.spec.ts > textContent should work",
       "method": "Locator.textContent",
       "evidence": "Locator.textContent and Page.textContent on #inner return 'Text,\\nmore text' with the source newline intact, the raw text of the subtree without rendering-time whitespace collapsing."
@@ -3335,6 +3350,11 @@
       "id": "page-dispatchevent.spec.ts > should dispatch drag drop events via ElementHandles",
       "method": "ElementHandle.dispatchEvent",
       "evidence": "The same drag and drop dispatched from element handles unwraps the DataTransfer handle in their eventInit and moves the source into the target. Native goto only establishes the document."
+    },
+    {
+      "id": "page-dispatchevent.spec.ts > should dispatch wheel event",
+      "method": "Locator.dispatchEvent",
+      "evidence": "Locator.dispatchEvent('wheel', { deltaX: 100, deltaY: 200 }) on body delivers exactly one event to the listener that Locator.evaluateHandle installed; the listener's array, read back through JSHandle.evaluate, holds a WheelEvent whose deltaX and deltaY are 100 and 200. Native goto only loads scrollable.html."
     },
     {
       "id": "page-dispatchevent.spec.ts > should not fail when element is blocked on hover",
@@ -5131,6 +5151,11 @@
       "id": "selectors-css.spec.ts > should use light DOM structure for child combinator with slotted content",
       "method": "Page.$eval",
       "evidence": "'my-button > div' and 'my-button > .content' resolve the slotted child, so the child combinator follows the light-DOM tree rather than the shadow tree the <slot> renders it into."
+    },
+    {
+      "id": "selectors-css.spec.ts > should work for open shadow roots",
+      "method": "Page.$eval",
+      "evidence": "On deep-shadow.html, css= selectors through Page.$eval and Page.$ pierce nested open shadow roots in descendant, child, sibling, attribute-escape and :nth-child forms, and return null where nothing matches. Scoped to handles, ElementHandle.$eval finds #target from a host, css:light finds it only from the ShadowRoot handle that ElementHandle.evaluateHandle returns, and ElementHandle.$ with css:light returns null from the hosts. Native goto only loads deep-shadow.html."
     },
     {
       "id": "selectors-css.spec.ts > should work with :has",
