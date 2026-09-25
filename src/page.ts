@@ -672,7 +672,7 @@ export class PageImpl {
       `Expect "${isNot ? "not " : ""}${matcherName ?? expression}" with timeout ${timeout}ms`,
     ];
 
-    if (signal?.aborted) return abortedExpectationResult(isNot, signal, log);
+    if (signal?.aborted) return alreadyAbortedExpectationResult(isNot, signal);
 
     const deadline = Date.now() + timeout;
 
@@ -751,12 +751,7 @@ export class PageImpl {
       return { matches, received };
     };
 
-    if (signal?.aborted)
-      return {
-        matches: isNot,
-        errorMessage: `Error: The assertion was aborted: ${abortReason(signal)}`,
-        log: [log[0], `- operation was aborted: ${abortReason(signal)}`],
-      };
+    if (signal?.aborted) return alreadyAbortedExpectationResult(isNot, signal);
 
     let last = read();
     if (last.matches !== isNot)
@@ -5166,14 +5161,28 @@ function missingExpectationAttempt(
   return { matches: isNot, missing: true };
 }
 
+/**
+ * The pinned client rejects an expectation whose signal is already aborted
+ * before it reaches the server, so the failure carries no call log and no
+ * received value.
+ */
+function alreadyAbortedExpectationResult(
+  isNot: boolean,
+  signal: AbortSignal
+): { matches: boolean; errorMessage: string } {
+  return {
+    matches: isNot,
+    errorMessage: `Error: The assertion was aborted: ${abortReason(signal)}`,
+  };
+}
+
 function abortedExpectationResult(
   isNot: boolean,
   signal: AbortSignal,
   log: string[] = []
 ): LocatorExpectationResult {
   return {
-    matches: isNot,
-    errorMessage: `Error: The assertion was aborted: ${abortReason(signal)}`,
+    ...alreadyAbortedExpectationResult(isNot, signal),
     log: [...log, "operation was aborted"],
   };
 }
