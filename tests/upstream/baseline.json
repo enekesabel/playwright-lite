@@ -673,6 +673,12 @@
       "evidence": "An unchecked checkbox times out toBeChecked({ timeout: 1000 }) with Playwright's exact header (Locator, Expected: checked, Received: unchecked, Timeout: 1000ms) and the call-log line - Expect \"toBeChecked\" with timeout 1000ms."
     },
     {
+      "id": "expect-boolean.spec.ts > toBeChecked > fail missing",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "With no input2 element, not.toBeChecked({ timeout: 1000 }) rejects with Playwright's exact message (Locator: locator('input2'), Expected: not checked, Timeout: 1000ms, Error: element(s) not found) and a call log of - Expect \"not toBeChecked\" with timeout 1000ms followed by - waiting for locator('input2') in the pinned locator syntax."
+    },
+    {
       "id": "expect-boolean.spec.ts > toBeChecked > fail with checked:false",
       "method": "Locator._expect",
       "matcher": "Locator.toBeChecked",
@@ -1165,6 +1171,12 @@
       "evidence": "toHaveCount(2) is still pending after 1s with one option (done stays false) and resolves after a second setContent renders two options, proving the public Locator matcher retries until the count matches. Both setContent calls run natively; the second is the mid-test mutation the matcher waits for."
     },
     {
+      "id": "expect-misc.spec.ts > toHaveCount should not produce logs twice",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCount",
+      "evidence": "With one option, toHaveCount(2, { timeout: 2000 }) rejects with a call log that names waiting for locator('option') exactly once, then locator resolved to 1 element and unexpected value \"1\" in the pinned quoting."
+    },
+    {
       "id": "expect-misc.spec.ts > toHaveCSS > custom css properties",
       "method": "Locator._expect",
       "matcher": "Locator.toHaveCSS",
@@ -1273,6 +1285,18 @@
       "evidence": "toHaveJSProperty('foo', undefined) resolves for an element that never had the property."
     },
     {
+      "id": "expect-misc.spec.ts > toHaveText should not produce logs twice",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "With <div>hello</div>, toHaveText('world', { timeout: 2000 }) rejects with a call log that names waiting for locator('div') exactly once, then locator resolved to <div>hello</div> and unexpected value \"hello\"."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveText that does not match should not produce logs twice",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "With no span, toHaveText('world', { timeout: 2000 }) rejects with a call log that names waiting for locator('span') exactly once and reports no resolved locator."
+    },
+    {
       "id": "expect-misc.spec.ts > toHaveTitle > fail",
       "method": "Page._expect",
       "matcher": "Page.toHaveTitle",
@@ -1307,6 +1331,12 @@
       "method": "Page._expect",
       "matcher": "Page.toHaveURL",
       "evidence": "toHaveURL('DATA:teXT/HTml,<div>a</div>', { ignoreCase: true }) matches the current-document data: URL case-insensitively; native goto is setup only."
+    },
+    {
+      "id": "expect-timeout.spec.ts > should fail like a timeout when the signal is aborted mid-assertion",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "Aborting the signal 500ms into toBeVisible({ timeout: 5000, signal }) on a missing span rejects with a non-AbortError in Playwright's timeout form without a Timeout line: Locator: locator('span'), Expected: visible, Error: element(s) not found, and a call log of the Expect line, - waiting for locator('span') and - operation was aborted: stop it."
     },
     {
       "id": "expect-timeout.spec.ts > should fail like a timeout when toHaveCount is aborted mid-assertion",
@@ -1474,6 +1504,12 @@
       "method": "Locator._expect",
       "matcher": "Locator.toHaveText",
       "evidence": "not.toHaveText resolves for a different string and for a case mismatch, so matching is case-sensitive by default."
+    },
+    {
+      "id": "expect-to-have-text.spec.ts > not.toHaveText > should work when selector does not match",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "With no span, not.toHaveText('hello', { timeout: 1000 }) rejects with Expected: not \"hello\", Error: element(s) not found and a call log naming waiting for locator('span')."
     },
     {
       "id": "expect-to-have-text.spec.ts > toContainText with array > fail",
@@ -2314,6 +2350,12 @@
       "id": "locator-wait-for-function.spec.ts > should wait for element to appear and survive rerender",
       "method": "Locator.waitForFunction",
       "evidence": "The locator matches nothing at first and its element is replaced on every tick; the wait still resolves on the third render, proving the selector is re-resolved on every poll."
+    },
+    {
+      "id": "matchers.misc.spec.ts > should print no-locator-resolved error when locator matcher did not resolve to any element",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeAttached",
+      "evidence": "With expect.configure({ timeout: 10 }) and no .nonexisting element, toBeAttached, toHaveJSProperty, not.toHaveText and toContainText (string and RegExp forms) each reject with an Error whose message names waiting for locator('.nonexisting') and Error: element(s) not found."
     },
     {
       "id": "page-add-script-tag.spec.ts > should throw a nice error when the request fails",

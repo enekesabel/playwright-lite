@@ -119,14 +119,17 @@ describe("expect(locator)", () => {
         timeout: 200,
         signal: controller.signal,
       })
-    ).rejects.toThrow("The assertion was aborted: stop it");
+    ).rejects.toThrow(
+      /Error: element\(s\) not found\n\nCall log:[\s\S]*\n {2}- operation was aborted: stop it\n$/
+    );
     await expect(
       browserExpect(page.locator("#value"), "custom message").toHaveText(
         "expected",
         { timeout: 20 }
       )
     ).rejects.toThrow(
-      /custom message[\s\S]*expect\(locator\)\.toHaveText\(expected\) failed[\s\S]*Expected:[\s\S]*Received:[\s\S]*Timeout: +20ms[\s\S]*Call log:/
+      // Contract coverage: pinned heads the call log with the custom message.
+      /custom message[\s\S]*expect\(locator\)\.toHaveText\(expected\) failed[\s\S]*Expected:[\s\S]*Received:[\s\S]*Timeout: +20ms[\s\S]*Call log:\n {2}- custom message with timeout 20ms\n/
     );
   });
 
@@ -150,10 +153,11 @@ describe("expect(locator)", () => {
     expect(error.message).toContain("locator resolved to <input");
     expect(error.message).toContain('unexpected value "unchecked"');
     expect(error.matcherResult?.timeout).toBe(20);
+    // Contract coverage: the corpus checks only that `log` is an array.
     expect(error.matcherResult?.log).toEqual(
       expect.arrayContaining([
-        'Expect "toBeChecked" with timeout 20ms',
-        'unexpected value "unchecked"',
+        '  - Expect "toBeChecked" with timeout 20ms',
+        '    - unexpected value "unchecked"',
       ])
     );
 
@@ -169,6 +173,48 @@ describe("expect(locator)", () => {
       )) as Error & { matcherResult?: Record<string, unknown> };
     expect(ariaError.matcherResult?.actual).toContain('heading "Title"');
     expect(ariaError.matcherResult).toHaveProperty("ariaSnapshot");
+  });
+
+  // Contract coverage: the corpus asserts call logs only for CSS locators and
+  // for counts that found an element.
+  it("renders the call log's locator and a missing count like pinned Playwright", async () => {
+    document.body.innerHTML = "<div>no buttons</div>";
+    const page = createPage();
+    const byRole = (await browserExpect(
+      page.getByRole("button", { name: "Go" })
+    )
+      .toBeVisible({ timeout: 20 })
+      .catch((error: Error) => error)) as Error;
+    expect(byRole.message).toContain(
+      "\nCall log:\n" +
+        '  - Expect "toBeVisible" with timeout 20ms\n' +
+        "  - waiting for getByRole('button', { name: 'Go' })\n"
+    );
+
+    const count = (await browserExpect(page.locator("span"))
+      .toHaveCount(2, { timeout: 20 })
+      .catch((error: Error) => error)) as Error;
+    expect(count.message).toContain(
+      "  - waiting for locator('span')\n" +
+        "    - locator resolved to 0 elements\n" +
+        '    - unexpected value "0"\n'
+    );
+  });
+
+  // Contract coverage: the corpus aborts only with an Error or string reason.
+  it("reports an already-aborted signal without a reason detail when the reason is null", async () => {
+    document.body.innerHTML = "<div>content</div>";
+    const controller = new AbortController();
+    controller.abort(null);
+    const error = (await browserExpect(createPage().locator("div"))
+      .toBeHidden({ signal: controller.signal })
+      .catch((reason: Error) => reason)) as Error;
+    expect(error.message).toBe(
+      "expect(locator).toBeHidden() failed\n\n" +
+        "Locator: locator('div')\n" +
+        "Expected: hidden\n" +
+        "Error: The assertion was aborted\n"
+    );
   });
 
   it("rejects invalid scalar text expectations before querying the document", async () => {
@@ -570,6 +616,14 @@ describe("public expect", () => {
   });
 });
 
+/**
+ * The test runner's own document element carries attributes of its choosing;
+ * the call log previews it, so only the element's shape is compared.
+ */
+function withoutHtmlAttributes(message: string): string {
+  return message.replace(/<html\b[^>\n]*>…<\/html>/, "<html>…</html>");
+}
+
 describe("Page assertions", () => {
   it("does not treat Page-shaped lookalikes as Pages", () => {
     let pageExpectCalled = false;
@@ -688,6 +742,7 @@ describe("Page assertions", () => {
       '- Expect "toHaveTitle" with timeout 20ms'
     );
 
+    // Contract coverage: the corpus aborts toHaveTitle only before it starts.
     const controller = new AbortController();
     const pending = browserExpect(page).toHaveTitle("Hello", {
       timeout: 200,
@@ -695,10 +750,24 @@ describe("Page assertions", () => {
     });
     window.setTimeout(() => controller.abort(new Error("stop it")), 10);
     const aborted = (await pending.catch((error: Error) => error)) as Error;
-    expect(aborted.message).toContain(
-      "Error: The assertion was aborted: stop it"
+    expect(withoutHtmlAttributes(aborted.message)).toBe(
+      "expect(page).toHaveTitle(expected) failed\n\n" +
+        'Expected: "Hello"\n' +
+        'Received: "Bye"\n\n' +
+        "Call log:\n" +
+        '  - Expect "toHaveTitle" with timeout 200ms\n' +
+        "    - locator resolved to <html>…</html>\n" +
+        '    - unexpected value "Bye"\n' +
+        "  - operation was aborted: stop it\n"
     );
-    expect(aborted.message).not.toContain("Timeout:");
+
+    // Contract coverage: the corpus never fails a negated page assertion.
+    const negated = (await browserExpect(page)
+      .not.toHaveTitle("Bye", { timeout: 20 })
+      .catch((error: Error) => error)) as Error;
+    expect(negated.message).toContain(
+      '\nCall log:\n  - Expect "not toHaveTitle" with timeout 20ms\n'
+    );
 
     const alreadyAborted = new AbortController();
     alreadyAborted.abort(new Error("already aborted"));
@@ -716,6 +785,9 @@ describe("Page assertions", () => {
       .catch((error: Error) => error)) as Error;
     expect(custom.message).toContain(
       "custom title\n\nexpect(page).toHaveTitle"
+    );
+    expect(custom.message).toContain(
+      "\nCall log:\n  - custom title with timeout 20ms\n"
     );
   });
 
@@ -822,7 +894,10 @@ describe("Page assertions", () => {
       window.setTimeout(() => controller.abort("stop it"), 10);
       const aborted = (await pending.catch((error: Error) => error)) as Error;
       expect(aborted.message).toContain(
-        "Error: The assertion was aborted: stop it"
+        `Expected: ${JSON.stringify(`${original}#missing`)}\nReceived: ${JSON.stringify(original)}\n\nCall log:\n`
+      );
+      expect(aborted.message).toMatch(
+        /\n {2}- operation was aborted: stop it\n$/
       );
 
       const custom = (await browserExpect(page, "custom URL")
@@ -898,14 +973,15 @@ describe("Page assertions", () => {
     const regexFailure = (await browserExpect(page)
       .toHaveTitle(/Hello/, { timeout: 20 })
       .catch((error: Error) => error)) as Error;
-    expect(regexFailure.message).toBe(
+    expect(withoutHtmlAttributes(regexFailure.message)).toBe(
       "expect(page).toHaveTitle(expected) failed\n\n" +
         "Expected pattern: /Hello/\n" +
         'Received string:  "Bye"\n' +
         "Timeout: 20ms\n\n" +
         "Call log:\n" +
-        '- Expect "toHaveTitle" with timeout 20ms\n' +
-        "- waiting for page\n"
+        '  - Expect "toHaveTitle" with timeout 20ms\n' +
+        "    - locator resolved to <html>…</html>\n" +
+        '    - unexpected value "Bye"\n'
     );
   });
 

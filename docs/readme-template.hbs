@@ -179,6 +179,18 @@ A failed assertion throws an error whose `matcherResult` describes the failure: 
 
 {{/each}}
 {{!--
+Failure-message differences shared by every locator and page assertion. The
+message otherwise mirrors pinned matcherHint.ts `formatMatcherMessage` and the
+server call log of `Frame.expect`.
+--}}
+<details>
+<summary>Edge cases</summary>
+
+- A failed locator or page assertion's call log lists its last check once, where Playwright lists every retry and counts repeats, as in `5 × locator resolved to <div>…</div>`.
+
+</details>
+
+{{!--
 Owned by `objectSections` in compatibility/api.ts. Every object section has the
 same layout, and an empty part is omitted:
 1. What it covers (Request and Response: "Reported:" and "Not reported:").

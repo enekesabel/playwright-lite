@@ -365,6 +365,13 @@ A failed assertion throws an error whose `matcherResult` describes the failure: 
 | API response assertions                                                                                 |   🚫   | `toBeOK()` operates on Playwright's Node-side API response objects, which have no in-document counterpart.     |
 | Filesystem-backed snapshot assertions                                                                   |   🚫   | `toMatchSnapshot()` requires filesystem and test-runner state that is unavailable in the browser document.     |
 
+<details>
+<summary>Edge cases</summary>
+
+- A failed locator or page assertion's call log lists its last check once, where Playwright lists every retry and counts repeats, as in `5 × locator resolved to <div>…</div>`.
+
+</details>
+
 ### ElementHandle and JSHandle
 
 The `ElementHandle` and `JSHandle` objects this package returns, for example from `$()`, `waitForSelector()`, `evaluateHandle()` or `locator.elementHandle()`.

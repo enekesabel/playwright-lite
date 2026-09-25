@@ -376,6 +376,7 @@ type PageExpectationTarget = {
       isNot?: boolean;
       signal?: AbortSignal;
       timeout?: number;
+      title?: string;
     }
   ): Promise<PageExpectationResult>;
 };
@@ -383,6 +384,12 @@ type PageExpectationTarget = {
 const DEFAULT_EXPECT_TIMEOUT = 5_000;
 const DEFAULT_INTERVALS = [100, 250, 500, 1_000];
 const META_INFO = Symbol("expectMetaInfo");
+/** The expect step title that heads a locator or page call log. */
+const STEP_TITLE = Symbol("expectStepTitle");
+
+function stepTitle(context: MatcherContext): string | undefined {
+  return (context as { [STEP_TITLE]?: string })[STEP_TITLE];
+}
 const SOFT_UNSUPPORTED =
   "Soft assertions require Playwright Test's failure-reporting context and are not supported by playwright-lite.";
 
@@ -586,7 +593,7 @@ function locatorMatcher(
         timeout,
         signal: options.signal,
       },
-      matcherName
+      stepTitle(this)
     );
     const pass = result.matches;
     if (pass === !this.isNot)
@@ -778,12 +785,16 @@ function formatLocatorMatcherMessage(
     message += details.errorMessage.endsWith("\n")
       ? details.errorMessage
       : `${details.errorMessage}\n`;
-  if (details.log?.some(Boolean))
-    message += `\nCall log:\n${details.log
-      .filter(Boolean)
-      .map((line) => `  - ${line}`)
-      .join("\n")}\n`;
-  return message;
+  return message + callLogText(details.log);
+}
+
+/**
+ * Mirrors pinned 26a9e47 matchers/matcherHint.ts `callLogText`; the seam
+ * already renders each line in the pinned `compressCallLog` shape.
+ */
+function callLogText(log: string[] | undefined): string {
+  if (!log?.some(Boolean)) return "";
+  return `\nCall log:\n${log.join("\n")}\n`;
 }
 
 const locatorMatchers: MatchersObject = {
@@ -1283,8 +1294,7 @@ function pageMatcherMessage(
     message += `Timeout: ${aligned ? " " : ""}${timeout}ms\n`;
   }
   if (result.errorMessage) message += `${result.errorMessage}\n`;
-  if (result.log?.length) message += `\nCall log:\n${result.log.join("\n")}\n`;
-  return message;
+  return message + callLogText(result.log);
 }
 
 function assertPageExpectationTarget(
@@ -1325,6 +1335,7 @@ async function toHaveTitle(
     signal: options.signal,
     timeout:
       options.timeout ?? (this as MatcherContext & { timeout: number }).timeout,
+    title: stepTitle(this),
   });
   return {
     actual: result.received?.value,
@@ -1368,6 +1379,7 @@ async function toHaveURL(
     signal: options.signal,
     timeout:
       options.timeout ?? (this as MatcherContext & { timeout: number }).timeout,
+    title: stepTitle(this),
   });
   return {
     actual: result.received?.value,
@@ -1593,13 +1605,19 @@ function invokeMatcher(
   args: unknown[],
   promise?: "resolves" | "rejects"
 ): InternalMatcherResult | Promise<InternalMatcherResult> {
-  const context: MatcherContext & { timeout: number } = {
+  const context: MatcherContext & {
+    timeout: number;
+    [STEP_TITLE]: string;
+  } = {
     customTesters: [],
     equals: unsupportedMatcherEquality,
     isNot: !!info.isNot,
     promise: promise ?? "",
     timeout: info.timeout ?? DEFAULT_EXPECT_TIMEOUT,
     utils,
+    // Pinned 26a9e47 matchers/expect.ts `callMatcherAsStep` `shortTitle`.
+    [STEP_TITLE]:
+      info.message || `Expect "${info.isNot ? "not " : ""}${matcherName}"`,
   };
   if (!promise)
     return matcher.call(context, actual, ...args) as

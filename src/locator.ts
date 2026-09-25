@@ -403,14 +403,9 @@ export class LocatorImpl {
   async _expect(
     expression: string,
     options: Record<string, unknown>,
-    matcherName?: string
+    title?: string
   ) {
-    return this.ownerPage.expect(
-      this.selector,
-      expression,
-      options,
-      matcherName
-    );
+    return this.ownerPage.expect(this.selector, expression, options, title);
   }
 
   async highlight(
