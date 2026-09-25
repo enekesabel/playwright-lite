@@ -988,6 +988,24 @@
       "evidence": "A rendered button satisfies toBeVisible({ visible: true }) through the correlated Locator.toBeVisible -> Locator._expect path."
     },
     {
+      "id": "expect-matcher-result.spec.ts > toBeChecked({ checked }) should have expected",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "Failing toBeChecked, not.toBeChecked, toBeChecked({ checked: false }), not.toBeChecked({ checked: false }) and toBeChecked({ indeterminate: true }) reject with the adapter's matcherResult whose actual and expected states (checked, unchecked, indeterminate), name, pass, log, timeout and ariaSnapshot match, and with matching error text, through the correlated Locator.toBeChecked -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-matcher-result.spec.ts > toEqual-based assertions should have matcher result",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCount",
+      "evidence": "Failing toHaveCount(1) on a missing element and not.toHaveCount(1) on a present one reject with the adapter's matcherResult (actual and expected counts, name, pass, log, timeout, and no ariaSnapshot) and error text naming the locator, expected, received, timeout and call log, through the correlated Locator.toHaveCount -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-matcher-result.spec.ts > toMatchText-based assertions should have matcher result",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "Failing toHaveText(/Text2/) and not.toHaveText(/Text/) with a 1 ms timeout reject with the adapter's matcherResult (actual text, expected pattern, name, pass, log, timeout, ariaSnapshot) and error text naming the locator, expected pattern, received string, timeout and call log, through the correlated Locator.toHaveText -> Locator._expect path; setContent is native setup only."
+    },
+    {
       "id": "expect-misc.spec.ts > toBeInViewport > should report intersection even if fully covered by other element",
       "method": "Locator._expect",
       "matcher": "Locator.toBeInViewport",
@@ -1088,6 +1106,18 @@
       "method": "Locator._expect",
       "matcher": "Locator.toHaveClass",
       "evidence": "toHaveClass(/c1/) matches the class attribute of an SVG element."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveCount > eventually pass non-zero",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCount",
+      "evidence": "toHaveCount(2) on an initially empty list resolves once a setContent scheduled 500 ms later inserts two items, so the adapter's retrying count check observes the later document through the correlated Locator.toHaveCount -> Locator._expect path; both setContent calls are native setup only."
+    },
+    {
+      "id": "expect-misc.spec.ts > toHaveCount > eventually pass not non-zero",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCount",
+      "evidence": "not.toHaveCount(2) on a two-item list resolves once a setContent scheduled 500 ms later removes both items, so the adapter's retrying negated count check observes the later document through the correlated Locator.toHaveCount -> Locator._expect path; both setContent calls are native setup only."
     },
     {
       "id": "expect-misc.spec.ts > toHaveCount > eventually pass zero",
@@ -1633,6 +1663,72 @@
       "method": "Locator._expect",
       "matcher": "Locator.toHaveValues",
       "evidence": "After an adapter Locator.selectOption(['R', 'G']), toHaveValues(['R', 'G']) matches the selected values of a multi-select."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > containment matchers print full element subtree > toContainText failure includes full element subtree",
+      "method": "Locator._expect",
+      "matcher": "Locator.toContainText",
+      "evidence": "A failing toContainText on a section reports matcherResult.ariaSnapshot containing its full subtree (heading \"Title\", Body), through the correlated Locator.toContainText -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > containment matchers print full element subtree > toHaveText failure includes full element subtree",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "A failing toHaveText on a section reports matcherResult.ariaSnapshot containing its full subtree (heading \"Title\", paragraph, Body), through the correlated Locator.toHaveText -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > hidden or missing elements print full page snapshot > toBeVisible on hidden element prints full page snapshot",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "A failing toBeVisible on a display:none element reports a page-wide matcherResult.ariaSnapshot containing heading \"Page Heading\", through the correlated Locator.toBeVisible -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > matchers that should not include an aria snapshot > toHaveCount failure has no aria snapshot",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCount",
+      "evidence": "A failing toHaveCount(5) rejects with an adapter matcherResult that has no ariaSnapshot, through the correlated Locator.toHaveCount -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > matchers that should not include an aria snapshot > toHaveText with array has no aria snapshot",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "A failing array toHaveText(['a', 'b', 'c']) rejects with an adapter matcherResult that has no ariaSnapshot, through the correlated Locator.toHaveText -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > matchers that should not include an aria snapshot > toMatchAriaSnapshot failure has no extra aria snapshot",
+      "method": "Locator._expect",
+      "matcher": "Locator.toMatchAriaSnapshot",
+      "evidence": "A failing toMatchAriaSnapshot rejects with an adapter matcherResult that has no extra ariaSnapshot, through the correlated Locator.toMatchAriaSnapshot -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > property matchers print only the element line > toBeChecked failure prints just the input",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeChecked",
+      "evidence": "A failing toBeChecked on an unchecked checkbox reports matcherResult.ariaSnapshot containing the checkbox, through the correlated Locator.toBeChecked -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > property matchers print only the element line > toHaveAttribute failure clips descendant subtree",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveAttribute",
+      "evidence": "A failing toHaveAttribute on a list reports matcherResult.ariaSnapshot with the list and listitem but not the heading or paragraph text nested deeper, so the property-matcher snapshot is clipped at depth 1, through the correlated Locator.toHaveAttribute -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > property matchers print only the element line > toHaveCSS failure prints the element line",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveCSS",
+      "evidence": "A failing toHaveCSS on a button reports matcherResult.ariaSnapshot containing the button, through the correlated Locator.toHaveCSS -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > property matchers print only the element line > toHaveRole failure prints just the element line",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveRole",
+      "evidence": "A failing toHaveRole('link') on a button reports matcherResult.ariaSnapshot containing the button, through the correlated Locator.toHaveRole -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > property matchers print only the element line > toHaveValue failure prints the input element",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveValue",
+      "evidence": "A failing toHaveValue on a text input reports matcherResult.ariaSnapshot containing the textbox, through the correlated Locator.toHaveValue -> Locator._expect path; setContent is native setup only."
     },
     {
       "id": "jshandle-as-element.spec.ts > should return ElementHandle for TextNodes",
