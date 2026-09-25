@@ -437,6 +437,56 @@ describe("option-validation", () => {
     );
   });
 
+  // Contract coverage: upstream passes a non-string selector only to page.$
+  // and matches the text without the API name. Pinned protocol validation
+  // declares `selector: tString` for every selector query, and channelOwner.ts
+  // names the member.
+  const selectorQueries: [
+    string,
+    (page: Page, selector: unknown) => Promise<unknown>,
+  ][] = [
+    ["page.$", (page, s) => page.$(s as string)],
+    ["page.$$", (page, s) => page.$$(s as string)],
+    ["page.$eval", (page, s) => page.$eval(s as string, () => 1)],
+    ["page.$$eval", (page, s) => page.$$eval(s as string, () => 1)],
+    ["page.waitForSelector", (page, s) => page.waitForSelector(s as string)],
+    [
+      "elementHandle.$",
+      async (page, s) => (await page.$("body"))!.$(s as string),
+    ],
+    [
+      "elementHandle.$$",
+      async (page, s) => (await page.$("body"))!.$$(s as string),
+    ],
+    [
+      "elementHandle.$eval",
+      async (page, s) => (await page.$("body"))!.$eval(s as string, () => 1),
+    ],
+    [
+      "elementHandle.$$eval",
+      async (page, s) => (await page.$("body"))!.$$eval(s as string, () => 1),
+    ],
+    [
+      "elementHandle.waitForSelector",
+      async (page, s) => (await page.$("body"))!.waitForSelector(s as string),
+    ],
+  ];
+
+  it.each(selectorQueries)(
+    "%s rejects a non-string selector",
+    async (apiName, run) => {
+      document.body.innerHTML = targets;
+      const page = createPage();
+      for (const selector of [null, 1, undefined])
+        await expect(
+          run(page, selector),
+          `${apiName} ${selector}`
+        ).rejects.toThrow(
+          `${apiName}: selector: expected string, got ${typeof selector}`
+        );
+    }
+  );
+
   // Contract coverage: no upstream spec passes a non-boolean `strict` to
   // waitForSelector. Pinned protocol validation rejects one on both forms.
   const waitForSelectorForms: [

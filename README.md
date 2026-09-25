@@ -431,6 +431,7 @@ The `ElementHandle` and `JSHandle` objects this package returns, for example fro
 
 - `toString()` describes the value as it was when the handle was first converted to a string.
 - `toString()` of a handle to a `Proxy` prints the target's class name, such as `Object`, where Playwright prints `Proxy(Object)`.
+- `ElementHandle.waitForSelector()` rejects the legacy `waitFor` and `visibility` options, which Playwright silently drops.
 
 </details>
 

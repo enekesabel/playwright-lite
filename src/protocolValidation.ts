@@ -5,10 +5,31 @@ import { Error, TypeError, Object } from "virtual:playwright-lite-globals";
  * See packages/protocol/src/validatorPrimitives.ts and spec/frame.yml at
  * 26a9e470a7b3c7822084b09fb7f13902c5f37b51.
  */
+/** Pinned validatorPrimitives.ts `ValidationError`: a parameter failed its schema. */
+export class ValidationError extends Error {}
+
 export function validateString(value: unknown, name: string): string {
   if (value instanceof String) return value.valueOf();
   if (typeof value === "string") return value;
-  throw new Error(`${name}: expected string, got ${typeof value}`);
+  throw new ValidationError(`${name}: expected string, got ${typeof value}`);
+}
+
+/**
+ * Pinned channelOwner.ts `_wrapApiCall` prefixes every error with the API
+ * name. The selector queries apply that prefix to a parameter validation
+ * error, such as a non-string selector the shared resolver rejects.
+ */
+export async function withValidationPrefix<T>(
+  apiName: string,
+  run: () => T | Promise<T>
+): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof ValidationError)
+      error.message = `${apiName}: ${error.message}`;
+    throw error;
+  }
 }
 
 export function validateInteger(value: unknown, name: string): number {

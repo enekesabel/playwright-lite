@@ -28,6 +28,8 @@ import {
   validateNoWaitAfter,
   validateSignal,
   validateString,
+  ValidationError,
+  withValidationPrefix,
 } from "./protocolValidation";
 import { AdapterElementHandle } from "./elementHandle";
 import { bindingsFor, type Binding, type BindingOwner } from "./bindings";
@@ -590,9 +592,14 @@ export class PageImpl {
 
   // ── Resolution ──────────────────────────────────────────────────
 
+  /** Pinned protocol validation of every `selector: tString` parameter. */
+  private parseSelector(selector: string) {
+    return this.injected.parseSelector(validateString(selector, "selector"));
+  }
+
   resolveAll(selector: string): Element[] {
     try {
-      const parsed = this.injected.parseSelector(selector);
+      const parsed = this.parseSelector(selector);
       return this.injected.querySelectorAll(parsed, this.document);
     } catch (error) {
       throw presentOriginalXPath(error, selector);
@@ -605,7 +612,7 @@ export class PageImpl {
     strict: boolean
   ): Element | undefined {
     try {
-      const parsed = this.injected.parseSelector(selector);
+      const parsed = this.parseSelector(selector);
       return this.injected.querySelector(parsed, root, strict);
     } catch (error) {
       throw presentOriginalXPath(error, selector);
@@ -614,7 +621,7 @@ export class PageImpl {
 
   resolveAllWithinElement(root: Element, selector: string): Element[] {
     try {
-      const parsed = this.injected.parseSelector(selector);
+      const parsed = this.parseSelector(selector);
       return this.injected.querySelectorAll(parsed, root);
     } catch (error) {
       throw presentOriginalXPath(error, selector);
@@ -644,7 +651,7 @@ export class PageImpl {
   async addHighlight(selector: string, style?: string): Promise<void> {
     if (style !== undefined) style = validateString(style, "style");
     try {
-      this.injected.addHighlight(this.injected.parseSelector(selector), style);
+      this.injected.addHighlight(this.parseSelector(selector), style);
     } catch (error) {
       throw presentOriginalXPath(error, selector);
     }
@@ -652,7 +659,7 @@ export class PageImpl {
 
   async removeHighlight(selector: string): Promise<void> {
     try {
-      this.injected.removeHighlight(this.injected.parseSelector(selector));
+      this.injected.removeHighlight(this.parseSelector(selector));
     } catch (error) {
       throw presentOriginalXPath(error, selector);
     }
@@ -741,17 +748,19 @@ export class PageImpl {
     selector: string,
     options: Pick<SelectorQueryOptions, "strict"> = {}
   ): Promise<AdapterElementHandle | null> {
-    // Pinned FrameQuerySelectorParams validates `selector` before `strict`.
-    selector = validateString(selector, "page.$: selector");
     assertDollarOptions(options);
-    return this.elementHandleFor(
-      this.resolveLocatorElement(selector, options.strict === true)
+    return withValidationPrefix("page.$", () =>
+      this.elementHandleFor(
+        this.resolveLocatorElement(selector, options.strict === true)
+      )
     );
   }
 
   async $$(selector: string): Promise<AdapterElementHandle[]> {
-    return this.resolveAll(selector).map((element) =>
-      this.elementHandleFor(element)!
+    return withValidationPrefix("page.$$", () =>
+      this.resolveAll(selector).map((element) =>
+        this.elementHandleFor(element)!
+      )
     );
   }
 
@@ -760,10 +769,12 @@ export class PageImpl {
     options: WaitForSelectorOptions = {}
   ): Promise<AdapterElementHandle | null> {
     return await withAbortPrefix("page.waitForSelector", () =>
-      this.waitForSelectorInRoot(
-        this.document,
-        selector,
-        withoutLegacyWaitForSelectorOptions(options)
+      withValidationPrefix("page.waitForSelector", () =>
+        this.waitForSelectorInRoot(
+          this.document,
+          selector,
+          withoutLegacyWaitForSelectorOptions(options)
+        )
       )
     );
   }
@@ -774,11 +785,13 @@ export class PageImpl {
     options: WaitForSelectorOptions = {}
   ): Promise<AdapterElementHandle | null> {
     return await withAbortPrefix("elementHandle.waitForSelector", () =>
-      this.waitForSelectorInRoot(
-        root,
-        selector,
-        options,
-        "elementHandle.waitForSelector"
+      withValidationPrefix("elementHandle.waitForSelector", () =>
+        this.waitForSelectorInRoot(
+          root,
+          selector,
+          options,
+          "elementHandle.waitForSelector"
+        )
       )
     );
   }
@@ -1585,15 +1598,21 @@ export class PageImpl {
       this.assertActionDeadline(deadline, "select text");
       const result = this.actionableInjected.selectText(element);
       if (result === "error:notconnected")
-        throw new Error(`Element is not connected for locator ${label}`);
+        throw new Error(
+          typeof selector === "string"
+            ? `Element is not connected for locator ${label}`
+            : "Element is not attached to the DOM"
+        );
     } catch (error) {
+      const result = asError(error);
+      // The caller's withAbortPrefix names an abort.
+      if (result.name === "AbortError") throw result;
       // Page has no selectText: a selector subject is a Locator's.
       const apiName =
         typeof selector === "string"
           ? "locator.selectText"
           : "elementHandle.selectText";
-      const result = asError(error);
-      result.message = result.message.replace(/^select text: /, `${apiName}: `);
+      result.message = `${apiName}: ${result.message.replace(/^select text: /, "")}`;
       throw result;
     }
   }
@@ -3077,7 +3096,9 @@ export class PageImpl {
     arg?: unknown
   ): Promise<T> {
     assertMaxArguments(arguments.length, 3);
-    const element = this.resolveLocatorElement(selector, false);
+    const element = await withValidationPrefix("page.$eval", () =>
+      this.resolveLocatorElement(selector, false)
+    );
     // Pinned server/frames.ts `_evalOnSelector`.
     if (!element)
       throw new Error(
@@ -3098,11 +3119,14 @@ export class PageImpl {
     arg?: unknown
   ): Promise<T> {
     assertMaxArguments(arguments.length, 3);
+    const elements = await withValidationPrefix("page.$$eval", () =>
+      this.resolveAll(selector)
+    );
     return this.evaluation.byValue(
       callback,
       typeof callback === "function",
       arg,
-      this.resolveAll(selector)
+      elements
     );
   }
 
@@ -4216,7 +4240,7 @@ export class PageImpl {
     strict: boolean
   ): Element | undefined {
     try {
-      const parsed = this.injected.parseSelector(selector);
+      const parsed = this.parseSelector(selector);
       return this.injected.querySelector(parsed, this.document, strict);
     } catch (error) {
       throw presentOriginalXPath(error, selector);
@@ -4324,11 +4348,14 @@ export class PageImpl {
     // of `selectText`, and retries both on its backoff schedule.
     const logsAttempts =
       pointerOptions !== undefined || actionName === "select text";
+    // Pinned dom.ts `selectText` passes `'selectText'` to `_retryAction`.
+    const loggedAction =
+      actionName === "select text" ? "selectText" : actionName;
     const timeoutError = () =>
       new AdapterTimeoutError(
         `${actionName}: Timeout ${deadline.timeout}ms exceeded.${lastError ? ` ${lastError.message}` : ""}` +
           (logsAttempts
-            ? `\nCall log:\n  - attempting ${actionName} action${pointerOptions?.trial ? " (trial run)" : ""}\n${log.join("\n")}`
+            ? `\nCall log:\n  - attempting ${loggedAction} action${pointerOptions?.trial ? " (trial run)" : ""}\n${log.join("\n")}`
             : ""),
         { cause: lastError }
       );
@@ -4407,7 +4434,7 @@ export class PageImpl {
           log.push(`  - ${reason}`);
           if (remaining > 0)
             log.push(
-              `  - retrying ${actionName} action`,
+              `  - retrying ${loggedAction} action`,
               `  - waiting ${delay}ms`
             );
           if (log.length > 60) log.splice(0, log.length - 60);
@@ -6505,7 +6532,8 @@ function injectedFillError(
 
 function presentOriginalXPath(error: unknown, selector: string): Error {
   const source = asError(error);
-  if (!selector.startsWith("//")) return source;
+  if (source instanceof ValidationError || !selector.startsWith("//"))
+    return source;
   // The browser evaluates implicit XPath as a relative expression in some
   // engines. Playwright reports the caller's expression, with embedded quotes
   // escaped as they appear in its selector diagnostics.

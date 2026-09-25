@@ -126,6 +126,19 @@ describe("ElementHandle", () => {
       );
   });
 
+  // Contract coverage: the upstream detached specs cover waitForElementState,
+  // not selectText. Pinned dom.ts throws `Element is not attached to the DOM`
+  // and channelOwner.ts names the member.
+  it("names selectText when its element is detached", async () => {
+    document.body.innerHTML = '<input id="input" value="hello">';
+    const handle = (await createPage().$("#input"))!;
+    document.querySelector("#input")!.remove();
+
+    await expect(handle.selectText({ timeout: 50 })).rejects.toThrow(
+      "elementHandle.selectText: Element is not attached to the DOM"
+    );
+  });
+
   // Contract coverage: no upstream spec passes `strict` to the handle form.
   // Pinned Frame.waitForSelector parses the selector with the caller's
   // `strict` and callMatchedElements throws the strict mode violation before
