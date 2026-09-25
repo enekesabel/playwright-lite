@@ -1503,6 +1503,31 @@ async function createElementHandleProxy(
         };
       }
 
+      // So is the handle evaluateHandle answers. The caller's arguments travel
+      // as they were given, so the adapter applies its own argument rules.
+      if (prop === "evaluateHandle") {
+        return async (...args: unknown[]) => {
+          const resultId = await evaluateAdapter<string>(
+            realPage,
+            ({ handleId, args: a }) => {
+              const host = window as any;
+              return host.__pwLiteInvokeAdapter(async () =>
+                host.__pwLiteStoreElementHandle(
+                  await host
+                    .__pwLiteElementHandleForId(handleId)
+                    .evaluateHandle(...host.__pwLiteDecodeBridgeValue(a))
+                )
+              );
+            },
+            {
+              handleId: id,
+              args: encodeBridgeValueForPage(args, realPage) as unknown[],
+            }
+          );
+          return createElementHandleProxy(realPage, state, resultId);
+        };
+      }
+
       if (prop === "getProperties") {
         return async () => {
           const references = await evaluateAdapter<[string, string][]>(
@@ -1802,6 +1827,34 @@ function createLocatorProxy(
             ids.map((id) => createElementHandleProxy(realPage, state, id))
           );
         };
+      }
+
+      // The handle evaluateHandle answers is an adapter handle, stored and
+      // republished as a proxy under the kind its value gives it. The caller's
+      // arguments travel as they were given, like any other Locator member.
+      if (prop === "evaluateHandle") {
+        return async (...args: unknown[]) =>
+          withAbortSignalBridge(realPage, args, async (encodedArgs) => {
+            const id = await evaluateAdapter<string>(
+              realPage,
+              ({ chain: c, args: a }) => {
+                const host = window as any;
+                return host.__pwLiteInvokeAdapter(async () => {
+                  const current: any = host.__pwLiteReplayAdapterChain(c);
+                  return host.__pwLiteStoreElementHandle(
+                    await current.evaluateHandle(
+                      ...host.__pwLiteDecodeBridgeValue(a)
+                    )
+                  );
+                }, a);
+              },
+              {
+                chain: encodeBridgeValueForPage(chain, realPage),
+                args: encodedArgs,
+              }
+            );
+            return createElementHandleProxy(realPage, state, id);
+          });
       }
 
       // Playwright's locator matchers call the private-shaped `_expect`
