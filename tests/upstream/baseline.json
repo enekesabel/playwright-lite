@@ -1053,7 +1053,7 @@
       "id": "expect-matcher-result.spec.ts > toBeTruthy-based assertions should have matcher result",
       "method": "Locator._expect",
       "matcher": "Locator.toBeVisible",
-      "evidence": "A failing toBeVisible on a missing element yields exactly {expected, message, name, pass: false, log, timeout: 1, ariaSnapshot} with no actual key, and not.toBeVisible on a visible one adds actual 'visible'; both error texts match Playwright's header, Locator, Expected/Received, Timeout, element(s) not found and Call log lines."
+      "evidence": "A failing toBeVisible on a missing element yields {expected, message, name, pass: false, log, timeout: 1, ariaSnapshot} with actual present but undefined, as pinned toBeTruthy.ts returns actual: receivedValue; not.toBeVisible on a visible one adds actual 'visible'; both error texts match Playwright's header, Locator, Expected/Received, Timeout, element(s) not found and Call log lines."
     },
     {
       "id": "expect-matcher-result.spec.ts > toEqual-based assertions should have matcher result",
