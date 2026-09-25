@@ -16,6 +16,11 @@
       "evidence": "An <iframe> element handle reports {x:0,y:0,width:300,height:500}: boundingBox measures the iframe element itself in the host document, with its default 300px width and the flex-stretched body height, and never descends into the frame."
     },
     {
+      "id": "elementhandle-bounding-box.spec.ts > should handle scroll offset and click",
+      "method": "Mouse.click",
+      "evidence": "After the window scrolls by (200, 300), Mouse.click at the element's viewport box (30, 40) plus 10 hits it, so its onclick sets __clicked to true; ElementHandle.boundingBox supplies the viewport coordinates. Native setContent only establishes the document."
+    },
+    {
       "id": "elementhandle-bounding-box.spec.ts > should return null for invisible elements",
       "method": "ElementHandle.boundingBox",
       "evidence": "A display:none div yields null, so boundingBox reports the absence of a layout box as null instead of a zero-sized rect or a rejection."
@@ -3246,6 +3251,11 @@
       "evidence": "The visible inline fragment is clicked despite an absolutely positioned offscreen child, and its parent activation flag becomes 42."
     },
     {
+      "id": "page-click.spec.ts > should click with tweened mouse movement",
+      "method": "Locator.click",
+      "evidence": "From the pointer Mouse.move left at (100, 100), Locator.click({ steps: 5 }) dispatches exactly five mousemove events at the interpolated points ending on the element's centre (200, 300): Locator.click moves the pointer page.mouse moved. Native setContent only establishes the document."
+    },
+    {
       "id": "page-click.spec.ts > should click wrapped links",
       "method": "Page.click",
       "evidence": "The actual wrapped-link click handler sets __clicked, proving the selected inline fragment receives the click."
@@ -3339,6 +3349,11 @@
       "id": "page-click.spec.ts > should set PointerEvent.pressure on pointerdown",
       "method": "Page.click",
       "evidence": "The document listeners observe mouse pointer pressure 0.5 on pointerdown and 0 on pointerup from the actual click."
+    },
+    {
+      "id": "page-click.spec.ts > should set PointerEvent.pressure on pointermove",
+      "method": "Mouse.move",
+      "evidence": "pointermove events carry pressure 0 while no button is held (10,10 and 50,50, and 250,250 from the Page.click) and 0.5 at (250, 250) while Mouse.down holds the left button, as crInput.ts sends force 0.5 for a held button. Native setContent only establishes the document."
     },
     {
       "id": "page-click.spec.ts > should throw an Error when aborted in-flight with a string reason",
@@ -3509,6 +3524,16 @@
       "id": "page-dispatchevent.spec.ts > should not fail when element is blocked on hover",
       "method": "Page.dispatchEvent",
       "evidence": "A div becomes pointer-events:auto over the button only on :hover. Page.dispatchEvent still delivers the click to the button without any hover or hit-target check, so window.clicked is truthy. Native setContent only establishes the document."
+    },
+    {
+      "id": "page-drag.spec.ts > should report event.buttons",
+      "method": "Mouse.down",
+      "evidence": "Mouse.move, Mouse.down, Mouse.move and Mouse.up over the div record mousemove buttons 0, mousedown 1, mousemove 1 and mouseup 0: the held left button is reported on the move between press and release. The logs array is read through Page.evaluateHandle and JSHandle.jsonValue."
+    },
+    {
+      "id": "page-drag.spec.ts > should work if not doing a drag",
+      "method": "Mouse.move",
+      "evidence": "With no draggable element, Mouse.move(50, 50), Mouse.down, Mouse.move(100, 100) and Mouse.up record exactly mousemove, mousedown, mousemove and mouseup on html at 50;50, 50;50, 100;100 and 100;100, and no drag event. The listeners are installed through ElementHandle.evaluateHandle and read back with JSHandle.jsonValue."
     },
     {
       "id": "page-drop.spec.ts > should drop a file payload",
@@ -4406,6 +4431,11 @@
       "evidence": "Keyboard.press('Space') on a focused <button> activates it, so its click listener sets clicked to true. Native setContent only establishes the document."
     },
     {
+      "id": "page-keyboard.spec.ts > should dispatch insertText after context menu was opened",
+      "method": "Keyboard.insertText",
+      "evidence": "A right Mouse.click on the textarea fires contextmenu, which the test awaits; Keyboard.insertText('嗨') afterwards still inserts into the textarea, polled through Locator.inputValue. Native goto only establishes the document."
+    },
+    {
       "id": "page-keyboard.spec.ts > should dispatch key events in separate tasks",
       "method": "Keyboard.press",
       "evidence": "A microtask queued in the keydown handler runs before keypress (['keydown','microtask-keydown','keypress','microtask-keypress']), so Keyboard.press delivers each key event in its own task. Native setContent only establishes the document."
@@ -4511,6 +4541,11 @@
       "evidence": "Three invalid keys reach browser Keyboard.press/down and are rejected with the exact unknown-key names asserted by the unchanged test. No native calls or transport failures."
     },
     {
+      "id": "page-keyboard.spec.ts > should type after context menu was opened",
+      "method": "Keyboard.down",
+      "evidence": "Mouse.down with the right button fires contextmenu, which the test awaits; Keyboard.down('ArrowDown') afterwards dispatches a keydown recorded as ArrowDown."
+    },
+    {
       "id": "page-keyboard.spec.ts > should type all kinds of characters",
       "method": "Keyboard.type",
       "evidence": "Keyboard.type of text with a newline and the non-ASCII '嗨' leaves the textarea value exactly equal to the input text. Native goto only establishes the document."
@@ -4596,9 +4631,29 @@
       "evidence": "The unchanged test checks empty enumeration, both written values, getItem, selective removal and final clear through the browser sessionStorage wrapper. Native goto establishes the origin and is not certified."
     },
     {
+      "id": "page-mouse.spec.ts > should always round down",
+      "method": "Mouse.click",
+      "evidence": "Mouse.click(50.1, 50.9) dispatches a mousedown whose clientX and clientY are 50 and 50: MouseEvent coordinates are floored as Chromium reports them."
+    },
+    {
+      "id": "page-mouse.spec.ts > should report correct buttons property",
+      "method": "Mouse.down",
+      "evidence": "Mouse.down(middle) then Mouse.down(left) report mousedown buttons 4 then 5, and Mouse.up(middle) then Mouse.up(left) report mouseup buttons 1 then 0, with the pressed button's code in button: the held-button mask the pointer keeps across calls."
+    },
+    {
+      "id": "page-mouse.spec.ts > should report correct pointerType property",
+      "method": "Mouse.down",
+      "evidence": "After a setup Mouse.move, the recorded Mouse.move, Mouse.down and Mouse.up dispatch exactly pointermove, pointerdown and pointerup, each with pointerType 'mouse' and no other pointer event."
+    },
+    {
       "id": "page-mouse.spec.ts > should set modifier keys on click",
       "method": "Page.click",
       "evidence": "Despite the file name, page.mouse is never called. Page.click's mousedown carries shiftKey, ctrlKey, altKey and metaKey while the matching modifier is held by Keyboard.down, and none of them after Keyboard.up. Native goto only establishes the document."
+    },
+    {
+      "id": "page-mouse.spec.ts > should tween mouse movement",
+      "method": "Mouse.move",
+      "evidence": "Mouse.move(200, 300, { steps: 5 }) from (100, 100) dispatches exactly five mousemove events at the interpolated points, the last on the destination, as pinned server Mouse.move does."
     },
     {
       "id": "page-network-request.spec.ts > should parse the data if content-type is application/x-www-form-urlencoded; charset=UTF-8",
@@ -6135,6 +6190,36 @@
       "method": "Page._expect",
       "matcher": "Page.toMatchAriaSnapshot",
       "evidence": "A `/url: /[a/` template, an invalid regular expression, is compared as a string and rejects with the page header and a diff of `/url: /[a/` against `/url: /foo`; setContent is native setup only."
+    },
+    {
+      "id": "wheel.spec.ts > should dispatch wheel event on svg element",
+      "method": "Mouse.wheel",
+      "evidence": "Mouse.wheel(0, 100) over an svg dispatches a wheel event on it with clientX/clientY 100, deltaMode 0 and no modifiers. Native setContent only establishes the document."
+    },
+    {
+      "id": "wheel.spec.ts > should dispatch wheel events @smoke",
+      "method": "Mouse.wheel",
+      "evidence": "Mouse.wheel(0, 100) at (50, 60) scrolls the window to scrollY 100 and dispatches a wheel event on the div with clientX 50, clientY 60, deltaMode 0 and no modifiers (deltas ignored on macOS by the spec itself). Native setContent only establishes the document."
+    },
+    {
+      "id": "wheel.spec.ts > should scroll horizontally",
+      "method": "Mouse.wheel",
+      "evidence": "Mouse.wheel(100, 0) dispatches a wheel event at the pointer position and scrolls the window until scrollX is 100. Native setContent only establishes the document."
+    },
+    {
+      "id": "wheel.spec.ts > should scroll when nobody is listening",
+      "method": "Mouse.wheel",
+      "evidence": "With no wheel listener, Mouse.wheel(0, 100) scrolls the window until scrollY is 100. Native goto only establishes the document."
+    },
+    {
+      "id": "wheel.spec.ts > should set the modifiers",
+      "method": "Mouse.wheel",
+      "evidence": "With Shift held by Keyboard.down, Mouse.wheel(0, 100) dispatches a wheel event with shiftKey true and the other modifiers false at the pointer position. Native setContent only establishes the document."
+    },
+    {
+      "id": "wheel.spec.ts > should work when the event is canceled",
+      "method": "Mouse.wheel",
+      "evidence": "A listener cancels the wheel event Mouse.wheel(0, 100) dispatches; the event is recorded with the expected fields and scrollY stays 0, so a canceled wheel does not scroll. Native setContent only establishes the document."
     }
   ]
 }
