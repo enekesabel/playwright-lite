@@ -136,7 +136,9 @@ Targets Playwright **{{playwrightVersion}}**. Statuses describe API compatibilit
 {{!--
 Owned by `events` in compatibility/api.ts: one row per event, or per group of
 events sharing a payload. The Page event-emitter rows link here; payload detail
-that belongs to an object links to that object's section.
+that belongs to an object links to that object's section. The excluded list
+below the table is owned by `excludedEvents`: one line per out-of-scope event,
+naming why it can never fire.
 --}}
 ### Events
 
@@ -146,6 +148,12 @@ Listeners added with `on()`, `once()`, `addListener()` or `prependListener()`, a
 | --- | --- | --- |
 {{#each events}}
 | {{#each events}}{{#unless @first}}, {{/unless}}[`{{name}}`]({{{url}}}){{/each}} | {{{firesFor}}} | {{{differences}}} |
+{{/each}}
+
+🚫 Intentionally excluded:
+
+{{#each excludedEvents}}
+- [`{{event}}`]({{{url}}}): {{{reason}}}
 {{/each}}
 
 {{!--
