@@ -426,7 +426,9 @@ export const pageLedger = {
   ),
   url: implemented(),
   video: outOfScope("Recording video requires the browser process."),
-  viewportSize: undecided(),
+  viewportSize: partial(
+    "Returns the window's current `innerWidth` and `innerHeight`, never `null`, where Playwright returns the configured viewport or `null` without one."
+  ),
   waitForEvent: partial(waitForEventNote),
   waitForFunction: partial(handlePreviewNote),
   waitForLoadState: partial(networkIdleNote),
