@@ -135,6 +135,7 @@ const nativeNavigationForSetupSpecs = new Set([
   "selectors-css.spec.ts",
   "selectors-misc.spec.ts",
   "selectors-text.spec.ts",
+  "tap.spec.ts",
   "wheel.spec.ts",
 ]);
 

@@ -1957,5 +1957,32 @@ test("proxy does not expose real driver sub-objects", async ({
 
   await expect((adapterPage as any).mouse("click", 0, 0)).rejects.toThrow();
 
-  await expect((adapterPage as any).touchscreen("tap", 0, 0)).rejects.toThrow();
+  // Touchscreen is an adapter-routed object too. The adapter has no
+  // touchscreen yet, so the browser reports the missing member and the native
+  // touchscreen never runs.
+  (page.touchscreen as any).tap = () => {
+    throw new Error("native touchscreen.tap must not be used");
+  };
+  await expect(proxyTouch.tap(0, 0)).rejects.toThrow(
+    "__pwLiteAdapterPage.touchscreen.tap is not a function"
+  );
+  expect((page as any).__pwLiteNativeOperations).toEqual([]);
+});
+
+test("touchscreen.tap transports its coordinates to the adapter's touchscreen", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.evaluate(() => {
+    const host = window as any;
+    host.taps = [];
+    host.__pwLiteAdapterPage.touchscreen = {
+      async tap(...args: unknown[]) {
+        host.taps.push(args);
+      },
+    };
+  });
+  await adapterPage.touchscreen.tap(40, 60);
+  expect(await page.evaluate(() => (window as any).taps)).toEqual([[40, 60]]);
+  expect((page as any).__pwLiteTransportFailures).toEqual([]);
 });
