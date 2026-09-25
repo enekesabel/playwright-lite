@@ -47,6 +47,7 @@ import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
 import type { Disposable, Locator, Page } from "@playwright/test";
 import type { ByRoleOptions, LocatorOptions } from "./locator";
 import { LocatorImpl } from "./locator";
+import { asLocator } from "virtual:playwright-lite-injected";
 import {
   getByAltTextSelector,
   getByLabelSelector,
@@ -79,7 +80,8 @@ type LocatorExpectationOptions = Record<string, unknown> & {
 type LocatorExpectationAttempt = {
   matches: boolean;
   received?: { value?: unknown; ariaSnapshot?: string };
-  log?: string[];
+  /** What the call log names as `locator resolved to …`. */
+  resolvedTo?: string;
   missing: boolean;
 };
 
@@ -200,6 +202,8 @@ type PageExpectationOptions = {
   isNot?: boolean;
   signal?: AbortSignal;
   timeout?: number;
+  /** The pinned expect step title heading the call log. */
+  title?: string;
 };
 
 type PageExpectationResult = {
@@ -657,23 +661,26 @@ export class PageImpl {
    * bounded backoff. InjectedScript remains responsible for each matcher
    * evaluation. This method only supplies the client/server orchestration that
    * is feasible within the controlled document.
+   *
+   * `title` is the pinned expect step title that heads the call log: the
+   * custom expect message, or `Expect "<not ><matcher>"`.
    */
   async expect(
     selector: string,
     expression: string,
     options: Record<string, unknown>,
-    matcherName?: string
+    title = `Expect "${expression}"`
   ): Promise<LocatorExpectationResult> {
     const expectOptions = options as LocatorExpectationOptions;
     const isNot = !!expectOptions.isNot;
     const timeout = expectationTimeout(expectOptions.timeout);
     const signal = expectOptions.signal;
-    const log = [
-      `Expect "${isNot ? "not " : ""}${matcherName ?? expression}" with timeout ${timeout}ms`,
-    ];
-
     if (signal?.aborted) return alreadyAbortedExpectationResult(isNot, signal);
 
+    const log = [
+      `${title} with timeout ${timeout}ms`,
+      `waiting for ${asLocator("javascript", selector)}`,
+    ];
     const deadline = Date.now() + timeout;
 
     // The pinned server performs an immediate check before entering its retry
@@ -684,6 +691,26 @@ export class PageImpl {
     let lastAttempt = firstAttempt;
     let retryIndex = 0;
 
+    // Pinned `Frame.expect` reports a timeout and a mid-wait abort alike: the
+    // last attempt's received value and error, with the abort only in the log.
+    const unmatched = (
+      ending: "timedOut" | "aborted"
+    ): LocatorExpectationResult => ({
+      matches: isNot,
+      received: lastAttempt.received,
+      timedOut: ending === "timedOut" || undefined,
+      errorMessage: lastAttempt.missing
+        ? "Error: element(s) not found"
+        : undefined,
+      log: callLogLines([
+        ...log,
+        ...attemptLog(expression, lastAttempt),
+        ...(ending === "aborted"
+          ? [`operation was aborted: ${abortReason(signal!)}`]
+          : []),
+      ]),
+    });
+
     while (Date.now() < deadline) {
       const backoff = expectationBackoff(timeout, retryIndex++);
       const delay = Math.min(backoff, Math.max(0, deadline - Date.now()));
@@ -691,27 +718,15 @@ export class PageImpl {
         delay > 0 &&
         !(await waitForExpectationRetry(this.window, delay, signal))
       )
-        return abortedExpectationResult(isNot, signal!, log);
+        return unmatched("aborted");
 
-      if (signal?.aborted) return abortedExpectationResult(isNot, signal, log);
+      if (signal?.aborted) return unmatched("aborted");
 
       lastAttempt = await this.expectOnce(selector, expression, options);
       if (lastAttempt.matches !== isNot) return { matches: !isNot };
     }
 
-    return {
-      matches: isNot,
-      received: lastAttempt.received,
-      timedOut: true,
-      errorMessage: lastAttempt.missing
-        ? "Error: element(s) not found"
-        : undefined,
-      log: [
-        ...log,
-        `waiting for locator(${JSON.stringify(selector)})`,
-        ...(lastAttempt.log ?? []),
-      ],
-    };
+    return unmatched("timedOut");
   }
 
   /**
@@ -727,11 +742,6 @@ export class PageImpl {
     const isNot = !!options.isNot;
     const timeout = expectationTimeout(options.timeout);
     const signal = options.signal;
-    const log = [
-      `- Expect "${expression === "to.have.title" ? "toHaveTitle" : "toHaveURL"}" with timeout ${timeout}ms`,
-      "- waiting for page",
-    ];
-
     validateSignal(expression, signal);
 
     const read = (): { matches: boolean; received: string } => {
@@ -771,29 +781,44 @@ export class PageImpl {
       signal
     );
     if (result) return result;
+
+    // Pinned `Frame.expect` checks the document element (`:root`) when no
+    // locator is given, so the page log names it as the resolved locator.
+    const title =
+      options.title ??
+      `Expect "${isNot ? "not " : ""}${expression === "to.have.title" ? "toHaveTitle" : "toHaveURL"}"`;
+    const log = [
+      `${title} with timeout ${timeout}ms`,
+      `  locator resolved to ${this.previewNode(this.document.documentElement)}`,
+      `  unexpected value "${last.received}"`,
+    ];
+    const failed = { matches: isNot, received: { value: last.received } };
     if ("aborted" in observation)
-      return {
-        matches: isNot,
-        received: { value: last.received },
-        errorMessage: `Error: The assertion was aborted: ${abortReason(signal!)}`,
-        log: [log[0], `- operation was aborted: ${abortReason(signal!)}`],
-      };
+      // A URL predicate waits through pinned `waitForURL`, whose abort reaches
+      // the matcher as the assertion error; every other form ends like a
+      // timeout, with the abort only in the log.
+      return typeof options.expected === "function" ||
+        isURLPattern(options.expected)
+        ? {
+            ...failed,
+            errorMessage: `Error: ${assertionAbortedMessage(signal!.reason)}`,
+          }
+        : {
+            ...failed,
+            log: callLogLines([
+              ...log,
+              `operation was aborted: ${abortReason(signal!)}`,
+            ]),
+          };
     if ("timedOut" in observation)
-      return {
-        matches: isNot,
-        received: { value: last.received },
-        timeout,
-        timedOut: true,
-        log,
-      };
+      return { ...failed, timeout, timedOut: true, log: callLogLines(log) };
     if ("error" in observation)
       return {
-        matches: isNot,
-        received: { value: last.received },
+        ...failed,
         errorMessage: `Error: ${asError(observation.error).message}`,
-        log,
+        log: callLogLines(log),
       };
-    return { matches: isNot, received: { value: last.received }, log };
+    return { ...failed, log: callLogLines(log) };
   }
 
   private async expectOnce(
@@ -843,19 +868,12 @@ export class PageImpl {
       { expression, ...injectedOptions },
       elements
     );
-    const log = [
-      isArray
-        ? `locator resolved to ${elements.length} element${elements.length === 1 ? "" : "s"}`
-        : `locator resolved to ${this.previewNode(elements[0])}`,
-    ];
-    if (result.matches === !!expectOptions.isNot)
-      log.push(
-        `unexpected value ${formatExpectationReceived(result.received?.value)}`
-      );
     return {
       matches: result.matches,
       received: result.received,
-      log,
+      resolvedTo: isArray
+        ? elementCount(elements.length)
+        : this.previewNode(elements[0]),
       missing: false,
     };
   }
@@ -5134,6 +5152,7 @@ function missingExpectationAttempt(
     return {
       matches: options.expectedNumber === 0,
       received: { value: 0 },
+      resolvedTo: elementCount(0),
       missing: false,
     };
   }
@@ -5143,6 +5162,7 @@ function missingExpectationAttempt(
     return {
       matches: !Array.isArray(expectedText) || expectedText.length === 0,
       received: { value: [] },
+      resolvedTo: elementCount(0),
       missing: false,
     };
   }
@@ -5161,6 +5181,41 @@ function missingExpectationAttempt(
   return { matches: isNot, missing: true };
 }
 
+function elementCount(count: number): string {
+  return `${count} element${count === 1 ? "" : "s"}`;
+}
+
+/**
+ * Mirrors the lines pinned 26a9e47 server/frames.ts `Frame._expectInternal`
+ * logs, nested under `waiting for`, for an attempt that did not settle the
+ * assertion: what the locator resolved to, then the value it received unless
+ * no element was found or the value is a list.
+ */
+function attemptLog(
+  expression: string,
+  attempt: LocatorExpectationAttempt
+): string[] {
+  const log = attempt.resolvedTo
+    ? [`  locator resolved to ${attempt.resolvedTo}`]
+    : [];
+  const value = attempt.received?.value;
+  if (attempt.missing || Array.isArray(value)) return log;
+  // Pinned `renderUnexpectedValue` prints an ARIA snapshot's raw text.
+  const rendered =
+    expression === "to.match.aria" && value
+      ? (value as { raw?: unknown }).raw
+      : value;
+  return [...log, `  unexpected value "${String(rendered)}"`];
+}
+
+/**
+ * Mirrors pinned 26a9e47 server/callLog.ts `compressCallLog` for lines that
+ * each occur once: nesting follows the line's own leading spaces.
+ */
+function callLogLines(lines: readonly string[]): string[] {
+  return lines.map((line) => `  ${/^\s*/.exec(line)![0]}- ${line.trim()}`);
+}
+
 /**
  * The pinned client rejects an expectation whose signal is already aborted
  * before it reaches the server, so the failure carries no call log and no
@@ -5172,30 +5227,29 @@ function alreadyAbortedExpectationResult(
 ): { matches: boolean; errorMessage: string } {
   return {
     matches: isNot,
-    errorMessage: `Error: The assertion was aborted: ${abortReason(signal)}`,
+    errorMessage: `Error: ${assertionAbortedMessage(signal.reason)}`,
   };
 }
 
-function abortedExpectationResult(
-  isNot: boolean,
-  signal: AbortSignal,
-  log: string[] = []
-): LocatorExpectationResult {
-  return {
-    ...alreadyAbortedExpectationResult(isNot, signal),
-    log: [...log, "operation was aborted"],
-  };
+/** Mirrors pinned 26a9e47 isomorphic/abortSignal.ts `assertionAbortedMessage`. */
+function assertionAbortedMessage(reason: unknown): string {
+  const detail =
+    reason instanceof Error
+      ? reason.message
+      : reason === undefined || reason === null
+        ? ""
+        : String(reason);
+  return "The assertion was aborted" + (detail ? `: ${detail}` : "");
 }
 
-function formatExpectationReceived(value: unknown): string {
-  const serialized = JSON.stringify(value);
-  return serialized === undefined ? String(value) : serialized;
-}
-
+/**
+ * Mirrors the reason pinned 26a9e47 client/connection.ts sends with
+ * `__abort__`. An aborted signal always has a reason: `abort()` without one
+ * stores the browser's own `AbortError`.
+ */
 function abortReason(signal: AbortSignal): string {
-  const reason = signal.reason;
-  if (reason instanceof Error) return reason.message;
-  return reason === undefined ? "This operation was aborted" : String(reason);
+  const reason: unknown = signal.reason;
+  return reason instanceof Error ? reason.message : String(reason);
 }
 
 function waitForExpectationRetry(
