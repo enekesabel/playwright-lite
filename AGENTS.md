@@ -106,7 +106,7 @@ Place a test by the member whose behaviour it asserts:
 - A rule asserted across two or more members goes in
   `tests/contract/rules/<rule>.test.ts`, written once as a case table of
   `[apiName, run]`. The rule files are `cancellation`, `timeouts`,
-  `option-validation`, `strictness`, `serialization`.
+  `option-validation`, `strictness`, `serialization`, `page-globals`.
 - Using other members as setup does not make a test cross-API; it stays with the
   member it asserts. Multi-API scenarios are the corpus's job.
 

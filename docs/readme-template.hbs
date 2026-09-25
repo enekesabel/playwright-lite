@@ -69,6 +69,7 @@ here instead of a row note.
 - **No browser control.** No browser launch, browser contexts, or browser-level control over network traffic, downloads, or other tabs.
 - **Content Security Policy applies.** Evaluation callbacks need the page's policy to allow dynamic JavaScript evaluation; the library does not bypass it.
 - **Closing keeps the document.** `close()` disposes the `Page` object, not the document; see [Closing a page](#closing-a-page).
+- **Shared JavaScript globals.** The library runs alongside the page's own scripts, so some changes the page makes to built-in globals reach it; see [Page globals](#page-globals).
 
 ### Page functions playwright-lite replaces
 
@@ -115,6 +116,22 @@ Nothing is replaced until you subscribe, and a function the page replaced itself
 - A pending `request.response()` or `response.finished()` is not interrupted by `close()`, where Playwright rejects it.
 - Highlights added with `locator.highlight()` stay in the document, where Playwright's go with the closed page.
 - The closed error has no call log, where Playwright appends the log of the interrupted call.
+
+</details>
+
+### Page globals
+
+Playwright runs its page scripts in an isolated world, which no change the page makes to a global reaches. playwright-lite shares the page's globals and keeps its own reference to `Node`, `Element`, `NodeFilter`, `HTMLElement`, `Document`, `ShadowRoot`, `MutationObserver`, `Event`, `CustomEvent`, `EventTarget`, `Map`, `Set`, `WeakMap`, `WeakSet`, `Promise`, `Symbol`, `Error`, `TypeError`, `RegExp`, `Array`, `Object`, `URL`, `Date`, `JSON` and `Math`. When you call `createPage()`, each is the page's current global while that is still a function (an object, for `JSON` and `Math`), and otherwise the one playwright-lite took when it loaded, as in Playwright's fallback for browsers without an isolated world. A page that deletes or replaces one of them after that does not affect playwright-lite.
+
+- A global the page deleted before playwright-lite loaded stays missing: with `Node` deleted, `click()` throws `Cannot read properties of undefined (reading 'ELEMENT_NODE')`.
+- A change to a built-in's methods or prototype reaches playwright-lite: after `Array.prototype.map = null` or `JSON.stringify = null`, `click()` throws a `TypeError`.
+- Every other global, such as `MouseEvent`, `KeyboardEvent`, `InputEvent`, `DataTransfer` or `getComputedStyle`, is read from the page when used: with `MouseEvent` deleted, `click()` throws a `TypeError`.
+- `setTimeout` is read from the page too, since Playwright's fallback does not keep it either: with it deleted, `click()`, `fill()` and `waitForTimeout()` throw a `TypeError`.
+
+<details>
+<summary>Edge cases</summary>
+
+- A failing `expect` assertion builds its message, and `toMatchAriaSnapshot()` reads its template, with the page's current globals, so after the page deletes `Object`, `Array` or `Math` they can throw that `ReferenceError` instead.
 
 </details>
 

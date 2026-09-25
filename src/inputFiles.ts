@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { Map, Error, TypeError, Array } from "virtual:playwright-lite-globals";
 
 export type InputFiles = Parameters<Page["setInputFiles"]>[1];
 

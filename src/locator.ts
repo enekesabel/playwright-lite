@@ -27,11 +27,23 @@ import {
   getByTextSelector,
   getByTitleSelector,
 } from "./selectors";
+import {
+  Error,
+  TypeError,
+  Array,
+  Object,
+  JSON,
+} from "virtual:playwright-lite-globals";
 
 /**
  * Cross-realm brand symbol. Any code can test for this with
  * `Symbol.for(...)` without importing LocatorImpl.
+ *
+ * This module reads the global `Symbol` only while it loads, before a page
+ * script can change it: TypeScript types a brand as a unique symbol, which
+ * the class below declares a member with, only from the global's own call.
  */
+// eslint-disable-next-line no-restricted-globals -- read while the module loads.
 export const LOCATOR_BRAND = Symbol.for("playwright-lite:locator");
 
 /** Structured payload carried by the brand symbol. */
@@ -940,6 +952,7 @@ class HighlightDisposableImpl implements HighlightDisposable {
     this.disposeCallback = dispose;
   }
 
+  // eslint-disable-next-line no-restricted-globals -- read while the module loads.
   async [Symbol.asyncDispose](): Promise<void> {
     await this.dispose();
   }

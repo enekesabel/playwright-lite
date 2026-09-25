@@ -10,6 +10,7 @@ import type {
 import { withAbortPrefix } from "./page";
 import { guardLifetimeCalls, type LifetimeCalls } from "./lifetime";
 import type { ElementHandle, JSHandle } from "@playwright/test";
+import { Error } from "virtual:playwright-lite-globals";
 
 type ElementHandleWaitOptions = { signal?: AbortSignal; timeout?: number };
 

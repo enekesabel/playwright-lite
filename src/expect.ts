@@ -40,6 +40,15 @@ import type { Locator } from "@playwright/test";
 import { isPlaywrightLiteLocator, type LocatorImpl } from "./locator";
 import type { Page } from "@playwright/test";
 import { isPlaywrightLitePage } from "./page";
+import {
+  Promise,
+  Error,
+  TypeError,
+  RegExp,
+  Array,
+  Object,
+  Math,
+} from "virtual:playwright-lite-globals";
 
 interface AsymmetricMatcher {
   asymmetricMatch(other: unknown): boolean;
@@ -383,8 +392,13 @@ type PageExpectationTarget = {
 
 const DEFAULT_EXPECT_TIMEOUT = 5_000;
 const DEFAULT_INTERVALS = [100, 250, 500, 1_000];
+// This module reads the global `Symbol` only while it loads: TypeScript types
+// a key as the unique symbol the context type below declares only from the
+// global's own call.
+// eslint-disable-next-line no-restricted-globals -- read while the module loads.
 const META_INFO = Symbol("expectMetaInfo");
 /** The expect step title that heads a locator or page call log. */
+// eslint-disable-next-line no-restricted-globals -- read while the module loads.
 const STEP_TITLE = Symbol("expectStepTitle");
 
 function stepTitle(context: MatcherContext): string | undefined {

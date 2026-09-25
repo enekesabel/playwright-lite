@@ -54,6 +54,20 @@ import {
 } from "jest-matcher-utils";
 import type { EqualsFunction, Tester } from "@jest/expect-utils";
 import type { MatcherHintOptions } from "jest-matcher-utils";
+import {
+  Map,
+  Set,
+  WeakSet,
+  Symbol,
+  Error,
+  TypeError,
+  RegExp,
+  Array,
+  Object,
+  Date,
+  JSON,
+  Math,
+} from "virtual:playwright-lite-globals";
 
 // -----------------------------------------------------------------------------
 // Types

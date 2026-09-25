@@ -1,3 +1,5 @@
+import { Map, WeakMap } from "virtual:playwright-lite-globals";
+
 /**
  * Replacing a function the host document owns is the last resort: it is only
  * done where neither a listener nor a native observer can report what

@@ -1,3 +1,5 @@
+import { Error, TypeError, Object } from "virtual:playwright-lite-globals";
+
 /**
  * Client-boundary checks from the pinned Playwright protocol semantics.
  * See packages/protocol/src/validatorPrimitives.ts and spec/frame.yml at

@@ -1,3 +1,5 @@
+import { JSON } from "virtual:playwright-lite-globals";
+
 export { getByTestIdSelector } from "virtual:playwright-lite-injected";
 
 export function escapeForAttributeSelector(

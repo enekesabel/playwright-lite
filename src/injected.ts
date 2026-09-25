@@ -2,6 +2,7 @@ import {
   InjectedScript,
   parseAriaSnapshot,
 } from "virtual:playwright-lite-injected";
+import { WeakMap, Error } from "virtual:playwright-lite-globals";
 
 export const DEFAULT_TEST_ID_ATTRIBUTE = "data-testid";
 

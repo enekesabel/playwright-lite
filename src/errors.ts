@@ -1,3 +1,5 @@
+import { Symbol, Error } from "virtual:playwright-lite-globals";
+
 /**
  * A browser-runtime timeout that remains recognizable without importing
  * Playwright's Node-side error classes. The global symbol is deliberately

@@ -7,6 +7,13 @@ import type {
   EvaluationFunction,
   EvaluationOptions,
 } from "./evaluation";
+import {
+  Map,
+  Symbol,
+  Error,
+  Array,
+  Object,
+} from "virtual:playwright-lite-globals";
 
 const invalidArguments =
   "Too many arguments. If you need to pass more than 1 argument to the function wrap them in an object.";

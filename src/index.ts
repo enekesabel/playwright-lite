@@ -19,6 +19,7 @@ export type { Dialog } from "./dialog";
 export type { ConsoleMessage } from "./console";
 
 import { PageImpl } from "./page";
+import { TypeError, resolvePageGlobals } from "virtual:playwright-lite-globals";
 
 export type CreatePageOptions = Partial<
   Pick<
@@ -45,6 +46,9 @@ export function createPage(options: CreatePageOptions = {}): Page {
       throw new TypeError(`${name} must be a finite, non-negative number.`);
     }
   }
+  // Pinned Playwright settles its page globals when it sets up the scripts
+  // for a document; this is that point here. It applies to every page.
+  resolvePageGlobals();
   const page = PageImpl.fromWindow(window, options.testIdAttribute);
   if (options.actionTimeout !== undefined)
     page.setDefaultTimeout(options.actionTimeout);

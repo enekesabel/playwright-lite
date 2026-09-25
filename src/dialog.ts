@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { HostObservation, perWindow } from "./hostGlobals";
 import { validateString } from "./protocolValidation";
+import { Error, TypeError } from "virtual:playwright-lite-globals";
 
 /** `beforeunload` is out of scope: it belongs to document replacement (ADR-0001). */
 type DialogType = "alert" | "confirm" | "prompt";
