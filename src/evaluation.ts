@@ -11,7 +11,7 @@ import { AdapterElementHandle } from "./elementHandle";
 import { AdapterJSHandle } from "./jsHandle";
 import { TargetClosedError } from "./lifetime";
 import type { PageImpl } from "./page";
-import { Node, Promise, Error } from "virtual:playwright-lite-globals";
+import { Node, Promise, Error, Object } from "virtual:playwright-lite-globals";
 
 export type EvaluationFunction<R = any> =
   string | ((...args: any[]) => R | Promise<R>);
