@@ -17,10 +17,6 @@ import {
   type Playwright,
 } from "@playwright/test";
 import { statusFor } from "../../compatibility/api";
-import {
-  asLocatorDescription,
-  locatorCustomDescription,
-} from "../../src/locatorFormatting";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ADAPTER_DIST_PATH = resolve(__dirname, "../../dist/index.mjs");
@@ -2333,19 +2329,14 @@ function createLocatorProxy(
       if (prop === "_apiName") return "Locator";
       if (prop === "then") return undefined;
 
-      // Both are synchronous in Playwright's public API. They format the
-      // selector with the package's own formatter; the selector comes from
-      // Playwright's Locator for the same chain, which builds it without a
-      // protocol call by the pinned rules the adapter's selectors mirror.
+      // Both are synchronous in Playwright's public API, so the pinned
+      // client's own Locator for the same chain answers them: it formats its
+      // selector with the isomorphic functions the adapter mirrors, and
+      // building it makes no protocol call.
       if (prop === "description" || prop === "toString")
         return () => {
           answeredInNodeLog(realPage).push(`Locator.${prop}`);
-          const selector: string = (
-            nativeLocatorForChain(realPage, chain) as any
-          )._selector;
-          return prop === "description"
-            ? locatorCustomDescription(selector) || null
-            : asLocatorDescription(selector);
+          return nativeLocatorForChain(realPage, chain)[prop]();
         };
 
       // Chain methods (including first/last): extend the chain and let

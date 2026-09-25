@@ -32,6 +32,7 @@ type Evidence = {
   entered: string[];
   failures: string[];
   native: string[];
+  answeredInNode: string[];
   withheld?: string[];
 };
 // What the worker-scoped browser needs from the current test: where to record
@@ -47,7 +48,8 @@ type LibraryTest = {
 };
 const libraryTests = new WeakMap<TestInfo, LibraryTest>();
 
-async function capture(record: ContextRecord, result: Evidence) {
+/** Merges the evidence of a context's pages into the test's evidence. */
+export async function capture(record: ContextRecord, result: Evidence) {
   for (const page of record.pages) {
     if (record.captured.has(page)) continue;
     record.captured.add(page);
@@ -65,6 +67,7 @@ async function capture(record: ContextRecord, result: Evidence) {
     }
     result.failures.push(...((page as any).__pwLiteTransportFailures ?? []));
     result.native.push(...((page as any).__pwLiteNativeOperations ?? []));
+    result.answeredInNode.push(...((page as any).__pwLiteAnsweredInNode ?? []));
   }
 }
 
@@ -143,7 +146,12 @@ export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
   _libraryEvidence: [
     async ({ sabotagedMethod, sabotagedMatcher }, use, info) => {
       const records: ContextRecord[] = [];
-      const result: Evidence = { entered: [], failures: [], native: [] };
+      const result: Evidence = {
+        entered: [],
+        failures: [],
+        native: [],
+        answeredInNode: [],
+      };
       libraryTests.set(info, {
         records,
         result,

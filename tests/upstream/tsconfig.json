@@ -1,8 +1,0 @@
-{
-  "compilerOptions": {
-    "paths": {
-      "virtual:playwright-lite-injected": ["./injectedPrimitives.ts"],
-      "virtual:playwright-lite-globals": ["./nodeGlobals.ts"]
-    }
-  }
-}

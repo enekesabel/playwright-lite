@@ -16,7 +16,9 @@ certify navigation compatibility. No failed adapter call is retried via the
 native driver. Every operation under review and every assertion in those specs
 still uses the browser adapter. Native `goto` ends at the test's first adapter
 call: a listed spec's later `goto` routes through the adapter like any other
-member and fails there, so a mid-test navigation is never faked.
+member and fails there, so a mid-test navigation is never faked. Out-of-scope
+setup members such as `setContent` have no such cutoff: they are never under
+review, so promotion accepts them wherever they ran (see Baseline promotion).
 `Selectors.register` is the one adapter call that does not end native setup
 navigation: Playwright's registry is Playwright-wide (pinned
 `client/selectors.ts` keeps `_selectorEngines` per instance and
@@ -59,9 +61,9 @@ mix them with in-scope members stay diagnostic. Each such call, and each member
 called on what one returns, is recorded in the evidence's `native` log.
 `Page.url()`, `Locator.toString()` and `Locator.description()` are synchronous,
 so the bridge answers them in Node: `url()` replays the adapter's latest answer,
-and the locator members format the selector Playwright's own Locator builds for
-the same chain with the package's `src/locatorFormatting.ts`. Each call is
-recorded in the evidence's `answeredInNode` log (ADR-0002).
+and the locator members are answered by the pinned client's own Locator for the
+same chain, which a guard pins to the adapter's answers. Each call is recorded in
+the evidence's `answeredInNode` log, library-created pages included (ADR-0002).
 
 Functions cannot cross `realPage.evaluate`, so the bridge carries a function
 argument as its source and rebuilds it in the browser, normalizing a method
@@ -102,16 +104,17 @@ Treat newly passing upstream tests as candidates for review. Before promoting ea
 5. The promotion command reruns each candidate alone with that method sabotaged: its in-browser adapter dispatch throws instead of executing, on the fixture's page and on every page a library test creates, and the test's execution evidence records each withheld dispatch in `withheld`, which only a method-sabotaged run's evidence has; evidence carrying it never certifies an ordinary pass. A sabotaged public matcher is not dispatched either: it fails with its withheld marker as the error's `message` and as `matcherResult.message`, `.ariaSnapshot` and `.log`, with no other `matcherResult` field. The test must fail or time out with no transport failure in its evidence; a test that still passes proves nothing about the method and is refused. The method rerun is accepted only when the evidence records a withheld dispatch of the reviewed method, whatever the failure's text, so a test that asserts the error's class or reads its `matcherResult` still counts and a failure that never reached the method is refused. The matcher rerun needs `__pwLiteSabotagedMatcher: <matcher>` in the reported failure. Errors the rerun reports outside any test are logged and leave the verdict to the test's own result. The rerun passes the method as a fixture option in a configuration it generates for that run alone; no environment variable is involved, so the switch is off in every ordinary corpus run and no upstream spec sets it.
 6. Run the package compatibility checks and inspect the baseline diff. Review each new entry as part of the PR; ordinary test runs must never promote entries automatically.
 
-Promotion refuses a test whose `native` log holds any member outside the setup
-list in `scripts/upstream-baseline.mjs` (`Page.goto`, `Page.setContent`,
+Promotion refuses, and `baseline:check` counts as a regression, a test whose
+`native` log holds any member outside the setup list in
+`scripts/upstream-baseline.mjs` (`Page.goto`, `Page.setContent`,
 `Page.setViewportSize`, `Browser.newContext`, `BrowserContext.newPage`,
-`BrowserContext.close`), and a test whose reviewed method is in its
-`answeredInNode` log; contract tests prove those members. A native member joins
-the setup list only when its native call can never be the subject of a
-promotion and it serves to establish the document under test; anything else
-recorded natively refuses promotion. Review refuses a test that asserts a transport artefact (user
-activation, the CSP `eval` exemption, CDP error text) or a callback that must run
-in Node; such tests stay diagnostic (ADR-0002).
+`BrowserContext.close`). A native member joins the setup list only when its
+native call can never be the subject of a promotion and it serves to establish
+the document under test; anything else recorded natively refuses promotion.
+Promotion also refuses a test whose reviewed method is in its `answeredInNode`
+log; contract tests prove those members. Review refuses a test that asserts a
+transport artefact (user activation, the CSP `eval` exemption, CDP error text)
+or a callback that must run in Node; such tests stay diagnostic (ADR-0002).
 
 Execution tracking is necessary evidence, not proof that an assertion is adequate. The implementing agent performs this review; individual promotions do not require separate user approval. Preserve existing reviewed entries when adding support, and investigate regressions instead of deleting entries to make CI pass.
 

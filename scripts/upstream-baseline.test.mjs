@@ -12,6 +12,7 @@ import {
   sabotageVerdict,
   sabotageGrep,
   sabotageRerunEntries,
+  NATIVE_SETUP_MEMBERS,
 } from "./upstream-baseline.mjs";
 
 // ── parseReport ─────────────────────────────────────────────────────
@@ -160,6 +161,28 @@ describe("reviewed promotion", () => {
     );
     assert.deepEqual(result.regressions, []);
   });
+  it("counts a reviewed entry that ran a non-setup member natively as a regression", () => {
+    const check = (native) =>
+      compareBaseline(
+        [
+          {
+            id: "test",
+            file: "test.ts",
+            status: "passed",
+            execution: { entered: ["Locator.click"], native, failures: [] },
+          },
+        ],
+        {
+          reviewed: [
+            { id: "test", method: "Locator.click", evidence: "click works" },
+          ],
+        },
+        ["test.ts"]
+      ).regressions;
+    assert.deepEqual(check([...NATIVE_SETUP_MEMBERS]), []);
+    assert.deepEqual(check(["Page.setViewportSize", "Page.route"]), ["test"]);
+    assert.deepEqual(check(["Page.goto", "Response.status"]), ["test"]);
+  });
   const entry = {
     id: "test",
     status: "passed",
@@ -270,7 +293,7 @@ describe("reviewed promotion", () => {
             "evaluates in the adapter"
           ),
         {
-          message: `test ran ${members} on the native driver; a promotable test runs only document setup (Page.goto, Page.setContent, Page.setViewportSize, Browser.newContext, BrowserContext.newPage, BrowserContext.close) natively.`,
+          message: `test ran ${members} on the native driver; a promotable test runs only document setup (${NATIVE_SETUP_MEMBERS.join(", ")}) natively.`,
         }
       );
   });
