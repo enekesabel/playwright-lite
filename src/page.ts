@@ -12,6 +12,14 @@ import {
 } from "./injected";
 import { AdapterTimeoutError } from "./errors";
 import {
+  PageLifetime,
+  TargetClosedError,
+  guardLifetimeCalls,
+  isTargetClosedError,
+  prefixApiError,
+  type LifetimeCalls,
+} from "./lifetime";
+import {
   rejectUnsupportedOptions,
   validateDelay,
   validateForce,
@@ -44,7 +52,7 @@ import {
 } from "./console";
 import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
-import type { Disposable, Locator, Page } from "@playwright/test";
+import type { Disposable, Keyboard, Locator, Page } from "@playwright/test";
 import type { ByRoleOptions, LocatorOptions } from "./locator";
 import { LocatorImpl } from "./locator";
 import { asLocator } from "virtual:playwright-lite-injected";
@@ -314,12 +322,14 @@ type ActionableInjectedScript = {
  */
 class PageFeed {
   private stopListening: (() => void) | undefined;
-  private retained = false;
+  private stopRetained: (() => void) | undefined;
+  private released = false;
 
   constructor(private readonly start: () => () => void) {}
 
   /** Starts or stops the listened subscription to match `wanted`. */
   listen(wanted: boolean): void {
+    if (this.released) return;
     if (wanted === (this.stopListening !== undefined)) return;
     if (wanted) {
       this.stopListening = this.start();
@@ -332,17 +342,104 @@ class PageFeed {
   /**
    * Holds a subscription that is never released, as the pinned dispatcher
    * keeps the subscription a log read adds: a log nobody observes cannot be
-   * filled later.
+   * filled later. Only closing the page releases it.
    */
   retain(): void {
-    if (this.retained) return;
-    this.retained = true;
-    this.start();
+    if (this.released || this.stopRetained) return;
+    this.stopRetained = this.start();
+  }
+
+  /**
+   * Ends both subscriptions for good when the page closes. The shared host
+   * observation restores its wrappers only once no other page subscribes.
+   */
+  release(): void {
+    this.released = true;
+    this.stopListening?.();
+    this.stopRetained?.();
+    this.stopListening = this.stopRetained = undefined;
   }
 }
 
+/**
+ * Every async `Page` member, refused once the page has closed; see
+ * `guardLifetimeCalls`. `close` is the one exception: closing again resolves.
+ */
+const PAGE_LIFETIME_CALLS: Record<
+  Exclude<LifetimeCalls<PageImpl, Page>, "close">,
+  true
+> = {
+  $: true,
+  $$: true,
+  $$eval: true,
+  $eval: true,
+  addScriptTag: true,
+  addStyleTag: true,
+  ariaSnapshot: true,
+  check: true,
+  clearConsoleMessages: true,
+  clearPageErrors: true,
+  click: true,
+  consoleMessages: true,
+  content: true,
+  dblclick: true,
+  dispatchEvent: true,
+  evaluate: true,
+  evaluateHandle: true,
+  exposeBinding: true,
+  exposeFunction: true,
+  fill: true,
+  focus: true,
+  getAttribute: true,
+  goBack: true,
+  goForward: true,
+  goto: true,
+  hideHighlight: true,
+  hover: true,
+  innerHTML: true,
+  innerText: true,
+  inputValue: true,
+  isChecked: true,
+  isDisabled: true,
+  isEditable: true,
+  isEnabled: true,
+  isHidden: true,
+  isVisible: true,
+  pageErrors: true,
+  press: true,
+  reload: true,
+  requests: true,
+  selectOption: true,
+  setChecked: true,
+  setInputFiles: true,
+  textContent: true,
+  title: true,
+  type: true,
+  uncheck: true,
+  waitForEvent: true,
+  waitForFunction: true,
+  waitForLoadState: true,
+  waitForNavigation: true,
+  waitForRequest: true,
+  waitForResponse: true,
+  waitForSelector: true,
+  waitForTimeout: true,
+  waitForURL: true,
+};
+
 export class PageImpl {
+  static {
+    guardLifetimeCalls(
+      PageImpl.prototype,
+      PAGE_LIFETIME_CALLS,
+      "page",
+      (page) => page.lifetime
+    );
+  }
+
   readonly [PAGE_BRAND] = PAGE_BRAND_TOKEN;
+  /** Ended by `close()`; see `PageLifetime`. */
+  readonly lifetime = new PageLifetime();
   readonly document: Document;
   readonly window: Window & typeof globalThis;
   readonly keyboard: BrowserKeyboard;
@@ -674,13 +771,16 @@ export class PageImpl {
     const expectOptions = options as LocatorExpectationOptions;
     const isNot = !!expectOptions.isNot;
     const timeout = expectationTimeout(expectOptions.timeout);
-    const signal = expectOptions.signal;
-    if (signal?.aborted) return alreadyAbortedExpectationResult(isNot, signal);
-
+    const signal = this.lifetime.bind(expectOptions.signal);
     const log = [
       `${title} with timeout ${timeout}ms`,
       `waiting for ${asLocator("javascript", selector)}`,
     ];
+    if (signal.aborted)
+      return isTargetClosedError(signal.reason)
+        ? { matches: isNot, log: callLogLines([...log, signal.reason.reason]) }
+        : alreadyAbortedExpectationResult(isNot, signal);
+
     const deadline = Date.now() + timeout;
 
     // The pinned server performs an immediate check before entering its retry
@@ -691,8 +791,9 @@ export class PageImpl {
     let lastAttempt = firstAttempt;
     let retryIndex = 0;
 
-    // Pinned `Frame.expect` reports a timeout and a mid-wait abort alike: the
-    // last attempt's received value and error, with the abort only in the log.
+    // Pinned `Frame.expect` reports a timeout, a mid-wait abort and the page's
+    // closure alike: the last attempt's received value and error, with the
+    // abort or the closed error only in the log.
     const unmatched = (
       ending: "timedOut" | "aborted"
     ): LocatorExpectationResult => ({
@@ -705,9 +806,7 @@ export class PageImpl {
       log: callLogLines([
         ...log,
         ...attemptLog(expression, lastAttempt),
-        ...(ending === "aborted"
-          ? [`operation was aborted: ${abortReason(signal!)}`]
-          : []),
+        ...(ending === "aborted" ? [interruptionLine(signal)] : []),
       ]),
     });
 
@@ -720,7 +819,7 @@ export class PageImpl {
       )
         return unmatched("aborted");
 
-      if (signal?.aborted) return unmatched("aborted");
+      if (signal.aborted) return unmatched("aborted");
 
       lastAttempt = await this.expectOnce(selector, expression, options);
       if (lastAttempt.matches !== isNot) return { matches: !isNot };
@@ -741,8 +840,11 @@ export class PageImpl {
   ): Promise<PageExpectationResult> {
     const isNot = !!options.isNot;
     const timeout = expectationTimeout(options.timeout);
-    const signal = options.signal;
-    validateSignal(expression, signal);
+    validateSignal(expression, options.signal);
+    const signal = this.lifetime.bind(options.signal);
+    const title =
+      options.title ??
+      `Expect "${isNot ? "not " : ""}${expression === "to.have.title" ? "toHaveTitle" : "toHaveURL"}"`;
 
     const read = (): { matches: boolean; received: string } => {
       const received =
@@ -761,7 +863,16 @@ export class PageImpl {
       return { matches, received };
     };
 
-    if (signal?.aborted) return alreadyAbortedExpectationResult(isNot, signal);
+    if (signal.aborted)
+      return isTargetClosedError(signal.reason)
+        ? {
+            matches: isNot,
+            log: callLogLines([
+              `${title} with timeout ${timeout}ms`,
+              signal.reason.reason,
+            ]),
+          }
+        : alreadyAbortedExpectationResult(isNot, signal);
 
     let last = read();
     if (last.matches !== isNot)
@@ -784,9 +895,6 @@ export class PageImpl {
 
     // Pinned `Frame.expect` checks the document element (`:root`) when no
     // locator is given, so the page log names it as the resolved locator.
-    const title =
-      options.title ??
-      `Expect "${isNot ? "not " : ""}${expression === "to.have.title" ? "toHaveTitle" : "toHaveURL"}"`;
     const log = [
       `${title} with timeout ${timeout}ms`,
       `  locator resolved to ${this.previewNode(this.document.documentElement)}`,
@@ -795,20 +903,19 @@ export class PageImpl {
     const failed = { matches: isNot, received: { value: last.received } };
     if ("aborted" in observation)
       // A URL predicate waits through pinned `waitForURL`, whose abort reaches
-      // the matcher as the assertion error; every other form ends like a
-      // timeout, with the abort only in the log.
-      return typeof options.expected === "function" ||
-        isURLPattern(options.expected)
+      // the matcher as the assertion error; every other form, and every form
+      // the page's closure ends, ends like a timeout, with the abort or the
+      // closed error only in the log.
+      return !isTargetClosedError(signal.reason) &&
+        (typeof options.expected === "function" ||
+          isURLPattern(options.expected))
         ? {
             ...failed,
-            errorMessage: `Error: ${assertionAbortedMessage(signal!.reason)}`,
+            errorMessage: `Error: ${assertionAbortedMessage(signal.reason)}`,
           }
         : {
             ...failed,
-            log: callLogLines([
-              ...log,
-              `operation was aborted: ${abortReason(signal!)}`,
-            ]),
+            log: callLogLines([...log, interruptionLine(signal)]),
           };
     if ("timedOut" in observation)
       return { ...failed, timeout, timedOut: true, log: callLogLines(log) };
@@ -1622,7 +1729,8 @@ export class PageImpl {
       (reason: unknown) => void (error = reason)
     );
     try {
-      await Promise.race([completed, violated]);
+      // A tag still loading when the page closes is left to finish.
+      await this.lifetime.race(Promise.race([completed, violated]));
     } finally {
       this.document.removeEventListener("securitypolicyviolation", onViolation);
     }
@@ -1741,8 +1849,9 @@ export class PageImpl {
 
   /**
    * Pinned client/page.ts `_waitForEvent`: a predicate or options argument,
-   * the action timeout, and the listener removed however the wait ends. There
-   * is no browser process here, so no crash or close rejects the wait.
+   * the action timeout, and the listener removed however the wait ends.
+   * `close()` rejects it unless it waits for `close`; there is no browser
+   * process here, so no crash does.
    */
   async waitForEvent(
     event: string,
@@ -1820,16 +1929,19 @@ export class PageImpl {
       options.timeout,
       DEFAULT_ACTION_TIMEOUT
     );
-    const { predicate, signal } = options;
+    const { predicate } = options;
+    // The pinned wait rejects on `close` unless `close` is the event awaited;
+    // closing emits `close` before it aborts, so that wait resolves first.
+    const signal = this.lifetime.bind(options.signal);
     return withAbortPrefix(
       apiName,
       () =>
         new Promise((resolve, reject) => {
-          if (signal?.aborted) throw actionAborted(signal, false);
+          if (signal.aborted) throw actionAborted(signal, false);
           let timer: number | undefined;
           const finish = (done: () => void) => {
             this.removeListener(event, listener);
-            signal?.removeEventListener("abort", onAbort);
+            signal.removeEventListener("abort", onAbort);
             this.window.clearTimeout(timer);
             done();
           };
@@ -1842,9 +1954,9 @@ export class PageImpl {
             }
           };
           const onAbort = () =>
-            finish(() => reject(actionAborted(signal!, true)));
+            finish(() => reject(actionAborted(signal, true)));
           this.addListener(event, listener);
-          signal?.addEventListener("abort", onAbort, { once: true });
+          signal.addEventListener("abort", onAbort, { once: true });
           if (timeout > 0)
             timer = this.window.setTimeout(
               () =>
@@ -1956,17 +2068,18 @@ export class PageImpl {
    * consumer is subscribed: `pageErrors()` must see errors raised before any
    * listener existed. These are page-scoped `window` listeners, not a patch
    * of a host global, so the last-resort rule for patching globals does not
-   * apply. This package has no `Page` dispose/close lifecycle yet (see
-   * `close` in the ledger), so there is nothing to remove them on; they live
-   * for the window's lifetime, same as the page itself.
+   * apply. They are removed when the page closes.
    */
   private startPageErrorCollection(): void {
     const onError = (event: ErrorEvent) =>
       this.addPageError(pageError(event.error));
     const onRejection = (event: PromiseRejectionEvent) =>
       this.addPageError(pageError(event.reason));
-    this.window.addEventListener("error", onError);
-    this.window.addEventListener("unhandledrejection", onRejection);
+    const { signal } = this.lifetime;
+    this.window.addEventListener("error", onError, { signal });
+    this.window.addEventListener("unhandledrejection", onRejection, {
+      signal,
+    });
   }
 
   /**
@@ -1977,6 +2090,52 @@ export class PageImpl {
     this.pageErrorsBuffer.push(error);
     ensureArrayLimit(this.pageErrorsBuffer, 200);
     this.emit("pageerror", error);
+  }
+
+  // ── Lifetime ────────────────────────────────────────────────────
+
+  /**
+   * Pinned client/page.ts `close`, disposing this instance rather than the
+   * document, which stays open: nothing is unloaded, so a truthy
+   * `runBeforeUnload` is rejected. The host subscriptions this page holds are
+   * released, each shared wrapper only once no other page needs it; `close`
+   * fires; then every pending call rejects with the closed error, carrying
+   * `reason` when one is given, and every later call rejects with it.
+   * Closing again resolves.
+   */
+  async close(
+    options: { reason?: string; runBeforeUnload?: boolean } = {}
+  ): Promise<void> {
+    rejectUnsupportedOptions("close", options, ["reason", "runBeforeUnload"]);
+    // Pinned `close` treats a falsy `runBeforeUnload` as the ordinary close.
+    if (options.runBeforeUnload)
+      throw new Error(
+        "close(): unsupported Playwright option(s): runBeforeUnload."
+      );
+    const reason =
+      options.reason === undefined
+        ? undefined
+        : validateString(options.reason, "reason");
+    this.lifetime.close(reason, () => {
+      for (const feed of [
+        this.navigationFeed,
+        this.networkFeed,
+        this.dialogFeed,
+        this.consoleFeed,
+      ])
+        feed.release();
+      this.bindings.release(this.bindingOwner);
+      this.emit("close", this);
+    });
+  }
+
+  isClosed(): boolean {
+    return this.lifetime.closed;
+  }
+
+  /** Pinned client/page.ts: `await using page = createPage()` closes it. */
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.close();
   }
 
   // ── Page compatibility façade ────────────────────────────────────
@@ -2625,20 +2784,21 @@ export class PageImpl {
     if (this.document.readyState !== "loading") return;
 
     const timeout = this.resolveTimeout(options.timeout, DEFAULT_QUERY_TIMEOUT);
+    const signal = this.lifetime.bind(options.signal);
     await new Promise<void>((resolve, reject) => {
       let timeoutId: number | undefined;
       const settle = (error?: Error) => {
         this.window.removeEventListener("DOMContentLoaded", ready);
-        options.signal?.removeEventListener("abort", aborted);
+        signal.removeEventListener("abort", aborted);
         if (timeoutId !== undefined) this.window.clearTimeout(timeoutId);
         if (error) reject(error);
         else resolve();
       };
       const ready = () => settle();
-      const aborted = () => settle(actionAborted(options.signal!, true));
+      const aborted = () => settle(actionAborted(signal, true));
 
       this.window.addEventListener("DOMContentLoaded", ready, { once: true });
-      options.signal?.addEventListener("abort", aborted, { once: true });
+      signal.addEventListener("abort", aborted, { once: true });
       if (timeout > 0)
         timeoutId = this.window.setTimeout(
           () =>
@@ -2782,7 +2942,10 @@ export class PageImpl {
   }
 
   async waitForTimeout(timeout: number): Promise<void> {
-    await this.wait(timeout);
+    if (!timeout || timeout <= 0) return;
+    const { signal } = this.lifetime;
+    if (!(await waitForExpectationRetry(this.window, timeout, signal)))
+      throw this.lifetime.interruption();
   }
 
   /** Evaluates through the pinned Playwright UtilityScript. */
@@ -2897,7 +3060,7 @@ export class PageImpl {
   ): Promise<unknown> {
     const timeout = this.resolveTimeout(options?.timeout, 30_000);
     validateSignal("waitForFunction", options?.signal);
-    const signal = options?.signal;
+    const signal = this.lifetime.bind(options?.signal);
     const predicate = this.evaluation.predicate(pageFunction, isFunction, arg);
     const polling = options?.polling ?? "raf";
 
@@ -2916,7 +3079,7 @@ export class PageImpl {
           let pollTimerId: number | undefined;
           let rafId: number | undefined;
 
-          if (signal?.aborted) {
+          if (signal.aborted) {
             reject(actionAborted(signal, false));
             return;
           }
@@ -2936,7 +3099,7 @@ export class PageImpl {
 
           const cleanup = () => {
             aborted = true;
-            signal?.removeEventListener("abort", onAbort);
+            signal.removeEventListener("abort", onAbort);
             if (timeoutId !== undefined) this.window.clearTimeout(timeoutId);
             if (pollTimerId !== undefined)
               this.window.clearTimeout(pollTimerId);
@@ -2944,12 +3107,12 @@ export class PageImpl {
           };
 
           // `signal` never reaches the pinned protocol; it cancels the wait the
-          // same way the action paths cancel theirs.
+          // same way the action paths cancel theirs, as closing the page does.
           const onAbort = () => {
             cleanup();
-            reject(actionAborted(signal!, true));
+            reject(actionAborted(signal, true));
           };
-          signal?.addEventListener("abort", onAbort, { once: true });
+          signal.addEventListener("abort", onAbort, { once: true });
 
           const check = () => {
             if (aborted) return;
@@ -3096,7 +3259,7 @@ export class PageImpl {
     const waitUntil = verifyLoadState("waitUntil", options.waitUntil ?? "load");
     assertCurrentDocumentWaitTimeout(method, options.timeout);
     if (options.signal?.aborted)
-      throw prefixAbortError(
+      throw prefixApiError(
         actionAborted(options.signal, false),
         `page.${method}`
       );
@@ -3162,7 +3325,7 @@ export class PageImpl {
       DEFAULT_NAVIGATION_TIMEOUT,
       true
     );
-    const signal = options.signal;
+    const signal = this.lifetime.bind(options.signal);
 
     await withAbortPrefix(apiName, async () => {
       let hasNavigated = navigated === undefined;
@@ -3313,6 +3476,7 @@ export class PageImpl {
       timeout: effectiveTimeout,
       expiresAt:
         effectiveTimeout === 0 ? Infinity : Date.now() + effectiveTimeout,
+      signal: this.lifetime.signal,
     };
   }
 
@@ -3320,7 +3484,7 @@ export class PageImpl {
     deadline: ActionDeadline,
     signal: AbortSignal | undefined
   ) {
-    deadline.signal = signal;
+    deadline.signal = this.lifetime.bind(signal);
     if (signal?.aborted) throw actionAborted(signal, false);
   }
 
@@ -3356,13 +3520,14 @@ export class PageImpl {
     this.assertActionDeadline(deadline, actionName);
     if (!durationMs || durationMs <= 0) return;
     const remaining = deadline ? deadline.expiresAt - Date.now() : durationMs;
+    // Without a deadline (`page.keyboard`), closing the page still ends it.
+    const signal = deadline?.signal ?? this.lifetime.signal;
     const completed = await waitForExpectationRetry(
       this.window,
       Math.min(durationMs, remaining),
-      deadline?.signal
+      signal
     );
-    if (!completed && deadline?.signal)
-      throw actionAborted(deadline.signal, true);
+    if (!completed) throw actionAborted(signal, true);
     this.assertActionDeadline(deadline, actionName);
   }
 
@@ -3673,7 +3838,7 @@ export class PageImpl {
       DEFAULT_ACTION_TIMEOUT
     );
     const deadline = timeout === 0 ? Infinity : Date.now() + timeout;
-    const signal = options.signal;
+    const signal = this.lifetime.bind(options.signal);
     if (signal?.aborted) throw actionAborted(signal, false);
 
     while (true) {
@@ -3744,7 +3909,7 @@ export class PageImpl {
     const timeout =
       actionDeadline?.timeout ??
       this.resolveTimeout(options?.timeout, DEFAULT_QUERY_TIMEOUT);
-    const signal = options?.signal;
+    const signal = this.lifetime.bind(options?.signal);
     if (signal?.aborted) throw actionAborted(signal, false);
     const deadline =
       actionDeadline?.expiresAt ??
@@ -4825,7 +4990,28 @@ export function isPlaywrightLitePage(value: unknown): value is PageImpl {
 
 type WebStorage = Page["localStorage"];
 
+/** Refused once the storage's page has closed; see `guardLifetimeCalls`. */
+const WEB_STORAGE_LIFETIME_CALLS: Record<
+  LifetimeCalls<PageWebStorage, WebStorage>,
+  true
+> = {
+  clear: true,
+  getItem: true,
+  items: true,
+  removeItem: true,
+  setItem: true,
+};
+
 class PageWebStorage implements WebStorage {
+  static {
+    guardLifetimeCalls(
+      PageWebStorage.prototype,
+      WEB_STORAGE_LIFETIME_CALLS,
+      "webStorage",
+      (storage) => storage.page.lifetime
+    );
+  }
+
   constructor(
     private readonly page: PageImpl,
     private readonly kind: "local" | "session"
@@ -4869,6 +5055,18 @@ class PageWebStorage implements WebStorage {
   }
 }
 
+/** Refused once the keyboard's page has closed; see `guardLifetimeCalls`. */
+const KEYBOARD_LIFETIME_CALLS: Record<
+  LifetimeCalls<BrowserKeyboard, Keyboard>,
+  true
+> = {
+  down: true,
+  insertText: true,
+  press: true,
+  type: true,
+  up: true,
+};
+
 /**
  * Browser-only analogue of pinned `server/input.ts` Keyboard. It deliberately
  * owns only synthetic event/input behavior in the current document; browser
@@ -4876,6 +5074,15 @@ class PageWebStorage implements WebStorage {
  * outside this adapter's supported default-action surface.
  */
 class BrowserKeyboard {
+  static {
+    guardLifetimeCalls(
+      BrowserKeyboard.prototype,
+      KEYBOARD_LIFETIME_CALLS,
+      "keyboard",
+      (keyboard) => keyboard.page.lifetime
+    );
+  }
+
   private readonly pressedKeys = new Set<string>();
   private readonly pressedModifiers = new Set<string>();
   private readonly keydownState = new Map<
@@ -5251,6 +5458,17 @@ function assertionAbortedMessage(reason: unknown): string {
         ? ""
         : String(reason);
   return "The assertion was aborted" + (detail ? `: ${detail}` : "");
+}
+
+/**
+ * The call-log line of an assertion `signal` ended mid-wait: pinned
+ * `Frame.expect` logs the closed error when the page closed, otherwise the
+ * abort.
+ */
+function interruptionLine(signal: AbortSignal): string {
+  return isTargetClosedError(signal.reason)
+    ? signal.reason.reason
+    : `operation was aborted: ${abortReason(signal)}`;
 }
 
 /**
@@ -5983,7 +6201,14 @@ function presentOriginalXPath(error: unknown, selector: string): Error {
   return new Error(rewritten, { cause: source });
 }
 
+/**
+ * The error a wait ends with when `signal` aborts: an `AbortError` for the
+ * caller's own signal, or the closed error when the page closed, which the
+ * page's lifetime guard reports under the member's API name.
+ */
 function actionAborted(signal: AbortSignal, inFlight: boolean): Error {
+  if (isTargetClosedError(signal.reason))
+    return new TargetClosedError(signal.reason.reason);
   const reason = abortReason(signal);
   const error = new Error(
     inFlight
@@ -6002,15 +6227,8 @@ export async function withAbortPrefix<T>(
   try {
     return await run();
   } catch (error) {
-    throw prefixAbortError(error, apiName);
+    throw prefixApiError(error, apiName);
   }
-}
-
-function prefixAbortError(error: unknown, apiName: string): unknown {
-  const result = asError(error);
-  if (result.name !== "AbortError") return error;
-  result.message = `${apiName}: ${result.message}`;
-  return result;
 }
 
 function unknownKey(value: string): never {

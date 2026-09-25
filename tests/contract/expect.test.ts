@@ -133,6 +133,27 @@ describe("expect(locator)", () => {
     );
   });
 
+  it("fails an assertion the page's close interrupts with its last value, not a timeout", async () => {
+    document.body.innerHTML = "<div id=value>hello</div>";
+    const page = createPage();
+    const pending = browserExpect(page.locator("#value"))
+      .toHaveText("world", { timeout: 60_000 })
+      .catch((error: Error) => error);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    await page.close();
+    const error = (await pending) as Error;
+
+    expect(error.message).toContain(
+      "expect(locator).toHaveText(expected) failed"
+    );
+    expect(error.message).toContain('Received: "hello"');
+    expect(error.message).toContain(
+      "Target page, context or browser has been closed"
+    );
+    expect(error.message).not.toContain("Timeout:");
+  });
+
   it("uses the locator brand and preserves pinned failure diagnostics", async () => {
     const fakeLocator = {
       _expect: async () => ({ matches: true }),
@@ -789,6 +810,25 @@ describe("Page assertions", () => {
     expect(custom.message).toContain(
       "\nCall log:\n  - custom title with timeout 20ms\n"
     );
+  });
+
+  it("fails an assertion the page's close interrupts with its last value, not a timeout", async () => {
+    document.title = "Bye";
+    const page = createPage();
+    const pending = browserExpect(page)
+      .toHaveTitle("Hello", { timeout: 60_000 })
+      .catch((error: Error) => error);
+
+    await page.close();
+    const error = (await pending) as Error;
+
+    expect(error.message).toContain(
+      'expect(page).toHaveTitle(expected) failed\n\nExpected: "Hello"\nReceived: "Bye"'
+    );
+    expect(error.message).toContain(
+      "- Target page, context or browser has been closed"
+    );
+    expect(error.message).not.toContain("Timeout:");
   });
 
   it("supports matching and retrying current-document URL forms", async () => {

@@ -215,6 +215,12 @@ describe("option-validation", () => {
       (page) => page.removeAllListeners("load", { unexpected: true } as any),
       /removeAllListeners\(\): unsupported Playwright option\(s\): unexpected/,
     ],
+    // Closing disposes the page instance and unloads nothing.
+    [
+      "close",
+      (page) => page.close({ runBeforeUnload: true }),
+      /close\(\): unsupported Playwright option\(s\): runBeforeUnload/,
+    ],
     [
       "waitForRequest",
       (page) => page.waitForRequest("**/*", { predicate: () => true } as any),

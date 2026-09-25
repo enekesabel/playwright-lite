@@ -17,7 +17,12 @@ export interface BindingOwner {
   toByValue(value: unknown): unknown;
 }
 
-type BindingEntry = { owner: BindingOwner; handler: Binding };
+/** `exposed` is the `window[name]` function an `expose` installed. */
+type BindingEntry = {
+  owner: BindingOwner;
+  handler: Binding;
+  exposed?: (...args: unknown[]) => unknown;
+};
 
 /**
  * Pinned server/page.ts `_pageBindings`: one registry per window, since the
@@ -39,10 +44,10 @@ export class PageBindings {
   expose(owner: BindingOwner, name: string, handler: Binding): () => void {
     if (this.bindings.has(name))
       throw new Error(`Function "${name}" has been already registered`);
-    const entry = { owner, handler };
+    const exposed = (...args: unknown[]) => this.callBinding(name, ...args);
+    const entry = { owner, handler, exposed };
     this.install(name, entry);
     const holder = this.window as unknown as Record<string, unknown>;
-    const exposed = (...args: unknown[]) => this.callBinding(name, ...args);
     holder[name] = exposed;
     return () => {
       if (this.bindings.get(name) !== entry) return;
@@ -66,6 +71,24 @@ export class PageBindings {
     const name = kFunctionBindingPrefix + this.nextCallbackId++;
     this.install(name, { owner, handler: (_source, ...args) => fn(...args) });
     return name;
+  }
+
+  /**
+   * Removes every binding `owner` registered, as its page closes: each
+   * `window[name]` it exposed goes unless the Site has since replaced it, and
+   * the controller goes with the last binding of any page.
+   */
+  release(owner: BindingOwner): void {
+    const holder = this.window as unknown as Record<string, unknown>;
+    for (const [name, entry] of this.bindings) {
+      if (entry.owner !== owner) continue;
+      this.bindings.delete(name);
+      if (entry.exposed !== undefined && holder[name] === entry.exposed)
+        delete holder[name];
+    }
+    if (this.bindings.size > 0 || !this.controllerInstalled) return;
+    this.controllerInstalled = false;
+    delete holder[kBindingsControllerProperty];
   }
 
   /** Installs the controller the first time anything is registered. */

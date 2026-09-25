@@ -9,6 +9,7 @@ import {
 
 import { AdapterElementHandle } from "./elementHandle";
 import { AdapterJSHandle } from "./jsHandle";
+import { TargetClosedError } from "./lifetime";
 import type { PageImpl } from "./page";
 
 export type EvaluationFunction<R = any> =
@@ -29,7 +30,8 @@ export class Evaluation {
    */
   private readonly node: typeof Node;
 
-  constructor(private readonly page: PageImpl) {
+  /** `page` is also the owner of this evaluation's handles. */
+  constructor(readonly page: PageImpl) {
     this.node = page.window.Node;
   }
 
@@ -139,6 +141,7 @@ export class Evaluation {
     target: EvaluationTarget | undefined,
     exposeFunctions?: boolean
   ): Promise<unknown> {
+    if (this.page.lifetime.closed) throw new TargetClosedError();
     const normalized = normalizeExpression(String(expression), isFunction);
     const { serialized, handles } = this.argument(arg, exposeFunctions);
     const parameters = [serialized];
@@ -150,18 +153,25 @@ export class Evaluation {
       );
       parameters.unshift({ h: handles.length - 1 });
     }
+    let evaluated: Promise<unknown>;
     try {
-      return await this.script.evaluate(
-        isFunction,
-        returnByValue,
-        normalized,
-        parameters.length,
-        ...parameters,
-        ...handles
-      );
+      evaluated = Promise.resolve(
+        this.script.evaluate(
+          isFunction,
+          returnByValue,
+          normalized,
+          parameters.length,
+          ...parameters,
+          ...handles
+        )
+      ).catch((error: unknown) => {
+        throw evaluationError(error);
+      });
     } catch (error) {
       throw evaluationError(error);
     }
+    // A page function cannot be stopped, so closing the page abandons it.
+    return await this.page.lifetime.race(evaluated);
   }
 
   /**
