@@ -485,8 +485,6 @@ export class PageImpl {
   readonly evaluation: Evaluation;
   readonly localStorage: PageWebStorage;
   readonly sessionStorage: PageWebStorage;
-  private _injected: ReturnType<typeof injectedScriptFor> | undefined;
-  private _injectedTestIdAttributeName: string | undefined;
   private defaultTimeout: number | undefined;
   private defaultNavigationTimeout: number | undefined;
   private readonly listeners = new Map<string, ListenerEntry[]>();
@@ -613,18 +611,10 @@ export class PageImpl {
   }
 
   private get injected() {
-    const testIdAttributeName = this.testIdAttribute;
-    if (
-      !this._injected ||
-      this._injectedTestIdAttributeName !== testIdAttributeName
-    ) {
-      this._injected = injectedScriptFor(
-        this.document.documentElement,
-        testIdAttributeName
-      );
-      this._injectedTestIdAttributeName = testIdAttributeName;
-    }
-    return this._injected;
+    return injectedScriptFor(
+      this.document.documentElement,
+      this.testIdAttribute
+    );
   }
 
   static fromWindow(

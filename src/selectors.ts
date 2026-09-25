@@ -1,8 +1,7 @@
 import type { Selectors } from "@playwright/test";
-import { JSON } from "virtual:playwright-lite-globals";
+import { Error, JSON, Set } from "virtual:playwright-lite-globals";
 
 import { registerSelectorEngine } from "./injected";
-import { validateString } from "./protocolValidation";
 
 export { getByTestIdSelector } from "virtual:playwright-lite-injected";
 
@@ -13,7 +12,8 @@ type SelectorEngineScript =
 
 /**
  * Pinned server/selectors.ts `_builtinEngines` ("keep in sync with
- * InjectedScript class"), plus the `zs` names it keeps for future use.
+ * InjectedScript class"), plus the `zs` name it keeps for future use. Its
+ * `zs:light`, like every name with a colon, fails the name check first.
  */
 const predefinedEngines = new Set([
   "css",
@@ -51,7 +51,6 @@ const predefinedEngines = new Set([
   "internal:describe",
   "aria-ref",
   "zs",
-  "zs:light",
 ]);
 
 /**
@@ -67,6 +66,18 @@ function engineSource(script: SelectorEngineScript): unknown {
       "selectors.register: the `path` property is not supported; pass `content`."
     );
   throw new Error("Either path or content property must be present");
+}
+
+/** A protocol or server rejection, which the pinned client prefixes. */
+function fail(message: string): never {
+  throw new Error(`selectors.register: ${message}`);
+}
+
+/** Pinned protocol `tString`, reported through `fail`. */
+function protocolString(value: unknown, path: string): string {
+  if (value instanceof String) return value.valueOf();
+  if (typeof value === "string") return value;
+  return fail(`${path}: expected string, got ${typeof value}`);
 }
 
 /**
@@ -89,35 +100,21 @@ class SelectorsImpl {
         `selectors.register: "${name}" selector engine has been already registered`
       );
     const engine = { ...options, name, source: engineSource(script) };
-    let engineName: string;
-    let source: string;
-    try {
-      engineName = validateString(engine.name, "selectorEngine.name");
-      source = validateString(engine.source, "selectorEngine.source");
-      const contentScript = engine.contentScript as unknown;
-      if (
-        contentScript !== undefined &&
-        typeof contentScript !== "boolean" &&
-        !(contentScript instanceof Boolean)
-      )
-        throw new Error(
-          `selectorEngine.contentScript: expected boolean, got ${typeof contentScript}`
-        );
-      if (!/^[a-zA-Z_0-9-]+$/.test(engineName))
-        throw new Error(
-          "Selector engine name may only contain [a-zA-Z0-9_] characters"
-        );
-      if (predefinedEngines.has(engineName))
-        throw new Error(`"${engineName}" is a predefined selector engine`);
-      if (this.names.has(engineName))
-        throw new Error(
-          `"${engineName}" selector engine has been already registered`
-        );
-    } catch (error) {
-      throw new Error(`selectors.register: ${(error as Error).message}`, {
-        cause: error,
-      });
-    }
+    const engineName = protocolString(engine.name, "selectorEngine.name");
+    const source = protocolString(engine.source, "selectorEngine.source");
+    const contentScript = engine.contentScript as unknown;
+    if (
+      contentScript !== undefined &&
+      typeof contentScript !== "boolean" &&
+      !(contentScript instanceof Boolean)
+    )
+      fail(
+        `selectorEngine.contentScript: expected boolean, got ${typeof contentScript}`
+      );
+    if (!/^[a-zA-Z_0-9-]+$/.test(engineName))
+      fail("Selector engine name may only contain [a-zA-Z0-9_] characters");
+    if (predefinedEngines.has(engineName))
+      fail(`"${engineName}" is a predefined selector engine`);
     registerSelectorEngine(engineName, source);
     this.names.add(engineName);
   }

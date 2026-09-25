@@ -2,14 +2,9 @@ import {
   InjectedScript,
   parseAriaSnapshot,
 } from "virtual:playwright-lite-injected";
-import { WeakMap, Error } from "virtual:playwright-lite-globals";
+import { Error, Map, WeakMap } from "virtual:playwright-lite-globals";
 
 export const DEFAULT_TEST_ID_ATTRIBUTE = "data-testid";
-
-const injectedScripts = new WeakMap<
-  Window,
-  { testIdAttributeName: string; injectedScript: InjectedScript }
->();
 
 /**
  * Engines `selectors.register()` accepted, in registration order. Pinned
@@ -18,14 +13,17 @@ const injectedScripts = new WeakMap<
  */
 const customEngines: { name: string; source: string }[] = [];
 
-/**
- * Every InjectedScript created so far. Pinned Playwright only passes engines
- * to an InjectedScript it is creating, which there happens once per document;
- * here the one document keeps its InjectedScript, so a registered engine also
- * reaches the ones already created.
- */
-const liveInjectedScripts = new Set<WeakRef<InjectedScript>>();
+/** Per window, one InjectedScript per test ID attribute. */
+const injectedScripts = new WeakMap<
+  Window,
+  Map<string, { engineCount: number; injectedScript: InjectedScript }>
+>();
 
+/**
+ * The InjectedScript for the window and test ID attribute, created again once
+ * an engine was registered after it, so the pinned constructor always
+ * evaluates the current `customEngines`.
+ */
 export function injectedScriptFor(
   root: Element,
   testIdAttributeName = DEFAULT_TEST_ID_ATTRIBUTE
@@ -33,8 +31,13 @@ export function injectedScriptFor(
   const browserWindow = root.ownerDocument.defaultView;
   if (!browserWindow)
     throw new Error("Cannot capture ARIA state without a browser Window.");
-  let entry = injectedScripts.get(browserWindow);
-  if (!entry || entry.testIdAttributeName !== testIdAttributeName) {
+  let byTestId = injectedScripts.get(browserWindow);
+  if (!byTestId) {
+    byTestId = new Map();
+    injectedScripts.set(browserWindow, byTestId);
+  }
+  let entry = byTestId.get(testIdAttributeName);
+  if (!entry || entry.engineCount !== customEngines.length) {
     const injectedScript = new InjectedScript(browserWindow, {
       browserName: "chromium",
       customEngines: [...customEngines],
@@ -46,30 +49,19 @@ export function injectedScriptFor(
       stableRafCount: 0,
       testIdAttributeName,
     });
-    liveInjectedScripts.add(new WeakRef(injectedScript));
-    entry = { testIdAttributeName, injectedScript };
-    injectedScripts.set(browserWindow, entry);
+    entry = { engineCount: customEngines.length, injectedScript };
+    byTestId.set(testIdAttributeName, entry);
   }
   return entry.injectedScript;
 }
 
 /**
- * Adds a selector engine to every InjectedScript, present and future. Each
- * live one evaluates the source exactly as the pinned constructor evaluates
- * its `customEngines`, in its own window. All evaluations run before any
- * engine is installed, so a source that throws registers nowhere.
+ * Adds a selector engine for every InjectedScript created from now on; the
+ * next `injectedScriptFor()` call creates one. Like Playwright, the source is
+ * first evaluated there, so a source that throws fails that call.
  */
 export function registerSelectorEngine(name: string, source: string): void {
-  const engine = { name, source: `(${source})` };
-  const evaluated: [InjectedScript, unknown][] = [];
-  for (const reference of liveInjectedScripts) {
-    const injectedScript = reference.deref();
-    if (!injectedScript) liveInjectedScripts.delete(reference);
-    else evaluated.push([injectedScript, injectedScript.eval(engine.source)]);
-  }
-  for (const [injectedScript, instance] of evaluated)
-    injectedScript._engines.set(name, instance);
-  customEngines.push(engine);
+  customEngines.push({ name, source: `(${source})` });
 }
 
 export function parseAriaExpectation(value: string): unknown {

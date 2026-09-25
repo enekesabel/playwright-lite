@@ -135,18 +135,17 @@ describe("Selectors.register", () => {
     });
   });
 
-  it("registers nothing when the source throws in a page already in use", async () => {
+  // Last: as in Playwright, a source that throws breaks every later selector.
+  it("registers a source that throws, which then fails the page's next selector", async () => {
     document.body.innerHTML = "<div></div>";
     const page = createPage();
     expect(await page.locator("div").count()).toBe(1);
 
-    await expect(
-      selectors.register("broken", "(() => { throw new Error('boom'); })()")
-    ).rejects.toThrow("boom");
+    await selectors.register(
+      "broken",
+      "(() => { throw new Error('boom'); })()"
+    );
 
-    const error = await page.$("broken=div").catch((error: Error) => error);
-    expect((error as Error).message).toContain('Unknown engine "broken"');
-    await selectors.register("broken", tagEngineSource);
-    expect(await page.locator("broken=div").count()).toBe(1);
+    await expect(page.locator("div").count()).rejects.toThrow("boom");
   });
 });
