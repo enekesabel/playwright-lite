@@ -2495,9 +2495,44 @@ export class PageImpl {
     await this.waitForCurrentDocument(
       "page.waitForURL",
       waitUntil,
-      url,
+      () => urlMatches(this.window.location.href, url),
       options
     );
+  }
+
+  /**
+   * Pinned server/page.ts reads the browser's history, returns null when the
+   * adjacent entry is missing, and otherwise waits for the next navigation
+   * and its lifecycle state. The Navigation API is this document's view of
+   * its history; see `traverseHistory`.
+   */
+  async goBack(options: CurrentDocumentWaitOptions = {}): Promise<null> {
+    return this.traverseHistory("goBack", options);
+  }
+
+  /** Pinned server/page.ts shares `goBack`'s implementation, one entry forward. */
+  async goForward(options: CurrentDocumentWaitOptions = {}): Promise<null> {
+    return this.traverseHistory("goForward", options);
+  }
+
+  /**
+   * Pinned server/page.ts waits for a navigation that commits a new document,
+   * so same-document navigations never resolve it. A reload always replaces
+   * the document, which ends this execution: like a cross-document `goto`, it
+   * starts the navigation and never resolves in the old document, which is
+   * destroyed, so no Response is fabricated. It times out only if the
+   * document is not replaced.
+   */
+  async reload(options: CurrentDocumentWaitOptions = {}): Promise<null> {
+    const waitUntil = this.validateNavigationOptions("reload", options);
+    this.window.location.reload();
+    await this.waitForCurrentDocument(
+      "page.reload",
+      waitUntil,
+      () => false,
+      options
+    );
+    return null;
   }
 
   // ── Accessibility ───────────────────────────────────────────────
@@ -2985,11 +3020,82 @@ export class PageImpl {
     return fallback;
   }
 
-  /** One current-document URL/lifecycle wait shared by Page navigation APIs. */
+  /**
+   * Validates a navigation member's options the way the pinned client does
+   * before anything is sent, and rejects an already-aborted signal before the
+   * navigation starts. Returns the verified `waitUntil`.
+   */
+  private validateNavigationOptions(
+    method: "goBack" | "goForward" | "reload",
+    options: CurrentDocumentWaitOptions
+  ): string {
+    rejectUnsupportedOptions(method, options, [
+      "signal",
+      "timeout",
+      "waitUntil",
+    ]);
+    const waitUntil = verifyLoadState("waitUntil", options.waitUntil ?? "load");
+    assertCurrentDocumentWaitTimeout(method, options.timeout);
+    if (options.signal?.aborted)
+      throw prefixAbortError(
+        actionAborted(options.signal, false),
+        `page.${method}`
+      );
+    return waitUntil;
+  }
+
+  /**
+   * Traverses one entry of `navigation.entries()`: the entries of this
+   * window's history the document can see, which are those contiguous with
+   * and same-origin as the current one (none beyond the current entry in an
+   * opaque-origin document). With no such entry the call resolves to null,
+   * the pinned result for a missing entry. Like the pinned wait, any
+   * navigation after the traversal starts ends the wait, observed as a change
+   * of `navigation.currentEntry` through the observation `waitForURL` uses, so
+   * an entry with the same URL still counts. A cross-document entry replaces
+   * the document, which ends this execution before anything is reported.
+   * The Navigation API is the only in-document source of "no adjacent entry",
+   * so there is no `history.go()` fallback without it.
+   */
+  private async traverseHistory(
+    method: "goBack" | "goForward",
+    options: CurrentDocumentWaitOptions
+  ): Promise<null> {
+    const waitUntil = this.validateNavigationOptions(method, options);
+    // The DOM typings declare `navigation` unconditionally.
+    const navigation = this.window.navigation as Navigation | undefined;
+    if (!navigation)
+      throw new Error(
+        `page.${method}: requires the Navigation API, which this browser does not provide`
+      );
+    const [canTraverse, traverse] =
+      method === "goBack"
+        ? [navigation.canGoBack, () => navigation.back()]
+        : [navigation.canGoForward, () => navigation.forward()];
+    if (!canTraverse) return null;
+    const start = navigation.currentEntry;
+    const { committed, finished } = traverse();
+    // An interrupted or replaced traversal rejects these; the wait below
+    // reports the outcome instead.
+    void Promise.allSettled([committed, finished]);
+    await this.waitForCurrentDocument(
+      `page.${method}`,
+      waitUntil,
+      () => navigation.currentEntry !== start,
+      options
+    );
+    return null;
+  }
+
+  /**
+   * One current-document navigation/lifecycle wait shared by Page navigation
+   * APIs. `navigated` is latched once true; the wait then needs only the
+   * lifecycle state.
+   */
   private async waitForCurrentDocument(
-    apiName: "page.waitForLoadState" | "page.waitForURL",
+    apiName: string,
     waitUntil: string,
-    url: URLMatch | undefined,
+    navigated: (() => boolean) | undefined,
     options: Omit<CurrentDocumentWaitOptions, "waitUntil">
   ): Promise<void> {
     const timeout = this.resolveTimeout(
@@ -3000,13 +3106,12 @@ export class PageImpl {
     const signal = options.signal;
 
     await withAbortPrefix(apiName, async () => {
-      let urlMatched = url === undefined;
+      let hasNavigated = navigated === undefined;
       const loadState = this.watchLoadState(waitUntil);
       const observation = await this.observeCurrentDocument(
         () => {
-          if (!urlMatched)
-            urlMatched = urlMatches(this.window.location.href, url!);
-          return urlMatched && loadState.reached();
+          if (!hasNavigated) hasNavigated = navigated!();
+          return hasNavigated && loadState.reached();
         },
         timeout,
         signal
@@ -5415,7 +5520,7 @@ function verifyLoadState(name: string, waitUntil: string): string {
 }
 
 function assertCurrentDocumentWaitTimeout(
-  method: "waitForLoadState" | "waitForURL",
+  method: string,
   timeout: number | undefined
 ) {
   if (timeout !== undefined) validateTimeout(timeout, `${method} timeout`);

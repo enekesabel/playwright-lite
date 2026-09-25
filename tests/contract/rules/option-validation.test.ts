@@ -66,6 +66,22 @@ describe("option-validation", () => {
       /waitForEvent signal must be an AbortSignal/,
     ],
     [
+      "goBack",
+      (page, options) => page.goBack(options as any),
+      /goBack signal must be an AbortSignal/,
+    ],
+    [
+      "goForward",
+      (page, options) => page.goForward(options as any),
+      /goForward signal must be an AbortSignal/,
+    ],
+    // Validation precedes navigation, so this never reloads the test document.
+    [
+      "reload",
+      (page, options) => page.reload(options as any),
+      /reload signal must be an AbortSignal/,
+    ],
+    [
       "elementHandle.waitForElementState",
       async (page, options) =>
         (await page.$("#input"))!.waitForElementState(
@@ -158,6 +174,21 @@ describe("option-validation", () => {
       "waitForEvent",
       (page) => page.waitForEvent("load", { unexpected: true } as any),
       /waitForEvent\(\): unsupported Playwright option\(s\): unexpected/,
+    ],
+    [
+      "goBack",
+      (page) => page.goBack({ unexpected: true } as any),
+      /goBack\(\): unsupported Playwright option\(s\): unexpected/,
+    ],
+    [
+      "goForward",
+      (page) => page.goForward({ unexpected: true } as any),
+      /goForward\(\): unsupported Playwright option\(s\): unexpected/,
+    ],
+    [
+      "reload",
+      (page) => page.reload({ unexpected: true } as any),
+      /reload\(\): unsupported Playwright option\(s\): unexpected/,
     ],
     [
       "pageErrors",

@@ -106,6 +106,9 @@ const consoleMessagesNote =
 const networkIdleNote =
   '`"networkidle"` resolves no sooner than 500 ms after the call, even when the document is already idle; see [Network idle](#network-idle).';
 
+const historyTraversalNote =
+  "Needs the browser's Navigation API and rejects without it; returns no `Response`; resolves to `null` without navigating when the Navigation API does not list the adjacent entry (an entry of another origin, an entry beyond one, or any entry in an opaque-origin document such as a sandboxed frame), where Playwright navigates to it; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call, even when already idle.";
+
 /** The Page events this package fires, in README order. */
 export const events: readonly EventRow[] = [
   {
@@ -336,12 +339,8 @@ export const pageLedger = {
   getByTestId: implemented(),
   getByText: implemented(),
   getByTitle: implemented(),
-  goBack: planned(
-    "Initiates browser navigation; execution ends on document replacement."
-  ),
-  goForward: planned(
-    "Initiates browser navigation; execution ends on document replacement."
-  ),
+  goBack: partial(historyTraversalNote),
+  goForward: partial(historyTraversalNote),
   goto: partial(
     "Returns no `Response` (`null` only for same-document hash navigation); relative URLs resolve against `document.baseURI`, with no `baseURL`; rejects `referer` and `signal`; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call, even when already idle."
   ),
@@ -380,8 +379,8 @@ export const pageLedger = {
   pickLocator: undecided(),
   prependListener: partial(listenerNote),
   press: implemented(),
-  reload: planned(
-    "Initiates browser navigation; execution ends on document replacement."
+  reload: partial(
+    "Does not resolve in the old document, which the reload destroys, and returns no `Response`, since the reload [ends execution](#runtime-boundaries); rejects with a timeout only if the document is not replaced."
   ),
   removeAllListeners: partial(removalNote),
   removeListener: partial(removalNote),
