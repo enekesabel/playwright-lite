@@ -13,7 +13,7 @@ import {
   test as base,
   expect,
 } from "@playwright/test";
-import { createAdapterPage } from "./adapter-bridge";
+import { createAdapterPage, readAdapterEvidence } from "./adapter-bridge";
 import { test as corpusTest, expect as corpusExpect } from "./pageTest";
 import { TestServer } from "./testServer";
 
@@ -150,6 +150,25 @@ test("extended corpus matchers stay on the generic expectation surface", async (
   const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
   expect(execution.expect).not.toContain("Locator.toBeAdapterReceiver");
 });
+
+// The pinned upstream config sets the page corpus's expect timeout to 10000
+// ms, and failure-message specs assert it. An aborted assertion reports the
+// timeout it was waiting by without waiting it out.
+corpusTest(
+  "corpus expect waits the project's expect timeout on adapter receivers",
+  async ({ page }) => {
+    await page.setContent("<div>content</div>");
+    const controller = new AbortController();
+    const assertion = corpusExpect(page.locator("span"))
+      .toBeVisible({ signal: controller.signal } as never)
+      .catch((error: Error) => error);
+    setTimeout(() => controller.abort(new Error("stop")), 100);
+
+    expect((await assertion).message).toContain(
+      'Expect "toBeVisible" with timeout 10000ms'
+    );
+  }
+);
 
 test("public matcher sabotage breaks the promoted expect path", async ({ page }) => {
   const sabotaged = await createAdapterPage(page, {
@@ -543,6 +562,35 @@ test("a value the transport cannot serialize is a transport failure", async ({
   expect((page as any).__pwLiteTransportFailures).toEqual([
     expect.stringContaining("Attempting to serialize unexpected value"),
   ]);
+});
+
+// Playwright's utility script parses an evaluate argument and serializes its
+// result with the page's own Array.prototype.push, so a page that busts it
+// must not break the bridge's arrays and objects in either direction, nor the
+// evidence recorded about the call. A page toJSON must not rewrite them either.
+test("the transport does not depend on the page's prototypes", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<title>busted</title>");
+  await page.evaluate(() => {
+    (Array.prototype as any).map = null;
+    (Array.prototype as any).push = null;
+    (Array.prototype as any).toJSON = () => "busted array";
+    (Object.prototype as any).toJSON = () => "busted object";
+  });
+
+  // Each call carries an argument array to the page and an envelope object
+  // back; the evidence comes back as an object of arrays.
+  await expect(adapterPage.title()).resolves.toBe("busted");
+  await expect(adapterPage.evaluate("1 + 2")).resolves.toBe(3);
+  const evidence = (await readAdapterEvidence(page)) as {
+    entered: string[];
+  };
+  expect(evidence.entered).toEqual(
+    expect.arrayContaining(["Page.title", "Page.evaluate"])
+  );
+  expect((page as any).__pwLiteTransportFailures).toEqual([]);
 });
 
 test("a destroyed execution context is a transport failure even when page code caused it", async ({

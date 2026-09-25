@@ -12,6 +12,7 @@ import {
   expect as baseExpect,
   type Page,
   type Frame,
+  type TestInfo,
 } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
@@ -21,6 +22,7 @@ import {
   createAdapterPage,
   installTestIdAttributeSynchronization,
   isAdapterExpectationTarget,
+  readAdapterEvidence,
   runPublicExpectMatcher,
 } from "./adapter-bridge";
 import { specNames } from "./corpus";
@@ -51,6 +53,22 @@ export function isKnownFailure(titlePath: readonly string[]): boolean {
     corpusFiles.has(basename(file)) &&
     !reviewedIds.has(stableTestId(file, titles))
   );
+}
+
+/**
+ * The `expect.timeout` Playwright Test resolved for the running project, the
+ * value its own expect waits by default. The public `TestInfo.project` does
+ * not carry the project's `expect` block; the worker hands this same field to
+ * its expect when each test begins.
+ */
+export function configuredExpectTimeout(
+  testInfo: TestInfo
+): number | undefined {
+  return (
+    testInfo as unknown as {
+      _projectInternal?: { expect?: { timeout?: number } };
+    }
+  )._projectInternal?.expect?.timeout;
 }
 
 // ── Native setup navigation ─────────────────────────────────────────
@@ -242,6 +260,7 @@ export const test = base.extend<
       const proxyPage = await createAdapterPage(page, {
         actionTimeout,
         navigationTimeout,
+        expectTimeout: configuredExpectTimeout(testInfo),
         sabotagedMethod,
         sabotagedMatcher,
         nativeNavigationForSetup: nativeNavigationForSetupSpecs.has(
@@ -251,9 +270,7 @@ export const test = base.extend<
       await use(proxyPage);
     } finally {
       await resetTestIdAttribute();
-      const evidence = await page
-        .evaluate(() => (window as any).__pwLiteEvidence)
-        .catch(() => null);
+      const evidence: any = await readAdapterEvidence(page).catch(() => null);
       if (evidence) {
         evidence.failures = (page as any).__pwLiteTransportFailures;
         evidence.native = (page as any).__pwLiteNativeOperations;
