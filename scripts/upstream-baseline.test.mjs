@@ -580,6 +580,29 @@ describe("blockingRegressions", () => {
       );
   });
 
+  it("refuses an owner change that is not a listed owner correction", () => {
+    // Page.evaluate regressed while a Locator.evaluate in the same test still
+    // runs: renaming the owner would hide an unrelated regression.
+    const entries = [
+      passing(renamed, ["JSHandle.asElement"]),
+      passing(other, ["Locator.evaluate"]),
+    ];
+    assert.deepEqual(compareBaseline(entries, baseline, names).regressions, [
+      other,
+    ]);
+    assert.throws(
+      () =>
+        blockingRegressions(
+          entries,
+          baseline,
+          names,
+          [{ id: other, method: "Locator.evaluate" }],
+          new Set([other])
+        ),
+      /from Page\.evaluate as Locator\.evaluate only if that is a listed owner correction \(JSHandle -> ElementHandle\)/
+    );
+  });
+
   it("refuses a re-record when the entry's method now runs natively", () => {
     const native = (entered, nativeMethods) => ({
       ...passing(renamed, entered),

@@ -7,7 +7,8 @@
  *   promote <test-id> <method> [--matcher <matcher> | --re-record] <evidence>
  *           rerun corpus and promote a reviewed test; each flag goes after <method>
  *     --matcher <matcher>  the public matcher an _expect promotion proves
- *     --re-record          correct an existing entry whose method's owner was renamed;
+ *     --re-record          correct an existing entry whose method's owner the harness
+ *                          renamed, by a pair listed in OWNER_CORRECTIONS;
  *                          it sets no matcher, so it cannot be combined with --matcher
  */
 import {
@@ -286,18 +287,42 @@ export function reviewedPromotion(entries, id, method, evidence, matcher) {
 }
 
 /**
+ * The owner corrections `--re-record` accepts, as [reviewed owner, new owner]
+ * pairs for the same member. Each pair is a harness change that renamed the
+ * owner it records a member under; adding one is itself a reviewed harness
+ * change.
+ */
+const OWNER_CORRECTIONS = [["JSHandle", "ElementHandle"]];
+
+function isOwnerCorrection(reviewedMethod, method) {
+  const split = (method) => {
+    const dot = method.indexOf(".");
+    return [method.slice(0, dot), method.slice(dot + 1)];
+  };
+  const [reviewedOwner, reviewedMember] = split(reviewedMethod);
+  const [owner, member] = split(method);
+  return (
+    member === reviewedMember &&
+    OWNER_CORRECTIONS.some(
+      ([from, to]) => from === reviewedOwner && to === owner
+    )
+  );
+}
+
+/**
  * The baseline regressions that block a promotion run.
  *
  * A promotion listed in `reRecords` corrects an existing reviewed entry that
- * regressed only because its recorded method's owner changed name (a harness
+ * regressed only because the harness renamed its recorded method's owner (it
  * now records `ElementHandle.asElement` where it recorded
  * `JSHandle.asElement`): the test still passes with clean execution evidence,
- * and the new method names the same member under another owner, with the same
- * matcher. Such an entry does not block its own correction. An entry whose
- * recorded method now runs natively regressed, whatever the new method is. A
- * re-record that is not such a correction is refused, and every other
- * regression still blocks. The re-recorded method still goes through the sabotage rerun like
- * any promotion.
+ * the new method is the same member under the new owner of a pair in
+ * `OWNER_CORRECTIONS`, and the matcher is unchanged. Such an entry does not
+ * block its own correction. An entry whose recorded method now runs natively
+ * regressed, whatever the new method is. A re-record that is not such a
+ * correction is refused, and every other regression still blocks. The
+ * re-recorded method still goes through the sabotage rerun like any
+ * promotion.
  *
  * @param {Array} entries  Parsed test entries.
  * @param {{ reviewed: Array<{id: string, method: string, matcher?: string}> }} baseline  Recorded baseline.
@@ -313,7 +338,6 @@ export function blockingRegressions(
   reRecords
 ) {
   const { regressions } = compareBaseline(entries, baseline, names);
-  const member = (method) => method.slice(method.indexOf(".") + 1);
   for (const id of reRecords) {
     const promotion = promotions.find((promotion) => promotion.id === id);
     const reviewed = baseline.reviewed.find((review) => review.id === id);
@@ -333,12 +357,11 @@ export function blockingRegressions(
     if (
       !entry ||
       !isCandidate(entry) ||
-      promotion.method === reviewed.method ||
-      member(promotion.method) !== member(reviewed.method) ||
+      !isOwnerCorrection(reviewed.method, promotion.method) ||
       promotion.matcher !== reviewed.matcher
     )
       throw new Error(
-        `${id} can be re-recorded only as the same member of ${reviewed.method} under another owner, with the test still passing.`
+        `${id} can be re-recorded from ${reviewed.method} as ${promotion.method} only if that is a listed owner correction (${OWNER_CORRECTIONS.map(([from, to]) => `${from} -> ${to}`).join(", ")}) of the same member, with the same matcher and the test still passing.`
       );
   }
   return regressions.filter((id) => !reRecords.has(id));

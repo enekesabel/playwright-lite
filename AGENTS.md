@@ -78,7 +78,7 @@ Treat newly passing upstream tests as candidates for review. Before promoting ea
 
 Execution tracking is necessary evidence, not proof that an assertion is adequate. The implementing agent performs this review; individual promotions do not require separate user approval. Preserve existing reviewed entries when adding support, and investigate regressions instead of deleting entries to make CI pass.
 
-A regressed reviewed entry passes the promotion gate only through a promotion flagged `--re-record`, and only when the harness now records the same member under another owner (`JSHandle.asElement` becoming `ElementHandle.asElement`): the test still passes with clean execution evidence, the old method did not run natively, and the matcher stays the same, which in practice means the entry has none, because a re-record cannot set one. The new method still goes through the sabotage rerun; pass the reviewed evidence unchanged.
+A regressed reviewed entry passes the promotion gate only through a promotion flagged `--re-record`, and only when the harness now records the same member under the new owner of an owner correction enumerated in `scripts/upstream-baseline.mjs` (currently only `JSHandle` → `ElementHandle`, so `JSHandle.asElement` becomes `ElementHandle.asElement`; adding a pair is itself a reviewed harness change): the test still passes with clean execution evidence, the old method did not run natively, and the matcher stays the same, which in practice means the entry has none, because a re-record cannot set one. The new method still goes through the sabotage rerun; pass the reviewed evidence unchanged.
 
 ## Contract tests
 
