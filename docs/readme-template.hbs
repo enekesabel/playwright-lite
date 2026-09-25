@@ -96,6 +96,10 @@ Nothing is replaced until you subscribe, and a function the page replaced itself
 
 </details>
 
+### Navigation timeouts
+
+`waitForNavigation()`, `waitForURL()`, `waitForLoadState()`, `goBack()`, `goForward()` and `reload()` time out with only `page.<method>: Timeout <n>ms exceeded.`, where Playwright appends the navigation steps it logged, such as `waiting for navigation until "load"`.
+
 {{!--
 The ledger in compatibility/api.ts owns statuses and every difference from
 Playwright's public JavaScript API. Keep contributor instructions out of this
