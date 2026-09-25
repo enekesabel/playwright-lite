@@ -5177,7 +5177,7 @@
     {
       "id": "queryselector.spec.ts > should throw for non-string selector",
       "method": "Page.$",
-      "evidence": "page.$(null) rejects with a message containing selector: expected string, got object, the pinned protocol validation of the selector argument, before any query runs."
+      "evidence": "page.$(null) rejects with a message containing selector: expected string, got object, the pinned protocol validation text for a non-string selector."
     },
     {
       "id": "queryselector.spec.ts > xpath should query existing element",
