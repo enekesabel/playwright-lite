@@ -3461,6 +3461,11 @@
       "evidence": "waitForEvent('dialog') resolves for an alert() the document raises from a timer after the wait started; it would time out otherwise. The context-close-with-open-alert scenario in the title cannot arise here, because an unsettled dialog is dismissed synchronously."
     },
     {
+      "id": "page-dispatchevent.spec.ts > should be atomic",
+      "method": "Page.dispatchEvent",
+      "evidence": "With a registered engine whose query queues a microtask that clears the div's onclick, page.dispatchEvent('dispatchEvent=div', 'click') still sets window._clicked: the selector resolves through the registered engine and the event is dispatched in the same task, before the engine's microtask removes the handler."
+    },
+    {
       "id": "page-dispatchevent.spec.ts > should dispatch absolute device orientation event",
       "method": "Locator.dispatchEvent",
       "evidence": "Locator.dispatchEvent('deviceorientationabsolute') builds a DeviceOrientationEvent from eventInit: the page handler reads alpha 10, beta 20, gamma 30 and absolute true. Native goto only establishes the document."
@@ -5781,6 +5786,31 @@
       "id": "selectors-misc.spec.ts > xpath should be relative",
       "method": "ElementHandle.$eval",
       "evidence": "XPath queries rooted in a retained element return target2 while the document query returns target1."
+    },
+    {
+      "id": "selectors-register.spec.ts > getAttribute should be atomic",
+      "method": "Page.getAttribute",
+      "evidence": "With a registered engine whose query queues a microtask that sets foo to 'modified', page.getAttribute('getAttribute=div', 'foo') returns 'hello' and a later evaluate reads 'modified': the selector resolves through the registered engine and the attribute is read in the same task, before the engine's microtask runs."
+    },
+    {
+      "id": "selectors-register.spec.ts > innerHTML should be atomic",
+      "method": "Page.innerHTML",
+      "evidence": "With a registered engine whose query queues a microtask that rewrites the div's content, page.innerHTML('innerHTML=div') returns 'Hello<span>world</span>' and a later evaluate reads 'modified': the selector resolves through the registered engine and the markup is read in the same task, before the engine's microtask runs."
+    },
+    {
+      "id": "selectors-register.spec.ts > innerText should be atomic",
+      "method": "Page.innerText",
+      "evidence": "With a registered engine whose query queues a microtask that rewrites the div's text, page.innerText('innerText=div') returns 'Hello' and a later evaluate reads 'modified': the selector resolves through the registered engine and innerText is read in the same task, before the engine's microtask runs."
+    },
+    {
+      "id": "selectors-register.spec.ts > isVisible should be atomic",
+      "method": "Page.isVisible",
+      "evidence": "With a registered engine whose query queues a microtask that sets display:none, page.isVisible('isVisible=div') returns true and a later evaluate reads 'none': the selector resolves through the registered engine and visibility is judged in the same task, before the engine's microtask hides the element."
+    },
+    {
+      "id": "selectors-register.spec.ts > textContent should be atomic",
+      "method": "Page.textContent",
+      "evidence": "With a registered engine whose query queues a microtask that rewrites the div's text, page.textContent('textContent=div') returns 'Hello' and a later evaluate reads 'modified': the selector resolves through the engine selectors.register installed and the text is read in the same task, before the engine's microtask runs."
     },
     {
       "id": "selectors-role.spec.ts > errors",
