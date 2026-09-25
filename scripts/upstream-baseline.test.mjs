@@ -229,6 +229,15 @@ describe("reviewed promotion", () => {
       ["Page.goto"],
       ["Page.setContent"],
       ["Page.goto", "Page.setContent", "Page.goto"],
+      // The viewport the test runs in.
+      ["Page.setViewportSize", "Page.setContent"],
+      // The page a library test creates and disposes.
+      [
+        "Browser.newContext",
+        "BrowserContext.newPage",
+        "Page.goto",
+        "BrowserContext.close",
+      ],
     ])
       assert.deepEqual(
         reviewedPromotion(
@@ -246,6 +255,7 @@ describe("reviewed promotion", () => {
     for (const [native, members] of [
       [["Page.goto", "Response.status"], "Response.status"],
       [["Locator.contentFrame"], "Locator.contentFrame"],
+      [["Page.setViewportSize", "Page.route"], "Page.route"],
       [
         ["Page.setContent", "Page.frames", "Frame.evaluate", "Page.frames"],
         "Page.frames, Frame.evaluate",
@@ -260,7 +270,7 @@ describe("reviewed promotion", () => {
             "evaluates in the adapter"
           ),
         {
-          message: `test ran ${members} on the native driver; a promotable test runs only document setup (Page.goto, Page.setContent) natively.`,
+          message: `test ran ${members} on the native driver; a promotable test runs only document setup (Page.goto, Page.setContent, Page.setViewportSize, Browser.newContext, BrowserContext.newPage, BrowserContext.close) natively.`,
         }
       );
   });

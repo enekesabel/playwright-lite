@@ -243,12 +243,23 @@ function certifiesBrowserMethod(entry, method, matcher) {
 }
 
 /**
- * The only members a promotable test may have run on the native driver: they
- * set up the document the test works in. Any other native operation, and any
- * member called on what a native call returned, produced part of the test's
- * result without the adapter.
+ * The only members a promotable test may have run on the native driver. A
+ * member belongs here only when its native call can never be the subject of a
+ * promotion and serves to establish the document under test: the document
+ * (`Page.goto`, whose native call is refused as a reviewed method, and the
+ * out-of-scope `Page.setContent`), its viewport (the out-of-scope
+ * `Page.setViewportSize`), or the page a library test creates and disposes.
+ * Any other native operation, and any member called on what a native call
+ * returned, produced part of the test's result without the adapter.
  */
-const NATIVE_SETUP_MEMBERS = ["Page.goto", "Page.setContent"];
+const NATIVE_SETUP_MEMBERS = [
+  "Page.goto",
+  "Page.setContent",
+  "Page.setViewportSize",
+  "Browser.newContext",
+  "BrowserContext.newPage",
+  "BrowserContext.close",
+];
 
 export function reviewedPromotion(entries, id, method, evidence, matcher) {
   const entry = entries.find((entry) => entry.id === id);
