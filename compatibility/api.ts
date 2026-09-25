@@ -144,6 +144,20 @@ export const events: readonly EventRow[] = [
   },
 ];
 
+/** One Page event this package never fires, by decision. */
+export type ExcludedEventRow = {
+  readonly event: string;
+  readonly reason: string;
+};
+
+/** The out-of-scope Page events, in README order. */
+export const excludedEvents: readonly ExcludedEventRow[] = [
+  {
+    event: "popup",
+    reason: "Another window is never a `Page` in this document.",
+  },
+];
+
 /**
  * Returned objects, in README order. Each behaviour lives in one section;
  * `edgeCases` holds what a typical user of the object never runs into.
@@ -317,7 +331,9 @@ export const pageLedger = {
   dblclick: implemented(),
   dispatchEvent: implemented(),
   dragAndDrop: undecided(),
-  emulateMedia: undecided(),
+  emulateMedia: outOfScope(
+    "A document cannot change its own media type or `prefers-color-scheme`."
+  ),
   evaluate: implemented(
     "Uses the pinned Playwright by-value argument and result serializers."
   ),
@@ -426,7 +442,9 @@ export const pageLedger = {
   ),
   url: implemented(),
   video: outOfScope("Recording video requires the browser process."),
-  viewportSize: undecided(),
+  viewportSize: partial(
+    "Returns the window's current `innerWidth` and `innerHeight`, never `null`, where Playwright returns the configured viewport or `null` without one."
+  ),
   waitForEvent: partial(waitForEventNote),
   waitForFunction: partial(handlePreviewNote),
   waitForLoadState: partial(networkIdleNote),

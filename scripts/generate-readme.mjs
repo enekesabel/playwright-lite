@@ -11,6 +11,7 @@ import {
   pageAssertionLedger,
   genericExpectLedger,
   events,
+  excludedEvents,
   objectSections,
 } from "../compatibility/api.ts";
 
@@ -60,6 +61,10 @@ const eventAnchors = new Map([
   ["requestfailed", "request-failed"],
   ["requestfinished", "request-finished"],
 ]);
+
+function eventUrl(name) {
+  return `https://playwright.dev/docs/api/class-page#page-event-${eventAnchors.get(name) ?? name}`;
+}
 
 // Overloaded members whose first documented form carries a numeric suffix.
 const suffixedAnchors = new Set(["toHaveScreenshot"]);
@@ -149,10 +154,11 @@ export async function renderReadme(root = projectRoot) {
     ],
     events: events.map((row) => ({
       ...row,
-      events: row.events.map((name) => ({
-        name,
-        url: `https://playwright.dev/docs/api/class-page#page-event-${eventAnchors.get(name) ?? name}`,
-      })),
+      events: row.events.map((name) => ({ name, url: eventUrl(name) })),
+    })),
+    excludedEvents: excludedEvents.map((row) => ({
+      ...row,
+      url: eventUrl(row.event),
     })),
     expectTables: [
       {

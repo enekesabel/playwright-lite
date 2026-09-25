@@ -161,6 +161,11 @@ test("event-emitter rows stay one line and link the Events table", async () => {
     readme,
     /\[`requestfinished`\]\(https:\/\/playwright\.dev\/docs\/api\/class-page#page-event-request-finished\)/
   );
+  const eventsSection = readme.split("### Events\n")[1].split(/\n### /)[0];
+  assert.match(
+    eventsSection,
+    /🚫 Intentionally excluded:\n\n- \[`popup`\]\(https:\/\/playwright\.dev\/docs\/api\/class-page#page-event-popup\): .+/u
+  );
 });
 
 test("Edge cases folds keep their Markdown content renderable", async () => {

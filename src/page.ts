@@ -2752,6 +2752,17 @@ export class PageImpl {
     return this.window.location.href;
   }
 
+  /**
+   * Pinned Page.viewportSize returns the viewport the browser context was
+   * configured with, or `null` without one. A document has no configured
+   * viewport, so this reads the window's current inner size, the value
+   * `window.innerWidth` and `innerHeight` also report under a configured
+   * Playwright viewport.
+   */
+  viewportSize(): { width: number; height: number } {
+    return { width: this.window.innerWidth, height: this.window.innerHeight };
+  }
+
   async waitForTimeout(timeout: number): Promise<void> {
     await this.wait(timeout);
   }
