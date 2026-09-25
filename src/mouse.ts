@@ -1,4 +1,12 @@
 import type { Mouse } from "@playwright/test";
+import {
+  Error,
+  Map,
+  Math,
+  Object,
+  Promise,
+  Set,
+} from "virtual:playwright-lite-globals";
 
 import {
   guardLifetimeCalls,
