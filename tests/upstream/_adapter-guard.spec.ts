@@ -739,6 +739,44 @@ test("page.url preserves Playwright's synchronous call shape", async ({
   expect(adapterPage.url()).toBe(page.url());
 });
 
+test("page.url answers what the adapter's url() said after a native member", async ({
+  page,
+  adapterPage,
+}) => {
+  await adapterPage.setContent('<script>location.hash = "native";</script>');
+
+  expect(adapterPage.url()).toBe(page.url());
+  expect(adapterPage.url()).toMatch(/#native$/);
+  expect((page as any).__pwLiteNativeOperations).toEqual(["Page.setContent"]);
+});
+
+test("page.url answers what the adapter's url() said after a locator action", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent('<a href="#clicked">go</a>');
+  await adapterPage.locator("a").click();
+
+  expect(adapterPage.url()).toBe(page.url());
+  expect(adapterPage.url()).toMatch(/#clicked$/);
+});
+
+test("page.url answers what the adapter's url() said after a public expect wait", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.evaluate(() =>
+    setTimeout(() => {
+      location.hash = "waited";
+      document.body.textContent = "done";
+    }, 50)
+  );
+  await corpusExpect(adapterPage.locator("body")).toHaveText("done");
+
+  expect(adapterPage.url()).toBe(page.url());
+  expect(adapterPage.url()).toMatch(/#waited$/);
+});
+
 test("interval waitForFunction uses the controlled Date and settles", async ({
   page,
   adapterPage,
@@ -1376,6 +1414,48 @@ test("function arguments reach the adapter as functions with their source", asyn
     (await createAdapterPage(page)).evaluate((a: unknown) => a, () => {})
   ).rejects.toThrow("Attempting to serialize unexpected value");
 });
+
+// Called with the caller's own argument list, as a test would call the member.
+type EvaluateRoute = (
+  page: import("@playwright/test").Page,
+  ...args: any[]
+) => Promise<unknown>;
+const evaluateRoutes: [string, EvaluateRoute][] = [
+  ["Page.evaluate", (page, ...args) => (page as any).evaluate(...args)],
+  [
+    "Page.evaluateHandle",
+    async (page, ...args) =>
+      (await (page as any).evaluateHandle(...args)).jsonValue(),
+  ],
+  [
+    "ElementHandle.evaluate",
+    async (page, ...args) => ((await page.$("body")) as any).evaluate(...args),
+  ],
+  [
+    "JSHandle.evaluate",
+    async (page, ...args) =>
+      ((await page.evaluateHandle(() => 1)) as any).evaluate(...args),
+  ],
+];
+for (const [route, run] of evaluateRoutes) {
+  test(`${route} forwards the caller's arguments to the adapter as given`, async ({
+    adapterPage,
+  }) => {
+    // The argument is last whether or not the member passes its own value
+    // first. Its function reaches the page only under `exposeFunctions`.
+    await expect(
+      run(
+        adapterPage,
+        async (...received: any[]) => await received.at(-1).cb(21),
+        { cb: async (n: number) => n * 2 },
+        { exposeFunctions: true }
+      )
+    ).resolves.toBe(42);
+    await expect(
+      run(adapterPage, () => 1, undefined, {}, "extra")
+    ).rejects.toThrow("Too many arguments");
+  });
+}
 
 test("a page.on listener asserts with the adapter's public expect", async ({
   page,

@@ -57,7 +57,6 @@ const TYPED_ARRAY_KINDS = [
 let nextAbortSignalId = 0;
 type ChainStep = [string, unknown[]];
 type AdapterPageState = {
-  url: string;
   nativeNavigationForSetup?: boolean;
   // Set once `createPageProxy` has built this test's Page proxy. A
   // `ConsoleMessage.page()` republishes this reference rather than building
@@ -553,7 +552,9 @@ function encodePageFunction(callback: unknown, operation: string): unknown {
   return encodeBridgeValue(callback);
 }
 
-type BridgeEnvelope<Result> =
+// Every envelope carries the adapter's `url()` as it answered when the
+// operation settled; see `observedUrls`.
+type BridgeEnvelope<Result> = { url: string } & (
   | { kind: "value"; value: Result }
   | { kind: "adapter-timeout"; message: string }
   | {
@@ -561,7 +562,8 @@ type BridgeEnvelope<Result> =
       name: string;
       message: string;
       causeMatchedAbortReason?: boolean;
-    };
+    }
+);
 
 /**
  * Adapter errors whose browser-side `cause` was the abort reason the adapter
@@ -582,6 +584,16 @@ const adapterEvaluations = new WeakMap<
   (pageFunction: unknown, arg: unknown) => Promise<unknown>
 >();
 let lastEvaluationToken = 0;
+
+/**
+ * Per page, the adapter's own `url()` answer from the latest round trip into
+ * the adapter. `Page.url()` is synchronous and cannot ask the browser, so it
+ * replays this answer. Every envelope `__pwLiteInvokeAdapter` returns carries
+ * it, so any adapter call the test awaited leaves it current; after a native
+ * member settles the bridge asks again, since a native call can change the
+ * URL too (the script a native `setContent` writes can push history state).
+ */
+const observedUrls = new WeakMap<Page, string>();
 
 type SelectorsWithWritableTestIdAttribute = Playwright["selectors"] & {
   setTestIdAttribute: (attributeName: string) => void;
@@ -671,8 +683,20 @@ async function evaluateAdapter<Result>(
 ): Promise<Result> {
   await testIdAttributeSynchronizers.get(realPage)?.();
   const evaluateInScope = adapterEvaluations.get(realPage)!;
-  return unwrapBridgeEnvelope(
-    (await evaluateInScope(pageFunction, arg)) as BridgeEnvelope<Result>
+  const envelope = (await evaluateInScope(
+    pageFunction,
+    arg
+  )) as BridgeEnvelope<Result>;
+  observedUrls.set(realPage, envelope.url);
+  return unwrapBridgeEnvelope(envelope);
+}
+
+/** A round trip that only brings back the adapter's current `url()`. */
+async function refreshObservedUrl(realPage: Page): Promise<void> {
+  await evaluateAdapter<void>(
+    realPage,
+    () => (window as any).__pwLiteInvokeAdapter(() => undefined),
+    undefined
   );
 }
 
@@ -814,18 +838,10 @@ export async function createAdapterPage(
       token
     );
   });
-  const state: AdapterPageState = {
+  await refreshObservedUrl(realPage);
+  return createPageProxy(realPage, {
     nativeNavigationForSetup: timeoutDefaults.nativeNavigationForSetup,
-    url: await evaluateAdapter(
-      realPage,
-      () => {
-        const host = window as any;
-        return host.__pwLiteInvokeAdapter(() => host.__pwLiteAdapterPage.url());
-      },
-      undefined
-    ),
-  };
-  return createPageProxy(realPage, state);
+  });
 }
 
 function createPageProxy(realPage: Page, state: AdapterPageState): Page {
@@ -842,7 +858,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
     (member: string) =>
     async (...args: unknown[]) =>
       withAbortSignalBridge(realPage, args, async (encodedArgs) => {
-        const result = await evaluateAdapter<{ value: unknown; url: string }>(
+        const value = await evaluateAdapter<unknown>(
           realPage,
           ({ member: name, args: a }) => {
             const host = window as any;
@@ -860,16 +876,12 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
                 throw new TypeError(
                   `__pwLiteAdapterPage.${name} is not a function`
                 );
-              return {
-                value: host.__pwLiteEncodeAdapterResult(value),
-                url: p.url(),
-              };
+              return host.__pwLiteEncodeAdapterResult(value);
             }, a);
           },
           { member, args: encodedArgs as any[] }
         );
-        state.url = result.url;
-        return decodeBridgeResult(result.value, realPage, state);
+        return decodeBridgeResult(value, realPage, state);
       });
 
   const proxy = new Proxy(realPage, {
@@ -883,9 +895,9 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       // exposing Playwright's real Frame object through the fixture.
       if (prop === "mainFrame") return () => createPageProxy(realPage, state);
 
-      // Page.url() is synchronous in Playwright's public API. Keep the
-      // adapter-observed value locally after asynchronous bridge operations.
-      if (prop === "url") return () => state.url;
+      // Page.url() is synchronous in Playwright's public API, so it replays
+      // the adapter's own answer from the latest round trip.
+      if (prop === "url") return () => observedUrls.get(realPage);
 
       // Keyboard is a synchronous Page property whose methods must execute in
       // the browser adapter. Do not leak the native Playwright keyboard.
@@ -907,14 +919,10 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
           const previous = await realPage.evaluate(
             () => (window as any).__pwLiteEvidence
           );
-          // The bridge reads Page.url after every adapter operation and once
-          // when the adapter page is created, to keep the synchronous url()
-          // facade honest. Those reads are the bridge's own bookkeeping, not
-          // operations the test performed.
-          const enteredByTest = (previous.entered as string[]).filter(
-            (member) => member !== "Page.url"
-          );
-          if (enteredByTest.length > 0) return adapterMember("goto")(...args);
+          // The bridge's own url() reads stay out of the evidence, so every
+          // recorded member is one the test entered.
+          if (previous.entered.length > 0)
+            return adapterMember("goto")(...args);
           nativeOperationLog(realPage).push("Page.goto");
           const response = await realPage.goto(...args);
           await realPage.evaluate((prior) => {
@@ -924,16 +932,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
             current.expectPaths.unshift(...(prior.expectPaths ?? []));
             current.failures.unshift(...prior.failures);
           }, previous);
-          state.url = await evaluateAdapter<string>(
-            realPage,
-            () => {
-              const host = window as any;
-              return host.__pwLiteInvokeAdapter(() =>
-                host.__pwLiteAdapterPage.url()
-              );
-            },
-            undefined
-          );
+          await refreshObservedUrl(realPage);
           return wrapNativeResult(response, realPage);
         };
       }
@@ -941,13 +940,25 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       // Only ledger-declared out-of-scope Page members may use the native
       // driver. Record them, and wrap any object they return so downstream
       // native operations cannot be mistaken for browser adapter evidence.
+      // The document's URL can change while one runs, so once an
+      // asynchronous one settles the bridge asks the adapter's url() again.
       if (isOutOfScope("Page", prop)) {
         return (...args: unknown[]) => {
           nativeOperationLog(realPage).push(`Page.${prop}`);
           const nativeMember = Reflect.get(target, prop, receiver);
           if (typeof nativeMember !== "function")
             throw new TypeError(`Native Page.${prop} is not a function`);
-          return wrapNativeResult(nativeMember.apply(target, args), realPage);
+          const result = nativeMember.apply(target, args);
+          // The same thenable test `wrapNativeResult` applies.
+          return wrapNativeResult(
+            typeof (result as Promise<unknown> | undefined)?.then === "function"
+              ? (result as Promise<unknown>).then(async (value) => {
+                  await refreshObservedUrl(realPage);
+                  return value;
+                })
+              : result,
+            realPage
+          );
         };
       }
 
@@ -1039,62 +1050,44 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       // upstream callback shape in the browser, then invoke PageImpl's public
       // API. Production PageImpl receives the callback directly.
 
+      // The caller's arguments travel as they were given, the function among
+      // them rebuilt from its source, so the adapter applies its own argument
+      // rules, including the `exposeFunctions` option and the argument count.
+      // These stay off the generic member route: that route walks arrays in
+      // a result to find handles, and a by-value result can be a cyclic array.
       if (prop === "evaluate") {
-        return async (pageFunction: unknown, arg?: unknown) => {
-          const result = await evaluateAdapter<{ value: unknown; url: string }>(
+        return async (...args: unknown[]) =>
+          evaluateAdapter(
             realPage,
-            ({ expression, isFunction, arg: a }) => {
+            ({ args: a }) => {
               const host = window as any;
-              return host.__pwLiteInvokeAdapter(async () => {
-                const callback = isFunction
-                  ? host.__pwLiteReconstructFunction(expression)
-                  : expression;
-                return {
-                  value: await host.__pwLiteAdapterPage.evaluate(
-                    callback,
-                    host.__pwLiteDecodeBridgeValue(a)
-                  ),
-                  url: host.__pwLiteAdapterPage.url(),
-                };
-              });
+              return host.__pwLiteInvokeAdapter(() =>
+                host.__pwLiteAdapterPage.evaluate(
+                  ...host.__pwLiteDecodeBridgeValue(a)
+                )
+              );
             },
-            {
-              expression: String(pageFunction),
-              isFunction: typeof pageFunction === "function",
-              arg: encodeBridgeValueForPage(arg, realPage),
-            }
+            { args: encodeBridgeValueForPage(args, realPage) as unknown[] }
           );
-          state.url = result.url;
-          return result.value;
-        };
       }
 
       if (prop === "evaluateHandle") {
-        return async (pageFunction: unknown, arg?: unknown) => {
-          const result = await evaluateAdapter<{ id: string; url: string }>(
+        return async (...args: unknown[]) => {
+          const id = await evaluateAdapter<string>(
             realPage,
-            ({ expression, isFunction, arg: a }) => {
+            ({ args: a }) => {
               const host = window as any;
-              return host.__pwLiteInvokeAdapter(async () => ({
-                id: host.__pwLiteStoreElementHandle(
+              return host.__pwLiteInvokeAdapter(async () =>
+                host.__pwLiteStoreElementHandle(
                   await host.__pwLiteAdapterPage.evaluateHandle(
-                    isFunction
-                      ? host.__pwLiteReconstructFunction(expression)
-                      : expression,
-                    host.__pwLiteDecodeBridgeValue(a)
+                    ...host.__pwLiteDecodeBridgeValue(a)
                   )
-                ),
-                url: host.__pwLiteAdapterPage.url(),
-              }));
+                )
+              );
             },
-            {
-              expression: String(pageFunction),
-              isFunction: typeof pageFunction === "function",
-              arg: encodeBridgeValueForPage(arg, realPage),
-            }
+            { args: encodeBridgeValueForPage(args, realPage) as unknown[] }
           );
-          state.url = result.url;
-          return createElementHandleProxy(realPage, state, result.id);
+          return createElementHandleProxy(realPage, state, id);
         };
       }
 
@@ -1104,7 +1097,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
           arg?: unknown,
           options?: unknown
         ) => {
-          const result = await evaluateAdapter<{ id: string; url: string }>(
+          const id = await evaluateAdapter<string>(
             realPage,
             ({ expression, isFunction, arg: a, options: opts }) => {
               const host = window as any;
@@ -1116,10 +1109,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
                   host.__pwLiteDecodeBridgeValue(a),
                   host.__pwLiteDecodeBridgeValue(opts)
                 );
-                return {
-                  id: host.__pwLiteStoreElementHandle(handle),
-                  url: host.__pwLiteAdapterPage.url(),
-                };
+                return host.__pwLiteStoreElementHandle(handle);
               });
             },
             {
@@ -1132,8 +1122,7 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
               >,
             }
           );
-          state.url = result.url;
-          return createElementHandleProxy(realPage, state, result.id);
+          return createElementHandleProxy(realPage, state, id);
         };
       }
 
@@ -1617,33 +1606,8 @@ async function createElementHandleProxy(
           );
       }
 
-      if (prop === "evaluate") {
-        return async (pageFunction: unknown, arg?: unknown) =>
-          evaluateAdapter(
-            realPage,
-            ({ handleId, method, expression, arg: a }) => {
-              const host = window as any;
-              return host.__pwLiteInvokeAdapter(() =>
-                host
-                  .__pwLiteElementHandleForId(handleId)
-                  [method](
-                    host.__pwLiteDecodeBridgeValue(expression),
-                    host.__pwLiteDecodeBridgeValue(a)
-                  )
-              );
-            },
-            {
-              handleId: id,
-              method: prop,
-              expression: encodePageFunction(
-                pageFunction,
-                `ElementHandle.${prop}`
-              ),
-              arg: encodeBridgeValueForPage(arg, realPage),
-            }
-          );
-      }
-
+      // Every other member, `evaluate` among them, receives the caller's
+      // arguments as they were given, so the adapter applies its own rules.
       return async (...args: unknown[]) =>
         evaluateAdapter(
           realPage,
@@ -2101,11 +2065,28 @@ function initializeAdapterBridge(
   const unclaimedAdapterErrors = new Set<number>();
   host.__pwLiteClaimAdapterError = (token: number) =>
     unclaimedAdapterErrors.delete(token);
+  // The adapter's own url(), read once each operation settled and replayed on
+  // the Node side for the synchronous Page.url(). Reading it is bookkeeping,
+  // not a call the test made, so the method is taken before `instrument`
+  // wraps it and the read stays out of the execution evidence.
+  const adapterPage = host.__pwLiteAdapterPage;
+  const adapterUrl = adapterPage.url.bind(adapterPage) as () => string;
+  // Every envelope, whatever its kind, is stamped with the url here, once.
   host.__pwLiteInvokeAdapter = async function invoke(
     operation: () => any,
     encodedArgs?: any
   ) {
     const token = evaluationToken;
+    return {
+      ...(await settle(operation, encodedArgs, token)),
+      url: adapterUrl(),
+    };
+  };
+  const settle = async function settle(
+    operation: () => any,
+    encodedArgs: any,
+    token: number | undefined
+  ) {
     try {
       return { kind: "value", value: await operation() };
     } catch (error) {
