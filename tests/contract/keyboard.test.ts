@@ -400,4 +400,28 @@ describe("Keyboard", () => {
       { type: "input", data: null, inputType: "insertLineBreak" },
     ]);
   });
+
+  // Contract coverage: no corpus spec types into a file input. Chromium's
+  // Input.insertText reaches beforeinput on any focused input, but only a
+  // text field inserts the text.
+  it("types and inserts no text into a file input", async () => {
+    document.body.innerHTML = "<input type=file />";
+    const page = createPage();
+    const input = document.querySelector("input") as HTMLInputElement;
+    const events: string[] = [];
+    for (const type of ["keydown", "keypress", "beforeinput", "input", "keyup"])
+      input.addEventListener(type, (event) =>
+        events.push(
+          event instanceof InputEvent ? `${type}(${event.data})` : type
+        )
+      );
+
+    input.focus();
+    await page.keyboard.type("a");
+    await page.keyboard.insertText("xy");
+
+    expect(input.value).toBe("");
+    expect(input.files).toHaveLength(0);
+    expect(events).toEqual(["keydown", "keypress", "keyup", "beforeinput(xy)"]);
+  });
 });

@@ -308,6 +308,88 @@ describe("Locator.press", () => {
     ).rejects.toThrow("Timeout 10ms exceeded");
     expect(input.value).toBe("");
   });
+
+  // Contract coverage: no corpus spec presses a key on an input that takes no
+  // typed text. Chromium hands a key's text only to text fields, so these
+  // inputs see only the key events: no beforeinput, textInput or input.
+  it("inserts no text into inputs that take no typed text", async () => {
+    const types = ["file", "checkbox", "radio", "color", "range", "date"];
+    document.body.innerHTML = types
+      .map((type) => `<input id=${type} type=${type} />`)
+      .join("");
+    const page = createPage();
+    const events: string[] = [];
+    for (const type of types) {
+      const input = document.querySelector(`#${type}`)!;
+      for (const event of [
+        "keydown",
+        "keypress",
+        "beforeinput",
+        "textInput",
+        "input",
+        "keyup",
+      ])
+        input.addEventListener(event, () => events.push(`${type}:${event}`));
+    }
+    const values = () =>
+      types.map(
+        (type) => document.querySelector<HTMLInputElement>(`#${type}`)!.value
+      );
+    const before = values();
+
+    for (const type of types) await page.locator(`#${type}`).press("a");
+
+    expect(values()).toEqual(before);
+    expect(events).toEqual(
+      types.flatMap((type) => [
+        `${type}:keydown`,
+        `${type}:keypress`,
+        `${type}:keyup`,
+      ])
+    );
+  });
+
+  // Contract coverage: no corpus spec activates these inputs from the keyboard.
+  // Chromium clicks these inputs like a button (KeyboardClickableInputTypeView).
+  it("activates file, color and image inputs with Space and Enter", async () => {
+    const types = ["file", "color", "image"];
+    document.body.innerHTML = types
+      .map((type) => `<input id=${type} type=${type} />`)
+      .join("");
+    const page = createPage();
+    const events: string[] = [];
+    for (const type of types)
+      for (const event of ["keydown", "keypress", "input", "click", "keyup"])
+        document.querySelector(`#${type}`)!.addEventListener(event, (e) => {
+          events.push(`${type}:${event}`);
+          // Only the click is observable; no picker opens for the page.
+          if (event === "click") e.preventDefault();
+        });
+
+    for (const type of types) {
+      await page.locator(`#${type}`).press("Space");
+      await page.locator(`#${type}`).press("Enter");
+    }
+
+    expect(
+      document.querySelector<HTMLInputElement>("#file")!.files
+    ).toHaveLength(0);
+    // Chromium clicks on Space keyup and on Enter keypress.
+    expect(events).toEqual(
+      types.flatMap((type) =>
+        [
+          "keydown",
+          "keypress",
+          "keyup",
+          "click",
+          "keydown",
+          "keypress",
+          "click",
+          "keyup",
+        ].map((event) => `${type}:${event}`)
+      )
+    );
+  });
 });
 
 describe("Page.press", () => {
