@@ -665,6 +665,66 @@ describe("option-validation", () => {
     expect(clicks).toBeGreaterThan(0);
   });
 
+  // Contract coverage: no pinned spec passes an invalid argument to the
+  // mouse; the messages are the pinned protocol validator's.
+  const mouseCalls: [string, (page: Page) => Promise<unknown>, string][] = [
+    [
+      "mouse.move",
+      (page) => page.mouse.move("1" as any, 0),
+      "mouse.move: x: expected float, got string",
+    ],
+    [
+      "mouse.move",
+      (page) => page.mouse.move(0, 0, { steps: 1.5 }),
+      "mouse.move: steps: expected integer, got float 1.5",
+    ],
+    [
+      "mouse.down",
+      (page) => page.mouse.down({ button: "side" as any }),
+      "mouse.down: button: expected one of (left|right|middle)",
+    ],
+    [
+      "mouse.up",
+      (page) => page.mouse.up({ clickCount: "2" as any }),
+      "mouse.up: clickCount: expected integer, got string",
+    ],
+    [
+      "mouse.click",
+      (page) => page.mouse.click(0, 0, { delay: "5" as any }),
+      "mouse.click: delay: expected float, got string",
+    ],
+    [
+      "mouse.dblclick",
+      (page) => page.mouse.dblclick(0, null as any),
+      "mouse.dblclick: y: expected float, got object",
+    ],
+    [
+      "mouse.wheel",
+      (page) => page.mouse.wheel(0, "100" as any),
+      "mouse.wheel: deltaY: expected float, got string",
+    ],
+  ];
+
+  it.each(mouseCalls)(
+    "%s rejects an argument the pinned protocol rejects",
+    async (_apiName, run, message) => {
+      const page = createPage();
+      const listening = new AbortController();
+      const events: string[] = [];
+      for (const type of ["pointermove", "pointerdown", "pointerup", "wheel"])
+        document.addEventListener(type, () => events.push(type), {
+          signal: listening.signal,
+        });
+      try {
+        await expect(run(page)).rejects.toThrow(message);
+        // Invalid input must fail before dispatching any event.
+        expect(events).toEqual([]);
+      } finally {
+        listening.abort();
+      }
+    }
+  );
+
   describe.each(["Page", "Locator"] as const)("%s.click options", (owner) => {
     const clickOf = (page: Page) => {
       const locator = page.locator("#target");

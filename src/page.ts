@@ -61,6 +61,7 @@ import {
 } from "./console";
 import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
+import { BrowserMouse } from "./mouse";
 import type { Disposable, Keyboard, Locator, Page } from "@playwright/test";
 import type { ByRoleOptions, LocatorOptions } from "./locator";
 import { LOCATOR_BRAND, LocatorImpl } from "./locator";
@@ -136,7 +137,7 @@ export const PAGE_BRAND = Symbol.for("playwright-lite:page");
 const PAGE_BRAND_TOKEN = Object.freeze({});
 
 type ActionPoint = { x: number; y: number };
-type ActionDeadline = {
+export type ActionDeadline = {
   timeout: number;
   expiresAt: number;
   signal?: AbortSignal;
@@ -478,14 +479,12 @@ export class PageImpl {
   readonly document: Document;
   readonly window: Window & typeof globalThis;
   readonly keyboard: BrowserKeyboard;
+  readonly mouse: BrowserMouse;
   readonly evaluation: Evaluation;
   readonly localStorage: PageWebStorage;
   readonly sessionStorage: PageWebStorage;
   private _injected: ReturnType<typeof injectedScriptFor> | undefined;
   private _injectedTestIdAttributeName: string | undefined;
-  private pointerTarget: Element | undefined;
-  /** Pinned input.ts Mouse starts at the document origin and tracks its moves. */
-  private pointerPosition: ActionPoint = { x: 0, y: 0 };
   private defaultTimeout: number | undefined;
   private defaultNavigationTimeout: number | undefined;
   private readonly listeners = new Map<string, ListenerEntry[]>();
@@ -525,6 +524,14 @@ export class PageImpl {
     this.window = browserWindow;
     this.document = browserWindow.document;
     this.keyboard = new BrowserKeyboard(this);
+    this.mouse = new BrowserMouse({
+      window: browserWindow,
+      modifiers: () => this.keyboard.modifierState(),
+      assertDeadline: (deadline, action) =>
+        this.assertActionDeadline(deadline, action),
+      wait: (durationMs, deadline, action) =>
+        this.waitWithinActionDeadline(durationMs, deadline, action),
+    });
     this.evaluation = new Evaluation(this);
     this.localStorage = new PageWebStorage(this, "local");
     this.sessionStorage = new PageWebStorage(this, "session");
@@ -1325,20 +1332,21 @@ export class PageImpl {
             if (options.modifiers)
               await this.keyboard.ensureModifiers(options.modifiers, deadline);
             this.assertActionDeadline(deadline, action);
-            await this.movePointer(
+            await this.mouse.moveTo(
               target.point,
-              deadline,
-              action,
+              { deadline, action },
               options.steps
             );
             if (!options.trial && action !== "hover")
-              await this.dispatchClick(
-                target.element,
-                target.point,
+              await this.mouse.clickHere(
+                options.button ?? "left",
                 action === "dblclick" ? 2 : (options.clickCount ?? 1),
-                options,
-                deadline,
-                action
+                options.delay,
+                { deadline, action },
+                () => {
+                  if (!target.element.isConnected)
+                    throw new Error("Element is not connected");
+                }
               );
           } finally {
             interception = interceptor?.stop() ?? "done";
@@ -4734,304 +4742,6 @@ export class PageImpl {
     throw new Error("Element is outside of the viewport");
   }
 
-  private async pointerTask<T>(
-    deadline: ActionDeadline,
-    action: string,
-    task: () => T
-  ): Promise<T> {
-    // Like pinned WebViewInput._postTask, each event is a browser task. Check
-    // the shared deadline inside the task, so expiration cannot activate later.
-    return new Promise<T>((resolve, reject) =>
-      this.window.setTimeout(() => {
-        try {
-          this.assertActionDeadline(deadline, action);
-          resolve(task());
-        } catch (error) {
-          reject(error);
-        }
-      })
-    );
-  }
-
-  /**
-   * Mirrors pinned input.ts Mouse.move: `steps` interpolated positions between
-   * the pointer's previous location and `point`, the last landing exactly on
-   * it. `steps` defaults to 1, a single move to the destination.
-   */
-  private async movePointer(
-    point: ActionPoint,
-    deadline: ActionDeadline,
-    action: string,
-    steps = 1
-  ) {
-    const from = this.pointerPosition;
-    this.pointerPosition = point;
-    for (let step = 1; step <= steps; step++)
-      await this.movePointerTo(
-        {
-          x: from.x + (point.x - from.x) * (step / steps),
-          y: from.y + (point.y - from.y) * (step / steps),
-        },
-        deadline,
-        action
-      );
-  }
-
-  private async movePointerTo(
-    point: ActionPoint,
-    deadline: ActionDeadline,
-    action: string
-  ) {
-    const target = this.eventTargetAtPoint(point);
-    const previous = this.pointerTarget;
-    if (previous !== target && previous?.isConnected) {
-      await this.pointerTask(deadline, action, () =>
-        this.dispatchPointerEvent(
-          previous,
-          "pointerout",
-          point,
-          -1,
-          0,
-          0,
-          true,
-          target
-        )
-      );
-      await this.pointerTask(deadline, action, () =>
-        this.dispatchPointerEvent(
-          previous,
-          "pointerleave",
-          point,
-          -1,
-          0,
-          0,
-          false,
-          target
-        )
-      );
-      await this.pointerTask(deadline, action, () =>
-        this.dispatchMouseEvent(
-          previous,
-          "mouseout",
-          point,
-          0,
-          0,
-          0,
-          true,
-          target
-        )
-      );
-      await this.pointerTask(deadline, action, () =>
-        this.dispatchMouseEvent(
-          previous,
-          "mouseleave",
-          point,
-          0,
-          0,
-          0,
-          false,
-          target
-        )
-      );
-    }
-    this.pointerTarget = target;
-    if (previous !== target) {
-      await this.pointerTask(deadline, action, () =>
-        this.dispatchPointerEvent(
-          target,
-          "pointerover",
-          point,
-          -1,
-          0,
-          0,
-          true,
-          previous
-        )
-      );
-      await this.pointerTask(deadline, action, () =>
-        this.dispatchPointerEvent(
-          target,
-          "pointerenter",
-          point,
-          -1,
-          0,
-          0,
-          false,
-          previous
-        )
-      );
-      await this.pointerTask(deadline, action, () =>
-        this.dispatchMouseEvent(
-          target,
-          "mouseover",
-          point,
-          0,
-          0,
-          0,
-          true,
-          previous
-        )
-      );
-      await this.pointerTask(deadline, action, () =>
-        this.dispatchMouseEvent(
-          target,
-          "mouseenter",
-          point,
-          0,
-          0,
-          0,
-          false,
-          previous
-        )
-      );
-    }
-    await this.pointerTask(deadline, action, () =>
-      this.dispatchPointerEvent(
-        this.eventTargetAtPoint(point),
-        "pointermove",
-        point,
-        -1,
-        0,
-        0
-      )
-    );
-    await this.pointerTask(deadline, action, () =>
-      this.dispatchMouseEvent(
-        this.eventTargetAtPoint(point),
-        "mousemove",
-        point,
-        0,
-        0,
-        0
-      )
-    );
-  }
-
-  private async dispatchClick(
-    element: Element,
-    point: ActionPoint,
-    clickCount: number,
-    options: PointerActionOptions,
-    deadline: ActionDeadline,
-    action: string
-  ) {
-    const button =
-      options.button === "right" ? 2 : options.button === "middle" ? 1 : 0;
-    const buttons = button === 0 ? 1 : button === 1 ? 4 : 2;
-    for (let detail = 1; detail <= clickCount; detail++) {
-      if (!element.isConnected) throw new Error("Element is not connected");
-      const downTarget = this.eventTargetAtPoint(point);
-      const pointerDownAllowed = await this.pointerTask(deadline, action, () =>
-        this.dispatchPointerEvent(
-          this.eventTargetAtPoint(point),
-          "pointerdown",
-          point,
-          button,
-          buttons,
-          0
-        )
-      );
-      if (pointerDownAllowed) {
-        await this.pointerTask(deadline, action, () => {
-          const target = this.eventTargetAtPoint(point);
-          const allowed = this.dispatchMouseEvent(
-            target,
-            "mousedown",
-            point,
-            button,
-            buttons,
-            detail
-          );
-          this.assertActionDeadline(deadline, action);
-          if (allowed) this.focusPointerTarget(target);
-        });
-      }
-      if (button === 2)
-        await this.pointerTask(deadline, action, () =>
-          this.dispatchMouseEvent(
-            this.eventTargetAtPoint(point),
-            "contextmenu",
-            point,
-            button,
-            buttons,
-            detail
-          )
-        );
-      await this.waitWithinActionDeadline(options.delay, deadline, action);
-      await this.pointerTask(deadline, action, () =>
-        this.dispatchPointerEvent(
-          this.eventTargetAtPoint(point),
-          "pointerup",
-          point,
-          button,
-          0,
-          0
-        )
-      );
-      if (pointerDownAllowed)
-        await this.pointerTask(deadline, action, () =>
-          this.dispatchMouseEvent(
-            this.eventTargetAtPoint(point),
-            "mouseup",
-            point,
-            button,
-            0,
-            detail
-          )
-        );
-      await this.pointerTask(deadline, action, () => {
-        const upTarget = this.eventTargetAtPoint(point);
-        let target: Element | null = downTarget;
-        while (target && !target.contains(upTarget))
-          target = target.parentElement;
-        if (target?.isConnected)
-          this.dispatchMouseEvent(
-            target,
-            button === 0 ? "click" : "auxclick",
-            point,
-            button,
-            0,
-            detail
-          );
-      });
-      if (detail === 2 && button === 0)
-        await this.pointerTask(deadline, action, () =>
-          this.dispatchMouseEvent(
-            this.eventTargetAtPoint(point),
-            "dblclick",
-            point,
-            button,
-            0,
-            detail
-          )
-        );
-      if (detail < clickCount)
-        await this.waitWithinActionDeadline(options.delay, deadline, action);
-    }
-  }
-
-  private eventTargetAtPoint(point: ActionPoint): Element {
-    let target =
-      this.document.elementFromPoint(point.x, point.y) ??
-      this.document.documentElement;
-    while (target.shadowRoot?.mode === "open") {
-      const inner = target.shadowRoot.elementFromPoint(point.x, point.y);
-      if (!inner || inner === target) break;
-      target = inner;
-    }
-    return target;
-  }
-
-  private focusPointerTarget(element: Element) {
-    const target = (
-      this.injected as typeof this.injected & QueryCapableInjectedScript
-    ).retarget(element, "follow-label");
-    // Real mouse focus does not scroll a different part of a large control
-    // into view. InjectedScript.focusNode is the keyboard focus operation.
-    if (target && typeof (target as HTMLElement).focus === "function")
-      (target as HTMLElement).focus({ preventScroll: true });
-  }
-
   private focusElement(element: Element) {
     this.actionableInjected.focusNode(element, true);
   }
@@ -5290,92 +5000,6 @@ export class PageImpl {
           })
         : new Event("input", { bubbles: true, composed: true })
     );
-  }
-
-  private dispatchPointerEvent(
-    element: Element,
-    type: string,
-    point: ActionPoint,
-    button: number,
-    buttons: number,
-    detail: number,
-    bubbles = true,
-    relatedTarget?: Element
-  ): boolean {
-    const event = new this.window.PointerEvent(type, {
-      ...this.pointerEventInit(
-        point,
-        button,
-        buttons,
-        detail,
-        bubbles,
-        relatedTarget
-      ),
-      pointerId: 1,
-      pointerType: "mouse",
-      isPrimary: true,
-      pressure: buttons ? 0.5 : 0,
-    });
-    Object.defineProperty(event, "__pwTrustedSynthetic", { value: true });
-    return element.dispatchEvent(event);
-  }
-
-  private dispatchMouseEvent(
-    element: Element,
-    type: string,
-    point: ActionPoint,
-    button: number,
-    buttons: number,
-    detail: number,
-    bubbles = true,
-    relatedTarget?: Element
-  ): boolean {
-    const init = this.pointerEventInit(
-      point,
-      button,
-      buttons,
-      detail,
-      bubbles,
-      relatedTarget
-    );
-    const event =
-      type === "click" || type === "auxclick"
-        ? new this.window.PointerEvent(type, {
-            ...init,
-            pointerId: 1,
-            pointerType: "mouse",
-            isPrimary: true,
-          })
-        : new this.window.MouseEvent(type, init);
-    Object.defineProperty(event, "__pwTrustedSynthetic", { value: true });
-    return element.dispatchEvent(event);
-  }
-
-  private pointerEventInit(
-    point: ActionPoint,
-    button: number,
-    buttons: number,
-    detail: number,
-    bubbles: boolean,
-    relatedTarget?: Element
-  ): MouseEventInit {
-    const modifiers = this.keyboard.modifierState();
-    return {
-      bubbles,
-      button,
-      buttons,
-      cancelable: true,
-      composed: bubbles,
-      clientX: point.x,
-      clientY: point.y,
-      detail,
-      view: this.window,
-      relatedTarget: relatedTarget ?? null,
-      altKey: modifiers.includes("Alt"),
-      ctrlKey: modifiers.includes("Control"),
-      metaKey: modifiers.includes("Meta"),
-      shiftKey: modifiers.includes("Shift"),
-    };
   }
 
   dispatchKeyboardEvent(
