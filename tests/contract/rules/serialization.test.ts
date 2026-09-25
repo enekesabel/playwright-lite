@@ -45,6 +45,37 @@ describe("serialization", () => {
     await root.dispose();
   });
 
+  it("rejects a by-value result deeper than Chromium's protocol accepts at the measured boundary", async () => {
+    // Contract coverage: the corpus asserts depths 200 and 1000 on
+    // page.evaluate only. Playwright 1.62.1 on its bundled Chromium returns an
+    // array chain 148 deep (298 serialized levels) and rejects a `{ child }`
+    // chain 99 deep (299 levels), for evaluate and jsonValue alike (pinned
+    // crExecutionContext.ts `rewriteError`).
+    type Chain = [depth: number, shape: "array" | "object"];
+    const page = createPage();
+    const chain = ([depth, shape]: Chain) => {
+      let node: unknown = shape === "array" ? [] : {};
+      for (let i = 0; i < depth; i++)
+        node = shape === "array" ? [node] : { child: node };
+      return node;
+    };
+    const members: [string, (arg: Chain) => Promise<unknown>][] = [
+      ["page.evaluate", (arg) => page.evaluate(chain, arg)],
+      [
+        "jsHandle.jsonValue",
+        async (arg) => (await page.evaluateHandle(chain, arg)).jsonValue(),
+      ],
+    ];
+    for (const [apiName, run] of members) {
+      await expect(run([148, "array"]), apiName).resolves.toEqual(
+        chain([148, "array"])
+      );
+      await expect(run([99, "object"]), apiName).rejects.toThrow(
+        "Cannot serialize result: object reference chain is too long."
+      );
+    }
+  });
+
   it("evaluate's exposeFunctions option turns nested functions into callable bindings", async () => {
     document.body.innerHTML = "<button>Go</button>";
     const page = createPage();
