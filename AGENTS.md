@@ -51,9 +51,15 @@ function has no Node closure: a test whose callback must run in Node
 bridge. The one name the bridge binds in that scope is `expect`, which resolves
 to the adapter's public expect, so an event handler can assert with its generic
 matchers; a failing assertion there is still only logged by the package's
-listener rule. Values the pinned protocol serializer understands — `Date`, `URL`,
-`Error`, `RegExp`, typed arrays — travel unchanged; every other object travels as
-its own enumerable properties, which is that serializer's object branch. A live
+listener rule. Every payload crosses `realPage.evaluate` as one string, written
+and read by the bridge's transport codec, so it never depends on the page's
+mutable prototypes. The codec follows the pinned `utilityScriptSerializers.ts`
+and `protocol/serializers.ts` rules and computes nothing: `Date`, `URL`,
+`Error`, `RegExp`, `BigInt`, typed arrays, `ArrayBuffer`, the special numbers
+and shared or cyclic references keep their kind; every other object travels as
+its own enumerable properties, which is those serializers' object branch. Node's
+side refuses a function and an invalid `Date` as Playwright's client does; the
+page's side drops a function as the utility script does. A live
 Playwright driver object obtained from an out-of-scope native member is the one
 argument the bridge still refuses, because this adapter cannot make its identity
 mean anything.

@@ -23,6 +23,11 @@ export default defineConfig<{
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+      // The pinned upstream config runs the page corpus with this expect
+      // timeout (tests/library/playwright.config.ts at corpus.source.commit),
+      // and its failure-message tests assert it. The fixture hands it to the
+      // adapter's expect.
+      expect: { timeout: 10_000 },
     },
   ],
 });

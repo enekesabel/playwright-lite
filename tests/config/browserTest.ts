@@ -4,8 +4,14 @@ import {
   type Page,
   type TestInfo,
 } from "@playwright/test";
-import { test as pageTest } from "../upstream/pageTest";
-import { createAdapterPage } from "../upstream/adapter-bridge";
+import {
+  configuredExpectTimeout,
+  test as pageTest,
+} from "../upstream/pageTest";
+import {
+  createAdapterPage,
+  readAdapterEvidence,
+} from "../upstream/adapter-bridge";
 
 export { expect } from "../upstream/pageTest";
 
@@ -31,9 +37,7 @@ async function capture(record: ContextRecord, result: Evidence) {
     if (record.captured.has(page)) continue;
     record.captured.add(page);
     try {
-      const observed = await page.evaluate(
-        () => (window as any).__pwLiteEvidence
-      );
+      const observed: any = await readAdapterEvidence(page);
       if (!observed || !Array.isArray(observed.entered))
         throw new Error("Adapter execution evidence is unavailable");
       result.entered.push(...observed.entered);
@@ -91,6 +95,7 @@ export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
                       record.pages.push(page);
                       result.native.push("BrowserContext.newPage");
                       return createAdapterPage(page, {
+                        expectTimeout: configuredExpectTimeout(info),
                         nativeNavigationForSetup: true,
                         underTest: true,
                       });
