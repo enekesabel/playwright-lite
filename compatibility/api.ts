@@ -113,18 +113,14 @@ const closingLink = "see [Closing a page](#closing-a-page)";
 const historyTraversalNote =
   "Needs the browser's Navigation API and rejects without it; returns no `Response`; resolves to `null` without navigating when the Navigation API does not list the adjacent entry (an entry of another origin, an entry beyond one, or any entry in an opaque-origin document such as a sandboxed frame), where Playwright navigates to it; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call, even when already idle.";
 
-const hoverNote =
-  "Never applies CSS `:hover`; see [Runtime boundaries](#runtime-boundaries).";
-
 /**
  * How each `page.mouse` member differs, shared by the Mouse ledger and the
  * README's Mouse section.
  */
 const mouseDifferences = {
   move: {
-    lite: "Dispatches pointer and mouse move, over/out and enter/leave events to the element `elementFromPoint()` reports, so elements inside iframes receive nothing; moving with the left button held from a draggable element starts no HTML drag.",
-    playwright:
-      "The browser hit-tests into iframes and starts an HTML drag from a draggable element.",
+    lite: "Dispatches pointer and mouse move, over/out and enter/leave events to the element `elementFromPoint()` reports; moving with the left button held from a draggable element starts no HTML drag.",
+    playwright: "Starts an HTML drag from a draggable element.",
   },
   down: {
     lite: "Dispatches `pointerdown`, `mousedown` and, for the right button, `contextmenu`, and moves focus as a press does, but starts no text selection, context menu or autoscroll.",
@@ -443,7 +439,7 @@ export const pageLedger = {
     "Returns no `Response` (`null` only for same-document hash navigation); relative URLs resolve against `document.baseURI`, with no `baseURL`; rejects `referer` and `signal`; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call, even when already idle."
   ),
   hideHighlight: implemented("Clears highlights in the current document."),
-  hover: partial(hoverNote),
+  hover: implemented(),
   innerHTML: implemented(),
   innerText: implemented(),
   inputValue: implemented(),
@@ -463,7 +459,7 @@ export const pageLedger = {
   locator: implemented(),
   mainFrame: partial("Returns the same `Page` object, not a `Frame`."),
   mouse: partial(
-    "Elements in iframes receive nothing, and no HTML drag, text selection or context menu starts; see [Mouse](#mouse)."
+    "No HTML drag, text selection or context menu starts; see [Mouse](#mouse)."
   ),
   off: partial(removalNote),
   on: partial(listenerNote),
@@ -598,7 +594,7 @@ export const locatorLedger = {
   highlight: implemented(
     "Uses the pinned InjectedScript overlay in the current document."
   ),
-  hover: partial(hoverNote),
+  hover: implemented(),
   innerHTML: implemented(),
   innerText: implemented(),
   inputValue: implemented(),
@@ -648,7 +644,7 @@ export const mouseLedger = {
     "Runs `mouse.move()`, `down()` and `up()` with their differences."
   ),
   dblclick: partial(
-    "Runs `mouse.move()`, `down()` and `up()` twice with their differences."
+    "Runs `mouse.move()` once, then `down()` and `up()` twice, with their differences."
   ),
   down: partial(mouseDifferences.down.lite),
   move: partial(mouseDifferences.move.lite),

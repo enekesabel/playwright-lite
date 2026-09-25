@@ -61,7 +61,7 @@ import {
 } from "./console";
 import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
-import { BrowserMouse } from "./mouse";
+import { BrowserMouse, Pointer } from "./mouse";
 import type { Disposable, Keyboard, Locator, Page } from "@playwright/test";
 import type { ByRoleOptions, LocatorOptions } from "./locator";
 import { LOCATOR_BRAND, LocatorImpl } from "./locator";
@@ -480,6 +480,8 @@ export class PageImpl {
   readonly window: Window & typeof globalThis;
   readonly keyboard: BrowserKeyboard;
   readonly mouse: BrowserMouse;
+  /** The pointer `mouse` and the pointer actions share. */
+  private readonly pointer: Pointer;
   readonly evaluation: Evaluation;
   readonly localStorage: PageWebStorage;
   readonly sessionStorage: PageWebStorage;
@@ -524,14 +526,16 @@ export class PageImpl {
     this.window = browserWindow;
     this.document = browserWindow.document;
     this.keyboard = new BrowserKeyboard(this);
-    this.mouse = new BrowserMouse({
+    this.pointer = new Pointer({
       window: browserWindow,
       modifiers: () => this.keyboard.modifierState(),
+      deepActiveElement: () => this.deepActiveElement(),
       assertDeadline: (deadline, action) =>
         this.assertActionDeadline(deadline, action),
       wait: (durationMs, deadline, action) =>
         this.waitWithinActionDeadline(durationMs, deadline, action),
     });
+    this.mouse = new BrowserMouse(this.pointer);
     this.evaluation = new Evaluation(this);
     this.localStorage = new PageWebStorage(this, "local");
     this.sessionStorage = new PageWebStorage(this, "session");
@@ -1332,13 +1336,13 @@ export class PageImpl {
             if (options.modifiers)
               await this.keyboard.ensureModifiers(options.modifiers, deadline);
             this.assertActionDeadline(deadline, action);
-            await this.mouse.moveTo(
+            await this.pointer.moveTo(
               target.point,
               { deadline, action },
               options.steps
             );
             if (!options.trial && action !== "hover")
-              await this.mouse.clickHere(
+              await this.pointer.clickHere(
                 options.button ?? "left",
                 action === "dblclick" ? 2 : (options.clickCount ?? 1),
                 options.delay,

@@ -1,7 +1,7 @@
 import type { Mouse } from "@playwright/test";
 
 import type { ActionDeadline } from "./page";
-import { validateInteger } from "./protocolValidation";
+import { validateFloat, validateInteger } from "./protocolValidation";
 
 type MouseButton = "left" | "middle" | "right";
 type Point = { x: number; y: number };
@@ -9,10 +9,12 @@ type Point = { x: number; y: number };
 /** The Page action an input belongs to; the mouse API itself has no deadline. */
 export type PointerInput = { deadline?: ActionDeadline; action: string };
 
-/** What the mouse needs from the Page that owns the document. */
-export type MouseHost = {
+/** What the pointer needs from the Page that owns the document. */
+export type PointerHost = {
   readonly window: Window & typeof globalThis;
   modifiers(): readonly string[];
+  /** The focused element, followed into open shadow roots; the body when none is. */
+  deepActiveElement(): Element;
   assertDeadline(deadline: ActionDeadline | undefined, action: string): void;
   wait(
     durationMs: number | undefined,
@@ -21,10 +23,102 @@ export type MouseHost = {
   ): Promise<void>;
 };
 
-const BUTTONS: readonly MouseButton[] = ["left", "right", "middle"];
 /** `MouseEvent.button` for each button, and its bit in `MouseEvent.buttons`. */
-const BUTTON_CODE = { left: 0, middle: 1, right: 2 } as const;
-const BUTTON_BIT = { left: 1, right: 2, middle: 4 } as const;
+const BUTTONS = {
+  left: { code: 0, bit: 1 },
+  middle: { code: 1, bit: 4 },
+  right: { code: 2, bit: 2 },
+} as const;
+
+/**
+ * `page.mouse`: the pinned client `Mouse` members, their arguments checked
+ * the way the pinned protocol does, over the Page's one `Pointer`. The
+ * pointer stays private, so a consumer reaches only these six members.
+ */
+export class BrowserMouse implements Mouse {
+  readonly #pointer: Pointer;
+
+  constructor(pointer: Pointer) {
+    this.#pointer = pointer;
+  }
+
+  async move(x: number, y: number, options: { steps?: number } = {}) {
+    await api("mouse.move", async () => {
+      const params = { ...options };
+      const point = { x: validateFloat(x, "x"), y: validateFloat(y, "y") };
+      const steps =
+        params.steps === undefined ? 1 : validateInteger(params.steps, "steps");
+      await this.#pointer.moveTo(point, { action: "mouse.move" }, steps);
+    });
+  }
+
+  async down(
+    options: { button?: MouseButton; clickCount?: number } = {}
+  ): Promise<void> {
+    await api("mouse.down", async () => {
+      const { button, clickCount } = pressOptions(options);
+      await this.#pointer.press(button, clickCount, { action: "mouse.down" });
+    });
+  }
+
+  async up(
+    options: { button?: MouseButton; clickCount?: number } = {}
+  ): Promise<void> {
+    await api("mouse.up", async () => {
+      const { button, clickCount } = pressOptions(options);
+      await this.#pointer.release(button, clickCount, { action: "mouse.up" });
+    });
+  }
+
+  async click(
+    x: number,
+    y: number,
+    options: { button?: MouseButton; clickCount?: number; delay?: number } = {}
+  ): Promise<void> {
+    await api("mouse.click", () => this.#clickAt("mouse.click", x, y, options));
+  }
+
+  async dblclick(
+    x: number,
+    y: number,
+    options: { button?: MouseButton; delay?: number } = {}
+  ): Promise<void> {
+    // Pinned client input.ts: a click with clickCount 2, under its own name.
+    await api("mouse.dblclick", () =>
+      this.#clickAt("mouse.dblclick", x, y, { ...options, clickCount: 2 })
+    );
+  }
+
+  async wheel(deltaX: number, deltaY: number): Promise<void> {
+    await api("mouse.wheel", () =>
+      this.#pointer.wheel(
+        {
+          x: validateFloat(deltaX, "deltaX"),
+          y: validateFloat(deltaY, "deltaY"),
+        },
+        { action: "mouse.wheel" }
+      )
+    );
+  }
+
+  async #clickAt(
+    action: string,
+    x: number,
+    y: number,
+    options: { button?: MouseButton; clickCount?: number; delay?: number }
+  ) {
+    const params = { ...options };
+    const point = { x: validateFloat(x, "x"), y: validateFloat(y, "y") };
+    const delay =
+      params.delay === undefined
+        ? undefined
+        : validateFloat(params.delay, "delay");
+    const { button, clickCount } = pressOptions(params);
+    const input = { action };
+    await this.#pointer.moveTo(point, input);
+    await this.#pointer.clickHere(button, clickCount, delay, input);
+  }
+}
 
 /**
  * The one pointer of a Page: the analogue of pinned `server/input.ts` Mouse,
@@ -32,12 +126,8 @@ const BUTTON_BIT = { left: 1, right: 2, middle: 4 } as const;
  * relatives) share, plus the events Chromium derives from that raw input
  * (`server/chromium/crInput.ts`). Every event is script-dispatched in the
  * current document, one browser task each, like pinned `WebViewInput`.
- *
- * The public members validate their arguments the way the pinned protocol
- * does; the Page actions drive `moveTo`, `clickHere` and the press state
- * directly, so a Page action is never recorded as a `Mouse` call.
  */
-export class BrowserMouse implements Mouse {
+export class Pointer {
   /** Pinned input.ts Mouse starts at the document origin and tracks its moves. */
   private position: Point = { x: 0, y: 0 };
   /** The element under the pointer at the last boundary update. */
@@ -53,86 +143,33 @@ export class BrowserMouse implements Mouse {
   /** Where the last move event fired, for `movementX` and `movementY`. */
   private lastMove: Point | undefined;
 
-  constructor(private readonly host: MouseHost) {}
+  constructor(private readonly host: PointerHost) {}
 
-  async move(x: number, y: number, options: { steps?: number } = {}) {
-    await api("mouse.move", async () => {
-      const params = { ...options };
-      const point = { x: validateFloat(x, "x"), y: validateFloat(y, "y") };
-      const steps =
-        params.steps === undefined ? 1 : validateInteger(params.steps, "steps");
-      await this.moveTo(point, { action: "mouse.move" }, steps);
-    });
-  }
-
-  async down(
-    options: { button?: MouseButton; clickCount?: number } = {}
-  ): Promise<void> {
-    await api("mouse.down", async () => {
-      const { button, clickCount } = pressOptions(options);
-      await this.press(button, clickCount, { action: "mouse.down" });
-    });
-  }
-
-  async up(
-    options: { button?: MouseButton; clickCount?: number } = {}
-  ): Promise<void> {
-    await api("mouse.up", async () => {
-      const { button, clickCount } = pressOptions(options);
-      await this.release(button, clickCount, { action: "mouse.up" });
-    });
-  }
-
-  async click(
-    x: number,
-    y: number,
-    options: { button?: MouseButton; clickCount?: number; delay?: number } = {}
-  ): Promise<void> {
-    await api("mouse.click", () => this.clickAt("mouse.click", x, y, options));
-  }
-
-  async dblclick(
-    x: number,
-    y: number,
-    options: { button?: MouseButton; delay?: number } = {}
-  ): Promise<void> {
-    // Pinned client input.ts: a click with clickCount 2, under its own name.
-    await api("mouse.dblclick", () =>
-      this.clickAt("mouse.dblclick", x, y, { ...options, clickCount: 2 })
-    );
-  }
-
-  async wheel(deltaX: number, deltaY: number): Promise<void> {
-    await api("mouse.wheel", async () => {
-      const delta = {
-        x: validateFloat(deltaX, "deltaX"),
-        y: validateFloat(deltaY, "deltaY"),
-      };
-      const point = this.position;
-      const input = { action: "mouse.wheel" };
-      await this.task(input, () => {
-        // crInput.ts sends mouseWheel without a button or buttons mask.
-        const target = this.hitTarget(point);
-        const event = new this.host.window.WheelEvent("wheel", {
-          ...this.eventInit("wheel", point, { button: -1, buttons: 0 }),
-          deltaX: delta.x,
-          deltaY: delta.y,
-          deltaMode: 0,
-        });
-        // A constructed WheelEvent reports the deltas as its legacy
-        // wheelDelta fields; the pinned Chromium reports one notch, 120,
-        // against the direction of each delta.
-        const notch = (value: number) => (value ? -Math.sign(value) * 120 : 0);
-        Object.defineProperties(event, {
-          wheelDeltaX: { value: notch(delta.x) },
-          wheelDeltaY: { value: notch(delta.y) },
-          wheelDelta: { value: notch(delta.y) || notch(delta.x) },
-        });
-        if (dispatch(target, event)) this.scrollForWheel(target, delta);
+  /** Pinned crInput.ts mouseWheel at the current position. */
+  async wheel(delta: Point, input: PointerInput) {
+    const point = this.position;
+    await this.task(input, () => {
+      // crInput.ts sends mouseWheel without a button or buttons mask.
+      const target = this.hitTarget(point);
+      const event = new this.host.window.WheelEvent("wheel", {
+        ...this.eventInit("wheel", point, { button: -1, buttons: 0 }),
+        deltaX: delta.x,
+        deltaY: delta.y,
+        deltaMode: 0,
       });
-      // After a scroll the browser updates the element under the pointer.
-      await this.updateHover(point, input);
+      // A constructed WheelEvent reports the deltas as its legacy
+      // wheelDelta fields; the pinned Chromium reports one notch, 120,
+      // against the direction of each delta.
+      const notch = (value: number) => (value ? -Math.sign(value) * 120 : 0);
+      Object.defineProperties(event, {
+        wheelDeltaX: { value: notch(delta.x) },
+        wheelDeltaY: { value: notch(delta.y) },
+        wheelDelta: { value: notch(delta.y) || notch(delta.x) },
+      });
+      if (dispatch(target, event)) this.scrollForWheel(target, delta);
     });
+    // After a scroll the browser updates the element under the pointer.
+    await this.updateHover(point, input);
   }
 
   /**
@@ -174,24 +211,6 @@ export class BrowserMouse implements Mouse {
     }
   }
 
-  private async clickAt(
-    action: string,
-    x: number,
-    y: number,
-    options: { button?: MouseButton; clickCount?: number; delay?: number }
-  ) {
-    const params = { ...options };
-    const point = { x: validateFloat(x, "x"), y: validateFloat(y, "y") };
-    const delay =
-      params.delay === undefined
-        ? undefined
-        : validateFloat(params.delay, "delay");
-    const { button, clickCount } = pressOptions(params);
-    const input = { action };
-    await this.moveTo(point, input);
-    await this.clickHere(button, clickCount, delay, input);
-  }
-
   private async moveStep(point: Point, input: PointerInput) {
     await this.updateHover(point, input);
     const buttons = this.buttonsMask();
@@ -221,19 +240,20 @@ export class BrowserMouse implements Mouse {
    * further one is a chorded `pointermove`, while `mousedown` fires for each.
    * An allowed `mousedown` moves focus as the browser does.
    */
-  private async press(
-    button: MouseButton,
-    clickCount: number,
-    input: PointerInput
-  ) {
+  async press(button: MouseButton, clickCount: number, input: PointerInput) {
     const point = this.position;
-    await this.updateHover(point, input);
     const first = this.pressed.size === 0;
+    this.pressed.set(button, this.hitTarget(point));
+    this.lastButton = button;
+    const fields = {
+      button: BUTTONS[button].code,
+      buttons: this.buttonsMask(),
+    };
+    // Like the release, boundary events the press brings carry its button.
+    await this.updateHover(point, input, fields.button);
     const target = this.hitTarget(point);
     this.pressed.set(button, target);
     this.clickTarget = target;
-    this.lastButton = button;
-    const fields = { button: BUTTON_CODE[button], buttons: this.buttonsMask() };
     const pointerAllowed = await this.task(input, () =>
       this.fire(
         this.hitTarget(point),
@@ -266,15 +286,14 @@ export class BrowserMouse implements Mouse {
    * ancestor of the press and release targets, then `dblclick` for a second
    * left click.
    */
-  private async release(
-    button: MouseButton,
-    clickCount: number,
-    input: PointerInput
-  ) {
+  async release(button: MouseButton, clickCount: number, input: PointerInput) {
     const point = this.position;
     this.pressed.delete(button);
     this.lastButton = undefined;
-    const fields = { button: BUTTON_CODE[button], buttons: this.buttonsMask() };
+    const fields = {
+      button: BUTTONS[button].code,
+      buttons: this.buttonsMask(),
+    };
     await this.updateHover(point, input, fields.button);
     const last = this.pressed.size === 0;
     // crInput.ts sends mouseReleased without force, so its pressure is 0.
@@ -325,14 +344,14 @@ export class BrowserMouse implements Mouse {
    * the element under the pointer is removed, Chromium enters the whole path
    * again.
    *
-   * Chromium updates the element under a still pointer on a timer while no
-   * button is held, and otherwise with the release, whose `button` the
-   * boundary events then carry.
+   * Chromium updates the element under a still pointer on a timer after a
+   * layout change; a press or release that finds a new element brings the
+   * boundary events itself, and they carry its `button`.
    */
   private async updateHover(
     point: Point,
     input: PointerInput,
-    releasedButton?: number
+    changedButton?: number
   ) {
     const target = this.hitTarget(point);
     const previous = this.hovered;
@@ -345,7 +364,7 @@ export class BrowserMouse implements Mouse {
     const buttons = this.buttonsMask();
     for (const kind of ["pointer", "mouse"] as const) {
       const button =
-        releasedButton ?? (kind === "pointer" ? -1 : this.lastButtonCode());
+        changedButton ?? (kind === "pointer" ? -1 : this.lastButtonCode());
       const send = (node: Node, type: string, relatedTarget?: Element) =>
         this.task(input, () =>
           this.fire(node, `${kind}${type}`, point, {
@@ -362,12 +381,12 @@ export class BrowserMouse implements Mouse {
   }
 
   private lastButtonCode(): number {
-    return this.lastButton ? BUTTON_CODE[this.lastButton] : -1;
+    return this.lastButton ? BUTTONS[this.lastButton].code : -1;
   }
 
   private buttonsMask(): number {
     let mask = 0;
-    for (const button of this.pressed.keys()) mask |= BUTTON_BIT[button];
+    for (const button of this.pressed.keys()) mask |= BUTTONS[button].bit;
     return mask;
   }
 
@@ -385,31 +404,24 @@ export class BrowserMouse implements Mouse {
   }
 
   /**
-   * The browser's focus on press: the nearest focusable flat-tree ancestor of
-   * the pressed element receives focus; with none, the focused element blurs.
-   * Focusing never scrolls, as with a real press.
+   * The browser's focus on press: the nearest mouse-focusable flat-tree
+   * ancestor of the pressed element receives focus; with none, the focused
+   * element blurs. Focusing never scrolls, as with a real press.
    */
   private focusForPress(element: Element) {
-    const active = deepActiveElement(this.host.window.document);
+    const active = this.host.deepActiveElement();
     for (
       let node: Element | undefined = element;
       node;
       node = flatTreeParentElement(node)
     ) {
       if (node === active) return;
-      // `focus()` on a label or legend moves focus to its control, which a
-      // press does not: the label's click activation focuses the control.
-      if (
-        typeof (node as HTMLElement).focus !== "function" ||
-        ((node.localName === "label" || node.localName === "legend") &&
-          !node.hasAttribute("tabindex"))
-      )
-        continue;
+      if (!mouseFocusable(node)) continue;
       (node as HTMLElement).focus({ preventScroll: true });
       // Focus may land on a delegate; any change means this node took it.
-      if (deepActiveElement(this.host.window.document) !== active) return;
+      if (this.host.deepActiveElement() !== active) return;
     }
-    if (active && active !== this.host.window.document.body)
+    if (active !== this.host.window.document.body)
       (active as HTMLElement).blur?.();
   }
 
@@ -594,19 +606,12 @@ async function api(name: string, run: () => Promise<void>) {
   }
 }
 
-/** Pinned validatorPrimitives.ts tFloat. */
-function validateFloat(value: unknown, name: string): number {
-  if (value instanceof Number) return value.valueOf();
-  if (typeof value === "number") return value;
-  throw new Error(`${name}: expected float, got ${typeof value}`);
-}
-
 function pressOptions(options: { button?: unknown; clickCount?: unknown }): {
   button: MouseButton;
   clickCount: number;
 } {
   const { button = "left", clickCount = 1 } = options;
-  if (!BUTTONS.includes(button as MouseButton))
+  if (typeof button !== "string" || !Object.hasOwn(BUTTONS, button))
     throw new Error("button: expected one of (left|right|middle)");
   return {
     button: button as MouseButton,
@@ -671,9 +676,23 @@ function commonAncestor(a: Element, b: Element): Element | undefined {
   return undefined;
 }
 
-function deepActiveElement(document: Document): Element | null {
-  let active = document.activeElement;
-  while (active?.shadowRoot?.activeElement)
-    active = active.shadowRoot.activeElement;
-  return active;
+/**
+ * Whether a press can focus the element, as Chromium's mouse focusability:
+ * elements focusable by default or by `tabindex`, editing hosts and shadow
+ * hosts that delegate focus. Elements `focus()` accepts only as keyboard
+ * stops, such as scroll containers, are skipped, and so are labels and
+ * legends, whose `focus()` moves focus to their control; a label's click
+ * activation focuses the control instead.
+ */
+function mouseFocusable(element: Element): boolean {
+  const html = element as HTMLElement;
+  if (typeof html.focus !== "function") return false;
+  if (element.hasAttribute("tabindex")) return true;
+  if (element.localName === "label" || element.localName === "legend")
+    return false;
+  return (
+    html.tabIndex >= 0 ||
+    html.isContentEditable ||
+    !!element.shadowRoot?.delegatesFocus
+  );
 }

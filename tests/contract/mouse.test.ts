@@ -96,6 +96,7 @@ describe("Mouse", () => {
     expect(log).toEqual(["mousedown@a", "mouseup@b", "click@parent"]);
   });
 
+  // Contract coverage: the pinned dblclick test also asserts isTrusted.
   it("sends dblclick after the second click with detail 2", async () => {
     document.body.innerHTML = box("a", 10, 10);
     const page = createPage();
@@ -143,6 +144,7 @@ describe("Mouse", () => {
     ]);
   });
 
+  // Contract coverage: no pinned spec cancels a pointerdown.
   it("withholds mousedown, mousemove and mouseup after a canceled pointerdown", async () => {
     document.body.innerHTML = box("a", 10, 10);
     const page = createPage();
@@ -160,6 +162,7 @@ describe("Mouse", () => {
     expect(log).toEqual(["click", "mousemove"]);
   });
 
+  // Contract coverage: no pinned spec asserts where a press moves focus.
   it("moves focus on press: to the nearest focusable ancestor, else away", async () => {
     document.body.innerHTML = `
       <input id=input style="position: absolute; left: 10px; top: 10px; width: 80px; height: 30px">
@@ -203,6 +206,53 @@ describe("Mouse", () => {
     ]);
   });
 
+  // Contract coverage: no pinned spec presses inside a scroll container.
+  it("does not focus a scroll container a press lands in", async () => {
+    document.body.innerHTML = `
+      <input id=input style="position: absolute; left: 10px; top: 10px; width: 80px; height: 30px">
+      <div id=scroller style="position: absolute; left: 110px; top: 10px; width: 80px; height: 80px; overflow: auto"><p style="margin: 0; height: 400px">text</p></div>`;
+    const page = createPage();
+    const scroller = document.getElementById("scroller")!;
+    const focused = () => document.activeElement?.id || "body";
+    const steps: (string | number)[] = [];
+
+    await page.mouse.click(20, 20);
+    steps.push(focused());
+    await page.mouse.click(120, 15);
+    steps.push(focused(), scroller.tabIndex);
+    await page.click("#scroller p");
+    steps.push(focused());
+
+    expect(steps).toEqual(["input", "body", -1, "body"]);
+  });
+
+  // Contract coverage: no pinned spec changes the element under a still
+  // pointer before a press.
+  it("gives the boundary events a press brings the pressed button", async () => {
+    document.body.innerHTML = box("a", 10, 10) + box("under", 10, 10);
+    const page = createPage();
+    const top = document.getElementById("under")!;
+    on("contextmenu", (event) => event.preventDefault());
+    await page.mouse.move(20, 20);
+    top.style.display = "none";
+    const log: string[] = [];
+    for (const type of ["pointerover", "mouseover"] as const)
+      on(type, (event) => {
+        const pointer = event as PointerEvent;
+        log.push(
+          type === "pointerover"
+            ? `${type}@${id(event.target)} ${pointer.button}/${pointer.buttons}/${pointer.pressure}`
+            : `${type}@${id(event.target)} ${event.buttons}/${event.which}`
+        );
+      });
+
+    await page.mouse.down({ button: "right" });
+    await page.mouse.up({ button: "right" });
+
+    expect(log).toEqual(["pointerover@a 2/2/0.5", "mouseover@a 2/3"]);
+  });
+
+  // Contract coverage: the pinned disabled-button test asserts only :hover.
   it("dispatches no mousedown, mouseup or click to a disabled form control", async () => {
     document.body.innerHTML = `<button disabled style="position: absolute; left: 10px; top: 10px; width: 80px; height: 40px"><span>no</span></button>`;
     const page = createPage();
@@ -244,6 +294,7 @@ describe("Mouse", () => {
     expect([inner.scrollTop, outer.scrollTop]).toEqual([100, 100]);
   });
 
+  // Contract coverage: no pinned spec reads the legacy wheelDelta fields.
   it("reports wheelDelta against the delta's direction", async () => {
     document.body.innerHTML = box("a", 10, 10);
     const page = createPage();
@@ -276,6 +327,7 @@ describe("Mouse", () => {
     ]);
   });
 
+  // Contract coverage: no pinned spec holds a button across a Page action.
   it("shares its position and held buttons with the pointer actions", async () => {
     document.body.innerHTML = box("a", 10, 10) + box("b", 110, 10);
     const page = createPage();
