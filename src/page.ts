@@ -535,7 +535,7 @@ export class PageImpl {
       wait: (durationMs, deadline, action) =>
         this.waitWithinActionDeadline(durationMs, deadline, action),
     });
-    this.mouse = new BrowserMouse(this.pointer);
+    this.mouse = new BrowserMouse(this.pointer, this.lifetime);
     this.evaluation = new Evaluation(this);
     this.localStorage = new PageWebStorage(this, "local");
     this.sessionStorage = new PageWebStorage(this, "session");

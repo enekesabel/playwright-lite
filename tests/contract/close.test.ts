@@ -83,6 +83,8 @@ describe("Page.close", () => {
 
     const owned: [string, () => Promise<unknown>][] = [
       ["keyboard.press", () => page.keyboard.press("a")],
+      ["mouse.click", () => page.mouse.click(1, 1)],
+      ["mouse.wheel", () => page.mouse.wheel(0, 10)],
       ["webStorage.getItem", () => page.localStorage.getItem("a")],
       ["webStorage.setItem", () => page.sessionStorage.setItem("a", "b")],
       ["elementHandle.click", () => handle.click()],
@@ -111,6 +113,7 @@ describe("Page.close", () => {
       ],
       ["page.waitForTimeout", page.waitForTimeout(60_000)],
       ["keyboard.type", page.keyboard.type("abc", { delay: 60_000 })],
+      ["mouse.click", page.mouse.click(1, 1, { delay: 60_000 })],
     ];
     await page.close();
 

@@ -1,5 +1,10 @@
 import type { Mouse } from "@playwright/test";
 
+import {
+  guardLifetimeCalls,
+  type LifetimeCalls,
+  type PageLifetime,
+} from "./lifetime";
 import type { ActionDeadline } from "./page";
 import { validateFloat, validateInteger } from "./protocolValidation";
 
@@ -30,16 +35,37 @@ const BUTTONS = {
   right: { code: 2, bit: 2 },
 } as const;
 
+/** Refused once the mouse's page has closed; see `guardLifetimeCalls`. */
+const MOUSE_LIFETIME_CALLS: Record<LifetimeCalls<BrowserMouse, Mouse>, true> = {
+  click: true,
+  dblclick: true,
+  down: true,
+  move: true,
+  up: true,
+  wheel: true,
+};
+
 /**
  * `page.mouse`: the pinned client `Mouse` members, their arguments checked
  * the way the pinned protocol does, over the Page's one `Pointer`. The
  * pointer stays private, so a consumer reaches only these six members.
  */
 export class BrowserMouse implements Mouse {
-  readonly #pointer: Pointer;
+  static {
+    guardLifetimeCalls(
+      BrowserMouse.prototype,
+      MOUSE_LIFETIME_CALLS,
+      "mouse",
+      (mouse) => mouse.#lifetime
+    );
+  }
 
-  constructor(pointer: Pointer) {
+  readonly #pointer: Pointer;
+  readonly #lifetime: PageLifetime;
+
+  constructor(pointer: Pointer, lifetime: PageLifetime) {
     this.#pointer = pointer;
+    this.#lifetime = lifetime;
   }
 
   async move(x: number, y: number, options: { steps?: number } = {}) {
