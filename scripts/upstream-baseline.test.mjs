@@ -245,16 +245,54 @@ describe("reviewed promotion", () => {
         /did not run/
       );
     });
-    it("requires the asserted failure reason when provided", () => {
+    const methodMarker =
+      "__pwLiteSabotagedMethod: Locator.click was withheld for promotion review.";
+    it("accepts a method rerun that fails with the method's withheld marker", () => {
+      assert.doesNotThrow(() =>
+        sabotageVerdict(
+          [
+            {
+              id,
+              status: "failed",
+              error: `page.evaluate: Error: ${methodMarker}\n    at eval`,
+            },
+          ],
+          id,
+          "Locator.click"
+        )
+      );
+    });
+    it("refuses a method rerun whose failure does not show the method's withheld marker", () => {
+      for (const error of [
+        // The test's own reading of a result the withheld method never made.
+        "TypeError: Cannot read properties of undefined (reading 'message')",
+        // Another member's marker is not this method's.
+        "Error: __pwLiteSabotagedMethod: Locator.dblclick was withheld for promotion review.",
+        // A failure the report carries no message for.
+        null,
+      ])
+        assert.throws(
+          () =>
+            sabotageVerdict(
+              [{ id, status: "failed", error }],
+              id,
+              "Locator.click"
+            ),
+          (e) =>
+            e.message ===
+            `${id} failed with Locator.click sabotaged, but not for the expected reason: ${methodMarker}`
+        );
+    });
+    it("requires the matcher's withheld marker in a matcher rerun", () => {
       assert.throws(
         () =>
           sabotageVerdict(
             [{ id, status: "failed", error: "some unrelated failure" }],
             id,
-            "Locator.toHaveText",
-            "__pwLiteSabotagedMatcher: Locator.toHaveText"
+            "Locator._expect",
+            "Locator.toHaveText"
           ),
-        /not for the expected reason/
+        /Locator\.toHaveText sabotaged, but not for the expected reason: __pwLiteSabotagedMatcher: Locator\.toHaveText$/
       );
       assert.doesNotThrow(() =>
         sabotageVerdict(
@@ -267,8 +305,8 @@ describe("reviewed promotion", () => {
             },
           ],
           id,
-          "Locator.toHaveText",
-          "__pwLiteSabotagedMatcher: Locator.toHaveText"
+          "Locator._expect",
+          "Locator.toHaveText"
         )
       );
     });
@@ -285,7 +323,7 @@ describe("reviewed promotion", () => {
           [{ id, status: "failed", error: received }],
           id,
           "Locator._expect",
-          "__pwLiteSabotagedMatcher: Locator.toBeVisible"
+          "Locator.toBeVisible"
         )
       );
       assert.throws(
@@ -294,18 +332,9 @@ describe("reviewed promotion", () => {
             [{ id, status: "failed", error: received }],
             id,
             "Locator._expect",
-            "__pwLiteSabotagedMatcher: Locator.toHaveText"
+            "Locator.toHaveText"
           ),
         /not for the expected reason/
-      );
-    });
-    it("accepts a test that fails once the method is sabotaged", () => {
-      assert.doesNotThrow(() =>
-        sabotageVerdict(
-          [{ id, status: "failed", error: "Locator.click is sabotaged" }],
-          id,
-          "Locator.click"
-        )
       );
     });
     // A test's unawaited call can settle after the test ended, on a closed
@@ -351,8 +380,8 @@ describe("reviewed promotion", () => {
             rerun(`Error: ${marker} was withheld for promotion review.`)
           ),
           testId,
-          "Locator.toHaveCount",
-          marker
+          "Locator._expect",
+          "Locator.toHaveCount"
         )
       );
       assert.throws(
@@ -360,8 +389,8 @@ describe("reviewed promotion", () => {
           sabotageVerdict(
             sabotageRerunEntries(rerun("Error: some unrelated failure")),
             testId,
-            "Locator.toHaveCount",
-            marker
+            "Locator._expect",
+            "Locator.toHaveCount"
           ),
         /not for the expected reason/
       );
@@ -602,9 +631,9 @@ describe("blockingRegressions", () => {
       passing(renamed, ["ElementHandle.asElement"]),
       { ...passing(other, ["Page.evaluate"]), status: "failed" },
     ];
-    // Not listed as a re-record, the renamed entry blocks like any regression.
+    // Without its re-record, the renamed entry blocks like any regression.
     assert.deepEqual(
-      blockingRegressions(entries, baseline, names, [correction], new Set()),
+      blockingRegressions(entries, baseline, names, [], new Set()),
       [other, renamed].sort()
     );
     // Re-recording one entry leaves every other regression blocking.
@@ -689,6 +718,81 @@ describe("blockingRegressions", () => {
           new Set([other])
         ),
       /from Page\.evaluate as Locator\.evaluate only if that is a listed owner correction \(JSHandle -> ElementHandle\)/
+    );
+  });
+
+  it("refuses to change a reviewed entry's method without --re-record", () => {
+    // Both tests still certify their reviewed methods, so nothing regressed.
+    const entries = [
+      passing(renamed, ["JSHandle.asElement", "ElementHandle.asElement"]),
+      passing(other, ["Page.evaluate", "Locator.evaluate"]),
+    ];
+    for (const promotion of [
+      { id: other, method: "Locator.evaluate" },
+      { id: renamed, method: "ElementHandle.asElement" },
+    ])
+      assert.throws(
+        () =>
+          blockingRegressions(entries, baseline, names, [promotion], new Set()),
+        (e) =>
+          e.message ===
+          `${promotion.id} is already reviewed as ${baseline.reviewed.find((r) => r.id === promotion.id).method}; promoting it as ${promotion.method} would replace that method. Pass --re-record to correct its owner.`
+      );
+    // A regressed entry is refused the same way, pointing at --re-record
+    // rather than at the regression.
+    assert.throws(
+      () =>
+        blockingRegressions(
+          [
+            passing(renamed, ["ElementHandle.asElement"]),
+            passing(other, ["Page.evaluate"]),
+          ],
+          baseline,
+          names,
+          [correction],
+          new Set()
+        ),
+      /already reviewed as JSHandle\.asElement.*--re-record/
+    );
+  });
+
+  it("lets a reviewed entry be promoted again under its own method", () => {
+    const entries = [
+      passing(renamed, ["JSHandle.asElement"]),
+      passing(other, ["Page.evaluate"]),
+      passing("jshandle.spec.ts > new", ["Page.evaluate"]),
+    ];
+    assert.deepEqual(
+      blockingRegressions(
+        entries,
+        baseline,
+        names,
+        [
+          { id: other, method: "Page.evaluate" },
+          { id: "jshandle.spec.ts > new", method: "Page.evaluate" },
+        ],
+        new Set()
+      ),
+      []
+    );
+  });
+
+  it("applies the re-record rules to a flagged method change", () => {
+    // With --re-record, a method change of an entry that still certifies is
+    // refused by the re-record rule, not by the method-change rule.
+    assert.throws(
+      () =>
+        blockingRegressions(
+          [
+            passing(renamed, ["JSHandle.asElement", "ElementHandle.asElement"]),
+            passing(other, ["Page.evaluate"]),
+          ],
+          baseline,
+          names,
+          [correction],
+          new Set([renamed])
+        ),
+      /still certifies JSHandle\.asElement, so there is nothing to re-record/
     );
   });
 

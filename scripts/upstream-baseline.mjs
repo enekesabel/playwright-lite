@@ -313,17 +313,18 @@ function isOwnerCorrection(reviewedMethod, method) {
 /**
  * The baseline regressions that block a promotion run.
  *
- * A promotion listed in `reRecords` corrects an existing reviewed entry that
- * regressed only because the harness renamed its recorded method's owner (it
- * now records `ElementHandle.asElement` where it recorded
- * `JSHandle.asElement`): the test still passes with clean execution evidence,
- * the new method is the same member under the new owner of a pair in
- * `OWNER_CORRECTIONS`, and the matcher is unchanged. Such an entry does not
- * block its own correction. An entry whose recorded method now runs natively
- * regressed, whatever the new method is. A re-record that is not such a
- * correction is refused, and every other regression still blocks. The
- * re-recorded method still goes through the sabotage rerun like any
- * promotion.
+ * A promotion never changes a reviewed entry's method unless it is listed in
+ * `reRecords`; one that would is refused. A promotion listed in `reRecords`
+ * corrects an existing reviewed entry that regressed only because the harness
+ * renamed its recorded method's owner (it now records
+ * `ElementHandle.asElement` where it recorded `JSHandle.asElement`): the test
+ * still passes with clean execution evidence, the new method is the same
+ * member under the new owner of a pair in `OWNER_CORRECTIONS`, and the matcher
+ * is unchanged. Such an entry does not block its own correction. An entry
+ * whose recorded method now runs natively regressed, whatever the new method
+ * is. A re-record that is not such a correction is refused, and every other
+ * regression still blocks. The re-recorded method still goes through the
+ * sabotage rerun like any promotion.
  *
  * @param {Array} entries  Parsed test entries.
  * @param {{ reviewed: Array<{id: string, method: string, matcher?: string}> }} baseline  Recorded baseline.
@@ -338,6 +339,19 @@ export function blockingRegressions(
   promotions,
   reRecords
 ) {
+  for (const promotion of promotions) {
+    const reviewed = baseline.reviewed.find(
+      (review) => review.id === promotion.id
+    );
+    if (
+      reviewed &&
+      reviewed.method !== promotion.method &&
+      !reRecords.has(promotion.id)
+    )
+      throw new Error(
+        `${promotion.id} is already reviewed as ${reviewed.method}; promoting it as ${promotion.method} would replace that method. Pass --re-record to correct its owner.`
+      );
+  }
   const { regressions } = compareBaseline(entries, baseline, names);
   for (const id of reRecords) {
     const promotion = promotions.find((promotion) => promotion.id === id);
@@ -370,36 +384,42 @@ export function blockingRegressions(
 
 /**
  * Verdict of the sabotage rerun: the same test re-run with the reviewed
- * method's in-browser dispatch throwing instead of executing. A test that
- * still passes is vacuous about that method, whatever the recorded evidence
- * says.
+ * method's in-browser dispatch throwing instead of executing, or, given a
+ * matcher, with that public matcher withheld. A test that still passes is
+ * vacuous about what was withheld, whatever the recorded evidence says. A test
+ * that fails is accepted only when its reported failure shows the withheld
+ * marker, so a failure with another cause proves nothing either.
  *
  * @param {Array} entries  Parsed entries of the sabotaged rerun.
- * @param {string} [expectedError]  Text the failure message must contain.
- *   A test that compares a whole message with `toBe` fails with Playwright's
- *   diff, which wraps the differing characters in ANSI inverse-video codes and
- *   can split that text; the check reads the message with those codes removed.
+ * @param {string} id  The promoted test.
+ * @param {string} method  The reviewed method.
+ * @param {string} [matcher]  The public matcher the rerun withheld instead.
+ *
+ * A test that compares a whole message with `toBe` fails with Playwright's
+ * diff, which wraps the differing characters in ANSI inverse-video codes and
+ * can split the marker; the check reads the message with those codes removed.
  */
-export function sabotageVerdict(entries, id, method, expectedError) {
+export function sabotageVerdict(entries, id, method, matcher) {
+  const withheld = matcher ?? method;
+  const marker = matcher
+    ? `__pwLiteSabotagedMatcher: ${matcher}`
+    : `__pwLiteSabotagedMethod: ${method} was withheld for promotion review.`;
   const entry = entries.find((entry) => entry.id === id);
   if (!entry)
     throw new Error(
-      `The rerun with ${method} sabotaged did not run ${id}; promotion needs that observation.`
+      `The rerun with ${withheld} sabotaged did not run ${id}; promotion needs that observation.`
     );
   if (entry.status === "skipped")
     throw new Error(
-      `The rerun with ${method} sabotaged skipped ${id}, so it observed nothing.`
+      `The rerun with ${withheld} sabotaged skipped ${id}, so it observed nothing.`
     );
   if (entry.status === "passed")
     throw new Error(
-      `${id} still passes with ${method} sabotaged, so it does not prove ${method}.`
+      `${id} still passes with ${withheld} sabotaged, so it does not prove ${withheld}.`
     );
-  if (
-    expectedError &&
-    !stripVTControlCharacters(entry.error ?? "").includes(expectedError)
-  )
+  if (!stripVTControlCharacters(entry.error ?? "").includes(marker))
     throw new Error(
-      `${id} failed with ${method} sabotaged, but not for the expected reason: ${expectedError}`
+      `${id} failed with ${withheld} sabotaged, but not for the expected reason: ${marker}`
     );
 }
 
@@ -761,8 +781,8 @@ function doUpdate(entries) {
       sabotageVerdict(
         runSabotaged(entry, method, matcher),
         id,
-        matcher,
-        `__pwLiteSabotagedMatcher: ${matcher}`
+        method,
+        matcher
       );
   }
   const reviewed = [
