@@ -741,6 +741,8 @@ export class PageImpl {
     selector: string,
     options: Pick<SelectorQueryOptions, "strict"> = {}
   ): Promise<AdapterElementHandle | null> {
+    // Pinned FrameQuerySelectorParams validates `selector` before `strict`.
+    selector = validateString(selector, "page.$: selector");
     assertDollarOptions(options);
     return this.elementHandleFor(
       this.resolveLocatorElement(selector, options.strict === true)
@@ -758,7 +760,11 @@ export class PageImpl {
     options: WaitForSelectorOptions = {}
   ): Promise<AdapterElementHandle | null> {
     return await withAbortPrefix("page.waitForSelector", () =>
-      this.waitForSelectorInRoot(this.document, selector, options)
+      this.waitForSelectorInRoot(
+        this.document,
+        selector,
+        withoutLegacyWaitForSelectorOptions(options)
+      )
     );
   }
 
@@ -1563,22 +1569,33 @@ export class PageImpl {
     force = false
   ): Promise<void> {
     this.attachActionSignal(deadline, signal);
-    const { element } = await this.retryActionability(
-      selector,
-      label,
-      "select text",
-      ["visible"],
-      false,
-      deadline,
-      undefined,
-      undefined,
-      undefined,
-      force
-    );
-    this.assertActionDeadline(deadline, "select text");
-    const result = this.actionableInjected.selectText(element);
-    if (result === "error:notconnected")
-      throw new Error(`Element is not connected for locator ${label}`);
+    try {
+      const { element } = await this.retryActionability(
+        selector,
+        label,
+        "select text",
+        ["visible"],
+        false,
+        deadline,
+        undefined,
+        undefined,
+        undefined,
+        force
+      );
+      this.assertActionDeadline(deadline, "select text");
+      const result = this.actionableInjected.selectText(element);
+      if (result === "error:notconnected")
+        throw new Error(`Element is not connected for locator ${label}`);
+    } catch (error) {
+      // Page has no selectText: a selector subject is a Locator's.
+      const apiName =
+        typeof selector === "string"
+          ? "locator.selectText"
+          : "elementHandle.selectText";
+      const result = asError(error);
+      result.message = result.message.replace(/^select text: /, `${apiName}: `);
+      throw result;
+    }
   }
 
   async scrollLocatorIntoView(
@@ -3060,11 +3077,12 @@ export class PageImpl {
     arg?: unknown
   ): Promise<T> {
     assertMaxArguments(arguments.length, 3);
-    const element = this.queryElement(
-      selector,
-      `page.$eval(${JSON.stringify(selector)})`,
-      false
-    );
+    const element = this.resolveLocatorElement(selector, false);
+    // Pinned server/frames.ts `_evalOnSelector`.
+    if (!element)
+      throw new Error(
+        `page.$eval: Failed to find element matching selector "${selector}"`
+      );
     return this.evaluation.byValue(
       callback,
       typeof callback === "function",
@@ -4027,6 +4045,11 @@ export class PageImpl {
         deadline,
         timeoutError
       );
+      // Pinned server/dom.ts `throwRetargetableDOMError`.
+      if (matches === "error:notconnected")
+        throw new Error(
+          "elementHandle.waitForElementState: Element is not attached to the DOM"
+        );
       if (matches) return;
       if (deadline.expiresAt !== Infinity && Date.now() >= deadline.expiresAt)
         throw timeoutError();
@@ -4045,7 +4068,7 @@ export class PageImpl {
     apiName = "page.waitForSelector",
     handlerLog: string[] = []
   ): Promise<AdapterElementHandle | null> {
-    assertWaitForSelectorOptions(options);
+    assertWaitForSelectorOptions(options, apiName);
     const state = options.state ?? "visible";
     const timeout = this.resolveTimeout(
       options.timeout,
@@ -4092,28 +4115,26 @@ export class PageImpl {
   private async elementMatchesState(
     element: Element,
     state: "visible" | "hidden" | "stable" | "enabled" | "disabled" | "editable"
-  ): Promise<boolean> {
+  ): Promise<boolean | "error:notconnected"> {
     if (state === "hidden")
       return (
         !element.isConnected ||
         this.elementState(element, "visible").matches !== true
       );
-    if (!element.isConnected) throw new Error("Element is not connected");
+    if (!element.isConnected) return "error:notconnected";
     if (state === "visible")
       return this.elementState(element, "visible").matches === true;
     if (state === "stable") {
       const result = await this.actionableInjected.checkElementStates(element, [
         "stable",
       ]);
-      if (result === "error:notconnected")
-        throw new Error("Element is not connected");
+      if (result === "error:notconnected") return result;
       return !result;
     }
     const result = (
       this.injected as typeof this.injected & QueryCapableInjectedScript
     ).elementState(element, state);
-    if (result.received === "error:notconnected")
-      throw new Error("Element is not connected");
+    if (result.received === "error:notconnected") return "error:notconnected";
     return result.matches;
   }
 
@@ -4299,11 +4320,15 @@ export class PageImpl {
     let lastError: Error | undefined;
     let retry = 0;
     const log: string[] = [];
+    // Pinned dom.ts `_retryAction` logs each attempt of the pointer actions and
+    // of `selectText`, and retries both on its backoff schedule.
+    const logsAttempts =
+      pointerOptions !== undefined || actionName === "select text";
     const timeoutError = () =>
       new AdapterTimeoutError(
         `${actionName}: Timeout ${deadline.timeout}ms exceeded.${lastError ? ` ${lastError.message}` : ""}` +
-          (pointerOptions
-            ? `\nCall log:\n  - attempting ${actionName} action${pointerOptions.trial ? " (trial run)" : ""}\n${log.join("\n")}`
+          (logsAttempts
+            ? `\nCall log:\n  - attempting ${actionName} action${pointerOptions?.trial ? " (trial run)" : ""}\n${log.join("\n")}`
             : ""),
         { cause: lastError }
       );
@@ -4326,9 +4351,9 @@ export class PageImpl {
         );
       try {
         const element = this.resolvePointerElement(selector, label, strict);
-        if (pointerOptions && !force)
+        if (logsAttempts && !force)
           log.push(
-            `  - waiting for element to be ${states.includes("enabled") ? "visible, enabled and stable" : "visible and stable"}`
+            `  - waiting for element to be ${!pointerOptions ? "visible" : states.includes("enabled") ? "visible, enabled and stable" : "visible and stable"}`
           );
         if (!force) await this.ensureActionable(element, states, deadline);
         if (Date.now() >= deadline.expiresAt) throwTimeout();
@@ -4369,10 +4394,10 @@ export class PageImpl {
           throw error;
         lastError = asError(error);
         const remaining = deadline.expiresAt - Date.now();
-        const delay = pointerOptions
+        const delay = logsAttempts
           ? [0, 20, 100, 100, 500][Math.min(retry++, 4)]
           : ACTION_RETRY_DELAY;
-        if (pointerOptions) {
+        if (logsAttempts) {
           const reason = lastError.message
             .replace(/^Element/, "element")
             .replace(
@@ -6044,7 +6069,35 @@ function assertDollarOptions(options: Pick<SelectorQueryOptions, "strict">) {
   }
 }
 
-function assertWaitForSelectorOptions(options: WaitForSelectorOptions) {
+/**
+ * Pinned client/frame.ts `waitForSelector` rejects the legacy `visibility` and
+ * `waitFor` options, tolerating `waitFor: 'visible'`, before its protocol
+ * call, whose validation then drops both keys. Pinned client/elementHandle.ts
+ * has no such check, so the ElementHandle form rejects both keys as it rejects
+ * any other unknown option.
+ */
+function withoutLegacyWaitForSelectorOptions(
+  options: WaitForSelectorOptions
+): WaitForSelectorOptions {
+  const { visibility, waitFor, ...rest } = options as WaitForSelectorOptions & {
+    visibility?: unknown;
+    waitFor?: unknown;
+  };
+  if (visibility)
+    throw new Error(
+      "page.waitForSelector: options.visibility is not supported, did you mean options.state?"
+    );
+  if (waitFor && waitFor !== "visible")
+    throw new Error(
+      "page.waitForSelector: options.waitFor is not supported, did you mean options.state?"
+    );
+  return rest;
+}
+
+function assertWaitForSelectorOptions(
+  options: WaitForSelectorOptions,
+  apiName: string
+) {
   for (const key of Object.keys(options)) {
     if (
       key !== "signal" &&
@@ -6061,7 +6114,10 @@ function assertWaitForSelectorOptions(options: WaitForSelectorOptions) {
     options.state !== undefined &&
     !["attached", "detached", "visible", "hidden"].includes(options.state)
   )
-    throw new Error(`Unsupported waitForSelector state: ${options.state}`);
+    // Pinned protocol validator: `state` is `tEnum` in WaitForSelectorParams.
+    throw new Error(
+      `${apiName}: state: expected one of (attached|detached|visible|hidden)`
+    );
   if (options.timeout !== undefined)
     validateTimeout(options.timeout, "waitForSelector timeout");
 }

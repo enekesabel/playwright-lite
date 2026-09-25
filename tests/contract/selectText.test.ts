@@ -29,4 +29,21 @@ describe("Locator.selectText", () => {
     expect(input.selectionStart).toBe(0);
     expect(input.selectionEnd).toBe(5);
   });
+
+  // Contract coverage: the upstream invisible-element spec drives only the
+  // ElementHandle form. Pinned dom.ts `selectText` logs each visibility wait.
+  it("names itself and logs the visibility wait when it times out", async () => {
+    document.body.innerHTML = `<input id=input value=hello style="display:none" />`;
+    const error = await createPage()
+      .locator("#input")
+      .selectText({ timeout: 100 })
+      .catch((error: Error) => error);
+
+    expect(error?.message).toMatch(
+      /^locator\.selectText: Timeout 100ms exceeded\./
+    );
+    expect(error?.message).toContain(
+      "\nCall log:\n  - attempting select text action\n  - waiting for element to be visible\n  - element is not visible\n"
+    );
+  });
 });

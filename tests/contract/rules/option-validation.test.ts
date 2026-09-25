@@ -231,6 +231,16 @@ describe("option-validation", () => {
       (page) => page.waitForResponse("**/*", { predicate: () => true } as any),
       /waitForResponse\(\): unsupported Playwright option\(s\): predicate/,
     ],
+    // The tolerated legacy `waitFor` does not admit other unknown keys.
+    [
+      "page.waitForSelector",
+      (page) =>
+        page.waitForSelector("#button", {
+          waitFor: "visible",
+          unexpected: true,
+        } as any),
+      /^Unsupported waitForSelector option: unexpected$/,
+    ],
     [
       "elementHandle.selectText",
       async (page) =>
@@ -460,6 +470,42 @@ describe("option-validation", () => {
         );
       }
       await expect(run(page, { strict: true })).resolves.toBeTruthy();
+    }
+  );
+
+  // Contract coverage: `waitFor: 'visible'` is the one unknown option this
+  // package accepts. The pinned Frame client tolerates it and protocol
+  // validation then drops it, so `state` alone decides; the pinned
+  // ElementHandle client has no such check, so that form rejects it.
+  const legacyWaitForForms: [
+    string,
+    (page: Page, options: unknown) => Promise<unknown>,
+    string | undefined,
+  ][] = [
+    [
+      "page.waitForSelector",
+      (page, o) => page.waitForSelector("#hidden", o as any),
+      undefined,
+    ],
+    [
+      "elementHandle.waitForSelector",
+      async (page, o) =>
+        (await page.$("body"))!.waitForSelector("#hidden", o as any),
+      "Unsupported waitForSelector option: waitFor",
+    ],
+  ];
+
+  it.each(legacyWaitForForms)(
+    "%s handles the legacy waitFor 'visible' option",
+    async (_apiName, run, rejection) => {
+      document.body.innerHTML = '<div id="hidden" hidden>x</div>';
+      const waited = run(createPage(), {
+        waitFor: "visible",
+        state: "attached",
+        timeout: 200,
+      });
+      if (rejection) await expect(waited).rejects.toThrow(rejection);
+      else await expect(waited).resolves.toBeTruthy();
     }
   );
 

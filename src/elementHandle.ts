@@ -355,8 +355,11 @@ export class AdapterElementHandle extends AdapterJSHandle<Element> {
       selector,
       false
     );
+    // Pinned server/frames.ts `_evalOnSelector`.
     if (!element)
-      throw new Error(`Failed to find element matching selector "${selector}"`);
+      throw new Error(
+        `elementHandle.$eval: Failed to find element matching selector "${selector}"`
+      );
     return this.ownerPage.evaluation.byValue(
       pageFunction,
       typeof pageFunction === "function",

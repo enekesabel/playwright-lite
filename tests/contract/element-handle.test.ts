@@ -54,10 +54,14 @@ describe("ElementHandle", () => {
     ).resolves.toBeUndefined();
     await expect(
       handles[0].waitForElementState("visible", { timeout: 50 })
-    ).rejects.toThrow("Element is not connected");
+    ).rejects.toThrow(
+      "elementHandle.waitForElementState: Element is not attached to the DOM"
+    );
     await expect(
       handles[0].waitForElementState("enabled", { timeout: 50 })
-    ).rejects.toThrow("Element is not connected");
+    ).rejects.toThrow(
+      "elementHandle.waitForElementState: Element is not attached to the DOM"
+    );
 
     await handles[0].dispose();
     await expect(handles[0].dispose()).resolves.toBeUndefined();
@@ -105,6 +109,21 @@ describe("ElementHandle", () => {
     await expect(
       root.waitForSelector("#missing", { timeout: 25 })
     ).rejects.toThrow("elementHandle.waitForSelector: Timeout 25ms exceeded.");
+  });
+
+  // Contract coverage: upstream specs pass an unknown `state` only to the Page
+  // form. Pinned ElementHandleWaitForSelectorParams validates it the same way.
+  it("rejects an unknown waitForSelector state with the pinned protocol text", async () => {
+    document.body.innerHTML = '<section id="root"></section>';
+    const root = (await createPage().$("#root"))!;
+
+    for (const state of ["foo", true, null] as unknown[])
+      await expect(
+        root.waitForSelector("#missing", { state: state as "visible" }),
+        String(state)
+      ).rejects.toThrow(
+        "elementHandle.waitForSelector: state: expected one of (attached|detached|visible|hidden)"
+      );
   });
 
   // Contract coverage: no upstream spec passes `strict` to the handle form.
