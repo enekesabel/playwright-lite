@@ -5400,6 +5400,11 @@
       "evidence": "'#Hello', '#hello', '#HELLO' and '#helLO' all resolve the same section and Page.$eval returns SECTION for each, so id comparison follows the document's own case rules instead of an engine-side exact match."
     },
     {
+      "id": "selectors-frame.spec.ts > $eval should throw for missing frame",
+      "method": "Page.$eval",
+      "evidence": "With no iframe in the page, page.$eval and body.$eval on iframe >> internal:control=enter-frame >> canvas reject with page.$eval: / elementHandle.$eval: Failed to find element matching selector, so a missing frame is a no-match named by the calling member."
+    },
+    {
       "id": "selectors-get-by.spec.ts > getBy escaping",
       "method": "Page.getByText",
       "evidence": "Assertions verify escaping across the browser adapter's getBy locator factories."
