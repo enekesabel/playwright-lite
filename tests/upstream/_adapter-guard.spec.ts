@@ -1527,6 +1527,20 @@ const handleRoutes: [
         ).getProperties()
       ).get("value")!,
   ],
+  [
+    "ElementHandle.evaluateHandle",
+    async (page, expression) =>
+      (await page.$("div"))!.evaluateHandle(expression),
+  ],
+  [
+    "JSHandle.evaluateHandle",
+    async (page, expression) =>
+      (await page.evaluateHandle("({})")).evaluateHandle(expression),
+  ],
+  [
+    "Locator.evaluateHandle",
+    (page, expression) => page.locator("div").evaluateHandle(expression),
+  ],
 ];
 for (const [route, obtain] of handleRoutes) {
   test(`a handle ${route} returns records members under the kind its value gives it`, async ({
@@ -1577,6 +1591,33 @@ for (const [route, obtain] of handleRoutes) {
     expect((page as any).__pwLiteNativeOperations).toEqual([]);
   });
 }
+
+test("ElementHandle and Locator evaluateHandle run the page function on their element with its argument", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<div><span>child</span></div>");
+  const div = await adapterPage.$("div");
+  if (!div) throw new Error("Expected ElementHandle");
+  const pageFunction = (element: Element, selector: string) =>
+    element.querySelector(selector);
+
+  const fromHandle = await div.evaluateHandle(pageFunction, "span");
+  const fromLocator = await adapterPage
+    .locator("div")
+    .evaluateHandle(pageFunction, "span", { timeout: 500 });
+  for (const handle of [fromHandle, fromLocator]) {
+    expect(handle.asElement()).toBe(handle);
+    expect(await handle.evaluate((element) => element!.textContent)).toBe(
+      "child"
+    );
+  }
+
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  expect(execution.entered).toContain("ElementHandle.evaluateHandle");
+  expect(execution.entered).toContain("Locator.evaluateHandle");
+  expect((page as any).__pwLiteNativeOperations).toEqual([]);
+});
 
 test("adapter element handles keep native identity, scope queries, and release bridge references", async ({
   page,
