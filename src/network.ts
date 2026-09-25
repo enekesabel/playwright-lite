@@ -1,4 +1,14 @@
 import { HostObservation, perWindow } from "./hostGlobals";
+import {
+  Set,
+  WeakMap,
+  Promise,
+  Error,
+  RegExp,
+  Object,
+  URL,
+  JSON,
+} from "virtual:playwright-lite-globals";
 
 /**
  * The `fetch` and `XMLHttpRequest` calls the controlled document makes,

@@ -111,11 +111,12 @@ Nothing is replaced until you subscribe, and a function the page replaced itself
 
 ### Page globals
 
-Playwright runs its page scripts in an isolated world, which no change the page makes to a global reaches. playwright-lite instead keeps its own reference to `Node`, `Element`, `NodeFilter`, `HTMLElement`, `Document`, `ShadowRoot`, `MutationObserver`, `Event`, `CustomEvent`, `EventTarget`, `Map`, `Set`, `WeakMap`, `WeakSet`, `Promise`, `Symbol`, `Error`, `TypeError`, `RegExp`, `Array`, `Object`, `JSON`, `Math`, `URL` and `Date`, taken when it loads, so a page that later deletes or replaces one of them does not affect it.
+Playwright runs its page scripts in an isolated world, which no change the page makes to a global reaches. playwright-lite shares the page's globals and keeps its own reference to `Node`, `Element`, `NodeFilter`, `HTMLElement`, `Document`, `ShadowRoot`, `MutationObserver`, `Event`, `CustomEvent`, `EventTarget`, `Map`, `Set`, `WeakMap`, `WeakSet`, `Promise`, `Symbol`, `Error`, `TypeError`, `RegExp`, `Array`, `Object`, `URL`, `Date`, `JSON` and `Math`. When you call `createPage()`, each is the page's current global while that is still a function (an object, for `JSON` and `Math`), and otherwise the one playwright-lite took when it loaded, as in Playwright's fallback for browsers without an isolated world. A page that deletes or replaces one of them after that does not affect playwright-lite.
 
-- A global the page changed before playwright-lite loaded is used as the page left it.
-- A change to a built-in's methods or prototype, such as `Array.prototype.push = null` or `JSON.stringify = null`, reaches playwright-lite.
-- Every other global, such as `MouseEvent`, `KeyboardEvent`, `InputEvent`, `DataTransfer` or `getComputedStyle`, is read from the page when playwright-lite uses it.
+- A global the page deleted before playwright-lite loaded stays missing: with `Node` deleted, `click()` throws `Cannot read properties of undefined (reading 'ELEMENT_NODE')`.
+- A change to a built-in's methods or prototype reaches playwright-lite: after `Array.prototype.map = null` or `JSON.stringify = null`, `click()` throws a `TypeError`.
+- Every other global, such as `MouseEvent`, `KeyboardEvent`, `InputEvent`, `DataTransfer` or `getComputedStyle`, is read from the page when used: with `MouseEvent` deleted, `click()` throws a `TypeError`.
+- `setTimeout` is read from the page too, since Playwright's fallback does not keep it either: with it deleted, `click()`, `fill()` and `waitForTimeout()` throw a `TypeError`.
 
 <details>
 <summary>Edge cases</summary>

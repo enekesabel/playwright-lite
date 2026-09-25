@@ -65,6 +65,24 @@ import {
   getByTextSelector,
   getByTitleSelector,
 } from "./selectors";
+import {
+  Element,
+  ShadowRoot,
+  Event,
+  Map,
+  Set,
+  Promise,
+  Symbol,
+  Error,
+  TypeError,
+  RegExp,
+  Array,
+  Object,
+  URL,
+  Date,
+  JSON,
+  Math,
+} from "virtual:playwright-lite-globals";
 
 type InjectedExpectation = {
   matches: boolean;

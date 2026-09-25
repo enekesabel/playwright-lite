@@ -1,6 +1,13 @@
 import { HostObservation, perWindow } from "./hostGlobals";
 import { previewValue, tagOf, type AdapterJSHandle } from "./jsHandle";
 import type { ConsoleMessage, JSHandle, Page } from "@playwright/test";
+import {
+  Set,
+  Error,
+  Array,
+  Object,
+  Date,
+} from "virtual:playwright-lite-globals";
 
 /** The `ConsoleMessage` object the `console` event and `consoleMessages()` report; re-exported from `src/index.ts` as an opt-in annotation. A browser-generated entry (a failed resource load, a CSP report) is never observed, since none calls a `console.*` method. */
 export type { ConsoleMessage };

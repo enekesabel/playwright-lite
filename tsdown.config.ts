@@ -11,7 +11,10 @@ export default defineConfig({
   define: {
     "process.env.NODE_ENV": '"production"',
   },
-  dts: true,
+  // The whole tsconfig program, so src/virtual-modules.d.ts declares
+  // `virtual:playwright-lite-globals` and the declarations drop its imports,
+  // which only bind values.
+  dts: { eager: true },
   entry: ["src/index.ts"],
   deps: {
     alwaysBundle: [

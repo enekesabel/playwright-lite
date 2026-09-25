@@ -5,10 +5,21 @@
  * released.
  */
 
+import {
+  Promise,
+  Error,
+  TypeError,
+  Object,
+} from "virtual:playwright-lite-globals";
+
 /** Pinned client/errors.ts `TargetClosedError` default message. */
 export const TARGET_CLOSED_MESSAGE =
   "Target page, context or browser has been closed";
 
+// The global `Symbol`, read while the module loads: TypeScript types the
+// brand as the unique symbol the class below declares a member with only from
+// the global's own call.
+// eslint-disable-next-line no-restricted-globals -- read while the module loads.
 const TARGET_CLOSED_ERROR = Symbol.for("playwright-lite:TargetClosedError");
 
 /**

@@ -4,6 +4,7 @@ import {
   kFunctionBindingPrefix,
 } from "virtual:playwright-lite-evaluation";
 import { perWindow } from "./hostGlobals";
+import { Map, Error } from "virtual:playwright-lite-globals";
 
 /** Pinned client/page.ts `exposeBinding`'s first callback argument, minus
  * `context`: this package has no `BrowserContext`. */

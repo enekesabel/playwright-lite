@@ -21,6 +21,9 @@
  * This is a data-only copy used by the browser-only synthetic keyboard. Keep
  * it aligned with the pinned source; keyboard behavior remains in page.ts.
  */
+
+/* eslint-disable no-restricted-globals -- This module reads `Map` only while it loads, before a page script can change it, and scripts/generate-injected.mjs imports it in Node, where no virtual module resolves. */
+
 export type KeyDefinition = {
   key: string;
   keyCode: number;

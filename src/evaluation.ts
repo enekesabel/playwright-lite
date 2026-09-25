@@ -11,6 +11,7 @@ import { AdapterElementHandle } from "./elementHandle";
 import { AdapterJSHandle } from "./jsHandle";
 import { TargetClosedError } from "./lifetime";
 import type { PageImpl } from "./page";
+import { Node, Promise, Error } from "virtual:playwright-lite-globals";
 
 export type EvaluationFunction<R = any> =
   string | ((...args: any[]) => R | Promise<R>);
@@ -79,7 +80,7 @@ export class Evaluation {
   /**
    * Pinned crExecutionContext.ts:142 answers a node with an ElementHandle: the
    * protocol reports it as a remote-object subtype, which in the document is
-   * `instanceof Node`, the constructor as it was when the adapter loaded.
+   * `instanceof Node`, the adapter's kept `Node`.
    */
   handleFor(value: unknown): AdapterJSHandle {
     return value instanceof Node

@@ -3,6 +3,7 @@ import {
   parseSelector,
   type ParsedSelector,
 } from "virtual:playwright-lite-injected";
+import { JSON } from "virtual:playwright-lite-globals";
 
 /**
  * Mirrors pinned 26a9e47 isomorphic/locatorGenerators.ts

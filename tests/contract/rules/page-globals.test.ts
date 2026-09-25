@@ -1,38 +1,11 @@
+import { pageGlobalNames } from "virtual:playwright-lite-globals";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { createPage } from "../../../src/index";
 
-/** The globals the README's "Page globals" section says survive a page change. */
-const keptGlobals = [
-  "Node",
-  "Element",
-  "NodeFilter",
-  "HTMLElement",
-  "Document",
-  "ShadowRoot",
-  "MutationObserver",
-  "Event",
-  "CustomEvent",
-  "EventTarget",
-  "Map",
-  "Set",
-  "WeakMap",
-  "WeakSet",
-  "Promise",
-  "Symbol",
-  "Error",
-  "TypeError",
-  "RegExp",
-  "Array",
-  "Object",
-  "JSON",
-  "Math",
-  "URL",
-  "Date",
-] as const;
-
 type Page = ReturnType<typeof createPage>;
-type FrameWindow = Window & typeof globalThis & { page?: Page };
+type FrameWindow = Window &
+  typeof globalThis & { createPage?: typeof createPage };
 
 let frame: HTMLIFrameElement | undefined;
 
@@ -42,19 +15,21 @@ afterEach(() => {
 });
 
 /**
- * The adapter, loaded as a module of its own in a same-origin frame, with a
- * `Page` for that frame's window. The test runner shares the test's realm and
- * needs these globals itself, so the page changing them is the frame's.
+ * The adapter, loaded as a module of its own in a same-origin frame showing
+ * `body`. The test runner shares the test's realm and needs these globals
+ * itself, so the page changing them is the frame's.
  */
 async function adapterFrame(body: string): Promise<FrameWindow> {
   frame = document.createElement("iframe");
   frame.srcdoc = `${body}<script type="module">
     import { createPage } from "/src/index.ts";
-    window.page = createPage();
+    window.createPage = createPage;
   </script>`;
   document.body.appendChild(frame);
   const frameWindow = frame.contentWindow as FrameWindow;
-  await expect.poll(() => frameWindow.page, { timeout: 10_000 }).toBeTruthy();
+  await expect
+    .poll(() => frameWindow.createPage, { timeout: 10_000 })
+    .toBeTruthy();
   return frameWindow;
 }
 
@@ -64,16 +39,31 @@ function changeGlobals(
   change: "deleted" | "replaced"
 ) {
   const host = frameWindow as unknown as Record<string, unknown>;
-  for (const name of keptGlobals) {
+  for (const name of pageGlobalNames) {
     if (change === "deleted") delete host[name];
     else host[name] = "foo";
   }
 }
 
+const markup = `
+  <button onclick="document.body.dataset.clicked = 'yes'">Go</button>
+  <input>
+  <select><option>first</option><option>second</option></select>
+  <ul><li>one</li><li>two</li></ul>`;
+
+/** Settled into this realm: the frame's values have the frame's prototypes. */
+function settle(result: Promise<unknown>) {
+  return result.then(
+    (value) => ({ value: structuredClone(value) }),
+    (error: unknown) => ({ error: String(error) })
+  );
+}
+
 // Contract coverage: the corpus deletes one global per test (`Node` for click
 // and fill, `Event` for selectOption, `MutationObserver` for waitForSelector),
-// and its deleted-`Map` count and overridden-`URL`/`Date`/`RegExp` evaluate
-// tests stop at the harness transport and at a mid-test navigation.
+// its deleted-`Map` count and overridden-`URL`/`Date`/`RegExp` evaluate tests
+// stop at the harness transport and at a mid-test navigation, and no spec
+// replaces a global with a working one.
 describe("page globals", () => {
   const cases: [
     string,
@@ -124,23 +114,39 @@ describe("page globals", () => {
   ];
 
   for (const change of ["deleted", "replaced"] as const) {
-    it(`${change} globals do not reach the adapter`, async () => {
-      for (const [apiName, run, expected] of cases) {
-        const frameWindow = await adapterFrame(`
-          <button onclick="document.body.dataset.clicked = 'yes'">Go</button>
-          <input>
-          <select><option>first</option><option>second</option></select>
-          <ul><li>one</li><li>two</li></ul>`);
+    for (const [apiName, run, expected] of cases) {
+      it(`${apiName} after the page ${change} every kept global`, async () => {
+        const frameWindow = await adapterFrame(markup);
+        const page = frameWindow.createPage!();
         changeGlobals(frameWindow, change);
-        // Copied into this realm before asserting: the frame's values have
-        // the frame's prototypes.
-        const outcome = await run(frameWindow.page!, frameWindow).then(
-          (value) => ({ value: structuredClone(value) }),
-          (error: unknown) => ({ error: String(error) })
-        );
-        expect(outcome, apiName).toEqual({ value: expected });
-        frame!.remove();
-      }
-    });
+        expect(await settle(run(page, frameWindow))).toEqual({
+          value: expected,
+        });
+      });
+    }
   }
+
+  it("uses a working replacement the page made before createPage()", async () => {
+    const frameWindow = await adapterFrame(markup);
+    const constructed: string[] = [];
+    const PageEvent = frameWindow.Event;
+    frameWindow.Event = class extends PageEvent {
+      constructor(type: string, init?: EventInit) {
+        super(type, init);
+        constructed.push(type);
+      }
+    };
+    const page = frameWindow.createPage!();
+    expect(await settle(page.locator("select").selectOption("second"))).toEqual(
+      { value: ["second"] }
+    );
+    expect(constructed).toEqual(["input", "change"]);
+  });
+
+  it("uses the global as it was when the adapter loaded once the page's is no longer valid", async () => {
+    const frameWindow = await adapterFrame(markup);
+    changeGlobals(frameWindow, "replaced");
+    const page = frameWindow.createPage!();
+    expect(await settle(page.locator("li").count())).toEqual({ value: 2 });
+  });
 });
