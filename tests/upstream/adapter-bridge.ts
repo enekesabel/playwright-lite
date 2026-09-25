@@ -591,7 +591,7 @@ let lastEvaluationToken = 0;
  * replays this answer. Every envelope `__pwLiteInvokeAdapter` returns carries
  * it, so any adapter call the test awaited leaves it current; after a native
  * member settles the bridge asks again, since a native call can change the
- * URL too (a script `setContent` writes can push history state).
+ * URL too (the script a native `setContent` writes can push history state).
  */
 const observedUrls = new WeakMap<Page, string>();
 
@@ -946,9 +946,10 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
           if (typeof nativeMember !== "function")
             throw new TypeError(`Native Page.${prop} is not a function`);
           const result = nativeMember.apply(target, args);
+          // The same thenable test `wrapNativeResult` applies.
           return wrapNativeResult(
-            result instanceof Promise
-              ? result.then(async (value) => {
+            typeof (result as Promise<unknown> | undefined)?.then === "function"
+              ? (result as Promise<unknown>).then(async (value) => {
                   await refreshObservedUrl(realPage);
                   return value;
                 })
@@ -2042,14 +2043,24 @@ function initializeAdapterBridge(
   // wraps it and the read stays out of the execution evidence.
   const adapterPage = host.__pwLiteAdapterPage;
   const adapterUrl = adapterPage.url.bind(adapterPage) as () => string;
+  // Every envelope, whatever its kind, is stamped with the url here, once.
   host.__pwLiteInvokeAdapter = async function invoke(
     operation: () => any,
     encodedArgs?: any
   ) {
     const token = evaluationToken;
+    return {
+      ...(await settle(operation, encodedArgs, token)),
+      url: adapterUrl(),
+    };
+  };
+  const settle = async function settle(
+    operation: () => any,
+    encodedArgs: any,
+    token: number | undefined
+  ) {
     try {
-      const value = await operation();
-      return { kind: "value", value, url: adapterUrl() };
+      return { kind: "value", value: await operation() };
     } catch (error) {
       // Symbols do not cross the browser evaluation boundary. Preserve only
       // the adapter's stable timeout identity in a fixture-private sentinel;
@@ -2064,7 +2075,6 @@ function initializeAdapterBridge(
         return {
           kind: "adapter-timeout",
           message: error instanceof Error ? error.message : String(error),
-          url: adapterUrl(),
         };
       if (error instanceof Error && error.name === "AbortError") {
         // `cause` cannot cross the evaluation boundary by identity. Report
@@ -2082,7 +2092,6 @@ function initializeAdapterBridge(
             !!controller &&
             controller.signal.aborted &&
             error.cause === controller.signal.reason,
-          url: adapterUrl(),
         };
       }
       if (adapterErrors.has(error as object) && token !== undefined)
