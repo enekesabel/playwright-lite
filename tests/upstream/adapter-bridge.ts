@@ -1050,6 +1050,8 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       // The caller's arguments travel as they were given, the function among
       // them rebuilt from its source, so the adapter applies its own argument
       // rules, including the `exposeFunctions` option and the argument count.
+      // These stay off the generic member route: that route walks arrays in
+      // a result to find handles, and a by-value result can be a cyclic array.
       if (prop === "evaluate") {
         return async (...args: unknown[]) =>
           evaluateAdapter(
