@@ -1050,6 +1050,12 @@
       "evidence": "Failing toBeChecked, not.toBeChecked, toBeChecked({ checked: false }), not.toBeChecked({ checked: false }) and toBeChecked({ indeterminate: true }) reject with the adapter's matcherResult whose actual and expected states (checked, unchecked, indeterminate), name, pass, log, timeout and ariaSnapshot match, and with matching error text, through the correlated Locator.toBeChecked -> Locator._expect path; setContent is native setup only."
     },
     {
+      "id": "expect-matcher-result.spec.ts > toBeTruthy-based assertions should have matcher result",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "A failing toBeVisible on a missing element yields exactly {expected, message, name, pass: false, log, timeout: 1, ariaSnapshot} with no actual key, and not.toBeVisible on a visible one adds actual 'visible'; both error texts match Playwright's header, Locator, Expected/Received, Timeout, element(s) not found and Call log lines."
+    },
+    {
       "id": "expect-matcher-result.spec.ts > toEqual-based assertions should have matcher result",
       "method": "Locator._expect",
       "matcher": "Locator.toHaveCount",
@@ -1060,6 +1066,18 @@
       "method": "Locator._expect",
       "matcher": "Locator.toHaveText",
       "evidence": "Failing toHaveText(/Text2/) and not.toHaveText(/Text/) with a 1 ms timeout reject with the adapter's matcherResult (actual text, expected pattern, name, pass, log, timeout, ariaSnapshot) and error text naming the locator, expected pattern, received string, timeout and call log, through the correlated Locator.toHaveText -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-misc.spec.ts > invalid selector error format",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "toBeVisible on locator('##') rejects with the expect(locator).toBeVisible() failed header, Locator: ##, Expected: visible, the CSS parse error, and a Call log section."
+    },
+    {
+      "id": "expect-misc.spec.ts > strict mode violation error format",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "toHaveText('foo') on locator('div') matching two divs rejects with the expect(locator).toHaveText(expected) failed header, Locator and Expected lines, the strict mode violation listing both divs, and a Call log section."
     },
     {
       "id": "expect-misc.spec.ts > toBeInViewport > should report intersection even if fully covered by other element",
@@ -1778,6 +1796,24 @@
       "method": "Locator._expect",
       "matcher": "Locator.toBeVisible",
       "evidence": "A failing toBeVisible on a display:none element reports a page-wide matcherResult.ariaSnapshot containing heading \"Page Heading\", through the correlated Locator.toBeVisible -> Locator._expect path; setContent is native setup only."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > hidden or missing elements print full page snapshot > toBeVisible on missing element prints full page snapshot",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "toBeVisible on a locator that matches nothing rejects with a matcherResult.ariaSnapshot of the whole page body that contains heading \"Hello\", so an unresolved locator's failure carries the page-wide snapshot; setContent is native setup only."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > hidden or missing elements print full page snapshot > toHaveText on missing element prints full page snapshot",
+      "method": "Locator._expect",
+      "matcher": "Locator.toHaveText",
+      "evidence": "toHaveText('x') on a locator that matches nothing rejects with a matcherResult.ariaSnapshot of the whole page body that contains heading \"Hello\"; setContent is native setup only."
+    },
+    {
+      "id": "expect-with-snapshot.spec.ts > hidden or missing elements print full page snapshot > toHaveTitle failure prints full page snapshot",
+      "method": "Page._expect",
+      "matcher": "Page.toHaveTitle",
+      "evidence": "toHaveTitle('Wrong') on a document titled \"Right\" rejects with a matcherResult.ariaSnapshot of the page body that contains heading \"Body Heading\", so a failing page matcher carries the page-wide snapshot; setContent is native setup only."
     },
     {
       "id": "expect-with-snapshot.spec.ts > matchers that should not include an aria snapshot > toHaveCount failure has no aria snapshot",
@@ -2837,6 +2873,17 @@
       "id": "page-autowaiting-basic.spec.ts > should not stall on JS navigation link",
       "method": "Page.click",
       "evidence": "Clicking an <a href=\"javascript:...\"> resolves, so the click's post-action wait treats a javascript: URL as producing no navigation instead of blocking on one that never happens."
+    },
+    {
+      "id": "page-autowaiting-basic.spec.ts > should report and collapse log in action",
+      "method": "Locator.click",
+      "evidence": "Clicking a visibility:hidden checkbox times out after 5000ms with a call log that counts the repeated retries as 'N × waiting for …' and stays under 30 lines."
+    },
+    {
+      "id": "page-autowaiting-basic.spec.ts > should report and collapse log in expect",
+      "method": "Locator._expect",
+      "matcher": "Locator.toBeVisible",
+      "evidence": "toBeVisible on a visibility:hidden checkbox times out after 5000ms with a call log that counts its repeated checks as 'N × locator resolved to …'."
     },
     {
       "id": "page-autowaiting-no-hang.spec.ts > calling window.open and window.close",
@@ -4933,6 +4980,11 @@
       "id": "page-wait-for-selector-1.spec.ts > should immediately resolve promise if node exists",
       "method": "Page.waitForSelector",
       "evidence": "waitForSelector('*') against the existing document and waitForSelector('div', {state:'attached'}) after a div is appended both resolve without waiting, so an already-matching selector completes the call immediately."
+    },
+    {
+      "id": "page-wait-for-selector-1.spec.ts > should report logs when the selector resolves to multiple elements",
+      "method": "Page.click",
+      "evidence": "page.click('text=Reset') with a hidden first match times out and its call log reports 'locator resolved to 2 elements. Proceeding with the first one: <button>Reset</button>'; goto is native setup only."
     },
     {
       "id": "page-wait-for-selector-1.spec.ts > should resolve promise when node is added",
