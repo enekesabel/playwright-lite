@@ -315,7 +315,9 @@ export const pageLedger = {
     "Registers a script to run before the document's own scripts, which have already run by the time this adapter attaches."
   ),
   addListener: partial(listenerNote),
-  addLocatorHandler: undecided(),
+  addLocatorHandler: partial(
+    "A handler that throws or rejects is logged instead of raised; see [Events](#events)."
+  ),
   addScriptTag: partial(
     "Rejects `path`, which reads the script from disk. Returned `ElementHandle` methods and options differ; see [ElementHandle and JSHandle](#elementhandle-and-jshandle)."
   ),
@@ -415,7 +417,7 @@ export const pageLedger = {
   ),
   removeAllListeners: partial(removalNote),
   removeListener: partial(removalNote),
-  removeLocatorHandler: undecided(),
+  removeLocatorHandler: implemented(),
   request: outOfScope(
     "Returns Playwright's Node-side API request context, which has no in-document counterpart."
   ),

@@ -1404,6 +1404,11 @@
       "evidence": "toHaveText('hey', { timeout: 1 }) on an unmatched locator fails with the exact element(s) not found header and Timeout: 1ms, so a 1ms deadline still reports a timeout."
     },
     {
+      "id": "expect-timeout.spec.ts > should timeout during first locator handler check",
+      "method": "Page.addLocatorHandler",
+      "evidence": "With an empty handler registered for locator('div') over a visible <div>hello</div>, toHaveText('bye', { timeout: 3000 }) on the matching span still fails with Received: \"\" and Timeout: 3000ms, and its call log shows 'locator handler has finished, waiting for locator('div') to be hidden' and 'locator resolved to visible <div>hello</div>': the assertion runs the handler before its first check and then waits for the locator to be hidden."
+    },
+    {
       "id": "expect-to-have-accessible.spec.ts > should not show error message when validity is true and aria-invalid is false",
       "method": "Locator._expect",
       "matcher": "Locator.toHaveAccessibleErrorMessage",
@@ -2356,6 +2361,11 @@
       "method": "Locator._expect",
       "matcher": "Locator.toBeAttached",
       "evidence": "With expect.configure({ timeout: 10 }) and no .nonexisting element, toBeAttached, toHaveJSProperty, not.toHaveText and toContainText (string and RegExp forms) each reject with an Error whose message names waiting for locator('.nonexisting') and Error: element(s) not found."
+    },
+    {
+      "id": "page-add-locator-handler.spec.ts > should not work with force:true",
+      "method": "Page.addLocatorHandler",
+      "evidence": "Proves only that a forced action skips the locator handler checkpoint: after addLocatorHandler for the interstitial text, click({ force: true, timeout: 2000 }) on the covered #target leaves the interstitial visible and window.clicked undefined. A registration that never runs handlers passes these assertions too; the sabotage rerun fails only because the withheld registration throws."
     },
     {
       "id": "page-add-script-tag.spec.ts > should throw a nice error when the request fails",
