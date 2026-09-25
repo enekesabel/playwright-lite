@@ -21,6 +21,7 @@ import {
 } from "./lifetime";
 import {
   rejectUnsupportedOptions,
+  validateBoolean,
   validateDelay,
   validateForce,
   validateInteger,
@@ -54,7 +55,9 @@ import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
 import type { Disposable, Keyboard, Locator, Page } from "@playwright/test";
 import type { ByRoleOptions, LocatorOptions } from "./locator";
-import { LocatorImpl } from "./locator";
+import { LOCATOR_BRAND, LocatorImpl } from "./locator";
+import type { LocatorBrandPayload } from "./locator";
+import { LocatorHandlers, type LocatorHandler } from "./locatorHandlers";
 import { asLocator } from "virtual:playwright-lite-injected";
 import {
   getByAltTextSelector,
@@ -373,6 +376,7 @@ const PAGE_LIFETIME_CALLS: Record<
   $$: true,
   $$eval: true,
   $eval: true,
+  addLocatorHandler: true,
   addScriptTag: true,
   addStyleTag: true,
   ariaSnapshot: true,
@@ -408,6 +412,7 @@ const PAGE_LIFETIME_CALLS: Record<
   pageErrors: true,
   press: true,
   reload: true,
+  removeLocatorHandler: true,
   requests: true,
   selectOption: true,
   setChecked: true,
@@ -479,6 +484,8 @@ export class PageImpl {
   private readonly networkFeed: PageFeed;
   private readonly dialogFeed: PageFeed;
   private readonly consoleFeed: PageFeed;
+  /** Pinned client/page.ts and server/page.ts `_locatorHandlers`, as one. */
+  private readonly locatorHandlers: LocatorHandlers;
 
   constructor(
     browserWindow: Window & typeof globalThis,
@@ -537,6 +544,7 @@ export class PageImpl {
     this.consoleFeed = new PageFeed(() =>
       this.consoleObservation.subscribe(reportConsole)
     );
+    this.locatorHandlers = new LocatorHandlers(this);
     this.startPageErrorCollection();
   }
 
@@ -782,14 +790,7 @@ export class PageImpl {
         : alreadyAbortedExpectationResult(isNot, signal);
 
     const deadline = Date.now() + timeout;
-
-    // The pinned server performs an immediate check before entering its retry
-    // loop. It lets already-matching assertions succeed even with tiny timeouts.
-    const firstAttempt = await this.expectOnce(selector, expression, options);
-    if (firstAttempt.matches !== isNot) return { matches: !isNot };
-
-    let lastAttempt = firstAttempt;
-    let retryIndex = 0;
+    let lastAttempt: LocatorExpectationAttempt | undefined;
 
     // Pinned `Frame.expect` reports a timeout, a mid-wait abort and the page's
     // closure alike: the last attempt's received value and error, with the
@@ -798,17 +799,47 @@ export class PageImpl {
       ending: "timedOut" | "aborted"
     ): LocatorExpectationResult => ({
       matches: isNot,
-      received: lastAttempt.received,
+      received: lastAttempt?.received,
       timedOut: ending === "timedOut" || undefined,
-      errorMessage: lastAttempt.missing
+      errorMessage: lastAttempt?.missing
         ? "Error: element(s) not found"
         : undefined,
       log: callLogLines([
         ...log,
-        ...attemptLog(expression, lastAttempt),
+        ...(lastAttempt ? attemptLog(expression, lastAttempt) : []),
         ...(ending === "aborted" ? [interruptionLine(signal)] : []),
       ]),
     });
+    // Pinned Frame.expect runs the locator handlers before its first check
+    // and before every retry, within the assertion's timeout. Their pinned
+    // call log lines are nested under `waiting for`.
+    const preChecks = async (): Promise<"done" | "timedOut" | "aborted"> => {
+      if (!this.locatorHandlers.size) return "done";
+      try {
+        await this.locatorHandlers.checkpoint(
+          { timeout, expiresAt: deadline, signal },
+          (line) => log.push(`  ${line}`),
+          () => new AdapterTimeoutError(`Timeout ${timeout}ms exceeded.`)
+        );
+        return "done";
+      } catch (error) {
+        if (error instanceof AdapterTimeoutError) return "timedOut";
+        if (signal?.aborted) return "aborted";
+        throw error;
+      }
+    };
+
+    if (this.locatorHandlers.size) {
+      const firstPreCheck = await preChecks();
+      if (firstPreCheck !== "done") return unmatched(firstPreCheck);
+    }
+
+    // The pinned server performs an immediate check before entering its retry
+    // loop. It lets already-matching assertions succeed even with tiny timeouts.
+    lastAttempt = await this.expectOnce(selector, expression, options);
+    if (lastAttempt.matches !== isNot) return { matches: !isNot };
+
+    let retryIndex = 0;
 
     while (Date.now() < deadline) {
       const backoff = expectationBackoff(timeout, retryIndex++);
@@ -820,6 +851,11 @@ export class PageImpl {
         return unmatched("aborted");
 
       if (signal.aborted) return unmatched("aborted");
+
+      if (this.locatorHandlers.size) {
+        const preCheck = await preChecks();
+        if (preCheck !== "done") return unmatched(preCheck);
+      }
 
       lastAttempt = await this.expectOnce(selector, expression, options);
       if (lastAttempt.matches !== isNot) return { matches: !isNot };
@@ -874,13 +910,107 @@ export class PageImpl {
           }
         : alreadyAbortedExpectationResult(isNot, signal);
 
+    // Pinned `Frame.expect` checks the document element (`:root`) when no
+    // locator is given, so the page log names it as the resolved locator.
+    const handlerLog: string[] = [];
+    const callLog = (last?: { received: string }) =>
+      callLogLines([
+        `${title} with timeout ${timeout}ms`,
+        ...handlerLog,
+        ...(last
+          ? [
+              `  locator resolved to ${this.previewNode(this.document.documentElement)}`,
+              `  unexpected value "${last.received}"`,
+            ]
+          : []),
+      ]);
+    const unmatched = (
+      ending: "aborted" | "timedOut" | { error: unknown },
+      last?: { received: string }
+    ): PageExpectationResult => {
+      const failed = {
+        matches: isNot,
+        ...(last ? { received: { value: last.received } } : {}),
+      };
+      if (ending === "aborted")
+        // A URL predicate waits through pinned `waitForURL`, whose abort
+        // reaches the matcher as the assertion error; every other form, and
+        // every form the page's closure ends, ends like a timeout, with the
+        // abort or the closed error only in the log.
+        return !isTargetClosedError(signal.reason) &&
+          (typeof options.expected === "function" ||
+            isURLPattern(options.expected))
+          ? {
+              ...failed,
+              errorMessage: `Error: ${assertionAbortedMessage(signal.reason)}`,
+            }
+          : {
+              ...failed,
+              log: [
+                ...callLog(last),
+                ...callLogLines([interruptionLine(signal)]),
+              ],
+            };
+      if (ending === "timedOut")
+        return { ...failed, timeout, timedOut: true, log: callLog(last) };
+      return {
+        ...failed,
+        errorMessage: `Error: ${asError(ending.error).message}`,
+        log: callLog(last),
+      };
+    };
+
+    // Pinned Frame.expect runs the locator handlers before its first check
+    // and before every retry, on the assertion's one deadline. A retry here is
+    // a document observation, so one due while observing runs first and the
+    // check waits for the next observation.
+    const handlerDeadline = {
+      timeout,
+      expiresAt: timeout > 0 ? Date.now() + timeout : Infinity,
+      signal,
+    };
+    const logHandler = (line: string) => handlerLog.push(`  ${line}`);
+    const handlerTimeout = () =>
+      new AdapterTimeoutError(`Timeout ${timeout}ms exceeded.`);
+    if (this.locatorHandlers.size) {
+      try {
+        await this.locatorHandlers.checkpoint(
+          handlerDeadline,
+          logHandler,
+          handlerTimeout
+        );
+      } catch (error) {
+        if (error instanceof AdapterTimeoutError) return unmatched("timedOut");
+        if (signal?.aborted) return unmatched("aborted");
+        throw error;
+      }
+    }
+
     let last = read();
     if (last.matches !== isNot)
       return { matches: !isNot, received: { value: last.received } };
 
     let result: PageExpectationResult | undefined;
+    let checkpoint: Promise<unknown> | undefined;
+    let checkpointError: { error: unknown } | undefined;
     const observation = await this.observeCurrentDocument(
       () => {
+        if (checkpointError) throw checkpointError.error;
+        if (checkpoint) return false;
+        if (this.locatorHandlers.size && this.locatorHandlers.due()) {
+          checkpoint = this.locatorHandlers
+            .checkpoint(handlerDeadline, logHandler, handlerTimeout)
+            .then(
+              () => (checkpoint = undefined),
+              (error: unknown) => {
+                // A timed-out or aborted checkpoint leaves the observation to
+                // report its own timeout or abort.
+                if (!(error instanceof AdapterTimeoutError) && !signal?.aborted)
+                  checkpointError = { error };
+              }
+            );
+          return false;
+        }
         last = read();
         if (last.matches !== isNot) {
           result = { matches: !isNot, received: { value: last.received } };
@@ -888,44 +1018,21 @@ export class PageImpl {
         }
         return false;
       },
-      timeout,
+      // One deadline for the whole assertion, as in the pinned Frame.expect:
+      // the observation gets what the first checkpoint left of the timeout.
+      timeout > 0 ? Math.max(1, handlerDeadline.expiresAt - Date.now()) : 0,
       signal
     );
     if (result) return result;
-
-    // Pinned `Frame.expect` checks the document element (`:root`) when no
-    // locator is given, so the page log names it as the resolved locator.
-    const log = [
-      `${title} with timeout ${timeout}ms`,
-      `  locator resolved to ${this.previewNode(this.document.documentElement)}`,
-      `  unexpected value "${last.received}"`,
-    ];
-    const failed = { matches: isNot, received: { value: last.received } };
-    if ("aborted" in observation)
-      // A URL predicate waits through pinned `waitForURL`, whose abort reaches
-      // the matcher as the assertion error; every other form, and every form
-      // the page's closure ends, ends like a timeout, with the abort or the
-      // closed error only in the log.
-      return !isTargetClosedError(signal.reason) &&
-        (typeof options.expected === "function" ||
-          isURLPattern(options.expected))
-        ? {
-            ...failed,
-            errorMessage: `Error: ${assertionAbortedMessage(signal.reason)}`,
-          }
-        : {
-            ...failed,
-            log: callLogLines([...log, interruptionLine(signal)]),
-          };
-    if ("timedOut" in observation)
-      return { ...failed, timeout, timedOut: true, log: callLogLines(log) };
+    if ("aborted" in observation) return unmatched("aborted", last);
+    if ("timedOut" in observation) return unmatched("timedOut", last);
     if ("error" in observation)
-      return {
-        ...failed,
-        errorMessage: `Error: ${asError(observation.error).message}`,
-        log: callLogLines(log),
-      };
-    return { ...failed, log: callLogLines(log) };
+      return unmatched({ error: observation.error }, last);
+    return {
+      matches: isNot,
+      received: { value: last.received },
+      log: callLog(last),
+    };
   }
 
   private async expectOnce(
@@ -1044,6 +1151,17 @@ export class PageImpl {
         this.assertActionDeadline(deadline, action);
         try {
           if (checked !== undefined) {
+            // Pinned frames.ts runs the locator handlers before it reads the
+            // checked state, so an already checked box still runs them.
+            if (!options.force && this.locatorHandlers.size)
+              await this.locatorHandlers.checkpoint(
+                deadline,
+                () => {},
+                () =>
+                  new AdapterTimeoutError(
+                    `${action}: Timeout ${deadline.timeout}ms exceeded.`
+                  )
+              );
             const candidate = this.resolvePointerElement(
               selector,
               label,
@@ -1264,7 +1382,8 @@ export class PageImpl {
             { signal, timeout },
             strict,
             (candidate) => candidate,
-            deadline
+            deadline,
+            true
           )
         : this.resolvePointerElement(selector, label, strict);
     this.assertActionDeadline(deadline, "press");
@@ -1278,11 +1397,19 @@ export class PageImpl {
     options?: LocatorQueryOptions,
     strict = true
   ): Promise<void> {
-    await this.query(selector, label, options, strict, (element) => {
-      const result = this.actionableInjected.focusNode(element);
-      if (result === "error:notconnected")
-        throw new Error(`Element is not connected for locator ${label}`);
-    });
+    await this.query(
+      selector,
+      label,
+      options,
+      strict,
+      (element) => {
+        const result = this.actionableInjected.focusNode(element);
+        if (result === "error:notconnected")
+          throw new Error(`Element is not connected for locator ${label}`);
+      },
+      undefined,
+      true
+    );
   }
 
   async blurSelector(
@@ -1290,11 +1417,19 @@ export class PageImpl {
     label: string,
     options?: LocatorQueryOptions
   ): Promise<void> {
-    await this.query(selector, label, options, true, (element) => {
-      const result = this.actionableInjected.blurNode(element);
-      if (result === "error:notconnected")
-        throw new Error(`Element is not connected for locator ${label}`);
-    });
+    await this.query(
+      selector,
+      label,
+      options,
+      true,
+      (element) => {
+        const result = this.actionableInjected.blurNode(element);
+        if (result === "error:notconnected")
+          throw new Error(`Element is not connected for locator ${label}`);
+      },
+      undefined,
+      true
+    );
   }
 
   async hoverSelector(
@@ -1465,17 +1600,24 @@ export class PageImpl {
       options.timeout,
       DEFAULT_ACTION_TIMEOUT
     );
+    const handlerLog: string[] = [];
     try {
-      await this.waitForSelectorInRoot(this.document, selector, {
-        state: options.state,
-        signal: options.signal,
-        strict: true,
-        timeout: options.timeout,
-      });
+      await this.waitForSelectorInRoot(
+        this.document,
+        selector,
+        {
+          state: options.state,
+          signal: options.signal,
+          strict: true,
+          timeout: options.timeout,
+        },
+        undefined,
+        handlerLog
+      );
     } catch (error) {
       if (!(error instanceof AdapterTimeoutError)) throw error;
       throw new AdapterTimeoutError(
-        `locator.waitFor: Timeout ${timeout}ms exceeded.\nCall log:\n  - waiting for ${formatLocator(selector)} to be ${options.state}\n  - Timed out waiting for ${label} to become ${options.state}.`,
+        `locator.waitFor: Timeout ${timeout}ms exceeded.\nCall log:\n  - waiting for ${formatLocator(selector)} to be ${options.state}${handlerLog.map((line) => `\n  - ${line}`).join("")}\n  - Timed out waiting for ${label} to become ${options.state}.`,
         { cause: error }
       );
     }
@@ -1525,7 +1667,8 @@ export class PageImpl {
         const error = this.injected.setInputFiles(input, payloads);
         if (error) throw new Error(error);
       },
-      deadline
+      deadline,
+      true
     );
   }
 
@@ -2385,7 +2528,8 @@ export class PageImpl {
         if (result === "error:notconnected")
           throw new Error("Element is not connected");
       },
-      deadline
+      deadline,
+      true
     );
     await this.keyboard.type(text, { delay }, deadline);
   }
@@ -3185,6 +3329,43 @@ export class PageImpl {
     );
   }
 
+  // ── Locator handlers ────────────────────────────────────────────
+
+  /**
+   * Pinned 26a9e47 client/page.ts addLocatorHandler: the locator must belong
+   * to this page, `times: 0` registers nothing, and `noWaitAfter` is the
+   * `boolean?` of the registerLocatorHandler protocol. The handler is called
+   * in this document with the locator it was registered with; see
+   * `LocatorHandlers` for when.
+   */
+  async addLocatorHandler(
+    locator: Locator,
+    handler: LocatorHandler,
+    options: { noWaitAfter?: boolean; times?: number } = {}
+  ): Promise<void> {
+    const brand = locatorBrand(locator);
+    if (brand?.ownerPage !== this)
+      throw new Error("Locator must belong to the main frame of this page");
+    if (options.times === 0) return;
+    this.locatorHandlers.add(
+      locator,
+      brand.getSelector(),
+      handler,
+      options.times,
+      validateBoolean(options.noWaitAfter, "noWaitAfter")
+    );
+  }
+
+  /**
+   * Pinned 26a9e47 client/page.ts removeLocatorHandler removes every handler
+   * registered for a locator equal to this one: same frame, same selector.
+   */
+  async removeLocatorHandler(locator: Locator): Promise<void> {
+    const brand = locatorBrand(locator);
+    if (brand?.ownerPage === this)
+      this.locatorHandlers.remove(brand.getSelector());
+  }
+
   // ── Locator creation ────────────────────────────────────────────
 
   getByRole(role: string, options: ByRoleOptions = {}) {
@@ -3660,8 +3841,14 @@ export class PageImpl {
     label: string,
     options?: LocatorQueryOptions
   ): Promise<{ x: number; y: number; width: number; height: number } | null> {
-    return this.query(selector, label, options, true, (element) =>
-      this.boundingBoxForElement(element)
+    return this.query(
+      selector,
+      label,
+      options,
+      true,
+      (element) => this.boundingBoxForElement(element),
+      undefined,
+      true
     );
   }
 
@@ -3686,7 +3873,9 @@ export class PageImpl {
       label,
       { signal: options.signal, timeout: options.timeout },
       true,
-      (element) => this.injectedAriaSnapshot(element, options)
+      (element) => this.injectedAriaSnapshot(element, options),
+      undefined,
+      true
     );
   }
 
@@ -3738,7 +3927,9 @@ export class PageImpl {
       label,
       queryOptions,
       true,
-      (element) => element
+      (element) => element,
+      undefined,
+      true
     );
   }
 
@@ -3809,6 +4000,10 @@ export class PageImpl {
     while (true) {
       if (deadline.expiresAt !== Infinity && Date.now() >= deadline.expiresAt)
         throw timeoutError();
+      // Pinned dom.ts waits for an element state through _retryAction, which
+      // runs the locator handlers before every attempt.
+      if (this.locatorHandlers.size)
+        await this.locatorHandlers.checkpoint(deadline, () => {}, timeoutError);
       const matches = await this.waitForActionDeadline(
         this.elementMatchesState(element, state),
         deadline,
@@ -3829,7 +4024,8 @@ export class PageImpl {
     root: Document | Element,
     selector: string,
     options: WaitForSelectorOptions,
-    apiName = "page.waitForSelector"
+    apiName = "page.waitForSelector",
+    handlerLog: string[] = []
   ): Promise<AdapterElementHandle | null> {
     assertWaitForSelectorOptions(options);
     const state = options.state ?? "visible";
@@ -3840,8 +4036,20 @@ export class PageImpl {
     const deadline = timeout === 0 ? Infinity : Date.now() + timeout;
     const signal = this.lifetime.bind(options.signal);
     if (signal?.aborted) throw actionAborted(signal, false);
+    const timeoutError = () =>
+      new AdapterTimeoutError(
+        `${apiName}: Timeout ${timeout}ms exceeded.\nCall log:\n  - waiting for ${formatLocator(selector)} to be ${state}${handlerLog.map((line) => `\n  - ${line}`).join("")}`
+      );
 
     while (true) {
+      // Pinned frames.ts waitForSelector runs the locator handlers before
+      // every attempt.
+      if (this.locatorHandlers.size)
+        await this.locatorHandlers.checkpoint(
+          { timeout, expiresAt: deadline, signal },
+          (line) => handlerLog.push(line),
+          timeoutError
+        );
       const element =
         root instanceof this.window.Element
           ? this.resolveWithinElement(root, selector, options.strict === true)
@@ -3856,10 +4064,7 @@ export class PageImpl {
       )
         return null;
 
-      if (Date.now() >= deadline)
-        throw new AdapterTimeoutError(
-          `${apiName}: Timeout ${timeout}ms exceeded.\nCall log:\n  - waiting for ${formatLocator(selector)} to be ${state}`
-        );
+      if (Date.now() >= deadline) throw timeoutError();
       const delay = Math.min(QUERY_RETRY_DELAY, deadline - Date.now());
       if (!(await waitForExpectationRetry(this.window, delay, signal)))
         throw actionAborted(signal!, true);
@@ -3900,7 +4105,10 @@ export class PageImpl {
     options: SelectorQueryOptions | LocatorQueryOptions | undefined,
     strict: boolean,
     evaluate: (element: Element) => T | Promise<T>,
-    actionDeadline?: ActionDeadline
+    actionDeadline?: ActionDeadline,
+    // Pinned frames.ts runs the locator handlers before each attempt of the
+    // actions and element reads that wait for their locator.
+    actionPreChecks = false
   ): Promise<T> {
     assertQueryOptions(
       options,
@@ -3914,8 +4122,27 @@ export class PageImpl {
     const deadline =
       actionDeadline?.expiresAt ??
       (timeout === 0 ? Infinity : Date.now() + timeout);
+    const handlerLog: string[] = [];
 
     while (true) {
+      if (
+        actionPreChecks &&
+        typeof selector === "string" &&
+        this.locatorHandlers.size
+      ) {
+        await this.locatorHandlers.checkpoint(
+          {
+            timeout,
+            expiresAt: deadline,
+            signal: actionDeadline?.signal ?? signal,
+          },
+          (line) => handlerLog.push(`\n  - ${line}`),
+          () =>
+            new AdapterTimeoutError(
+              `Timeout ${timeout}ms exceeded.${queryCallLog(selector)}${handlerLog.join("")}`
+            )
+        );
+      }
       try {
         const element = this.resolvePointerElement(
           selector,
@@ -3929,7 +4156,7 @@ export class PageImpl {
         const remaining = deadline - Date.now();
         if (remaining <= 0)
           throw new AdapterTimeoutError(
-            `Timeout ${timeout}ms exceeded.${queryCallLog(selector)}`,
+            `Timeout ${timeout}ms exceeded.${queryCallLog(selector)}${handlerLog.join("")}`,
             { cause: error }
           );
         const delay = Math.min(QUERY_RETRY_DELAY, remaining);
@@ -3945,7 +4172,7 @@ export class PageImpl {
     return element;
   }
 
-  private resolveLocatorElement(
+  resolveLocatorElement(
     selector: string,
     strict: boolean
   ): Element | undefined {
@@ -3973,9 +4200,9 @@ export class PageImpl {
     throw new Error(`Element is not ${result.missingState}`);
   }
 
-  private async waitForActionDeadline<T>(
+  async waitForActionDeadline<T>(
     operation: Promise<T>,
-    deadline: ActionDeadline | undefined,
+    deadline: Pick<ActionDeadline, "expiresAt" | "signal"> | undefined,
     timeoutError: () => Error
   ): Promise<T> {
     if (deadline?.signal?.aborted) throw actionAborted(deadline.signal, true);
@@ -4069,6 +4296,16 @@ export class PageImpl {
 
     while (true) {
       if (Date.now() >= deadline.expiresAt) throwTimeout();
+      // Pinned dom.ts _retryAction runs the locator handlers before every
+      // attempt of an action that is not forced.
+      if (!force && this.locatorHandlers.size)
+        await this.locatorHandlers.checkpoint(
+          deadline,
+          (line) => {
+            if (pointerOptions) log.push(`  - ${line}`);
+          },
+          timeoutError
+        );
       try {
         const element = this.resolvePointerElement(selector, label, strict);
         if (pointerOptions && !force)
@@ -5522,6 +5759,11 @@ function actionPoint(
     x: rect.left + parseFloat(style.borderLeftWidth) + position.x,
     y: rect.top + parseFloat(style.borderTopWidth) + position.y,
   };
+}
+
+function locatorBrand(value: unknown): LocatorBrandPayload | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  return (value as { [LOCATOR_BRAND]?: LocatorBrandPayload })[LOCATOR_BRAND];
 }
 
 function asError(error: unknown): Error {

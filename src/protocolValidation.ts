@@ -84,15 +84,20 @@ export function rejectUnsupportedOptions(
   return supported.includes("delay") ? validateDelay(options.delay) : undefined;
 }
 
+/** Pinned validatorPrimitives.ts `tOptional(tBoolean)`, which unwraps a `Boolean`. */
+export function validateBoolean(
+  value: unknown,
+  name: string
+): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (value instanceof Boolean) return value.valueOf();
+  if (typeof value === "boolean") return value;
+  throw new Error(`${name}: expected boolean, got ${typeof value}`);
+}
+
 export function validateNoWaitAfter(method: string, value: unknown): void {
   // Only click and press retain this field in the pinned protocol. Other
   // actions drop the deprecated no-op option, without validating its value.
   if (method !== "click" && method !== "press") return;
-  if (
-    value === undefined ||
-    typeof value === "boolean" ||
-    value instanceof Boolean
-  )
-    return;
-  throw new Error(`noWaitAfter: expected boolean, got ${typeof value}`);
+  validateBoolean(value, "noWaitAfter");
 }

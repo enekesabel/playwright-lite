@@ -160,7 +160,9 @@ Owned by `events` in compatibility/api.ts: one row per event, or per group of
 events sharing a payload. The Page event-emitter rows link here; payload detail
 that belongs to an object links to that object's section. The excluded list
 below the table is owned by `excludedEvents`: one line per out-of-scope event,
-naming why it can never fire.
+naming why it can never fire. The paragraph after that list owns where
+listeners and locator handlers run and how their failures surface; the
+addLocatorHandler row links here.
 --}}
 ### Events
 
@@ -177,6 +179,8 @@ Listeners added with `on()`, `once()`, `addListener()` or `prependListener()`, a
 {{#each excludedEvents}}
 - [`{{event}}`]({{{url}}}): {{{reason}}}
 {{/each}}
+
+Listeners and [`addLocatorHandler()`](https://playwright.dev/docs/api/class-page#page-add-locator-handler) handlers run in the page, in your script's own execution, with no round trip to Node.js. One that throws or rejects is logged with `console.error()`, where Playwright raises it as an unhandled rejection in Node.js.
 
 {{!--
 Owned by the assertion ledgers in compatibility/api.ts, in this order: Locator
