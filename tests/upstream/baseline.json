@@ -66,6 +66,11 @@
       "evidence": "The actual button handler changes result to Clicked after the browser ElementHandle click. Recorded native goto establishes the fixture only."
     },
     {
+      "id": "elementhandle-click.spec.ts > should work for Shadow DOM v1",
+      "method": "ElementHandle.click",
+      "evidence": "The <button> that shadow.html appends to document.body's open shadow root is reached through Page.evaluateHandle, whose handle is an ElementHandle, and ElementHandle.click on it runs the actionability, hit-target and pointer pipeline (Page.clickSelector) into the shadow tree; its click listener sets the page's top-level `clicked` binding, which Page.evaluate reads as true. Native goto only loads shadow.html."
+    },
+    {
       "id": "elementhandle-convenience.spec.ts > getAttribute should work",
       "method": "ElementHandle.getAttribute",
       "evidence": "Reading name on #outer returns 'value' and an absent attribute returns null, so getAttribute reports the attribute value through the handle and reports a missing attribute as null."
