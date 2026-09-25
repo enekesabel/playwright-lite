@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { expect, isKnownFailure, test } from "./pageTest";
 
 test.describe("pageTest known corpus failures", () => {
@@ -174,5 +175,63 @@ test.describe("pageTest explicit zero action timeout", () => {
 
     await page.locator("#late").click();
     await expect(page.locator("#late")).toHaveAttribute("data-clicked", "true");
+  });
+});
+
+// `sabotagedMethod` and `sabotagedMatcher` are the options the promotion
+// rerun's generated configuration sets in its `use` block; these guards set
+// them the same way to show what that rerun's evidence carries.
+const withheldClick =
+  "__pwLiteSabotagedMethod: Locator.click was withheld for promotion review.";
+const readEvidence = (page: Page) =>
+  page.evaluate(() => (window as any).__pwLiteEvidence);
+
+test.describe("pageTest withheld-method evidence", () => {
+  test("an ordinary run records no withheld dispatch", async ({ page }) => {
+    await page.setContent("<button>hello</button>");
+    await page.locator("button").click();
+
+    const evidence = await readEvidence(page);
+    expect(evidence.entered).toContain("Locator.click");
+    expect(evidence).not.toHaveProperty("withheld");
+  });
+
+  test.describe("under a sabotaged method", () => {
+    test.use({ sabotagedMethod: "Locator.click" });
+
+    test("records each withheld dispatch of that method and nothing else", async ({
+      page,
+    }) => {
+      await page.setContent(
+        '<button onclick="window.clicked = true">hello</button>'
+      );
+      for (let attempt = 0; attempt < 2; attempt++)
+        await expect(page.locator("button").click()).rejects.toThrow(
+          withheldClick
+        );
+      expect(await page.locator("button").textContent()).toBe("hello");
+
+      const evidence = await readEvidence(page);
+      expect(evidence.withheld).toEqual(["Locator.click", "Locator.click"]);
+      expect(evidence.entered).toContain("Locator.textContent");
+      expect(await page.evaluate(() => (window as any).clicked)).toBe(
+        undefined
+      );
+    });
+  });
+
+  test.describe("under a sabotaged matcher", () => {
+    test.use({ sabotagedMatcher: "Locator.toHaveText" });
+
+    test("records no withheld method; the matcher keeps its marker", async ({
+      page,
+    }) => {
+      await page.setContent("<h1>hello</h1>");
+      await expect(expect(page.locator("h1")).toHaveText("hello")).rejects.toThrow(
+        "__pwLiteSabotagedMatcher: Locator.toHaveText"
+      );
+
+      expect(await readEvidence(page)).not.toHaveProperty("withheld");
+    });
   });
 });

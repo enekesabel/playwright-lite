@@ -262,38 +262,114 @@ describe("reviewed promotion", () => {
         )
       );
     });
-    it("refuses a method rerun whose failure does not show the method's withheld marker", () => {
-      for (const error of [
-        // The test's own reading of a result the withheld method never made.
-        "TypeError: Cannot read properties of undefined (reading 'message')",
-        // Another member's marker is not this method's.
-        "Error: __pwLiteSabotagedMethod: Locator.dblclick was withheld for promotion review.",
-        // A failure the report carries no message for.
-        null,
+    // The test's own reading of the error a withheld method threw: its class,
+    // or a `matcherResult` the withheld method never produced.
+    const ownReading = [
+      "TypeError: Cannot read properties of undefined (reading 'message')",
+      'expect(received).toBe(expected)\n\nExpected: "TimeoutError"\nReceived: "Error"',
+    ];
+    it("accepts a method rerun whose evidence shows the withheld dispatch", () => {
+      for (const status of ["failed", "timedOut"])
+        for (const error of [...ownReading, null])
+          assert.doesNotThrow(() =>
+            sabotageVerdict(
+              [
+                {
+                  id,
+                  status,
+                  error,
+                  execution: {
+                    entered: ["Locator.click"],
+                    failures: [],
+                    withheld: ["Locator.click"],
+                  },
+                },
+              ],
+              id,
+              "Locator.click"
+            )
+          );
+    });
+    it("refuses a method rerun that failed without reaching the withheld method", () => {
+      const execution = (withheld) => ({
+        entered: ["Page.setContent"],
+        failures: [],
+        ...(withheld ? { withheld } : {}),
+      });
+      for (const entry of [
+        // No withheld dispatch: the test failed before reaching the method.
+        { error: ownReading[0], execution: execution([]) },
+        { error: ownReading[1], execution: execution([]) },
+        // Another member's withheld dispatch or marker is not this method's.
+        {
+          error:
+            "Error: __pwLiteSabotagedMethod: Locator.dblclick was withheld for promotion review.",
+          execution: execution(["Locator.dblclick"]),
+        },
+        // No evidence of a rerun at all, and no marker.
+        { error: ownReading[0], execution: execution() },
+        { error: null, execution: null },
       ])
         assert.throws(
           () =>
             sabotageVerdict(
-              [{ id, status: "failed", error }],
+              [{ id, status: "failed", ...entry }],
               id,
               "Locator.click"
             ),
           (e) =>
             e.message ===
-            `${id} failed with Locator.click sabotaged, but not for the expected reason: ${methodMarker}`
+            `${id} failed with Locator.click sabotaged, but never reached it: its evidence records no withheld dispatch of Locator.click and the failure does not show ${methodMarker}`
         );
     });
-    it("requires the matcher's withheld marker in a matcher rerun", () => {
+    it("refuses a rerun that neither failed nor timed out, whatever its evidence", () => {
+      const execution = {
+        entered: ["Locator.click"],
+        failures: [],
+        withheld: ["Locator.click"],
+      };
       assert.throws(
         () =>
           sabotageVerdict(
-            [{ id, status: "failed", error: "some unrelated failure" }],
+            [{ id, status: "passed", error: null, execution }],
             id,
-            "Locator._expect",
-            "Locator.toHaveText"
+            "Locator.click"
           ),
-        /Locator\.toHaveText sabotaged, but not for the expected reason: __pwLiteSabotagedMatcher: Locator\.toHaveText$/
+        /still passes with Locator\.click sabotaged/
       );
+      assert.throws(
+        () =>
+          sabotageVerdict(
+            [{ id, status: "interrupted", error: methodMarker, execution }],
+            id,
+            "Locator.click"
+          ),
+        /ended .* as interrupted; promotion needs it to fail or time out/
+      );
+    });
+    it("requires the matcher's withheld marker in a matcher rerun", () => {
+      // Withheld-method evidence is not a matcher's marker.
+      for (const execution of [
+        undefined,
+        { entered: [], failures: [], withheld: ["Locator._expect"] },
+      ])
+        assert.throws(
+          () =>
+            sabotageVerdict(
+              [
+                {
+                  id,
+                  status: "failed",
+                  error: "some unrelated failure",
+                  execution,
+                },
+              ],
+              id,
+              "Locator._expect",
+              "Locator.toHaveText"
+            ),
+          /Locator\.toHaveText sabotaged, but not for the expected reason: __pwLiteSabotagedMatcher: Locator\.toHaveText$/
+        );
       assert.doesNotThrow(() =>
         sabotageVerdict(
           [

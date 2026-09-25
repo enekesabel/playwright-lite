@@ -2425,11 +2425,17 @@ function initializeAdapterBridge(
     expect: [],
     expectPaths: [],
     failures: [],
+    // Only a promotion rerun withholds a method, so only its evidence records
+    // each dispatch of that method that was withheld; an ordinary run has no
+    // `withheld` at all.
+    ...(sabotagedMethod ? { withheld: [] } : {}),
   };
   // A native setup navigation replaced the document: what the previous one
   // recorded comes first.
+  const lists = sabotagedMethod
+    ? ["entered", "expect", "expectPaths", "failures", "withheld"]
+    : ["entered", "expect", "expectPaths", "failures"];
   host.__pwLiteRestoreEvidence = (prior: any) => {
-    const lists = ["entered", "expect", "expectPaths", "failures"];
     for (let i = 0; i < lists.length; i++) {
       const current = host.__pwLiteEvidence[lists[i]!];
       const earlier = prior[lists[i]!] ?? [];
@@ -2715,10 +2721,12 @@ function initializeAdapterBridge(
         // Every adapter call the evidence records routes through here, so this
         // is the one place a promotion rerun can withhold a method from the
         // test that claims to prove it.
-        if (recordedName === sabotagedMethod)
+        if (recordedName === sabotagedMethod) {
+          append(host.__pwLiteEvidence.withheld, recordedName);
           throw new Error(
             `__pwLiteSabotagedMethod: ${recordedName} was withheld for promotion review.`
           );
+        }
         const result = callAdapter(() => apply(original, this, args));
         if (
           result &&
@@ -2890,10 +2898,12 @@ function initializeAdapterBridge(
     if (!target) throw new Error(`Unknown adapter ${kind}: ${id}`);
     const recorded = `${kind}.${member}`;
     append(host.__pwLiteEvidence.entered, recorded);
-    if (recorded === sabotagedMethod)
+    if (recorded === sabotagedMethod) {
+      append(host.__pwLiteEvidence.withheld, recorded);
       throw new Error(
         `__pwLiteSabotagedMethod: ${recorded} was withheld for promotion review.`
       );
+    }
     if (typeof target[member] !== "function")
       throw new TypeError(`__pwLiteAdapter${kind}.${member} is not a function`);
     const decoded = host.__pwLiteDecodeBridgeValue(args);

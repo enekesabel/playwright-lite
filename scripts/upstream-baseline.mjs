@@ -387,17 +387,27 @@ export function blockingRegressions(
  * method's in-browser dispatch throwing instead of executing, or, given a
  * matcher, with that public matcher withheld. A test that still passes is
  * vacuous about what was withheld, whatever the recorded evidence says. A test
- * that fails is accepted only when its reported failure shows the withheld
- * marker, so a failure with another cause proves nothing either.
+ * must fail or time out, and only because of what was withheld; a failure with
+ * another cause proves nothing either:
+ *
+ * - A method rerun is accepted when the test's execution evidence records a
+ *   withheld dispatch of the method (`withheld`, which only a rerun's evidence
+ *   has), or its reported failure shows the method's withheld marker. A test
+ *   that reads the error it gets back, such as its class or `matcherResult`,
+ *   fails without printing the marker, so the evidence is what shows that the
+ *   withheld method was reached.
+ * - A matcher rerun is accepted when the reported failure shows the matcher's
+ *   withheld marker, which a withheld matcher returns in every text field of
+ *   its failure.
+ *
+ * A test that compares a whole message with `toBe` fails with Playwright's
+ * diff, which wraps the differing characters in ANSI inverse-video codes and
+ * can split a marker; the check reads the message with those codes removed.
  *
  * @param {Array} entries  Parsed entries of the sabotaged rerun.
  * @param {string} id  The promoted test.
  * @param {string} method  The reviewed method.
  * @param {string} [matcher]  The public matcher the rerun withheld instead.
- *
- * A test that compares a whole message with `toBe` fails with Playwright's
- * diff, which wraps the differing characters in ANSI inverse-video codes and
- * can split the marker; the check reads the message with those codes removed.
  */
 export function sabotageVerdict(entries, id, method, matcher) {
   const withheld = matcher ?? method;
@@ -417,9 +427,18 @@ export function sabotageVerdict(entries, id, method, matcher) {
     throw new Error(
       `${id} still passes with ${withheld} sabotaged, so it does not prove ${withheld}.`
     );
-  if (!stripVTControlCharacters(entry.error ?? "").includes(marker))
+  if (entry.status !== "failed" && entry.status !== "timedOut")
+    throw new Error(
+      `The rerun with ${withheld} sabotaged ended ${id} as ${entry.status}; promotion needs it to fail or time out.`
+    );
+  if (stripVTControlCharacters(entry.error ?? "").includes(marker)) return;
+  if (matcher)
     throw new Error(
       `${id} failed with ${withheld} sabotaged, but not for the expected reason: ${marker}`
+    );
+  if (!entry.execution?.withheld?.includes(method))
+    throw new Error(
+      `${id} failed with ${method} sabotaged, but never reached it: its evidence records no withheld dispatch of ${method} and the failure does not show ${marker}`
     );
 }
 

@@ -28,9 +28,22 @@ type ContextRecord = {
   pages: Page[];
   captured: Set<Page>;
 };
-type Evidence = { entered: string[]; failures: string[]; native: string[] };
+type Evidence = {
+  entered: string[];
+  failures: string[];
+  native: string[];
+  withheld?: string[];
+};
+// The promotion rerun's sabotage options, which pages created here get exactly
+// as the `page` fixture does. They are test options, so the worker-scoped
+// browser reads them through the test.
+type Sabotage = {
+  sabotagedMethod: string | undefined;
+  sabotagedMatcher: string | undefined;
+};
 const contexts = new WeakMap<TestInfo, ContextRecord[]>();
 const evidence = new WeakMap<TestInfo, Evidence>();
+const sabotage = new WeakMap<TestInfo, Sabotage>();
 
 async function capture(record: ContextRecord, result: Evidence) {
   for (const page of record.pages) {
@@ -42,6 +55,8 @@ async function capture(record: ContextRecord, result: Evidence) {
         throw new Error("Adapter execution evidence is unavailable");
       result.entered.push(...observed.entered);
       result.failures.push(...(observed.failures ?? []));
+      if (observed.withheld)
+        (result.withheld ??= []).push(...observed.withheld);
     } catch (error) {
       // Missing evidence is a diagnostic failure, never a passing fallback.
       result.failures.push(String(error));
@@ -98,6 +113,7 @@ export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
                         expectTimeout: configuredExpectTimeout(info),
                         nativeNavigationForSetup: true,
                         underTest: true,
+                        ...sabotage.get(info),
                       });
                     };
                   }
@@ -123,11 +139,12 @@ export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
     { scope: "worker" },
   ],
   _libraryEvidence: [
-    async ({}, use, info) => {
+    async ({ sabotagedMethod, sabotagedMatcher }, use, info) => {
       const records: ContextRecord[] = [];
       const result: Evidence = { entered: [], failures: [], native: [] };
       contexts.set(info, records);
       evidence.set(info, result);
+      sabotage.set(info, { sabotagedMethod, sabotagedMatcher });
       try {
         await use();
       } finally {
@@ -143,6 +160,7 @@ export const browserTest = pageTest.extend<{ _libraryEvidence: void }>({
           });
           contexts.delete(info);
           evidence.delete(info);
+          sabotage.delete(info);
         }
       }
     },
