@@ -43,7 +43,7 @@ describe("Locator.selectText", () => {
       /^locator\.selectText: Timeout 100ms exceeded\./
     );
     expect(error?.message).toContain(
-      "\nCall log:\n  - attempting selectText action\n  - waiting for element to be visible\n  - element is not visible\n"
+      "\n  - attempting selectText action\n    - waiting for element to be visible\n    - element is not visible\n"
     );
   });
 });

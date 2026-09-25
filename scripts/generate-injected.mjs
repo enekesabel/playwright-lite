@@ -119,6 +119,45 @@ try {
     "Keyboard layout differs from pinned Playwright"
   );
   assert.equal(localLayout.keypadLocation, upstreamLayout.keypadLocation);
+  const localCallLog = await import(
+    pathToFileURL(resolve(root, "src/callLog.ts"))
+  );
+  const upstreamCallLog = await import(
+    pathToFileURL(
+      resolve(checkout, "packages/playwright-core/src/server/callLog.ts")
+    )
+  );
+  const repeated = (lines, count) => Array(count).fill(lines).flat();
+  for (const log of [
+    [],
+    ["waiting for locator('a')", "  locator resolved to <a></a>"],
+    [
+      'Expect "toBeVisible" with timeout 5000ms',
+      "waiting for locator('input')",
+      ...repeated(
+        ["  locator resolved to <input/>", '  unexpected value "hidden"'],
+        12
+      ),
+    ],
+    [
+      "attempting click action",
+      ...repeated(
+        [
+          "  waiting for element to be visible, enabled and stable",
+          "  element is not visible",
+          "retrying click action",
+          "  waiting 500ms",
+        ],
+        3
+      ),
+      "  waiting for element to be visible, enabled and stable",
+    ],
+  ])
+    assert.deepEqual(
+      localCallLog.compressCallLog(log),
+      upstreamCallLog.compressCallLog(log),
+      "Call log compression differs from pinned Playwright"
+    );
   output(
     "LICENSES/PLAYWRIGHT-LICENSE.txt",
     readFileSync(resolve(checkout, "LICENSE"))

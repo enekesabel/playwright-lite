@@ -410,7 +410,7 @@ A failed assertion throws an error whose `matcherResult` describes the failure: 
 <details>
 <summary>Edge cases</summary>
 
-- A failed locator or page assertion's call log lists its last check once, where Playwright lists every retry and counts repeats, as in `5 × locator resolved to <div>…</div>`.
+- The repeat counts in a failed assertion's call log, as in `5 × locator resolved to <div>…</div>`, follow this package's retry timing, so they can differ from Playwright's for the same wait.
 
 </details>
 

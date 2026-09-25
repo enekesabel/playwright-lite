@@ -376,7 +376,7 @@ type InternalMatcherResult = SyncExpectationResult & {
 
 type PageExpectationResult = {
   matches: boolean;
-  received?: { value?: string };
+  received?: { value?: string; ariaSnapshot?: string };
   timeout?: number;
   timedOut?: boolean;
   invalid?: boolean;
@@ -625,6 +625,19 @@ function locatorMatcher(
       pass,
       result.errorMessage
     );
+    const message = () =>
+      formatLocatorMatcherMessage(this.utils, {
+        isNot: !!this.isNot,
+        promise: this.promise ?? "",
+        matcherName,
+        expectation: call.expectation,
+        locator: actual.toString(),
+        timeout,
+        timedOut: result.timedOut,
+        errorMessage: result.errorMessage,
+        log: result.log,
+        ...printed,
+      });
     return {
       name: matcherName,
       expected: call.expected,
@@ -633,19 +646,7 @@ function locatorMatcher(
       log: result.log,
       pass,
       timeout: result.timedOut ? timeout : undefined,
-      message: () =>
-        formatLocatorMatcherMessage(this.utils, {
-          isNot: !!this.isNot,
-          promise: this.promise ?? "",
-          matcherName,
-          expectation: call.expectation,
-          locator: actual.toString(),
-          timeout,
-          timedOut: result.timedOut,
-          errorMessage: result.errorMessage,
-          log: result.log,
-          ...printed,
-        }),
+      message,
     };
   };
 }
@@ -1432,22 +1433,17 @@ async function toHaveTitle(
           ),
       })
     );
+  const timeout =
+    options.timeout ?? (this as MatcherContext & { timeout: number }).timeout;
   const result = await page._expect("to.have.title", {
     expected,
     ignoreCase: options.ignoreCase,
     isNot: !!this.isNot,
     signal: options.signal,
-    timeout:
-      options.timeout ?? (this as MatcherContext & { timeout: number }).timeout,
+    timeout,
     title: stepTitle(this),
   });
-  return {
-    actual: result.received?.value,
-    expected,
-    message: () => pageMatcherMessage(this, "toHaveTitle", expected, result),
-    name: "toHaveTitle",
-    pass: result.matches,
-  };
+  return pageMatcherResult(this, "toHaveTitle", expected, timeout, result);
 }
 
 async function toHaveURL(
@@ -1476,21 +1472,53 @@ async function toHaveURL(
           ),
       })
     );
+  const timeout =
+    options.timeout ?? (this as MatcherContext & { timeout: number }).timeout;
   const result = await page._expect("to.have.url", {
     expected,
     ignoreCase: options.ignoreCase,
     isNot: !!this.isNot,
     signal: options.signal,
-    timeout:
-      options.timeout ?? (this as MatcherContext & { timeout: number }).timeout,
+    timeout,
     title: stepTitle(this),
   });
+  return pageMatcherResult(this, "toHaveURL", expected, timeout, result);
+}
+
+/**
+ * The failure fields pinned 26a9e47 matchers/toMatchText.ts returns for a
+ * string or RegExp, and matchers/toHaveURL.ts `toHaveURLWithPredicate` for a
+ * URL predicate or pattern: the latter has no call log or ARIA snapshot and
+ * always reports its timeout.
+ */
+function pageMatcherResult(
+  context: MatcherContext,
+  matcherName: "toHaveTitle" | "toHaveURL",
+  expected: unknown,
+  timeout: number,
+  result: PageExpectationResult
+): MatcherResult {
+  const message = () =>
+    pageMatcherMessage(context, matcherName, expected, result);
+  if (result.matches === !context.isNot)
+    return { name: matcherName, message, pass: result.matches, expected };
+  if (typeof expected === "function" || isURLPattern(expected))
+    return {
+      name: matcherName,
+      message,
+      pass: result.matches,
+      actual: result.received?.value,
+      timeout,
+    };
   return {
-    actual: result.received?.value,
+    name: matcherName,
     expected,
-    message: () => pageMatcherMessage(this, "toHaveURL", expected, result),
-    name: "toHaveURL",
+    message,
     pass: result.matches,
+    actual: result.received?.value,
+    log: result.log,
+    timeout: result.timedOut ? timeout : undefined,
+    ariaSnapshot: result.received?.ariaSnapshot,
   };
 }
 
