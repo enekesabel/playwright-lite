@@ -130,6 +130,13 @@ export const events: readonly EventRow[] = [
       "A listener settles the dialog only synchronously; see [Dialog](#dialog).",
   },
   {
+    events: ["filechooser"],
+    firesFor:
+      "Each activation of an `<input type=file>` while a listener is registered: a click on the input or its `<label>`, including the document's own `input.click()`, and `input.showPicker()`. The file picker does not open meanwhile.",
+    differences:
+      "Fires while the activating click is dispatched or `showPicker()` runs, before either returns, where Playwright fires once the browser has opened the picker. See [FileChooser](#filechooser).",
+  },
+  {
     events: ["framenavigated"],
     firesFor: "Same-document URL changes while a listener is registered.",
     differences:
@@ -269,6 +276,23 @@ export const objectSections: readonly ObjectSection[] = [
     ],
     edgeCases: [
       "Pages sharing one window share one dialog settlement: the first `accept()` or `dismiss()` call from any of them wins, and a later one rejects.",
+    ],
+  },
+  {
+    name: "FileChooser",
+    covers:
+      '`page.on("filechooser")` and `page.waitForEvent("filechooser")` report the file inputs the document activates, wrapped as Playwright\'s `FileChooser`, in place of the file picker.',
+    members: [
+      {
+        member: "`setFiles()`",
+        lite: "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are rejected.",
+        playwright: "Also reads files, or a directory, from disk by path.",
+      },
+    ],
+    edgeCases: [
+      "The activating `click` event is cancelled after the listeners on the input and its ancestors have run: a `window` listener added after the first `filechooser` subscription sees `defaultPrevented` as `true`, and a `dispatchEvent()` of the click returns `false`.",
+      "`showPicker()` is reported without the transient user activation the browser requires, since a click this package dispatches never grants it; Playwright's trusted click does.",
+      "A `click` event the page dispatches with `dispatchEvent()` on an input outside the document, or on one inside a closed shadow root, is not reported, and the browser handles it itself.",
     ],
   },
   {

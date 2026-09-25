@@ -240,18 +240,33 @@ export class AdapterElementHandle extends AdapterJSHandle<Element> {
     files: InputFiles,
     options?: Parameters<ElementHandle["setInputFiles"]>[1]
   ): Promise<void> {
-    rejectUnsupportedOptions("setInputFiles", options, [
+    await this.assignInputFiles(files, options, "elementHandle.setInputFiles");
+  }
+
+  /**
+   * `setInputFiles` reported under `apiName`. Pinned client/fileChooser.ts
+   * `setFiles` delegates to its element's `setInputFiles`, and the pinned
+   * client names an error after the outermost call.
+   */
+  async assignInputFiles(
+    files: InputFiles,
+    options: Parameters<ElementHandle["setInputFiles"]>[1],
+    apiName: string
+  ): Promise<void> {
+    const method = apiName.slice(apiName.indexOf(".") + 1);
+    rejectUnsupportedOptions(method, options, [
       "noWaitAfter",
       "signal",
       "timeout",
     ]);
-    await withAbortPrefix("elementHandle.setInputFiles", () =>
+    await withAbortPrefix(apiName, () =>
       this.ownerPage.setInputFilesSelector(
         this.requireElement(),
         files,
         options,
         true,
-        "elementHandle.setInputFiles"
+        apiName,
+        method
       )
     );
   }
