@@ -3794,6 +3794,16 @@
       "evidence": "A throw inside the promise the callback returns rejects Page.evaluate with 'Error in promise', so a rejection of the awaited promise is reported rather than swallowed."
     },
     {
+      "id": "page-evaluate.spec.ts > should throw for too deep reference chain",
+      "method": "Page.evaluate",
+      "evidence": "A 1000-deep chain of nested objects built as temp[i] = {} makes Page.evaluate reject with 'Cannot serialize result: object reference chain is too long.', so a result nested past the depth Playwright's Chromium protocol accepts is refused with Playwright's message instead of being returned."
+    },
+    {
+      "id": "page-evaluate.spec.ts > should throw for too deep reference chain 2",
+      "method": "Page.evaluate",
+      "evidence": "A 200-deep chain of { child } objects makes Page.evaluate reject with 'Cannot serialize result: object reference chain is too long.', so the adapter enforces Chromium's protocol depth limit on the serialized result, which Playwright reaches well below V8's own 1000-level reference-chain limit."
+    },
+    {
       "id": "page-evaluate.spec.ts > should throw usable message for unserializable array nested function",
       "method": "Page.evaluate",
       "evidence": "Page.evaluate(arg => arg, { a: { inner: ['firstValue', { property: () => {} }] } }) rejects with 'Attempting to serialize unexpected value at position \"a.inner[1].property\": () => {}', writing the array index in brackets. The bridge rebuilds the nested function in the browser from its source, so the adapter serializes a real function there."

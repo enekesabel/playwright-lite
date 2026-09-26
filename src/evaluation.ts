@@ -11,7 +11,7 @@ import { AdapterElementHandle } from "./elementHandle";
 import { AdapterJSHandle } from "./jsHandle";
 import { TargetClosedError } from "./lifetime";
 import type { PageImpl } from "./page";
-import { Node, Promise, Error } from "virtual:playwright-lite-globals";
+import { Node, Promise, Error, Object } from "virtual:playwright-lite-globals";
 
 export type EvaluationFunction<R = any> =
   string | ((...args: any[]) => R | Promise<R>);
@@ -103,7 +103,9 @@ export class Evaluation {
       target,
       options?.exposeFunctions
     );
-    return protocolResult(parseEvaluationResultValue(result)) as R;
+    return protocolResult(
+      parseEvaluationResultValue(transmittable(result))
+    ) as R;
   }
 
   /**
@@ -209,7 +211,9 @@ export class Evaluation {
 
   jsonValue<T>(value: T): T {
     return protocolResult(
-      parseEvaluationResultValue(this.script.jsonValue(true, value))
+      parseEvaluationResultValue(
+        transmittable(this.script.jsonValue(true, value))
+      )
     ) as T;
   }
 
@@ -235,6 +239,32 @@ export class Evaluation {
     });
     return parseEvaluationResultValue(serialized, handles);
   }
+}
+
+/**
+ * Pinned crExecutionContext.ts `rewriteError` reports this when Chromium
+ * cannot return a by-value result: its DevTools protocol parser refuses a
+ * message nested more than 300 containers deep (`kStackLimit`,
+ * third_party/inspector_protocol/crdtp/cbor.cc), and the response holds the
+ * serialized result three containers in. The serialized value may therefore
+ * nest 298 levels, a leaf counting as one; Playwright 1.62.1 on its bundled
+ * Chromium accepts exactly that and rejects one more, whatever the shape. The
+ * pinned serializer itself has no depth limit.
+ */
+const maxResultDepth = 298;
+
+function transmittable(serialized: unknown): unknown {
+  if (deeperThan(serialized, maxResultDepth))
+    throw new Error(
+      "Cannot serialize result: object reference chain is too long."
+    );
+  return serialized;
+}
+
+function deeperThan(value: unknown, levels: number): boolean {
+  if (levels === 0) return true;
+  if (value === null || typeof value !== "object") return false;
+  return Object.values(value).some((child) => deeperThan(child, levels - 1));
 }
 
 function protocolResult(value: unknown): unknown {

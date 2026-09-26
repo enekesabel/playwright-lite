@@ -87,6 +87,8 @@ export type EventRow = {
 
 const elementHandleNote =
   "Returned `ElementHandle` methods and options differ; see [ElementHandle and JSHandle](#elementhandle-and-jshandle).";
+const byValueNote =
+  "Uses the pinned Playwright by-value argument and result serializers, and rejects a result nested deeper than Chromium's DevTools protocol accepts (298 serialized levels) in every browser, as Playwright does on Chromium.";
 const handlePreviewNote =
   "The returned handle previews differently; see [ElementHandle and JSHandle](#elementhandle-and-jshandle).";
 const listenerNote =
@@ -305,12 +307,8 @@ export const pageLedger = {
   ),
   $: partial(elementHandleNote),
   $$: partial(elementHandleNote),
-  $$eval: implemented(
-    "Uses the pinned Playwright by-value argument and result serializers."
-  ),
-  $eval: implemented(
-    "Uses the pinned Playwright by-value argument and result serializers."
-  ),
+  $$eval: implemented(byValueNote),
+  $eval: implemented(byValueNote),
   addInitScript: outOfScope(
     "Registers a script to run before the document's own scripts, which have already run by the time this adapter attaches."
   ),
@@ -349,9 +347,7 @@ export const pageLedger = {
   emulateMedia: outOfScope(
     "A document cannot change its own media type or `prefers-color-scheme`."
   ),
-  evaluate: implemented(
-    "Uses the pinned Playwright by-value argument and result serializers."
-  ),
+  evaluate: implemented(byValueNote),
   evaluateHandle: partial(handlePreviewNote),
   exposeBinding: partial(exposeBindingNote),
   exposeFunction: partial(exposeFunctionNote),
@@ -505,12 +501,8 @@ export const locatorLedger = {
   ),
   elementHandle: partial(elementHandleNote),
   elementHandles: partial(elementHandleNote),
-  evaluate: implemented(
-    "Uses the pinned Playwright by-value argument and result serializers."
-  ),
-  evaluateAll: implemented(
-    "Uses the pinned Playwright by-value argument and result serializers."
-  ),
+  evaluate: implemented(byValueNote),
+  evaluateAll: implemented(byValueNote),
   evaluateHandle: partial(handlePreviewNote),
   fill: implemented(),
   filter: implemented(),
