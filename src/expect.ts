@@ -42,8 +42,10 @@ import { isPlaywrightLiteLocator, type LocatorImpl } from "./locator";
 import type { Page } from "@playwright/test";
 import {
   isPlaywrightLitePage,
+  isURLPredicateExpectation,
   type LocatorExpectationOptions,
   type LocatorExpectationResult,
+  type PageExpectationResult,
 } from "./page";
 import { rejectUnsupportedOptions } from "./protocolValidation";
 import {
@@ -374,16 +376,6 @@ type InternalMatcherResult = SyncExpectationResult & {
   timeout?: number;
 };
 
-type PageExpectationResult = {
-  matches: boolean;
-  received?: { value?: string };
-  timeout?: number;
-  timedOut?: boolean;
-  invalid?: boolean;
-  errorMessage?: string;
-  log?: string[];
-};
-
 type PageExpectationTarget = {
   title(): Promise<string>;
   url(): string;
@@ -625,6 +617,19 @@ function locatorMatcher(
       pass,
       result.errorMessage
     );
+    const message = () =>
+      formatLocatorMatcherMessage(this.utils, {
+        isNot: !!this.isNot,
+        promise: this.promise ?? "",
+        matcherName,
+        expectation: call.expectation,
+        locator: actual.toString(),
+        timeout,
+        timedOut: result.timedOut,
+        errorMessage: result.errorMessage,
+        log: result.log,
+        ...printed,
+      });
     return {
       name: matcherName,
       expected: call.expected,
@@ -633,19 +638,7 @@ function locatorMatcher(
       log: result.log,
       pass,
       timeout: result.timedOut ? timeout : undefined,
-      message: () =>
-        formatLocatorMatcherMessage(this.utils, {
-          isNot: !!this.isNot,
-          promise: this.promise ?? "",
-          matcherName,
-          expectation: call.expectation,
-          locator: actual.toString(),
-          timeout,
-          timedOut: result.timedOut,
-          errorMessage: result.errorMessage,
-          log: result.log,
-          ...printed,
-        }),
+      message,
     };
   };
 }
@@ -1336,18 +1329,11 @@ function isRegExp(value: unknown): value is RegExp {
   );
 }
 
-function isURLPattern(value: unknown): boolean {
-  const constructor = (
-    globalThis as { URLPattern?: new (...args: unknown[]) => object }
-  ).URLPattern;
-  return typeof constructor === "function" && value instanceof constructor;
-}
-
 function pageMatcherMessage(
   context: MatcherContext,
   matcherName: "toHaveTitle" | "toHaveURL",
   expected: unknown,
-  result: PageExpectationResult
+  result: PageExpectationResult & { invalid?: boolean; timeout?: number }
 ): string {
   const isNot = !!context.isNot;
   let message = `expect(page)${isNot ? ".not" : ""}.${matcherName}(expected) failed\n\n`;
@@ -1356,7 +1342,7 @@ function pageMatcherMessage(
     return message;
   }
   const received = result.received?.value;
-  const isPredicate = typeof expected === "function" || isURLPattern(expected);
+  const isPredicate = isURLPredicateExpectation(expected);
   const expectedSuffix = isRegExp(expected) ? " pattern" : "";
   const receivedSuffix = isRegExp(expected) ? " string" : "";
   if (isPredicate) {
@@ -1364,10 +1350,7 @@ function pageMatcherMessage(
     if (!result.errorMessage && received !== undefined)
       message += `Received: ${context.utils.printReceived(received)}\n`;
     if (result.timedOut) {
-      const timeout =
-        result.timeout ??
-        (context as MatcherContext & { timeout: number }).timeout;
-      message += `Timeout:  ${timeout}ms\n`;
+      message += `Timeout:  ${result.timeout}ms\n`;
     }
     if (result.errorMessage) message += `${result.errorMessage}\n`;
     return message;
@@ -1391,11 +1374,8 @@ function pageMatcherMessage(
     message += `Expected: ${context.utils.printExpected(expected)}\n`;
   }
   if (result.timedOut) {
-    const timeout =
-      result.timeout ??
-      (context as MatcherContext & { timeout: number }).timeout;
     const aligned = !result.errorMessage && !expectedSuffix && !receivedSuffix;
-    message += `Timeout: ${aligned ? " " : ""}${timeout}ms\n`;
+    message += `Timeout: ${aligned ? " " : ""}${result.timeout}ms\n`;
   }
   if (result.errorMessage) message += `${result.errorMessage}\n`;
   return message + callLogText(result.log);
@@ -1432,22 +1412,17 @@ async function toHaveTitle(
           ),
       })
     );
+  const timeout =
+    options.timeout ?? (this as MatcherContext & { timeout: number }).timeout;
   const result = await page._expect("to.have.title", {
     expected,
     ignoreCase: options.ignoreCase,
     isNot: !!this.isNot,
     signal: options.signal,
-    timeout:
-      options.timeout ?? (this as MatcherContext & { timeout: number }).timeout,
+    timeout,
     title: stepTitle(this),
   });
-  return {
-    actual: result.received?.value,
-    expected,
-    message: () => pageMatcherMessage(this, "toHaveTitle", expected, result),
-    name: "toHaveTitle",
-    pass: result.matches,
-  };
+  return pageMatcherResult(this, "toHaveTitle", expected, timeout, result);
 }
 
 async function toHaveURL(
@@ -1460,8 +1435,7 @@ async function toHaveURL(
   if (
     typeof expected !== "string" &&
     !isRegExp(expected) &&
-    !isURLPattern(expected) &&
-    typeof expected !== "function"
+    !isURLPredicateExpectation(expected)
   )
     throw new Error(
       pageMatcherMessage(this, "toHaveURL", expected, {
@@ -1476,21 +1450,56 @@ async function toHaveURL(
           ),
       })
     );
+  const timeout =
+    options.timeout ?? (this as MatcherContext & { timeout: number }).timeout;
   const result = await page._expect("to.have.url", {
     expected,
     ignoreCase: options.ignoreCase,
     isNot: !!this.isNot,
     signal: options.signal,
-    timeout:
-      options.timeout ?? (this as MatcherContext & { timeout: number }).timeout,
+    timeout,
     title: stepTitle(this),
   });
+  return pageMatcherResult(this, "toHaveURL", expected, timeout, result);
+}
+
+/**
+ * The fields pinned 26a9e47 matchers/toMatchText.ts returns for a string or
+ * RegExp, and matchers/toHaveURL.ts `toHaveURLWithPredicate` for a URL
+ * predicate or pattern: the latter has no `expected`, call log or ARIA
+ * snapshot, and a failure always reports its timeout.
+ */
+function pageMatcherResult(
+  context: MatcherContext,
+  matcherName: "toHaveTitle" | "toHaveURL",
+  expected: unknown,
+  timeout: number,
+  result: PageExpectationResult
+): MatcherResult {
+  const message = () =>
+    pageMatcherMessage(context, matcherName, expected, { ...result, timeout });
+  const predicate = isURLPredicateExpectation(expected);
+  if (result.matches === !context.isNot)
+    return predicate
+      ? { name: matcherName, pass: result.matches, message }
+      : { name: matcherName, message, pass: result.matches, expected };
+  if (predicate)
+    return {
+      name: matcherName,
+      message,
+      pass: result.matches,
+      actual: result.received?.value,
+      timeout,
+    };
   return {
-    actual: result.received?.value,
+    name: matcherName,
     expected,
-    message: () => pageMatcherMessage(this, "toHaveURL", expected, result),
-    name: "toHaveURL",
+    message,
     pass: result.matches,
+    actual: result.received?.value,
+    log: result.log,
+    timeout: result.timedOut ? timeout : undefined,
+    ariaSnapshot: result.received?.ariaSnapshot,
   };
 }
 

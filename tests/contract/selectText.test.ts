@@ -42,8 +42,12 @@ describe("Locator.selectText", () => {
     expect(error?.message).toMatch(
       /^locator\.selectText: Timeout 100ms exceeded\./
     );
-    expect(error?.message).toContain(
-      "\nCall log:\n  - attempting selectText action\n  - waiting for element to be visible\n  - element is not visible\n"
+    // Repeats collapse to `N × …` as pinned server/callLog.ts renders them.
+    expect(error?.message).toContain("\nCall log:\n");
+    expect(error?.message).toContain("- attempting selectText action\n");
+    expect(error?.message).toMatch(
+      /waiting for element to be visible\n\s+- element is not visible\n/
     );
+    expect(error?.message).toContain("- retrying selectText action\n");
   });
 });

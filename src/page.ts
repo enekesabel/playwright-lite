@@ -11,6 +11,7 @@ import {
   DEFAULT_TEST_ID_ATTRIBUTE,
 } from "./injected";
 import { AdapterTimeoutError } from "./errors";
+import { compressCallLog } from "./callLog";
 import {
   PageLifetime,
   TargetClosedError,
@@ -237,10 +238,10 @@ type PageExpectationOptions = {
   title?: string;
 };
 
-type PageExpectationResult = {
+/** What `Page._expect` reports to the page matchers. */
+export type PageExpectationResult = {
   matches: boolean;
-  received?: { value?: string };
-  timeout?: number;
+  received?: { value?: string; ariaSnapshot?: string };
   timedOut?: boolean;
   errorMessage?: string;
   log?: string[];
@@ -294,6 +295,10 @@ type ExpectCapableInjectedScript = {
     options: { expression: string } & Record<string, unknown>,
     elements: Element[]
   ): Promise<InjectedExpectation>;
+  ariaSnapshotForExpectFailure(
+    element: Element,
+    options: { mode: "default" }
+  ): string;
 };
 
 type ActionableInjectedScript = {
@@ -820,57 +825,56 @@ export class PageImpl {
     const isNot = !!expectOptions.isNot;
     const timeout = expectationTimeout(expectOptions.timeout);
     const signal = this.lifetime.bind(expectOptions.signal);
-    const log = [
-      `${title} with timeout ${timeout}ms`,
-      ...(selector ? [`waiting for ${asLocator("javascript", selector)}`] : []),
-    ];
+    // Raw pinned progress lines; `compressCallLog` renders them on failure.
+    const log = [`${title} with timeout ${timeout}ms`];
+    const waitingFor = selector
+      ? [`waiting for ${asLocator("javascript", selector)}`]
+      : [];
     if (signal.aborted)
       return isTargetClosedError(signal.reason)
-        ? { matches: isNot, log: callLogLines([...log, signal.reason.reason]) }
+        ? unmatchedExpectation("aborted", isNot, signal, [
+            ...log,
+            ...waitingFor,
+          ])
         : alreadyAbortedExpectationResult(isNot, signal);
 
-    // Pinned Frame.expect parses ARIA YAML before it logs or checks anything,
-    // and reports a parse error with the step title as its only log line.
-    if (
-      expression === "to.match.aria" &&
-      typeof options.expectedValue === "string" &&
-      options.expectedValue
-    ) {
-      try {
-        options = {
-          ...options,
-          expectedValue: parseAriaExpectation(options.expectedValue),
-        };
-      } catch (error) {
-        return {
-          matches: isNot,
-          errorMessage: `Error: ${asError(error).message}`,
-          log: callLogLines([`${title} with timeout ${timeout}ms`]),
-        };
-      }
-    }
-
-    const deadline = Date.now() + timeout;
     let lastAttempt: LocatorExpectationAttempt | undefined;
+    const unmatched = (ending: UnmatchedEnding): LocatorExpectationResult =>
+      unmatchedExpectation(
+        ending,
+        isNot,
+        signal,
+        log,
+        lastAttempt && {
+          received: lastAttempt.received,
+          errorMessage: lastAttempt.missing
+            ? "Error: element(s) not found"
+            : undefined,
+        }
+      );
 
-    // Pinned `Frame.expect` reports a timeout, a mid-wait abort and the page's
-    // closure alike: the last attempt's received value and error, with the
-    // abort or the closed error only in the log.
-    const unmatched = (
-      ending: "timedOut" | "aborted"
-    ): LocatorExpectationResult => ({
-      matches: isNot,
-      received: lastAttempt?.received,
-      timedOut: ending === "timedOut" || undefined,
-      errorMessage: lastAttempt?.missing
-        ? "Error: element(s) not found"
-        : undefined,
-      log: callLogLines([
-        ...log,
-        ...(lastAttempt ? attemptLog(expression, lastAttempt) : []),
-        ...(ending === "aborted" ? [interruptionLine(signal)] : []),
-      ]),
-    });
+    let injectedOptions: LocatorExpectationOptions;
+    try {
+      injectedOptions = injectedExpectationOptions(expression, options);
+    } catch (error) {
+      return unmatched({ error });
+    }
+    log.push(...waitingFor);
+    const deadline = Date.now() + timeout;
+
+    // Pinned `Frame._expectInternal` logs every check that does not settle the
+    // assertion, the one-shot check included.
+    const check = async (): Promise<LocatorExpectationAttempt> => {
+      const attempt = await this.expectOnce(
+        effectiveSelector,
+        expression,
+        injectedOptions
+      );
+      if (attempt.matches === isNot)
+        log.push(...attemptLog(expression, attempt));
+      return attempt;
+    };
+
     // Pinned Frame.expect runs the locator handlers before its first check
     // and before every retry, within the assertion's timeout. Their pinned
     // call log lines are nested under `waiting for`.
@@ -897,9 +901,14 @@ export class PageImpl {
 
     // The pinned server performs an immediate check before entering its retry
     // loop. It lets already-matching assertions succeed even with tiny timeouts.
-    lastAttempt = await this.expectOnce(effectiveSelector, expression, options);
+    try {
+      lastAttempt = await check();
+    } catch (error) {
+      return unmatched({ error });
+    }
     if (lastAttempt.matches !== isNot) return { matches: !isNot };
 
+    // `_expect` below logs its document reads on this same schedule.
     let retryIndex = 0;
 
     while (Date.now() < deadline) {
@@ -918,11 +927,11 @@ export class PageImpl {
         if (preCheck !== "done") return unmatched(preCheck);
       }
 
-      lastAttempt = await this.expectOnce(
-        effectiveSelector,
-        expression,
-        options
-      );
+      try {
+        lastAttempt = await check();
+      } catch (error) {
+        return unmatched({ error });
+      }
       if (lastAttempt.matches !== isNot) return { matches: !isNot };
     }
 
@@ -981,77 +990,72 @@ export class PageImpl {
       return { matches, received };
     };
 
-    if (signal.aborted)
-      return isTargetClosedError(signal.reason)
-        ? {
-            matches: isNot,
-            log: callLogLines([
-              `${title} with timeout ${timeout}ms`,
-              signal.reason.reason,
-            ]),
-          }
-        : alreadyAbortedExpectationResult(isNot, signal);
-
     // Pinned `Frame.expect` checks the document element (`:root`) when no
     // locator is given, so the page log names it as the resolved locator.
-    const handlerLog: string[] = [];
-    const callLog = (last?: { received: string }) =>
-      callLogLines([
-        `${title} with timeout ${timeout}ms`,
-        ...handlerLog,
-        ...(last
-          ? [
-              `  locator resolved to ${this.previewNode(this.document.documentElement)}`,
-              `  unexpected value "${last.received}"`,
-            ]
-          : []),
-      ]);
-    const unmatched = (
-      ending: "aborted" | "timedOut" | { error: unknown },
-      last?: { received: string }
-    ): PageExpectationResult => {
-      const failed = {
-        matches: isNot,
-        ...(last ? { received: { value: last.received } } : {}),
-      };
-      if (ending === "aborted")
-        // A URL predicate waits through pinned `waitForURL`, whose abort
-        // reaches the matcher as the assertion error; every other form, and
-        // every form the page's closure ends, ends like a timeout, with the
-        // abort or the closed error only in the log.
-        return !isTargetClosedError(signal.reason) &&
-          (typeof options.expected === "function" ||
-            isURLPattern(options.expected))
-          ? {
-              ...failed,
-              errorMessage: `Error: ${assertionAbortedMessage(signal.reason)}`,
-            }
-          : {
-              ...failed,
-              log: [
-                ...callLog(last),
-                ...callLogLines([interruptionLine(signal)]),
-              ],
-            };
-      if (ending === "timedOut")
-        return { ...failed, timeout, timedOut: true, log: callLog(last) };
-      return {
-        ...failed,
-        errorMessage: `Error: ${asError(ending.error).message}`,
-        log: callLog(last),
-      };
+    // Raw pinned progress lines; `compressCallLog` renders them on failure.
+    const log = [`${title} with timeout ${timeout}ms`];
+    if (signal.aborted)
+      return isTargetClosedError(signal.reason)
+        ? unmatchedExpectation("aborted", isNot, signal, log)
+        : alreadyAbortedExpectationResult(isNot, signal);
+
+    // The document is read on every observation, every 20 ms at least. The
+    // log records a failing read on the retry schedule of `expect` above, as
+    // the pinned server logs each of its retries, so the counts stay
+    // comparable and a long wait stays readable.
+    let retryIndex = 0;
+    let nextLogAt = 0;
+    const check = () => {
+      const last = read();
+      if (last.matches === isNot && Date.now() >= nextLogAt) {
+        log.push(
+          `  locator resolved to ${this.previewNode(this.document.documentElement)}`,
+          `  unexpected value "${last.received}"`
+        );
+        nextLogAt = Date.now() + expectationBackoff(timeout, retryIndex++);
+      }
+      return last;
     };
+    const predicate = isURLPredicateExpectation(options.expected);
+    const unmatched = (
+      ending: UnmatchedEnding,
+      last?: { received: string }
+    ): PageExpectationResult =>
+      // A URL predicate or pattern waits through pinned `waitForURL`, whose
+      // abort reaches the matcher as the assertion error. That matcher shows
+      // no call log or ARIA snapshot.
+      predicate && ending === "aborted" && !isTargetClosedError(signal.reason)
+        ? {
+            matches: isNot,
+            received: last && { value: last.received },
+            errorMessage: `Error: ${assertionAbortedMessage(signal.reason)}`,
+          }
+        : unmatchedExpectation(
+            ending,
+            isNot,
+            signal,
+            log,
+            last && {
+              // Pinned `InjectedScript._ariaSnapshotForExpect` snapshots the
+              // page for a failing title or URL check.
+              received: {
+                value: last.received,
+                ariaSnapshot: predicate ? undefined : this.bodyAriaSnapshot(),
+              },
+            }
+          );
 
     // Pinned Frame.expect runs the locator handlers before its first check
     // and before every retry, on the assertion's one deadline. A retry here is
     // a document observation, so one due while observing runs first and the
-    // check waits for the next observation.
+    // check waits for the next observation. Their pinned call log lines are
+    // nested under the step title.
     const handlerDeadline = {
       timeout,
       expiresAt: timeout > 0 ? Date.now() + timeout : Infinity,
       signal,
     };
-    const logHandler = (line: string) => handlerLog.push(`  ${line}`);
+    const logHandler = (line: string) => log.push(`  ${line}`);
     const handlerTimeout = () =>
       new AdapterTimeoutError(`Timeout ${timeout}ms exceeded.`);
     if (this.locatorHandlers.size) {
@@ -1068,7 +1072,7 @@ export class PageImpl {
       }
     }
 
-    let last = read();
+    let last = check();
     if (last.matches !== isNot)
       return { matches: !isNot, received: { value: last.received } };
 
@@ -1093,7 +1097,7 @@ export class PageImpl {
             );
           return false;
         }
-        last = read();
+        last = check();
         if (last.matches !== isNot) {
           result = { matches: !isNot, received: { value: last.received } };
           return true;
@@ -1107,28 +1111,36 @@ export class PageImpl {
     );
     if (result) return result;
     if ("aborted" in observation) return unmatched("aborted", last);
-    if ("timedOut" in observation) return unmatched("timedOut", last);
     if ("error" in observation)
       return unmatched({ error: observation.error }, last);
-    return {
-      matches: isNot,
-      received: { value: last.received },
-      log: callLog(last),
-    };
+    // A completed observation always settled `result`.
+    return unmatched("timedOut", last);
   }
 
+  /**
+   * One pinned `Frame._expectInternal` check. `options` are the
+   * InjectedScript expectation options `injectedExpectationOptions` built.
+   */
   private async expectOnce(
     selector: string,
     expression: string,
-    options: Record<string, unknown>
+    options: LocatorExpectationOptions
   ): Promise<LocatorExpectationAttempt> {
-    const expectOptions = options as LocatorExpectationOptions;
     const isArray =
       expression === "to.have.count" || expression.endsWith(".array");
     const elements = this.resolveAll(selector);
 
-    if (!elements.length)
-      return missingExpectationAttempt(expression, expectOptions);
+    if (!elements.length) {
+      const attempt = missingExpectationAttempt(expression, options);
+      // Pinned `_expectInternal` attaches a page-wide ARIA snapshot to a
+      // failing check that found no element, unless the value is a list.
+      if (attempt.matches === !!options.isNot && !isArray) {
+        const ariaSnapshot = this.bodyAriaSnapshot();
+        if (ariaSnapshot)
+          attempt.received = { ...attempt.received, ariaSnapshot };
+      }
+      return attempt;
+    }
 
     // Pinned Frame._expectInternal resolves non-array assertions strictly, so
     // `callMatchedElements` lets the InjectedScript build the violation with
@@ -1142,16 +1154,11 @@ export class PageImpl {
         selector
       );
 
-    const injectedOptions = Object.fromEntries(
-      Object.entries(options).filter(
-        ([key]) => key !== "timeout" && key !== "signal"
-      )
-    );
     const injected = this.injected as typeof this.injected &
       ExpectCapableInjectedScript;
     const result = await injected.expect(
       elements[0],
-      { expression, ...injectedOptions },
+      { expression, ...options },
       elements
     );
     return {
@@ -1162,6 +1169,18 @@ export class PageImpl {
         : this.previewNode(elements[0]),
       missing: false,
     };
+  }
+
+  /**
+   * The page-wide ARIA snapshot pinned `Frame._expectInternal` and
+   * `InjectedScript._ariaSnapshotForExpect` attach to a failure that has no
+   * element of its own to show.
+   */
+  private bodyAriaSnapshot(): string | undefined {
+    if (!this.document.body) return undefined;
+    return (
+      this.injected as typeof this.injected & ExpectCapableInjectedScript
+    ).ariaSnapshotForExpectFailure(this.document.body, { mode: "default" });
   }
 
   // ── Terminal actions ────────────────────────────────────────────
@@ -4378,7 +4397,6 @@ export class PageImpl {
   ): Promise<ActionTarget> {
     let lastError: Error | undefined;
     let retry = 0;
-    const log: string[] = [];
     // Pinned dom.ts `_retryAction` logs each attempt of the pointer actions and
     // of `selectText`, and retries both on its backoff schedule.
     const logsAttempts =
@@ -4386,11 +4404,35 @@ export class PageImpl {
     // Pinned dom.ts `selectText` passes `'selectText'` to `_retryAction`.
     const loggedAction =
       actionName === "select text" ? "selectText" : actionName;
+    const trial = pointerOptions?.trial ? " (trial run)" : "";
+    // Pinned dom.ts `selectText` waits for visibility only.
+    const stateLabel = !pointerOptions
+      ? "visible"
+      : states.includes("enabled")
+        ? "visible, enabled and stable"
+        : "visible and stable";
+    // Raw pinned progress lines of a logged action: frames.ts
+    // `_retryWithProgressIfNotConnected` for the locator and dom.ts
+    // `_retryAction`/`_performPointerAction` for each attempt.
+    // `compressCallLog` renders them when the action times out.
+    const log: string[] =
+      typeof selector === "string"
+        ? [`waiting for ${asLocator("javascript", selector)}`]
+        : [];
+    const logLine = (line: string) => {
+      if (logsAttempts) log.push(line);
+    };
+    // Pinned dom.ts `selectText` logs no settled state and no scrolling.
+    const logPointerLine = (line: string) => {
+      if (pointerOptions) log.push(line);
+    };
+    // The element the log last reported attempting the action on.
+    let attempted: Element | undefined;
     const timeoutError = () =>
       new AdapterTimeoutError(
         `${actionName}: Timeout ${deadline.timeout}ms exceeded.${lastError ? ` ${lastError.message}` : ""}` +
           (logsAttempts
-            ? `\nCall log:\n  - attempting ${loggedAction} action${pointerOptions?.trial ? " (trial run)" : ""}\n${log.join("\n")}`
+            ? `\nCall log:\n${compressCallLog(log).join("\n")}`
             : ""),
         { cause: lastError }
       );
@@ -4406,19 +4448,38 @@ export class PageImpl {
       if (!force && this.locatorHandlers.size)
         await this.locatorHandlers.checkpoint(
           deadline,
-          (line) => {
-            if (pointerOptions) log.push(`  - ${line}`);
-          },
+          (line) => logLine(`  ${line}`),
           timeoutError
         );
       try {
-        const element = this.resolvePointerElement(selector, label, strict);
-        if (logsAttempts && !force)
-          log.push(
-            `  - waiting for element to be ${!pointerOptions ? "visible" : states.includes("enabled") ? "visible, enabled and stable" : "visible and stable"}`
-          );
+        // Pinned dom.ts retries on the element it resolved; an attempt on one
+        // the page has since removed reports it detached.
+        if (!force && attempted && !attempted.isConnected) {
+          logLine(`  waiting for element to be ${stateLabel}`);
+          throw new Error("Element is not connected");
+        }
+        const matches =
+          typeof selector === "string" && !strict
+            ? this.resolveAll(selector)
+            : undefined;
+        const element = matches
+          ? matches[0]
+          : this.resolvePointerElement(selector, label, strict);
+        if (!element) throw new Error(`No elements found for locator ${label}`);
+        if (logsAttempts && element !== attempted) {
+          // Pinned frames.ts `_retryWithProgressIfNotConnected` logs what it
+          // resolved, then dom.ts `_retryAction` starts its attempts afresh.
+          if (typeof selector === "string")
+            logLine(resolvedElementLog(this.previewNode(element), matches));
+          logLine(`attempting ${loggedAction} action${trial}`);
+          attempted = element;
+          retry = 0;
+        }
+        if (!force) logLine(`  waiting for element to be ${stateLabel}`);
         if (!force) await this.ensureActionable(element, states, deadline);
+        if (!force) logPointerLine(`  element is ${stateLabel}`);
         if (Date.now() >= deadline.expiresAt) throwTimeout();
+        logPointerLine("  scrolling into view if needed");
         if (actionName === "scroll into view") {
           // Pinned crPage.scrollRectIntoViewIfNeeded reports `error:notvisible`
           // for a node without a layout object, and the action retries on it.
@@ -4438,6 +4499,7 @@ export class PageImpl {
         }
         // Scrolling can change visibility or expose a covering element.
         if (!force) await this.ensureActionable(element, states, deadline);
+        logPointerLine("  done scrolling");
         const point = checkHitTarget
           ? this.ensureReceivesEvents(element, position, force)
           : actionPoint(element, position, this.window);
@@ -4456,23 +4518,34 @@ export class PageImpl {
           throw error;
         lastError = asError(error);
         const remaining = deadline.expiresAt - Date.now();
-        const delay = logsAttempts
+        let delay = logsAttempts
           ? [0, 20, 100, 100, 500][Math.min(retry++, 4)]
           : ACTION_RETRY_DELAY;
-        if (logsAttempts) {
-          const reason = lastError.message
-            .replace(/^Element/, "element")
-            .replace(
-              /^element does not receive pointer events: (.*)$/,
-              "$1 intercepts pointer events"
-            );
-          log.push(`  - ${reason}`);
-          if (remaining > 0)
-            log.push(
-              `  - retrying ${loggedAction} action`,
-              `  - waiting ${delay}ms`
-            );
-          if (log.length > 60) log.splice(0, log.length - 60);
+        if (!logsAttempts) {
+          // Only pointer actions and selectText keep a pinned call log.
+        } else if (
+          lastError.message.startsWith("No elements found for locator")
+        ) {
+          // Pinned polls for the element without logging.
+        } else if (lastError.message === "Element is not connected") {
+          // Pinned frames.ts resolves the locator again after its first
+          // backoff step, and the next element starts a new attempt.
+          logLine("element was detached from the DOM, retrying");
+          attempted = undefined;
+          delay = 20;
+        } else {
+          logLine(
+            `  ${lastError.message
+              .replace(/^Element/, "element")
+              .replace(
+                /^element does not receive pointer events: (.*)$/,
+                "$1 intercepts pointer events"
+              )}`
+          );
+          // Pinned dom.ts logs these before it waits, so a log that times out
+          // during the wait ends on them.
+          logLine(`retrying ${loggedAction} action${trial}`);
+          if (delay) logLine(`  waiting ${delay}ms`);
         }
         if (remaining <= 0) throw timeoutError();
         try {
@@ -5707,6 +5780,32 @@ function expectationBackoff(timeout: number, retryIndex: number): number {
   return Math.min(backoff, Math.max(1, timeout / 5));
 }
 
+/**
+ * The options pinned `Frame.expect` passes to InjectedScript.expect: the
+ * matcher options without the client-side timeout and signal, with an ARIA
+ * template parsed once, before the call log names the locator. The compiled
+ * parser is already part of this adapter's pinned artifact.
+ */
+function injectedExpectationOptions(
+  expression: string,
+  options: Record<string, unknown>
+): LocatorExpectationOptions {
+  const injectedOptions: LocatorExpectationOptions = Object.fromEntries(
+    Object.entries(options).filter(
+      ([key]) => key !== "timeout" && key !== "signal"
+    )
+  );
+  if (
+    expression === "to.match.aria" &&
+    typeof injectedOptions.expectedValue === "string" &&
+    injectedOptions.expectedValue
+  )
+    injectedOptions.expectedValue = parseAriaExpectation(
+      injectedOptions.expectedValue
+    );
+  return injectedOptions;
+}
+
 function missingExpectationAttempt(
   expression: string,
   options: LocatorExpectationOptions
@@ -5746,8 +5845,71 @@ function missingExpectationAttempt(
   return { matches: isNot, missing: true };
 }
 
+/**
+ * Mirrors the line pinned 26a9e47 frames.ts `_retryWithProgressIfNotConnected`
+ * logs for the element an action targets. `matches` is every element a
+ * non-strict selector resolved to.
+ */
+function resolvedElementLog(
+  preview: string,
+  matches: readonly Element[] | undefined
+): string {
+  return matches && matches.length > 1
+    ? `  locator resolved to ${matches.length} elements. Proceeding with the first one: ${preview}`
+    : `  locator resolved to ${preview}`;
+}
+
 function elementCount(count: number): string {
   return `${count} element${count === 1 ? "" : "s"}`;
+}
+
+type UnmatchedEnding = "timedOut" | "aborted" | { error: unknown };
+
+/**
+ * How pinned 26a9e47 `Frame.expect` ends an assertion that did not match. A
+ * timeout, a mid-wait abort and the page's closure alike report the last
+ * check's received value and error, with the abort or the closed error only in
+ * the call log. An error thrown before a check settles (an ARIA template that
+ * does not parse, an invalid selector, a strict mode violation, an
+ * InjectedScript error) becomes the assertion's error, with the call log so far
+ * and no received value.
+ */
+function unmatchedExpectation<Received>(
+  ending: UnmatchedEnding,
+  isNot: boolean,
+  signal: AbortSignal,
+  log: string[],
+  last?: { received?: Received; errorMessage?: string }
+): {
+  matches: boolean;
+  received?: Received;
+  timedOut?: boolean;
+  errorMessage?: string;
+  log: string[];
+} {
+  if (typeof ending === "object")
+    return {
+      matches: isNot,
+      errorMessage: `Error: ${asError(ending.error).message}`,
+      log: compressCallLog(log),
+    };
+  return {
+    matches: isNot,
+    received: last?.received,
+    timedOut: ending === "timedOut" || undefined,
+    errorMessage: last?.errorMessage,
+    log: compressCallLog(
+      ending === "aborted" ? [...log, interruptionLine(signal)] : log
+    ),
+  };
+}
+
+/**
+ * Whether `toHaveURL` waits through pinned `waitForURL` (a URL predicate or
+ * pattern) instead of `Frame.expect`.
+ */
+export function isURLPredicateExpectation(expected: unknown): boolean {
+  return typeof expected === "function" || isURLPattern(expected);
 }
 
 /**
@@ -5771,14 +5933,6 @@ function attemptLog(
       ? (value as { raw?: unknown }).raw
       : value;
   return [...log, `  unexpected value "${String(rendered)}"`];
-}
-
-/**
- * Mirrors pinned 26a9e47 server/callLog.ts `compressCallLog` for lines that
- * each occur once: nesting follows the line's own leading spaces.
- */
-function callLogLines(lines: readonly string[]): string[] {
-  return lines.map((line) => `  ${/^\s*/.exec(line)![0]}- ${line.trim()}`);
 }
 
 /**

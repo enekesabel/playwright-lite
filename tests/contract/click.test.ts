@@ -414,6 +414,27 @@ describe("Locator.click", () => {
     expect(clicks).toBe(1);
   });
 
+  // Contract coverage: the corpus's detach log test replaces the element by
+  // navigating. Pinned frames.ts restarts the attempt on the new element.
+  it("logs a replaced element as detached and restarts the attempt", async () => {
+    document.body.innerHTML = '<button id="a" disabled>old</button>';
+    const page = createPage();
+    const old = document.querySelector("button")!;
+    setTimeout(() => {
+      const fresh = document.createElement("button");
+      fresh.id = "b";
+      fresh.disabled = true;
+      old.replaceWith(fresh);
+    }, 150);
+    const error = (await page
+      .locator("button")
+      .click({ timeout: 600 })
+      .catch((reason: Error) => reason)) as Error;
+    expect(error.message).toMatch(
+      /\n {4}- waiting for element to be visible, enabled and stable\n {2}- element was detached from the DOM, retrying\n {4}- locator resolved to <button id="b" disabled><\/button>\n {2}- attempting click action\n/
+    );
+  });
+
   it("retries hidden actions until the state becomes actionable", async () => {
     document.body.innerHTML = `
       <button id="button" style="display:none">go</button>

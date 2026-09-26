@@ -199,13 +199,16 @@ describe("expect(locator)", () => {
     expect(error.message).toContain("locator resolved to <input");
     expect(error.message).toContain('unexpected value "unchecked"');
     expect(error.matcherResult?.timeout).toBe(20);
-    // Contract coverage: the corpus checks only that `log` is an array.
-    expect(error.matcherResult?.log).toEqual(
-      expect.arrayContaining([
-        '  - Expect "toBeChecked" with timeout 20ms',
-        '    - unexpected value "unchecked"',
-      ])
-    );
+    // Contract coverage: the corpus checks only that `log` is an array. Pinned
+    // `compressCallLog` counts the repeated checks under `waiting for`.
+    expect(error.matcherResult?.log).toEqual([
+      '  - Expect "toBeChecked" with timeout 20ms',
+      "  - waiting for locator('#check')",
+      expect.stringMatching(
+        /^ {4}\d+ × locator resolved to <input id="check" type="checkbox"\/>$/
+      ),
+      expect.stringMatching(/^ {6,}- unexpected value "unchecked"$/),
+    ]);
 
     const ariaError = (await browserExpect(page.locator("body"))
       .toMatchAriaSnapshot(
@@ -218,6 +221,8 @@ describe("expect(locator)", () => {
         (reason: Error & { matcherResult?: Record<string, unknown> }) => reason
       )) as Error & { matcherResult?: Record<string, unknown> };
     expect(ariaError.matcherResult?.actual).toContain('heading "Title"');
+    // Pinned toMatchAriaSnapshot.ts returns no `ariaSnapshot` field.
+    expect(ariaError.matcherResult).not.toHaveProperty("ariaSnapshot");
   });
 
   // Contract coverage: the corpus asserts toMatchAriaSnapshot's negated form
@@ -262,10 +267,53 @@ describe("expect(locator)", () => {
     const count = (await browserExpect(page.locator("span"))
       .toHaveCount(2, { timeout: 20 })
       .catch((error: Error) => error)) as Error;
-    expect(count.message).toContain(
-      "  - waiting for locator('span')\n" +
-        "    - locator resolved to 0 elements\n" +
-        '    - unexpected value "0"\n'
+    expect(count.message).toMatch(
+      /\n {2}- waiting for locator\('span'\)\n {4}\d+ × locator resolved to 0 elements\n {6,}- unexpected value "0"\n$/
+    );
+  });
+
+  // Contract coverage: the corpus's pre-match errors are an invalid selector
+  // and a strict mode violation on the first check. Pinned `Frame.expect`
+  // parses an ARIA template before it logs `waiting for`, and
+  // toMatchAriaSnapshot.ts returns only four fields for an error.
+  it("reports an ARIA template that does not parse as the assertion's error", async () => {
+    document.body.innerHTML = "<button>X</button>";
+    const error = (await browserExpect(createPage().locator("button"))
+      .toMatchAriaSnapshot("- button [checked=foo]", { timeout: 50 })
+      .catch(
+        (reason: Error & { matcherResult?: Record<string, unknown> }) => reason
+      )) as Error & { matcherResult?: Record<string, unknown> };
+    expect(error.message).toBe(
+      "expect(locator).toMatchAriaSnapshot(expected) failed\n\n" +
+        "Locator: locator('button')\n" +
+        'Expected: "- button [checked=foo]"\n' +
+        'Error: Value of "checked" attribute must be a boolean or "mixed":\n\n' +
+        "button [checked=foo]\n" +
+        "                ^\n\n" +
+        "Call log:\n" +
+        '  - Expect "toMatchAriaSnapshot" with timeout 50ms\n'
+    );
+    expect(Object.keys(error.matcherResult!).sort()).toEqual([
+      "expected",
+      "message",
+      "name",
+      "pass",
+    ]);
+  });
+
+  // Contract coverage: the corpus's strict mode violation happens on the first
+  // check. One that appears mid-wait keeps the checks logged before it.
+  it("reports a strict mode violation found mid-wait with the call log so far", async () => {
+    document.body.innerHTML = "<div>a</div>";
+    window.setTimeout(
+      () => document.body.insertAdjacentHTML("beforeend", "<div>b</div>"),
+      30
+    );
+    const error = (await browserExpect(createPage().locator("div"))
+      .toHaveText("foo", { timeout: 1000 })
+      .catch((reason: Error) => reason)) as Error;
+    expect(error.message).toMatch(
+      /^expect\(locator\)\.toHaveText\(expected\) failed\n\nLocator: locator\('div'\)\nExpected: "foo"\nError: strict mode violation: locator\('div'\) resolved to 2 elements:\n[\s\S]*\n\nCall log:\n {2}- Expect "toHaveText" with timeout 1000ms\n {2}- waiting for locator\('div'\)\n {4}(?:- |\d+ × )locator resolved to <div>a<\/div>\n {4,}- unexpected value "a"\n$/
     );
   });
 
@@ -1016,6 +1064,13 @@ describe("Page assertions", () => {
         `Received: ${JSON.stringify(original)}\n` +
         "Timeout:  20ms\n"
     );
+    // Contract coverage: pinned toHaveURL.ts `toHaveURLWithPredicate` returns
+    // no call log or ARIA snapshot.
+    const predicateResult = (timeout as Error & { matcherResult: object })
+      .matcherResult;
+    expect(predicateResult).toMatchObject({ timeout: 20 });
+    expect(predicateResult).not.toHaveProperty("log");
+    expect(predicateResult).not.toHaveProperty("ariaSnapshot");
 
     const controller = new AbortController();
     const pending = browserExpect(page).toHaveURL(() => false, {
@@ -1067,16 +1122,29 @@ describe("Page assertions", () => {
     const regexFailure = (await browserExpect(page)
       .toHaveTitle(/Hello/, { timeout: 20 })
       .catch((error: Error) => error)) as Error;
-    expect(withoutHtmlAttributes(regexFailure.message)).toBe(
+    const message = withoutHtmlAttributes(regexFailure.message);
+    expect(message).toContain(
       "expect(page).toHaveTitle(expected) failed\n\n" +
         "Expected pattern: /Hello/\n" +
         'Received string:  "Bye"\n' +
         "Timeout: 20ms\n\n" +
         "Call log:\n" +
-        '  - Expect "toHaveTitle" with timeout 20ms\n' +
-        "    - locator resolved to <html>…</html>\n" +
-        '    - unexpected value "Bye"\n'
+        '  - Expect "toHaveTitle" with timeout 20ms\n'
     );
+    expect(message).toMatch(
+      /\n {4}(?:- |\d+ × )locator resolved to <html>…<\/html>\n {4,}- unexpected value "Bye"\n$/
+    );
+    // Contract coverage: the corpus checks a page matcher's `ariaSnapshot`
+    // only. Pinned toMatchText.ts also returns its call log and timeout.
+    expect(
+      (regexFailure as Error & { matcherResult: object }).matcherResult
+    ).toMatchObject({
+      actual: "Bye",
+      timeout: 20,
+      log: expect.arrayContaining([
+        '  - Expect "toHaveTitle" with timeout 20ms',
+      ]),
+    });
   });
 
   it("types Page matchers only for Page values", () => {
