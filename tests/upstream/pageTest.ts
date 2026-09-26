@@ -56,6 +56,24 @@ export function isKnownFailure(titlePath: readonly string[]): boolean {
 }
 
 /**
+ * Marks a known failure as expected to fail and caps its timeout at `cap`,
+ * so a run spends no more than that on a test it expects to fail. A reviewed
+ * baseline entry, and any test outside the corpus, keeps the run's timeout. A
+ * `null` cap, which every promotion run sets, keeps the run's timeout for
+ * known failures too, so a candidate that needs longer can still be promoted;
+ * an ordinary run shows it as a timeout until then. A run without a timeout
+ * stays without one.
+ */
+export function applyKnownFailure(
+  testInfo: Pick<TestInfo, "titlePath" | "timeout" | "fail" | "setTimeout">,
+  cap: number | null
+): void {
+  if (!isKnownFailure(testInfo.titlePath)) return;
+  testInfo.fail();
+  if (cap !== null && testInfo.timeout > cap) testInfo.setTimeout(cap);
+}
+
+/**
  * The `expect.timeout` Playwright Test resolved for the running project, the
  * value its own expect waits by default. The public `TestInfo.project` does
  * not carry the project's `expect` block; the worker hands this same field to
@@ -202,6 +220,9 @@ type AdapterTimeoutFixtures = {
 
 type KnownFailureFixtures = {
   knownFailure: void;
+  // The timeout a known failure runs under (see applyKnownFailure). The
+  // promotion runs' generated configurations set it to `null`.
+  knownFailureTimeout: number | null;
 };
 
 // Adapter method the promotion rerun withholds from the browser adapter. Its
@@ -224,9 +245,10 @@ export const test = base.extend<
   navigationTimeout: [undefined, { option: true, box: true }],
   sabotagedMethod: [undefined, { option: true, box: true }],
   sabotagedMatcher: [undefined, { option: true, box: true }],
+  knownFailureTimeout: [5_000, { option: true, box: true }],
   knownFailure: [
-    async ({}, use, testInfo) => {
-      if (isKnownFailure(testInfo.titlePath)) testInfo.fail();
+    async ({ knownFailureTimeout }, use, testInfo) => {
+      applyKnownFailure(testInfo, knownFailureTimeout);
       await use();
     },
     { auto: true, box: true },

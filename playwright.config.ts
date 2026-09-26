@@ -5,9 +5,13 @@ import { defineConfig, devices } from "@playwright/test";
 // scripts/upstream-baseline.mjs generates a configuration that imports this one
 // and fills the option in with a literal, so the switch travels in that
 // generated file and not in the environment, which a spec could write to.
+// Every promotion run's generated configuration sets `knownFailureTimeout` to
+// `null` the same way, lifting the short timeout the fixture gives tests
+// outside the reviewed baseline.
 export default defineConfig<{
   sabotagedMethod?: string;
   sabotagedMatcher?: string;
+  knownFailureTimeout?: number | null;
 }>({
   testDir: "./tests/upstream",
   testMatch: "*.spec.ts",

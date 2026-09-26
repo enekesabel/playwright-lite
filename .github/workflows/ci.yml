@@ -142,7 +142,9 @@ jobs:
       # underscore-prefixed harness guards, which "Corpus" runs once. The
       # reporter list and the timeout have to be given here because the CLI
       # replaces the configured reporters, and because the baseline check runs
-      # the corpus with the same 15s timeout.
+      # the corpus with the same 15s timeout. Reviewed baseline entries run
+      # under it; the fixture caps every other corpus test, an expected
+      # failure, at a shorter one (knownFailureTimeout in tests/upstream/pageTest.ts).
       - name: Run corpus shard ${{ matrix.shard }}
         shell: bash
         run: |

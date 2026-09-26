@@ -73,7 +73,11 @@ that answers `null` is a JSHandle, which is the kind the evidence records.
 
 ## Baseline promotion
 
-Treat newly passing upstream tests as candidates for review. Before promoting each test:
+Treat newly passing upstream tests as candidates for review. Ordinary corpus runs
+give a test outside the reviewed baseline a 5 s timeout (`knownFailureTimeout` in
+`tests/upstream/pageTest.ts`), so a candidate that needs longer shows there as a
+timeout; `baseline:promote` runs every test under the full timeout. Before
+promoting each test:
 
 1. Read the complete test and relevant setup, then inspect its recorded adapter execution.
 2. Identify the Page or Locator method under test and the assertion that checks its behavior.

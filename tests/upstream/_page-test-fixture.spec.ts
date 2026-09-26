@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
-import { expect, isKnownFailure, test } from "./pageTest";
+import { readFileSync } from "node:fs";
+import { applyKnownFailure, expect, isKnownFailure, test } from "./pageTest";
 
 test.describe("pageTest known corpus failures", () => {
   test("expects corpus tests outside the reviewed baseline to fail", () => {
@@ -18,6 +19,65 @@ test.describe("pageTest known corpus failures", () => {
   test("leaves tests outside the corpus unmarked", () => {
     expect(isKnownFailure(test.info().titlePath)).toBe(false);
     expect(test.info().expectedStatus).toBe("passed");
+    expect(test.info().timeout).toBe(test.info().project.timeout);
+  });
+});
+
+// A stand-in for the TestInfo members applyKnownFailure reads and changes.
+function recordingTestInfo(titlePath: string[], timeout: number) {
+  const info = {
+    titlePath,
+    timeout,
+    failMarked: false,
+    fail() {
+      info.failMarked = true;
+    },
+    setTimeout(next: number) {
+      info.timeout = next;
+    },
+  };
+  return info;
+}
+
+const unreviewedTitlePath = ["page-goto.spec.ts", "an unreviewed upstream test"];
+const reviewedTitlePath = (
+  JSON.parse(
+    readFileSync(new URL("./baseline.json", import.meta.url), "utf8")
+  ) as { reviewed: { id: string }[] }
+).reviewed[0].id.split(" > ");
+
+test.describe("pageTest known-failure timeout", () => {
+  test("ordinary runs give known failures a 5 s timeout", ({
+    knownFailureTimeout,
+  }) => {
+    expect(knownFailureTimeout).toBe(5_000);
+  });
+
+  test("caps a corpus test outside the reviewed baseline", () => {
+    const info = recordingTestInfo(unreviewedTitlePath, 15_000);
+    applyKnownFailure(info, 5_000);
+    expect(info).toMatchObject({ failMarked: true, timeout: 5_000 });
+  });
+
+  test("keeps the run's timeout for a reviewed baseline entry", () => {
+    expect(isKnownFailure(reviewedTitlePath)).toBe(false);
+    const info = recordingTestInfo(reviewedTitlePath, 15_000);
+    applyKnownFailure(info, 5_000);
+    expect(info).toMatchObject({ failMarked: false, timeout: 15_000 });
+  });
+
+  test("keeps the run's timeout for a known failure when a promotion run lifts the cap", () => {
+    const info = recordingTestInfo(unreviewedTitlePath, 15_000);
+    applyKnownFailure(info, null);
+    expect(info).toMatchObject({ failMarked: true, timeout: 15_000 });
+  });
+
+  test("never lengthens a shorter timeout or bounds a run without one", () => {
+    for (const timeout of [2_000, 0]) {
+      const info = recordingTestInfo(unreviewedTitlePath, timeout);
+      applyKnownFailure(info, 5_000);
+      expect(info).toMatchObject({ failMarked: true, timeout });
+    }
   });
 });
 
