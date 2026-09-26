@@ -113,6 +113,30 @@ const closingLink = "see [Closing a page](#closing-a-page)";
 const historyTraversalNote =
   "Needs the browser's Navigation API and rejects without it; returns no `Response`; resolves to `null` without navigating when the Navigation API does not list the adjacent entry (an entry of another origin, an entry beyond one, or any entry in an opaque-origin document such as a sandboxed frame), where Playwright navigates to it; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call, even when already idle.";
 
+/**
+ * How each `page.mouse` member differs, shared by the Mouse ledger and the
+ * README's Mouse section.
+ */
+const mouseDifferences = {
+  move: {
+    lite: "Dispatches pointer and mouse move, over/out and enter/leave events to the element `elementFromPoint()` reports; moving with the left button held from a draggable element starts no HTML drag.",
+    playwright: "Starts an HTML drag from a draggable element.",
+  },
+  down: {
+    lite: "Dispatches `pointerdown`, `mousedown` and, for the right button, `contextmenu`, and moves focus as a press does, but starts no text selection, context menu or autoscroll.",
+    playwright:
+      "The browser also selects text, opens its context menu and autoscrolls.",
+  },
+  up: {
+    lite: "Dispatches `pointerup`, `mouseup` and a `click`, `auxclick` or `dblclick` on the nearest common ancestor of the press and release targets; it drops nothing, since no HTML drag starts.",
+    playwright: "Drops an HTML drag that `move()` started.",
+  },
+  wheel: {
+    lite: "Dispatches a `wheel` event and, unless it is canceled, scrolls the nearest ancestor that can scroll in the deltas' direction, or else the viewport, by the deltas at once.",
+    playwright: "The browser scrolls, smoothly where the platform does.",
+  },
+} as const;
+
 /** The Page events this package fires, in README order. */
 export const events: readonly EventRow[] = [
   {
@@ -325,6 +349,23 @@ export const objectSections: readonly ObjectSection[] = [
       "A `console.*` call made inside a `console` listener is forwarded to the console but fires no further `console` event, so a listener that logs cannot trigger itself.",
     ],
   },
+  {
+    name: "Mouse",
+    covers:
+      "`page.mouse` moves the one pointer that `click()`, `hover()` and the other pointer actions also move, so its position, held buttons and the element under it carry over between them.",
+    members: (["move", "down", "up", "wheel"] as const).map((member) => ({
+      member: `\`${member}()\``,
+      ...mouseDifferences[member],
+    })),
+    differences: [
+      "`click()` and `dblclick()` run `move()`, `down()` and `up()` with the differences above.",
+    ],
+    edgeCases: [
+      "When the element under a still pointer changes, its over/out and enter/leave events fire with the next `mouse` call or pointer action; the browser fires them by itself after the next layout.",
+      "Elements inside a closed shadow root receive nothing; their host receives the events.",
+      "A `wheel` event is always cancelable and reaches the page's listeners before any scroll. When every `wheel` listener is passive, the browser scrolls first and reports `cancelable` as `false`.",
+    ],
+  },
 ];
 
 export const pageLedger = {
@@ -417,7 +458,9 @@ export const pageLedger = {
   localStorage: implemented("Native current-window Storage only."),
   locator: implemented(),
   mainFrame: partial("Returns the same `Page` object, not a `Frame`."),
-  mouse: planned("Synthetic functional input only."),
+  mouse: partial(
+    "No HTML drag, text selection or context menu starts; see [Mouse](#mouse)."
+  ),
   off: partial(removalNote),
   on: partial(listenerNote),
   once: partial(listenerNote),
@@ -597,12 +640,16 @@ export const keyboardLedger = {
 } as const satisfies Ledger<Keyboard>;
 
 export const mouseLedger = {
-  click: planned("Synthetic functional input only."),
-  dblclick: planned("Synthetic functional input only."),
-  down: planned("Synthetic functional input only."),
-  move: planned("Synthetic functional input only."),
-  up: planned("Synthetic functional input only."),
-  wheel: planned("Synthetic functional input only."),
+  click: partial(
+    "Runs `mouse.move()`, `down()` and `up()` with their differences."
+  ),
+  dblclick: partial(
+    "Runs `mouse.move()` once, then `down()` and `up()` twice, with their differences."
+  ),
+  down: partial(mouseDifferences.down.lite),
+  move: partial(mouseDifferences.move.lite),
+  up: partial(mouseDifferences.up.lite),
+  wheel: partial(mouseDifferences.wheel.lite),
 } as const satisfies Ledger<Mouse>;
 
 export const touchscreenLedger = {

@@ -65,7 +65,7 @@ here instead of a row note.
 
 - **Current document only.** No iframe traversal, `Frame`, or `FrameLocator` support.
 - **Navigation ends execution.** `goto()`, `reload()`, `goBack()` and `goForward()` can start navigation, but replacing the document destroys the JavaScript context running your script, so automation cannot continue across a full-page navigation or reload.
-- **Synthetic input.** Input events are not browser-trusted; native keyboard behavior such as cursor movement, deletion and focus traversal is not simulated.
+- **Synthetic input.** Input events are not browser-trusted, so they grant no user activation and never apply CSS `:hover` or `:active`; native keyboard behavior such as cursor movement, deletion and focus traversal is not simulated.
 - **No browser control.** No browser launch, browser contexts, or browser-level control over network traffic, downloads, or other tabs.
 - **Content Security Policy applies.** Evaluation callbacks need the page's policy to allow dynamic JavaScript evaluation; the library does not bypass it.
 - **Closing keeps the document.** `close()` disposes the `Page` object, not the document; see [Closing a page](#closing-a-page).
@@ -104,7 +104,7 @@ Nothing is replaced until you subscribe, and a function the page replaced itself
 `close()` and `[Symbol.asyncDispose]()` dispose the `Page` object `createPage()` returned, where Playwright closes the browser page. The document stays open, and another `createPage()` can still automate it.
 
 - `close` fires with the page, and `isClosed()` returns `true` from then on.
-- Every pending call of the page, its locators, handles, `keyboard`, `localStorage` and `sessionStorage` rejects with `Target page, context or browser has been closed`, or with the `reason` passed to `close()`. Every later async call rejects with the default message; sync members such as `url()` and `locator()` keep working, as in Playwright.
+- Every pending call of the page, its locators, handles, `keyboard`, `mouse`, `localStorage` and `sessionStorage` rejects with `Target page, context or browser has been closed`, or with the `reason` passed to `close()`. Every later async call rejects with the default message; sync members such as `url()` and `locator()` keep working, as in Playwright.
 - The functions the page exposed with `exposeFunction()` or `exposeBinding()` are removed.
 - `runBeforeUnload: true` is rejected, since nothing is unloaded; `false` closes as usual.
 

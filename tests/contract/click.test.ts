@@ -188,7 +188,9 @@ describe("Locator.click", () => {
       "mouseover",
       "mouseenter",
     ])
-      parent.addEventListener(type, () => propagated.push(type));
+      parent.addEventListener(type, (event) =>
+        propagated.push(event.target === parent ? type : `${type} (bubbled)`)
+      );
     button.addEventListener("pointerdown", (event) => {
       targetEvents.push("pointerdown");
       event.preventDefault();
@@ -198,7 +200,13 @@ describe("Locator.click", () => {
 
     await page.locator("button").click();
 
-    expect(propagated).toEqual(["pointerover", "mouseover"]);
+    // The parent is entered too, by its own enter events; only over bubbles.
+    expect(propagated).toEqual([
+      "pointerover (bubbled)",
+      "pointerenter",
+      "mouseover (bubbled)",
+      "mouseenter",
+    ]);
     expect(targetEvents).toEqual(["pointerdown", "click"]);
     expect(document.activeElement).not.toBe(button);
   });

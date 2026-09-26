@@ -139,8 +139,9 @@ Place a test by the member whose behaviour it asserts:
   Inside, `describe("Locator.<member>")` holds the shared behaviour and
   `describe("Page.<member>")` holds only what differs on Page. Placement must be
   mechanical, and the two forms share one implementation.
-- Every other owner gets one file: `keyboard.test.ts`, `element-handle.test.ts`,
-  `js-handle.test.ts`, `expect.test.ts`, `package.test.ts`.
+- Every other owner gets one file: `keyboard.test.ts`, `mouse.test.ts`,
+  `element-handle.test.ts`, `js-handle.test.ts`, `expect.test.ts`,
+  `package.test.ts`.
 - A rule asserted across two or more members goes in
   `tests/contract/rules/<rule>.test.ts`, written once as a case table of
   `[apiName, run]`. The rule files are `cancellation`, `timeouts`,

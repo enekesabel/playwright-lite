@@ -42,6 +42,17 @@ export function validateInteger(value: unknown, name: string): number {
 }
 
 /**
+ * Pinned validatorPrimitives.ts tFloat, as the `page.mouse` members check
+ * their coordinates, deltas and `delay`: a boxed `Number` is unwrapped, and
+ * NaN passes, as it does there.
+ */
+export function validateFloat(value: unknown, name: string): number {
+  if (value instanceof Number) return value.valueOf();
+  if (typeof value === "number") return value;
+  throw new Error(`${name}: expected float, got ${typeof value}`);
+}
+
+/**
  * `delay` is `float?` in the pinned protocol for press, type and the pointer
  * actions. Like the pointer options, a non-finite value is rejected instead of
  * reaching the input path as NaN, and a boxed `Number` is unwrapped for the

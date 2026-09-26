@@ -55,7 +55,7 @@ npm add @enekesabel/playwright-lite
 
 - **Current document only.** No iframe traversal, `Frame`, or `FrameLocator` support.
 - **Navigation ends execution.** `goto()`, `reload()`, `goBack()` and `goForward()` can start navigation, but replacing the document destroys the JavaScript context running your script, so automation cannot continue across a full-page navigation or reload.
-- **Synthetic input.** Input events are not browser-trusted; native keyboard behavior such as cursor movement, deletion and focus traversal is not simulated.
+- **Synthetic input.** Input events are not browser-trusted, so they grant no user activation and never apply CSS `:hover` or `:active`; native keyboard behavior such as cursor movement, deletion and focus traversal is not simulated.
 - **No browser control.** No browser launch, browser contexts, or browser-level control over network traffic, downloads, or other tabs.
 - **Content Security Policy applies.** Evaluation callbacks need the page's policy to allow dynamic JavaScript evaluation; the library does not bypass it.
 - **Closing keeps the document.** `close()` disposes the `Page` object, not the document; see [Closing a page](#closing-a-page).
@@ -94,7 +94,7 @@ Nothing is replaced until you subscribe, and a function the page replaced itself
 `close()` and `[Symbol.asyncDispose]()` dispose the `Page` object `createPage()` returned, where Playwright closes the browser page. The document stays open, and another `createPage()` can still automate it.
 
 - `close` fires with the page, and `isClosed()` returns `true` from then on.
-- Every pending call of the page, its locators, handles, `keyboard`, `localStorage` and `sessionStorage` rejects with `Target page, context or browser has been closed`, or with the `reason` passed to `close()`. Every later async call rejects with the default message; sync members such as `url()` and `locator()` keep working, as in Playwright.
+- Every pending call of the page, its locators, handles, `keyboard`, `mouse`, `localStorage` and `sessionStorage` rejects with `Target page, context or browser has been closed`, or with the `reason` passed to `close()`. Every later async call rejects with the default message; sync members such as `url()` and `locator()` keep working, as in Playwright.
 - The functions the page exposed with `exposeFunction()` or `exposeBinding()` are removed.
 - `runBeforeUnload: true` is rejected, since nothing is unloaded; `false` closes as usual.
 
@@ -203,7 +203,7 @@ Targets Playwright **1.62.1**. Statuses describe API compatibility within the ru
 | [`localStorage`](https://playwright.dev/docs/api/class-page#page-local-storage)                                 |   ✅   |                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | [`locator`](https://playwright.dev/docs/api/class-page#page-locator)                                            |   ✅   |                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | [`mainFrame`](https://playwright.dev/docs/api/class-page#page-main-frame)                                       |   ⚠️   | Returns the same `Page` object, not a `Frame`.                                                                                                                                                                                                                                                                                                                                                                                                   |
-| [`mouse`](https://playwright.dev/docs/api/class-page#page-mouse)                                                |   ❌   |                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| [`mouse`](https://playwright.dev/docs/api/class-page#page-mouse)                                                |   ⚠️   | No HTML drag, text selection or context menu starts; see [Mouse](#mouse).                                                                                                                                                                                                                                                                                                                                                                        |
 | [`off`](https://playwright.dev/docs/events)                                                                     |   ⚠️   | Only the [supported events](#events) ever fire; other names are accepted.                                                                                                                                                                                                                                                                                                                                                                        |
 | [`on`](https://playwright.dev/docs/events)                                                                      |   ⚠️   | Fires only the [supported events](#events); other names never fire.                                                                                                                                                                                                                                                                                                                                                                              |
 | [`once`](https://playwright.dev/docs/events)                                                                    |   ⚠️   | Fires only the [supported events](#events); other names never fire.                                                                                                                                                                                                                                                                                                                                                                              |
@@ -548,6 +548,30 @@ The package exports `Request` and `Response` types listing exactly the available
 - `location()` is best-effort and can be off by a frame.
 - While a `console.*` method is wrapped, stacks the browser captures gain a frame inside this package, including DevTools' call-site link for a logged message and the stack `console.trace()` prints.
 - A `console.*` call made inside a `console` listener is forwarded to the console but fires no further `console` event, so a listener that logs cannot trigger itself.
+
+</details>
+
+### Mouse
+
+`page.mouse` moves the one pointer that `click()`, `hover()` and the other pointer actions also move, so its position, held buttons and the element under it carry over between them.
+
+**Differences from Playwright:**
+
+| Member    | playwright-lite                                                                                                                                                                                | Playwright                                                             |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `move()`  | Dispatches pointer and mouse move, over/out and enter/leave events to the element `elementFromPoint()` reports; moving with the left button held from a draggable element starts no HTML drag. | Starts an HTML drag from a draggable element.                          |
+| `down()`  | Dispatches `pointerdown`, `mousedown` and, for the right button, `contextmenu`, and moves focus as a press does, but starts no text selection, context menu or autoscroll.                     | The browser also selects text, opens its context menu and autoscrolls. |
+| `up()`    | Dispatches `pointerup`, `mouseup` and a `click`, `auxclick` or `dblclick` on the nearest common ancestor of the press and release targets; it drops nothing, since no HTML drag starts.        | Drops an HTML drag that `move()` started.                              |
+| `wheel()` | Dispatches a `wheel` event and, unless it is canceled, scrolls the nearest ancestor that can scroll in the deltas' direction, or else the viewport, by the deltas at once.                     | The browser scrolls, smoothly where the platform does.                 |
+
+- `click()` and `dblclick()` run `move()`, `down()` and `up()` with the differences above.
+
+<details>
+<summary>Edge cases</summary>
+
+- When the element under a still pointer changes, its over/out and enter/leave events fire with the next `mouse` call or pointer action; the browser fires them by itself after the next layout.
+- Elements inside a closed shadow root receive nothing; their host receives the events.
+- A `wheel` event is always cancelable and reaches the page's listeners before any scroll. When every `wheel` listener is passive, the browser scrolls first and reports `cancelable` as `false`.
 
 </details>
 

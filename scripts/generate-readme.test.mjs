@@ -30,7 +30,7 @@ test("README renders API compatibility without repeating runtime boundaries", as
   assert.match(row("getByRole"), /\|\s*✅\s*\|\s*\|$/u);
   assert.match(row("ariaSnapshot"), /\|\s*✅\s*\|\s*\|$/u);
   assert.match(row("goto"), /\|\s*⚠️\s*\|.+/u);
-  assert.match(row("mouse"), /\|\s*❌\s*\|\s*\|$/u);
+  assert.match(row("touchscreen"), /\|\s*❌\s*\|\s*\|$/u);
   assert.match(row("close"), /\|\s*⚠️\s*\|.+/u);
   assert.match(row("frame"), /\|\s*🚫\s*\|.+/u);
   assert.match(row("[Symbol.asyncDispose]()"), /\|\s*⚠️\s*\|.+/u);
