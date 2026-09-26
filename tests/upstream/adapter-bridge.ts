@@ -1299,6 +1299,8 @@ function createPageProxy(realPage: Page, state: AdapterPageState): Page {
       // Touchscreen is the same kind of property; its tap executes in the
       // browser adapter and never on the native Playwright touchscreen.
       if (prop === "touchscreen") return createTouchscreenProxy(realPage);
+      // Mouse is the same kind of property, with the same transport.
+      if (prop === "mouse") return createMouseProxy(realPage);
       if (prop === "localStorage" || prop === "sessionStorage")
         return storage[prop];
 
@@ -1779,6 +1781,40 @@ function createTouchscreenProxy(realPage: Page): Page["touchscreen"] {
         },
         { args: encodeBridgeValueForPage([x, y], realPage) as unknown[] }
       ),
+  };
+}
+
+// page.mouse is a synchronous property like keyboard, and its members must
+// execute in the browser adapter. A member the adapter lacks is reported by
+// the adapter side, as for any Page member, so the failure is the adapter's.
+function createMouseProxy(realPage: Page) {
+  const call = async (method: string, args: unknown[]) => {
+    return await evaluateAdapter<void>(
+      realPage,
+      ({ method: member, args: rawArgs }) => {
+        const host = window as any;
+        return host.__pwLiteInvokeAdapter(() => {
+          const mouse = host.__pwLiteAdapterPage.mouse;
+          if (typeof mouse?.[member] !== "function")
+            throw new TypeError(
+              `__pwLiteAdapterPage.mouse.${member} is not a function`
+            );
+          return mouse[member](...host.__pwLiteDecodeBridgeValue(rawArgs));
+        });
+      },
+      { method, args: encodeBridgeValueForPage(args, realPage) as unknown[] }
+    );
+  };
+  return {
+    move: (x: number, y: number, options?: unknown) =>
+      call("move", [x, y, options]),
+    down: (options?: unknown) => call("down", [options]),
+    up: (options?: unknown) => call("up", [options]),
+    click: (x: number, y: number, options?: unknown) =>
+      call("click", [x, y, options]),
+    dblclick: (x: number, y: number, options?: unknown) =>
+      call("dblclick", [x, y, options]),
+    wheel: (deltaX: number, deltaY: number) => call("wheel", [deltaX, deltaY]),
   };
 }
 
@@ -2751,6 +2787,15 @@ function initializeAdapterBridge(
     "type",
     "insertText",
   ]);
+  if (host.__pwLiteAdapterPage.mouse)
+    instrument(host.__pwLiteAdapterPage.mouse, "Mouse", [
+      "move",
+      "down",
+      "up",
+      "click",
+      "dblclick",
+      "wheel",
+    ]);
   for (const kind of ["localStorage", "sessionStorage"])
     instrument(host.__pwLiteAdapterPage[kind], `Page.${kind}`, [
       "items",

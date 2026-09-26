@@ -469,6 +469,21 @@ test("a call the bridge dispatches to a missing adapter member is a transport fa
   ]);
 });
 
+test("a page.mouse call to a missing adapter member is reported like a missing Page member", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.evaluate(() => {
+    (window as any).__pwLiteAdapterPage.mouse = undefined;
+  });
+  await expect((adapterPage as any).mouse.move(1, 1)).rejects.toThrow(
+    "__pwLiteAdapterPage.mouse.move is not a function"
+  );
+  expect((page as any).__pwLiteTransportFailures).toEqual([
+    expect.stringContaining("__pwLiteAdapterPage.mouse.move is not a function"),
+  ]);
+});
+
 test("a bridge error is not withdrawn by a concurrent adapter error with the same first line", async ({
   page,
   adapterPage,
@@ -2285,7 +2300,49 @@ test("proxy does not expose real driver sub-objects", async ({
     ])
   );
 
-  await expect((adapterPage as any).mouse("click", 0, 0)).rejects.toThrow();
+  // Mouse is routed like the keyboard. Poison the native members and stand a
+  // recording stub in for the adapter's mouse: each member, with its
+  // arguments, must reach the browser entry and nothing native.
+  const mouseMembers = ["move", "down", "up", "click", "dblclick", "wheel"];
+  for (const method of mouseMembers)
+    (page.mouse as any)[method] = () => {
+      throw new Error(`native mouse.${method} must not be used`);
+    };
+  await page.evaluate((members) => {
+    const host = window as any;
+    host.__pwLiteGuardMouse = host.__pwLiteAdapterPage.mouse;
+    host.__pwLiteGuardMouseCalls = [];
+    host.__pwLiteAdapterPage.mouse = Object.fromEntries(
+      members.map((member) => [
+        member,
+        async (...args: unknown[]) =>
+          host.__pwLiteGuardMouseCalls.push([member, args]),
+      ])
+    );
+  }, mouseMembers);
+  try {
+    await proxyMouse.move(1, 2, { steps: 3 });
+    await proxyMouse.down({ button: "middle" });
+    await proxyMouse.up({ clickCount: 2 });
+    await proxyMouse.click(4, 5, { delay: 1 });
+    await proxyMouse.dblclick(6, 7, { button: "right" });
+    await proxyMouse.wheel(8, 9);
+    expect(
+      await page.evaluate(() => (window as any).__pwLiteGuardMouseCalls)
+    ).toEqual([
+      ["move", [1, 2, { steps: 3 }]],
+      ["down", [{ button: "middle" }]],
+      ["up", [{ clickCount: 2 }]],
+      ["click", [4, 5, { delay: 1 }]],
+      ["dblclick", [6, 7, { button: "right" }]],
+      ["wheel", [8, 9]],
+    ]);
+  } finally {
+    await page.evaluate(() => {
+      const host = window as any;
+      host.__pwLiteAdapterPage.mouse = host.__pwLiteGuardMouse;
+    });
+  }
 
   // Touchscreen is an adapter-routed object too. The adapter has no
   // touchscreen yet, so the browser reports the missing member and the native
