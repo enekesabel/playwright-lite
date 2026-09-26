@@ -17,6 +17,17 @@ native driver. Every operation under review and every assertion in those specs
 still uses the browser adapter. Native `goto` ends at the test's first adapter
 call: a listed spec's later `goto` routes through the adapter like any other
 member and fails there, so a mid-test navigation is never faked.
+`Selectors.register` is the one adapter call that does not end native setup
+navigation: Playwright's registry is Playwright-wide (pinned
+`client/selectors.ts` keeps `_selectorEngines` per instance and
+`server/dom.ts` hands `customEngines` to every InjectedScript it creates), so
+the bridge repeats an accepted registration in each later document through an
+init script. That repeat waits for the adapter bootstrap, since Playwright
+leaves init-script order undefined. It is not recorded as a call, the evidence
+holds only the test's own call, a repeat that fails or never meets a bootstrap
+is recorded in the execution evidence's `failures`, and a rejected or sabotaged
+registration is never repeated. The next adapter member still ends native
+`goto`.
 
 Specs whose subject is navigation itself (`page-goto.spec.ts`) are never listed.
 A goto-as-subject test inside a listed mixed file can still pass

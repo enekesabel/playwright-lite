@@ -1,5 +1,5 @@
 import { test as base, expect, type Page } from "@playwright/test";
-import { createAdapterPage } from "./adapter-bridge";
+import { createAdapterPage, installSelectorsRegisterRoute, readAdapterEvidence, selectorsReplaysWithoutBootstrap } from "./adapter-bridge";
 import { browserTest, contextTest } from "../config/browserTest";
 
 // Transport guards, not upstream compatibility promotions. Native navigation
@@ -284,6 +284,178 @@ base("native setup navigation ends at the first adapter call", async ({ page }) 
   expect(adapter.url()).toBe("http://pw-lite.test/one#second");
   expect((page as any).__pwLiteNativeOperations).toEqual(["Page.goto"]);
   expect(await page.evaluate(() => (window as any).__pwLiteEvidence.entered)).toContain("Page.goto");
+});
+
+// Stands in for the adapter's own `selectors` in this document and every later
+// one, so these guards observe only what the route delivers to it. Like the
+// route's repeat, it waits for the adapter bootstrap when its init script runs
+// first, and it notes which of the two it saw. `rejectIn` makes it reject in
+// the fixture's first document (about:blank) or in the documents after it; it
+// records every call it accepts.
+function installSelectorsStub(rejectIn?: "first" | "later") {
+  const host = window as any;
+  const first = location.href === "about:blank";
+  host.__stubRanAfterBootstrap = !!host.__pwLiteBootstrapped;
+  const install = () => {
+    host.__pwLiteAdapter.selectors = {
+      register(name: unknown, script: unknown, options: unknown) {
+        if ((rejectIn === "first" && first) || (rejectIn === "later" && !first))
+          throw new Error(`stub rejection in the ${first ? "first" : "later"} document`);
+        (host.__registered ??= []).push({
+          name,
+          script: typeof script === "function" ? `function:${script.toString()}` : script,
+          options,
+        });
+      },
+    };
+  };
+  if (host.__pwLiteBootstrapped) install();
+  else (host.__pwLiteOnBootstrap ??= []).push(install);
+}
+
+// `initScripts: "context"` puts the stub and the route's repeat in the
+// context's init scripts, which run before the page's adapter bootstrap.
+async function routedSelectorsPage(
+  page: Page,
+  options: { sabotagedMethod?: string; rejectIn?: "first" | "later"; initScripts?: "page" | "context" } = {}
+) {
+  await page.context().route("http://pw-lite.test/**", route => route.fulfill({
+    contentType: "text/html",
+    body: "<button>Target</button>",
+  }));
+  const adapter = await createAdapterPage(page, { nativeNavigationForSetup: true, sabotagedMethod: options.sabotagedMethod });
+  const initScripts = options.initScripts === "context" ? page.context() : page;
+  await initScripts.addInitScript(installSelectorsStub, options.rejectIn);
+  await page.evaluate(installSelectorsStub, options.rejectIn);
+  return { adapter, initScripts };
+}
+
+base("selectors.register reaches the adapter and repeats, unrecorded, in each later document", async ({ page, playwright }) => {
+  const { adapter } = await routedSelectorsPage(page);
+  const nativeRegister = playwright.selectors.register;
+  const restore = installSelectorsRegisterRoute(page, playwright);
+  try {
+    const engine = () => ({ query: () => null, queryAll: () => [] });
+    await playwright.selectors.register("guardEngine", engine, { contentScript: true });
+    await playwright.selectors.register("guardSource", "({ queryAll: () => [] })");
+    const registered = [
+      { name: "guardEngine", script: `function:${engine.toString()}`, options: { contentScript: true } },
+      { name: "guardSource", script: "({ queryAll: () => [] })" },
+    ];
+    expect(await page.evaluate(() => (window as any).__registered)).toEqual(registered);
+
+    // Registration configures every document, so setup navigation stays native.
+    await adapter.goto("http://pw-lite.test/one");
+    expect((page as any).__pwLiteNativeOperations).toEqual(["Page.goto"]);
+    expect(await page.evaluate(() => (window as any).__registered)).toEqual(registered);
+    const entered = await page.evaluate(() => (window as any).__pwLiteEvidence.entered);
+    expect(entered.filter((method: string) => method === "Selectors.register")).toEqual([
+      "Selectors.register",
+      "Selectors.register",
+    ]);
+  } finally {
+    await restore();
+  }
+  expect((page as any).__pwLiteTransportFailures).toEqual([]);
+  expect(playwright.selectors.register).toBe(nativeRegister);
+});
+
+// Chromium runs a page's init scripts in the order they were added, and a new
+// page receives its context's scripts before any of its own. The first case
+// adds the repeat after the adapter bootstrap; the second creates a page whose
+// adapter bootstrap comes after the repeat, the order Playwright may also pick.
+for (const bootstrap of ["first", "last"] as const) {
+  base(`a registration repeats in a later document whose adapter bootstrap runs ${bootstrap}`, async ({ page, playwright }) => {
+    const routed = await routedSelectorsPage(page, { initScripts: bootstrap === "first" ? "page" : "context" });
+    const restore = installSelectorsRegisterRoute(page, playwright, routed.initScripts);
+    const other = bootstrap === "last" ? await page.context().newPage() : undefined;
+    try {
+      await playwright.selectors.register("guardEngine", "({ queryAll: () => [] })");
+      const target = other ?? page;
+      const adapter = other ? await createAdapterPage(other, { nativeNavigationForSetup: true }) : routed.adapter;
+      await adapter.goto("http://pw-lite.test/one");
+      expect(await target.evaluate(() => (window as any).__stubRanAfterBootstrap)).toBe(bootstrap === "first");
+      expect(await target.evaluate(() => (window as any).__registered)).toEqual([
+        { name: "guardEngine", script: "({ queryAll: () => [] })" },
+      ]);
+      expect(((await readAdapterEvidence(target)) as { failures: string[] }).failures).toEqual([]);
+    } finally {
+      await restore();
+      await other?.close();
+    }
+    expect((page as any).__pwLiteTransportFailures).toEqual([]);
+  });
+}
+
+base("an adapter rejection of selectors.register reaches the caller and repeats nowhere", async ({ page, playwright }) => {
+  // The stub accepts every call in later documents, so a repeated rejection
+  // would show up there.
+  const { adapter } = await routedSelectorsPage(page, { rejectIn: "first" });
+  const restore = installSelectorsRegisterRoute(page, playwright);
+  try {
+    await expect(playwright.selectors.register("guardEngine", "({})")).rejects.toThrow(
+      "stub rejection in the first document"
+    );
+    await adapter.goto("http://pw-lite.test/one");
+    expect(await page.evaluate(() => (window as any).__registered)).toBeUndefined();
+  } finally {
+    await restore();
+  }
+  expect((page as any).__pwLiteTransportFailures).toEqual([]);
+});
+
+base("a repeat the adapter rejects in a later document is an evidence failure", async ({ page, playwright }) => {
+  const { adapter } = await routedSelectorsPage(page, { rejectIn: "later" });
+  const restore = installSelectorsRegisterRoute(page, playwright);
+  try {
+    await playwright.selectors.register("guardEngine", "({})");
+    await adapter.goto("http://pw-lite.test/one");
+    expect(await page.evaluate(() => (window as any).__registered)).toBeUndefined();
+    // A second native navigation carries the failure into the next document.
+    await adapter.goto("http://pw-lite.test/two");
+  } finally {
+    await restore();
+  }
+  expect(((await readAdapterEvidence(page)) as { failures: string[] }).failures).toEqual([
+    "Selectors.register replay: stub rejection in the later document",
+    "Selectors.register replay: stub rejection in the later document",
+  ]);
+  expect((page as any).__pwLiteTransportFailures).toEqual([]);
+});
+
+base("a repeat in a document whose adapter bootstrap never runs is a failure", async ({ page, playwright }) => {
+  const routed = await routedSelectorsPage(page, { initScripts: "context" });
+  const restore = installSelectorsRegisterRoute(page, playwright, routed.initScripts);
+  try {
+    await playwright.selectors.register("guardEngine", "({})");
+    // Another page of the context runs the repeat but has no adapter.
+    const other = await page.context().newPage();
+    await other.goto("http://pw-lite.test/one");
+    expect(await selectorsReplaysWithoutBootstrap(other)).toEqual([
+      "Selectors.register replay: the adapter bootstrap never ran in this document",
+    ]);
+    await other.close();
+  } finally {
+    await restore();
+  }
+});
+
+base("a sabotaged selectors.register never reaches the adapter, here or later", async ({ page, playwright }) => {
+  const { adapter } = await routedSelectorsPage(page, { sabotagedMethod: "Selectors.register" });
+  const restore = installSelectorsRegisterRoute(page, playwright);
+  try {
+    await expect(playwright.selectors.register("guardEngine", "({})")).rejects.toThrow(
+      "Selectors.register was withheld"
+    );
+    expect(await page.evaluate(() => (window as any).__registered)).toBeUndefined();
+    expect(((await readAdapterEvidence(page)) as { withheld: string[] }).withheld).toEqual([
+      "Selectors.register",
+    ]);
+    await adapter.goto("http://pw-lite.test/one");
+    expect(await page.evaluate(() => (window as any).__registered)).toBeUndefined();
+  } finally {
+    await restore();
+  }
 });
 
 test("highlight validates its style like stock Playwright before rendering", async ({ page, adapterPage }) => {

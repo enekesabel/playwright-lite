@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   createAdapterPage,
+  installSelectorsRegisterRoute,
   installTestIdAttributeSynchronization,
   isAdapterExpectationTarget,
   readAdapterEvidence,
@@ -155,6 +156,7 @@ const nativeNavigationForSetupSpecs = new Set([
   "selectors-css.spec.ts",
   "selectors-frame.spec.ts",
   "selectors-misc.spec.ts",
+  "selectors-register.spec.ts",
   "selectors-text.spec.ts",
   "tap.spec.ts",
   "wheel.spec.ts",
@@ -267,12 +269,25 @@ export const test = base.extend<
           basename(testInfo.file)
         ),
       });
-      await use(proxyPage);
+      const restoreSelectorsRegister = installSelectorsRegisterRoute(
+        page,
+        playwright
+      );
+      try {
+        await use(proxyPage);
+      } finally {
+        await restoreSelectorsRegister();
+      }
     } finally {
       await resetTestIdAttribute();
       const evidence: any = await readAdapterEvidence(page).catch(() => null);
       if (evidence) {
-        evidence.failures = (page as any).__pwLiteTransportFailures;
+        // The document records what failed in it (a repeated registration);
+        // the Node side records what failed on the way there.
+        evidence.failures = [
+          ...(evidence.failures ?? []),
+          ...(page as any).__pwLiteTransportFailures,
+        ];
         evidence.native = (page as any).__pwLiteNativeOperations;
       }
       testInfo.annotations.push({
