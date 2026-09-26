@@ -1291,16 +1291,62 @@ test("adapter locator.click reaches the DOM", async ({ page, adapterPage }) => {
   expect(title).toBe("adapter-click");
 });
 
-test("adapter locator descriptions share runtime formatting", async ({
+test("the bridge answers locator descriptions as the adapter does", async ({
+  page,
   adapterPage,
 }) => {
-  const locator = adapterPage.getByRole("button", { name: "Save" });
+  const chains = [
+    (p: any) => p.getByRole("button", { name: "Save" }),
+    (p: any) => p.getByRole("button", { name: "Save" }).describe("Save"),
+    (p: any) => p.locator("div").describe(""),
+    (p: any) => p.locator("div").describe("Rows").filter({}),
+    (p: any) => p.locator("div").filter({ hasText: "x" }).nth(1),
+    (p: any) => p.getByTestId("row").and(p.locator("li").describe("Item")),
+  ];
+  for (const chain of chains) {
+    const locator = chain(adapterPage);
+    const adapterAnswer = await page.evaluate((source) => {
+      const locator = (0, eval)(source)((window as any).__pwLiteAdapterPage);
+      return [locator.toString(), locator.description()];
+    }, String(chain));
+    expect([locator.toString(), locator.description()]).toEqual(adapterAnswer);
+  }
+  expect(chains[2]!(adapterPage).description()).toBeNull();
+  expect(chains[3]!(adapterPage).description()).toBe("Rows");
+});
 
-  expect(locator.description()).toBeNull();
-  expect(locator.toString()).toBe("getByRole('button', { name: 'Save' })");
-  expect(locator.describe("Save button").description()).toBe("Save button");
-  expect(locator.describe("Save button").toString()).toBe("Save button");
-  expect(locator.describe("").description()).toBe("");
+test("the bridge records each member it answers in Node, and nothing else", async ({
+  page,
+  adapterPage,
+}) => {
+  await adapterPage.setContent("<ul><li>one</li></ul>");
+  const item = adapterPage.locator("li").describe("Item").first();
+  const handle = await adapterPage.evaluateHandle(() => document.body);
+
+  // Synchronous members the bridge does not answer from its own knowledge:
+  // proxies, and a handle description the adapter produced.
+  adapterPage.mainFrame();
+  item.page();
+  void adapterPage.keyboard;
+  handle.toString();
+  await item.textContent();
+  await corpusExpect(item).toHaveText("one");
+  expect((page as any).__pwLiteAnsweredInNode).toEqual([]);
+
+  adapterPage.url();
+  item.toString();
+  item.description();
+  String(item);
+  expect((page as any).__pwLiteAnsweredInNode).toEqual([
+    "Page.url",
+    "Locator.toString",
+    "Locator.description",
+    "Locator.toString",
+  ]);
+  expect((page as any).__pwLiteNativeOperations).toEqual(["Page.setContent"]);
+  const evidence = (await readAdapterEvidence(page)) as { entered: string[] };
+  for (const member of ["Page.url", "Locator.toString", "Locator.description"])
+    expect(evidence.entered).not.toContain(member);
 });
 
 test("adapter locator.fill reaches the DOM", async ({ page, adapterPage }) => {

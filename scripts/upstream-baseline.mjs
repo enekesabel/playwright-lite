@@ -232,11 +232,42 @@ function hasPublicExpectEvidence(entry, method, matcher) {
   );
 }
 
+/**
+ * The only members a promotable test may have run on the native driver. A
+ * member belongs here only when its native call can never be the subject of a
+ * promotion and serves to establish the document under test: the document
+ * (`Page.goto`, whose native call is refused as a reviewed method, and the
+ * out-of-scope `Page.setContent`), its viewport (the out-of-scope
+ * `Page.setViewportSize`), or the page a library test creates and disposes.
+ * Any other native operation, and any member called on what a native call
+ * returned, produced part of the test's result without the adapter.
+ */
+export const NATIVE_SETUP_MEMBERS = [
+  "Page.goto",
+  "Page.setContent",
+  "Page.setViewportSize",
+  "Browser.newContext",
+  "BrowserContext.newPage",
+  "BrowserContext.close",
+];
+
+/** The distinct members an entry ran natively outside the setup list. */
+function nativeBeyondSetup(entry) {
+  return [
+    ...new Set(
+      entry?.execution?.native?.filter(
+        (member) => !NATIVE_SETUP_MEMBERS.includes(member)
+      )
+    ),
+  ];
+}
+
 function certifiesBrowserMethod(entry, method, matcher) {
   return (
     !isOutOfScopeMethod(method) &&
     entry.execution.entered.includes(method) &&
     !entry.execution.native?.includes(method) &&
+    nativeBeyondSetup(entry).length === 0 &&
     hasPublicExpectEvidence(entry, method, matcher)
   );
 }
@@ -250,6 +281,18 @@ export function reviewedPromotion(entries, id, method, evidence, matcher) {
   if (entry?.execution?.native?.includes(method))
     throw new Error(
       `${method} was executed natively and cannot be promoted as browser compatibility evidence.`
+    );
+  const beyondSetup = nativeBeyondSetup(entry);
+  if (beyondSetup.length)
+    throw new Error(
+      `${id} ran ${beyondSetup.join(", ")} on the native driver; a promotable test runs only document setup (${NATIVE_SETUP_MEMBERS.join(", ")}) natively.`
+    );
+  // A Node-answered member never enters the adapter, so the `entered` check
+  // below refuses it too; this names the reason, and holds should the bridge
+  // ever record such a member as entered.
+  if (entry?.execution?.answeredInNode?.includes(method))
+    throw new Error(
+      `${method} was answered by the bridge in Node, not by the adapter; contract tests prove it, never the corpus.`
     );
   if (
     !entry ||

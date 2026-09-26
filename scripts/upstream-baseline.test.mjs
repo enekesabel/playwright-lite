@@ -12,6 +12,7 @@ import {
   sabotageVerdict,
   sabotageGrep,
   sabotageRerunEntries,
+  NATIVE_SETUP_MEMBERS,
 } from "./upstream-baseline.mjs";
 
 // ── parseReport ─────────────────────────────────────────────────────
@@ -160,6 +161,28 @@ describe("reviewed promotion", () => {
     );
     assert.deepEqual(result.regressions, []);
   });
+  it("counts a reviewed entry that ran a non-setup member natively as a regression", () => {
+    const check = (native) =>
+      compareBaseline(
+        [
+          {
+            id: "test",
+            file: "test.ts",
+            status: "passed",
+            execution: { entered: ["Locator.click"], native, failures: [] },
+          },
+        ],
+        {
+          reviewed: [
+            { id: "test", method: "Locator.click", evidence: "click works" },
+          ],
+        },
+        ["test.ts"]
+      ).regressions;
+    assert.deepEqual(check([...NATIVE_SETUP_MEMBERS]), []);
+    assert.deepEqual(check(["Page.setViewportSize", "Page.route"]), ["test"]);
+    assert.deepEqual(check(["Page.goto", "Response.status"]), ["test"]);
+  });
   const entry = {
     id: "test",
     status: "passed",
@@ -220,6 +243,107 @@ describe("reviewed promotion", () => {
         "Page.setContent",
         "native setup cannot certify browser compatibility"
       )
+    );
+  });
+  it("accepts only document setup among a test's native operations", () => {
+    for (const native of [
+      undefined,
+      [],
+      ["Page.goto"],
+      ["Page.setContent"],
+      ["Page.goto", "Page.setContent", "Page.goto"],
+      // The viewport the test runs in.
+      ["Page.setViewportSize", "Page.setContent"],
+      // The page a library test creates and disposes.
+      [
+        "Browser.newContext",
+        "BrowserContext.newPage",
+        "Page.goto",
+        "BrowserContext.close",
+      ],
+    ])
+      assert.deepEqual(
+        reviewedPromotion(
+          [{ ...entry, execution: { ...entry.execution, native } }],
+          "test",
+          "Page.evaluate",
+          "evaluates in the adapter"
+        ),
+        {
+          id: "test",
+          method: "Page.evaluate",
+          evidence: "evaluates in the adapter",
+        }
+      );
+    for (const [native, members] of [
+      [["Page.goto", "Response.status"], "Response.status"],
+      [["Locator.contentFrame"], "Locator.contentFrame"],
+      [["Page.setViewportSize", "Page.route"], "Page.route"],
+      [
+        ["Page.setContent", "Page.frames", "Frame.evaluate", "Page.frames"],
+        "Page.frames, Frame.evaluate",
+      ],
+    ])
+      assert.throws(
+        () =>
+          reviewedPromotion(
+            [{ ...entry, execution: { ...entry.execution, native } }],
+            "test",
+            "Page.evaluate",
+            "evaluates in the adapter"
+          ),
+        {
+          message: `test ran ${members} on the native driver; a promotable test runs only document setup (${NATIVE_SETUP_MEMBERS.join(", ")}) natively.`,
+        }
+      );
+  });
+  it("refuses a method the bridge answered in Node", () => {
+    for (const method of [
+      "Page.url",
+      "Locator.toString",
+      "Locator.description",
+    ])
+      assert.throws(
+        () =>
+          reviewedPromotion(
+            [
+              {
+                ...entry,
+                execution: {
+                  entered: [method, "Page.evaluate"],
+                  answeredInNode: [method],
+                  failures: [],
+                },
+              },
+            ],
+            "test",
+            method,
+            "reads the synchronous answer"
+          ),
+        {
+          message: `${method} was answered by the bridge in Node, not by the adapter; contract tests prove it, never the corpus.`,
+        }
+      );
+    assert.deepEqual(
+      reviewedPromotion(
+        [
+          {
+            ...entry,
+            execution: {
+              ...entry.execution,
+              answeredInNode: ["Page.url", "Locator.toString"],
+            },
+          },
+        ],
+        "test",
+        "Page.evaluate",
+        "a Node answer the test did not assert"
+      ),
+      {
+        id: "test",
+        method: "Page.evaluate",
+        evidence: "a Node answer the test did not assert",
+      }
     );
   });
   describe("sabotage rerun", () => {

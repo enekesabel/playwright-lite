@@ -1,6 +1,6 @@
 import { test as base, expect, type Page } from "@playwright/test";
 import { createAdapterPage, installSelectorsRegisterRoute, readAdapterEvidence, selectorsReplaysWithoutBootstrap } from "./adapter-bridge";
-import { browserTest, contextTest } from "../config/browserTest";
+import { browserTest, capture, contextTest } from "../config/browserTest";
 
 // Transport guards, not upstream compatibility promotions. Native navigation
 // establishes a document before the adapter exists; no adapter goto is faked.
@@ -206,6 +206,17 @@ browserTest("library-created pages record no withheld dispatch in an ordinary ru
   expect(evidence.entered).toContain("Locator.click");
   expect(evidence).not.toHaveProperty("withheld");
   await context.close();
+});
+
+base("library evidence carries the members a library page answered in Node", async ({ page, context }) => {
+  const adapter = await createAdapterPage(page, { nativeNavigationForSetup: true });
+  await adapter.setContent("<button>Library</button>");
+  adapter.url();
+  adapter.locator("button").toString();
+  const result = { entered: [], failures: [], native: [], answeredInNode: [] };
+  await capture({ context, pages: [page], captured: new Set() }, result);
+  expect(result.answeredInNode).toEqual(["Page.url", "Locator.toString"]);
+  expect(result.native).toEqual(["Page.setContent"]);
 });
 
 browserTest("library-created pages use the same adapter before context cleanup", async ({ browser, server }) => {

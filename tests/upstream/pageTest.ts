@@ -311,6 +311,7 @@ export const test = base.extend<
           ...(page as any).__pwLiteTransportFailures,
         ];
         evidence.native = (page as any).__pwLiteNativeOperations;
+        evidence.answeredInNode = (page as any).__pwLiteAnsweredInNode;
       }
       testInfo.annotations.push({
         type: "adapter-execution",
