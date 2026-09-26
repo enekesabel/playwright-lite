@@ -603,6 +603,8 @@ type AssertionName<T> = Exclude<
 
 const screenshotExcluded =
   "Comparing against a stored screenshot requires the filesystem and the test runner.";
+const ariaSnapshotInlineOnly =
+  "Inline string form only. The file form (`{ name }` or options only), which Playwright Test reads from a snapshot file, rejects; an empty string, which Playwright Test passes while suggesting a baseline, rejects; snapshot updates and a configured `children` default do not apply.";
 
 /** `expect(locator)` matchers. */
 export const locatorAssertionLedger = {
@@ -636,9 +638,7 @@ export const locatorAssertionLedger = {
   toHaveText: implemented(),
   toHaveValue: implemented(),
   toHaveValues: implemented(),
-  toMatchAriaSnapshot: partial(
-    "Inline string form only. The options-only form, which reads a snapshot file, rejects; snapshot updates and a configured `children` default do not apply."
-  ),
+  toMatchAriaSnapshot: partial(ariaSnapshotInlineOnly),
 } as const satisfies Readonly<
   Record<AssertionName<Locator>, CompatibilityEntry>
 >;
@@ -652,7 +652,7 @@ export const pageAssertionLedger = {
   toHaveURL: partial(
     "String expectations are not resolved against a configured `baseURL`; this runtime has none."
   ),
-  toMatchAriaSnapshot: undecided(),
+  toMatchAriaSnapshot: partial(ariaSnapshotInlineOnly),
 } as const satisfies Readonly<Record<AssertionName<Page>, CompatibilityEntry>>;
 
 /** The generic `expect` API and assertion families with no in-document target. */

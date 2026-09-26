@@ -4,6 +4,31 @@ import { describe, expect, it } from "vitest";
 import { createPage, expect as browserExpect } from "../../src/index";
 import { PageImpl } from "../../src/page";
 
+// eslint-disable-next-line no-control-regex -- matches ANSI color codes
+const stripAnsi = (text: string) => text.replace(/\u001b\[[0-9;]*m/g, "");
+
+/** The toMatchAriaSnapshot forms that need Playwright Test reject alike. */
+async function expectSnapshotFileFormsToReject(target: unknown) {
+  const matchers = browserExpect(target as any) as any;
+  await expect(
+    matchers.toMatchAriaSnapshot({ name: "title.aria.yml" })
+  ).rejects.toThrow(
+    "toMatchAriaSnapshot(): unsupported Playwright option(s): name."
+  );
+  await expect(matchers.toMatchAriaSnapshot()).rejects.toThrow(
+    "toMatchAriaSnapshot(): the options-only form reads the expected snapshot from a Playwright Test snapshot file"
+  );
+  await expect(matchers.toMatchAriaSnapshot({ timeout: 20 })).rejects.toThrow(
+    "toMatchAriaSnapshot(): the options-only form reads the expected snapshot from a Playwright Test snapshot file"
+  );
+  await expect(matchers.toMatchAriaSnapshot("")).rejects.toThrow(
+    "toMatchAriaSnapshot(): an empty expected snapshot is a missing baseline"
+  );
+  await expect(matchers.not.toMatchAriaSnapshot("")).rejects.toThrow(
+    `Matchers using ".not" can't generate new baselines`
+  );
+}
+
 describe("expect(locator)", () => {
   it("keeps Locator assertions out of ordinary expectations at type level", () => {
     const locator = createPage().locator("body");
@@ -193,7 +218,29 @@ describe("expect(locator)", () => {
         (reason: Error & { matcherResult?: Record<string, unknown> }) => reason
       )) as Error & { matcherResult?: Record<string, unknown> };
     expect(ariaError.matcherResult?.actual).toContain('heading "Title"');
-    expect(ariaError.matcherResult).toHaveProperty("ariaSnapshot");
+  });
+
+  // Contract coverage: the corpus asserts toMatchAriaSnapshot's negated form
+  // only when it passes.
+  it("prints the matched snapshot when a negated toMatchAriaSnapshot fails", async () => {
+    document.body.innerHTML = "<h1>Title</h1>";
+    const error = (await browserExpect(createPage().locator("body"))
+      .not.toMatchAriaSnapshot('- heading "Title"', { timeout: 20 })
+      .catch((reason: Error) => reason)) as Error;
+    expect(stripAnsi(error.message)).toContain(
+      "expect(locator).not.toMatchAriaSnapshot(expected) failed\n\n" +
+        "Locator:  locator('body')\n" +
+        'Expected: not "- heading \\"Title\\""\n' +
+        'Received: "- heading \\"Title\\" [level=1]"\n' +
+        "Timeout:  20ms\n"
+    );
+  });
+
+  // Contract coverage: this package has no snapshot files or test runner, so
+  // the forms that need them reject.
+  it("rejects the toMatchAriaSnapshot forms that need a snapshot file or a test runner", async () => {
+    document.body.innerHTML = "<h1>Title</h1>";
+    await expectSnapshotFileFormsToReject(createPage().locator("body"));
   });
 
   // Contract coverage: the corpus asserts call logs only for CSS locators and
@@ -646,6 +693,13 @@ function withoutHtmlAttributes(message: string): string {
 }
 
 describe("Page assertions", () => {
+  // Contract coverage: this package has no snapshot files or test runner, so
+  // the forms that need them reject.
+  it("rejects the toMatchAriaSnapshot forms that need a snapshot file or a test runner", async () => {
+    document.body.innerHTML = "<h1>Title</h1>";
+    await expectSnapshotFileFormsToReject(createPage());
+  });
+
   it("does not treat Page-shaped lookalikes as Pages", () => {
     let pageExpectCalled = false;
     let customMatcherCalled = false;

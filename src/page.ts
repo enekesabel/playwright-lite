@@ -94,7 +94,7 @@ type InjectedExpectation = {
   received?: { value?: unknown; ariaSnapshot?: string };
 };
 
-type LocatorExpectationResult = {
+export type LocatorExpectationResult = {
   matches: boolean;
   received?: { value?: unknown; ariaSnapshot?: string };
   timedOut?: boolean;
@@ -102,7 +102,7 @@ type LocatorExpectationResult = {
   log?: string[];
 };
 
-type LocatorExpectationOptions = Record<string, unknown> & {
+export type LocatorExpectationOptions = Record<string, unknown> & {
   isNot?: boolean;
   signal?: AbortSignal;
   timeout?: number;
@@ -805,26 +805,50 @@ export class PageImpl {
    * is feasible within the controlled document.
    *
    * `title` is the pinned expect step title that heads the call log: the
-   * custom expect message, or `Expect "<not ><matcher>"`.
+   * custom expect message, or `Expect "<not ><matcher>"`. A page assertion
+   * passes no selector: as in pinned `Frame.expect`, it logs no `waiting for`
+   * line and checks `body`, the only such assertion being `to.match.aria`.
    */
   async expect(
-    selector: string,
+    selector: string | undefined,
     expression: string,
     options: Record<string, unknown>,
     title = `Expect "${expression}"`
   ): Promise<LocatorExpectationResult> {
+    const effectiveSelector = selector ?? "body";
     const expectOptions = options as LocatorExpectationOptions;
     const isNot = !!expectOptions.isNot;
     const timeout = expectationTimeout(expectOptions.timeout);
     const signal = this.lifetime.bind(expectOptions.signal);
     const log = [
       `${title} with timeout ${timeout}ms`,
-      `waiting for ${asLocator("javascript", selector)}`,
+      ...(selector ? [`waiting for ${asLocator("javascript", selector)}`] : []),
     ];
     if (signal.aborted)
       return isTargetClosedError(signal.reason)
         ? { matches: isNot, log: callLogLines([...log, signal.reason.reason]) }
         : alreadyAbortedExpectationResult(isNot, signal);
+
+    // Pinned Frame.expect parses ARIA YAML before it logs or checks anything,
+    // and reports a parse error with the step title as its only log line.
+    if (
+      expression === "to.match.aria" &&
+      typeof options.expectedValue === "string" &&
+      options.expectedValue
+    ) {
+      try {
+        options = {
+          ...options,
+          expectedValue: parseAriaExpectation(options.expectedValue),
+        };
+      } catch (error) {
+        return {
+          matches: isNot,
+          errorMessage: `Error: ${asError(error).message}`,
+          log: callLogLines([`${title} with timeout ${timeout}ms`]),
+        };
+      }
+    }
 
     const deadline = Date.now() + timeout;
     let lastAttempt: LocatorExpectationAttempt | undefined;
@@ -873,7 +897,7 @@ export class PageImpl {
 
     // The pinned server performs an immediate check before entering its retry
     // loop. It lets already-matching assertions succeed even with tiny timeouts.
-    lastAttempt = await this.expectOnce(selector, expression, options);
+    lastAttempt = await this.expectOnce(effectiveSelector, expression, options);
     if (lastAttempt.matches !== isNot) return { matches: !isNot };
 
     let retryIndex = 0;
@@ -894,7 +918,11 @@ export class PageImpl {
         if (preCheck !== "done") return unmatched(preCheck);
       }
 
-      lastAttempt = await this.expectOnce(selector, expression, options);
+      lastAttempt = await this.expectOnce(
+        effectiveSelector,
+        expression,
+        options
+      );
       if (lastAttempt.matches !== isNot) return { matches: !isNot };
     }
 
@@ -908,9 +936,26 @@ export class PageImpl {
    * received value just like the locator expectation seam above.
    */
   async _expect(
+    expression: "to.match.aria",
+    options: LocatorExpectationOptions & { title?: string }
+  ): Promise<LocatorExpectationResult>;
+  async _expect(
     expression: PageExpectationExpression,
     options: PageExpectationOptions
-  ): Promise<PageExpectationResult> {
+  ): Promise<PageExpectationResult>;
+  async _expect(
+    expression: PageExpectationExpression | "to.match.aria",
+    pageOptions: PageExpectationOptions | LocatorExpectationOptions
+  ): Promise<PageExpectationResult | LocatorExpectationResult> {
+    // Pinned 26a9e47 `toMatchAriaSnapshot` asserts a page through its main
+    // frame's `_expect` with no selector.
+    if (expression === "to.match.aria") {
+      const { title, ...rest } = pageOptions as LocatorExpectationOptions & {
+        title?: string;
+      };
+      return this.expect(undefined, expression, rest, title);
+    }
+    const options = pageOptions as PageExpectationOptions;
     const isNot = !!options.isNot;
     const timeout = expectationTimeout(options.timeout);
     validateSignal(expression, options.signal);
@@ -1102,16 +1147,6 @@ export class PageImpl {
         ([key]) => key !== "timeout" && key !== "signal"
       )
     );
-    // Pinned Frame.expect parses ARIA YAML before passing it across the
-    // boundary to InjectedScript.expect. The compiled parser is already part
-    // of this adapter's pinned artifact, so preserve that protocol here.
-    if (
-      expression === "to.match.aria" &&
-      typeof injectedOptions.expectedValue === "string"
-    )
-      injectedOptions.expectedValue = parseAriaExpectation(
-        injectedOptions.expectedValue
-      );
     const injected = this.injected as typeof this.injected &
       ExpectCapableInjectedScript;
     const result = await injected.expect(
