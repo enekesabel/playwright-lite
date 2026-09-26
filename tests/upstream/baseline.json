@@ -166,6 +166,11 @@
       "evidence": "With a matching .a outside the handle, $$eval sees only ['a1-child-div','a2-child-div'], so the match set is scoped to the handle's subtree."
     },
     {
+      "id": "elementhandle-eval-on-selector.spec.ts > should throw in case of missing selector",
+      "method": "ElementHandle.$eval",
+      "evidence": "With .a present only outside the #myId handle, $eval(\".a\") rejects with elementHandle.$eval: Failed to find element matching selector \".a\", the pinned no-match text with its API name, so a match outside the handle subtree does not count."
+    },
+    {
       "id": "elementhandle-eval-on-selector.spec.ts > should work",
       "method": "ElementHandle.$eval",
       "evidence": "$eval on a .tweet handle with '.like' returns '100' from the matched node's innerText, so it resolves the selector to one element, runs the page function on that element and returns its serialized result."
@@ -331,6 +336,11 @@
       "evidence": "window.getSelection().toString() is 'some value' after the call, so selectText selects the full text of a <textarea> handle."
     },
     {
+      "id": "elementhandle-select-text.spec.ts > should timeout waiting for invisible element",
+      "method": "ElementHandle.selectText",
+      "evidence": "selectText on a display:none textarea with timeout 3000 rejects with a message containing element is not visible, the pinned call-log line, so it waits for visibility and reports why it timed out."
+    },
+    {
       "id": "elementhandle-select-text.spec.ts > should wait for visible",
       "method": "ElementHandle.selectText",
       "evidence": "The call stays pending for a second while the textarea is display:none and resolves once it is shown again, so selectText waits for the element to become visible instead of acting on a hidden element or failing at once."
@@ -359,6 +369,16 @@
       "id": "elementhandle-type.spec.ts > should work with number input",
       "method": "Page.type",
       "evidence": "Typing 13 into an unfocused input[type=number] holding 2 leaves 132, proving both characters land at the caret of a control that exposes no selection API instead of being appended after the existing value."
+    },
+    {
+      "id": "elementhandle-wait-for-element-state.spec.ts > should throw waiting for enabled when detached",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "A pending enabled wait on a disabled button rejects with Element is not attached to the DOM once the button is removed, so detachment ends the wait with the pinned error instead of waiting for the timeout."
+    },
+    {
+      "id": "elementhandle-wait-for-element-state.spec.ts > should throw waiting for visible when detached",
+      "method": "ElementHandle.waitForElementState",
+      "evidence": "A pending visible wait on a display:none div rejects with Element is not attached to the DOM once the div is removed, so detachment ends the wait with the pinned error instead of waiting for the timeout."
     },
     {
       "id": "elementhandle-wait-for-element-state.spec.ts > should timeout waiting for visible",
@@ -509,6 +529,11 @@
       "id": "eval-on-selector.spec.ts > should support spaces with >> syntax",
       "method": "Page.$eval",
       "evidence": "' css = div >>css=div>>css   = span  ' with irregular whitespace around engines and separators resolves the deep-shadow span, and Page.$eval returns 'Hello from root2'. Page.goto is recorded as native fixture setup."
+    },
+    {
+      "id": "eval-on-selector.spec.ts > should throw error if no element is found",
+      "method": "Page.$eval",
+      "evidence": "On a blank page $eval(\"section\", ...) rejects with a message containing Failed to find element matching selector \"section\", the pinned no-match text, instead of running the page function."
     },
     {
       "id": "eval-on-selector.spec.ts > should throw on malformed * capture",
@@ -4920,6 +4945,16 @@
       "evidence": "A pending wait for 'span' resolves with the span appended into an open shadow root 100ms later and its textContent reads 'Hello from shadow', so the wait pierces open shadow roots and keeps observing after the host is attached."
     },
     {
+      "id": "page-wait-for-selector-1.spec.ts > should throw on waitFor",
+      "method": "Page.waitForSelector",
+      "evidence": "waitForSelector(\"*\", { waitFor: \"attached\" }) rejects with options.waitFor is not supported, did you mean options.state?, the pinned client rejection of the legacy option."
+    },
+    {
+      "id": "page-wait-for-selector-1.spec.ts > should tolerate waitFor=visible",
+      "method": "Page.waitForSelector",
+      "evidence": "waitForSelector(\"*\", { waitFor: \"visible\" }) resolves instead of rejecting, so the one legacy value the pinned client tolerates is accepted rather than refused as an unknown option."
+    },
+    {
       "id": "page-wait-for-selector-1.spec.ts > should work when node is added through innerHTML",
       "method": "Page.waitForSelector",
       "evidence": "A pending state:'attached' wait for 'h3 div' resolves after both nodes appear through one innerHTML assignment, so the wait notices subtrees inserted wholesale rather than only element-by-element insertions."
@@ -5018,6 +5053,26 @@
       "id": "page-wait-for-selector-2.spec.ts > should support some fancy xpath",
       "method": "Page.waitForSelector",
       "evidence": "The wait for '//p[normalize-space(.)=\"hello world\"]' returns the handle for '<p>hello  world  </p>' and not the 'red herring' paragraph, so an xpath selector using an XPath function is evaluated by the XPath engine."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should throw for false state option",
+      "method": "Page.waitForSelector",
+      "evidence": "state: false rejects with state: expected one of (attached|detached|visible|hidden), so a falsy state is validated rather than treated as absent."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should throw for true state option",
+      "method": "Page.waitForSelector",
+      "evidence": "state: true rejects with state: expected one of (attached|detached|visible|hidden), so a non-string state fails the pinned protocol enum check."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should throw for unknown state option",
+      "method": "Page.waitForSelector",
+      "evidence": "state: \"foo\" rejects with state: expected one of (attached|detached|visible|hidden), the pinned protocol validator text for an unknown state."
+    },
+    {
+      "id": "page-wait-for-selector-2.spec.ts > should throw for visibility option",
+      "method": "Page.waitForSelector",
+      "evidence": "The legacy { visibility: \"hidden\" } option rejects with options.visibility is not supported, did you mean options.state?, the pinned client text."
     },
     {
       "id": "page-wait-for-selector-2.spec.ts > should wait for detached",
@@ -5128,6 +5183,11 @@
       "id": "queryselector.spec.ts > should support >> syntax",
       "method": "Page.$",
       "evidence": "'css=section >> css=div' resolves the nested div through the chained engines and Page.$ returns a handle."
+    },
+    {
+      "id": "queryselector.spec.ts > should throw for non-string selector",
+      "method": "Page.$",
+      "evidence": "page.$(null) rejects with a message containing selector: expected string, got object, the pinned protocol validation text for a non-string selector."
     },
     {
       "id": "queryselector.spec.ts > xpath should query existing element",
@@ -5348,6 +5408,11 @@
       "id": "selectors-css.spec.ts > should work with wrong-case id",
       "method": "Page.$eval",
       "evidence": "'#Hello', '#hello', '#HELLO' and '#helLO' all resolve the same section and Page.$eval returns SECTION for each, so id comparison follows the document's own case rules instead of an engine-side exact match."
+    },
+    {
+      "id": "selectors-frame.spec.ts > $eval should throw for missing frame",
+      "method": "Page.$eval",
+      "evidence": "With no iframe in the page, page.$eval and body.$eval on iframe >> internal:control=enter-frame >> canvas reject with page.$eval: / elementHandle.$eval: Failed to find element matching selector, so a missing frame is a no-match named by the calling member."
     },
     {
       "id": "selectors-get-by.spec.ts > getBy escaping",

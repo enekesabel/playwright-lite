@@ -54,10 +54,14 @@ describe("ElementHandle", () => {
     ).resolves.toBeUndefined();
     await expect(
       handles[0].waitForElementState("visible", { timeout: 50 })
-    ).rejects.toThrow("Element is not connected");
+    ).rejects.toThrow(
+      "elementHandle.waitForElementState: Element is not attached to the DOM"
+    );
     await expect(
       handles[0].waitForElementState("enabled", { timeout: 50 })
-    ).rejects.toThrow("Element is not connected");
+    ).rejects.toThrow(
+      "elementHandle.waitForElementState: Element is not attached to the DOM"
+    );
 
     await handles[0].dispose();
     await expect(handles[0].dispose()).resolves.toBeUndefined();
@@ -105,6 +109,34 @@ describe("ElementHandle", () => {
     await expect(
       root.waitForSelector("#missing", { timeout: 25 })
     ).rejects.toThrow("elementHandle.waitForSelector: Timeout 25ms exceeded.");
+  });
+
+  // Contract coverage: upstream specs pass an unknown `state` only to the Page
+  // form. Pinned ElementHandleWaitForSelectorParams validates it the same way.
+  it("rejects an unknown waitForSelector state with the pinned protocol text", async () => {
+    document.body.innerHTML = '<section id="root"></section>';
+    const root = (await createPage().$("#root"))!;
+
+    for (const state of ["foo", true, null] as unknown[])
+      await expect(
+        root.waitForSelector("#missing", { state: state as "visible" }),
+        String(state)
+      ).rejects.toThrow(
+        "elementHandle.waitForSelector: state: expected one of (attached|detached|visible|hidden)"
+      );
+  });
+
+  // Contract coverage: the upstream detached specs cover waitForElementState,
+  // not selectText. Pinned dom.ts throws `Element is not attached to the DOM`
+  // and channelOwner.ts names the member.
+  it("names selectText when its element is detached", async () => {
+    document.body.innerHTML = '<input id="input" value="hello">';
+    const handle = (await createPage().$("#input"))!;
+    document.querySelector("#input")!.remove();
+
+    await expect(handle.selectText({ timeout: 50 })).rejects.toThrow(
+      "elementHandle.selectText: Element is not attached to the DOM"
+    );
   });
 
   // Contract coverage: no upstream spec passes `strict` to the handle form.

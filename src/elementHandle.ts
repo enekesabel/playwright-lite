@@ -1,6 +1,10 @@
 import type { EvaluationFunction } from "./evaluation";
 import { AdapterJSHandle, assertMaxArguments } from "./jsHandle";
-import { rejectUnsupportedOptions, validateForce } from "./protocolValidation";
+import {
+  rejectUnsupportedOptions,
+  validateForce,
+  withValidationPrefix,
+} from "./protocolValidation";
 import type { InputFiles } from "./inputFiles";
 import type {
   PageImpl,
@@ -329,19 +333,21 @@ export class AdapterElementHandle extends AdapterJSHandle<Element> {
    * option the public type declares never takes effect: the first match wins.
    */
   async $(selector: string): Promise<AdapterElementHandle | null> {
-    return this.ownerPage.elementHandleFor(
-      this.ownerPage.resolveWithinElement(
-        this.requireElement(),
-        selector,
-        false
+    const root = this.requireElement();
+    return withValidationPrefix("elementHandle.$", () =>
+      this.ownerPage.elementHandleFor(
+        this.ownerPage.resolveWithinElement(root, selector, false)
       )
     );
   }
 
   async $$(selector: string): Promise<AdapterElementHandle[]> {
-    return this.ownerPage
-      .resolveAllWithinElement(this.requireElement(), selector)
-      .map((element) => this.ownerPage.elementHandleFor(element)!);
+    const root = this.requireElement();
+    return withValidationPrefix("elementHandle.$$", () =>
+      this.ownerPage
+        .resolveAllWithinElement(root, selector)
+        .map((element) => this.ownerPage.elementHandleFor(element)!)
+    );
   }
 
   async $eval<T>(
@@ -350,13 +356,15 @@ export class AdapterElementHandle extends AdapterJSHandle<Element> {
     arg?: unknown
   ): Promise<T> {
     assertMaxArguments(arguments.length, 3);
-    const element = this.ownerPage.resolveWithinElement(
-      this.requireElement(),
-      selector,
-      false
+    const root = this.requireElement();
+    const element = await withValidationPrefix("elementHandle.$eval", () =>
+      this.ownerPage.resolveWithinElement(root, selector, false)
     );
+    // Pinned server/frames.ts `_evalOnSelector`.
     if (!element)
-      throw new Error(`Failed to find element matching selector "${selector}"`);
+      throw new Error(
+        `elementHandle.$eval: Failed to find element matching selector "${selector}"`
+      );
     return this.ownerPage.evaluation.byValue(
       pageFunction,
       typeof pageFunction === "function",
@@ -371,11 +379,15 @@ export class AdapterElementHandle extends AdapterJSHandle<Element> {
     arg?: unknown
   ): Promise<T> {
     assertMaxArguments(arguments.length, 3);
+    const root = this.requireElement();
+    const elements = await withValidationPrefix("elementHandle.$$eval", () =>
+      this.ownerPage.resolveAllWithinElement(root, selector)
+    );
     return this.ownerPage.evaluation.byValue(
       pageFunction,
       typeof pageFunction === "function",
       arg,
-      this.ownerPage.resolveAllWithinElement(this.requireElement(), selector)
+      elements
     );
   }
 
