@@ -1456,9 +1456,15 @@ export class PageImpl {
     // server then uses the browser keyboard. We provide that final local input
     // effect below, without reimplementing InjectedScript's validation.
     this.assertActionDeadline(deadline, "fill");
+    const injected = this.injected as typeof this.injected &
+      QueryCapableInjectedScript;
     let result;
     try {
-      result = this.actionableInjected.fill(element, value);
+      result = withNativeInputValue(
+        injected.retarget(element, "follow-label"),
+        this.window,
+        () => this.actionableInjected.fill(element, value)
+      );
     } catch (error) {
       throw injectedFillError(
         asError(error),
@@ -1476,9 +1482,7 @@ export class PageImpl {
 
     // InjectedScript.fill follows labels before selecting text. Apply the
     // browser-local keyboard effect to that same control, not the label.
-    const inputTarget = (
-      this.injected as typeof this.injected & QueryCapableInjectedScript
-    ).retarget(element, "follow-label");
+    const inputTarget = injected.retarget(element, "follow-label");
     if (!inputTarget)
       throw new Error(`Element is not connected for locator ${label}`);
     this.insertFilledText(inputTarget, value, deadline, "fill");
@@ -4756,9 +4760,11 @@ export class PageImpl {
       // Its browser keyboard path cannot be represented with setRangeText:
       // these fillable input types deliberately do not support selection APIs.
       this.assertActionDeadline(deadline, actionName);
-      element.value = isNumberInput(element, this.window)
-        ? value.trim()
-        : value;
+      setNativeInputValue(
+        element,
+        isNumberInput(element, this.window) ? value.trim() : value,
+        this.window
+      );
       this.dispatchInputEvent(element);
       return;
     }
@@ -4778,7 +4784,11 @@ export class PageImpl {
     if (!isEditableElement(element, this.window)) return;
     if (this.insertTextAtCaret(element, text, inputType)) return;
     if (isFillableInputWithoutSelection(element, this.window)) {
-      element.value += text;
+      setNativeInputValue(
+        element,
+        nativeInputValue(this.window).get!.call(element) + text,
+        this.window
+      );
       this.dispatchInputEvent(element, eventData, inputType);
       return;
     }
@@ -6431,6 +6441,52 @@ function isTextInput(
   browserWindow: Window & typeof globalThis
 ): element is HTMLInputElement {
   return element instanceof browserWindow.HTMLInputElement;
+}
+
+// Playwright writes an input's value from an isolated world, where a value
+// accessor the page defines on the element (React's value tracker) is
+// invisible. Writing through the platform accessor keeps such an accessor
+// from recording the value, so the page sees the following input event as a
+// change.
+function nativeInputValue(
+  browserWindow: Window & typeof globalThis
+): PropertyDescriptor {
+  return Object.getOwnPropertyDescriptor(
+    browserWindow.HTMLInputElement.prototype,
+    "value"
+  )!;
+}
+
+function setNativeInputValue(
+  element: HTMLInputElement,
+  value: string,
+  browserWindow: Window & typeof globalThis
+) {
+  nativeInputValue(browserWindow).set!.call(element, value);
+}
+
+/**
+ * Runs `run` with the element's own `value` accessor set aside, so the pinned
+ * InjectedScript's `input.value = …` reaches the platform accessor as it does
+ * in Playwright's isolated world. The page's accessor is restored afterwards.
+ */
+function withNativeInputValue<T>(
+  element: Element | null,
+  browserWindow: Window & typeof globalThis,
+  run: () => T
+): T {
+  if (!element || !isTextInput(element, browserWindow)) return run();
+  const own = Object.getOwnPropertyDescriptor(element, "value");
+  if (!own?.configurable) return run();
+  Object.defineProperty(element, "value", {
+    ...nativeInputValue(browserWindow),
+    configurable: true,
+  });
+  try {
+    return run();
+  } finally {
+    Object.defineProperty(element, "value", own);
+  }
 }
 
 function isNumberInput(

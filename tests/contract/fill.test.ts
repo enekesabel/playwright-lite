@@ -200,6 +200,54 @@ describe("Locator.fill", () => {
     );
   });
 
+  it.each([
+    ["number", "42", "42"],
+    ["email", "a@example.test", "a@example.test"],
+    ["date", "2020-01-01", "2020-01-01"],
+    ["time", "13:15", "13:15"],
+    ["range", "20", "20"],
+    ["color", "#FF0000", "#ff0000"],
+  ])(
+    "fills a %s input past a page-defined value setter",
+    async (type, value, expected) => {
+      // React tracks a controlled input's value with its own setter on the
+      // element and reports a change only for a value that setter has not
+      // recorded. Playwright writes the value from an isolated world, which
+      // that setter never sees.
+      document.body.innerHTML = `<input id="input" type="${type}" />`;
+      const page = createPage();
+      const input = document.querySelector("#input") as HTMLInputElement;
+      const native = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        "value"
+      )!;
+      let recorded = input.value;
+      const tracker: PropertyDescriptor = {
+        configurable: true,
+        enumerable: false,
+        get(this: HTMLInputElement) {
+          return native.get!.call(this);
+        },
+        set(this: HTMLInputElement, next: string) {
+          recorded = String(next);
+          native.set!.call(this, next);
+        },
+      };
+      Object.defineProperty(input, "value", tracker);
+      const changes: string[] = [];
+      input.addEventListener("input", () => {
+        if (input.value === recorded) return;
+        recorded = input.value;
+        changes.push(input.value);
+      });
+
+      await page.locator("#input").fill(value);
+
+      expect(changes).toEqual([expected]);
+      expect(Object.getOwnPropertyDescriptor(input, "value")).toEqual(tracker);
+    }
+  );
+
   it("retries disabled actions until the state becomes actionable", async () => {
     document.body.innerHTML = `
       <input id="input" disabled />
