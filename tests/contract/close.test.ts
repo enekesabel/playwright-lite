@@ -123,6 +123,36 @@ describe("Page.close", () => {
       );
   });
 
+  it("stops a pending mouse call at its next event", async () => {
+    const page = createPage();
+    let afterClose = 0;
+    let closed = false;
+    const count = () => {
+      if (closed) afterClose++;
+    };
+    for (const type of ["pointermove", "mousemove", "mousedown", "click"])
+      document.addEventListener(type, count);
+    try {
+      const moving = page.mouse.move(200, 200, { steps: 200 });
+      const clicking = page.mouse.dblclick(20, 20);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      await page.close();
+      closed = true;
+
+      expect((await rejection(moving))?.message).toBe(
+        `mouse.move: ${closedMessage}`
+      );
+      expect((await rejection(clicking))?.message).toBe(
+        `mouse.dblclick: ${closedMessage}`
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(afterClose).toBe(0);
+    } finally {
+      for (const type of ["pointermove", "mousemove", "mousedown", "click"])
+        document.removeEventListener(type, count);
+    }
+  });
+
   it("reports the reason to interrupted calls and the default message to later calls", async () => {
     const page = createPage();
     const interrupted = page.waitForFunction(() => false);

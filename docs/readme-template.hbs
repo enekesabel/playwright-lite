@@ -104,7 +104,7 @@ Nothing is replaced until you subscribe, and a function the page replaced itself
 `close()` and `[Symbol.asyncDispose]()` dispose the `Page` object `createPage()` returned, where Playwright closes the browser page. The document stays open, and another `createPage()` can still automate it.
 
 - `close` fires with the page, and `isClosed()` returns `true` from then on.
-- Every pending call of the page, its locators, handles, `keyboard`, `localStorage` and `sessionStorage` rejects with `Target page, context or browser has been closed`, or with the `reason` passed to `close()`. Every later async call rejects with the default message; sync members such as `url()` and `locator()` keep working, as in Playwright.
+- Every pending call of the page, its locators, handles, `keyboard`, `mouse`, `localStorage` and `sessionStorage` rejects with `Target page, context or browser has been closed`, or with the `reason` passed to `close()`. Every later async call rejects with the default message; sync members such as `url()` and `locator()` keep working, as in Playwright.
 - The functions the page exposed with `exposeFunction()` or `exposeBinding()` are removed.
 - `runBeforeUnload: true` is rejected, since nothing is unloaded; `false` closes as usual.
 

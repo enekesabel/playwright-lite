@@ -530,8 +530,13 @@ export class PageImpl {
       window: browserWindow,
       modifiers: () => this.keyboard.modifierState(),
       deepActiveElement: () => this.deepActiveElement(),
-      assertDeadline: (deadline, action) =>
-        this.assertActionDeadline(deadline, action),
+      assertDeadline: (deadline, action) => {
+        // A `page.mouse` call has no deadline, whose signal would carry the
+        // closure; closing the page still ends it before its next event.
+        if (!deadline && this.lifetime.closed)
+          throw this.lifetime.interruption();
+        this.assertActionDeadline(deadline, action);
+      },
       wait: (durationMs, deadline, action) =>
         this.waitWithinActionDeadline(durationMs, deadline, action),
     });
