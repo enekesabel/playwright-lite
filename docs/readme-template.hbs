@@ -166,6 +166,10 @@ Targets Playwright **{{playwrightVersion}}**. Statuses describe API compatibilit
 {{#each apiTables}}
 ### {{name}}
 
+{{#if covers}}
+{{{covers}}}
+
+{{/if}}
 | API | Status | Notes |
 | --- | :---: | --- |
 {{#each rows}}

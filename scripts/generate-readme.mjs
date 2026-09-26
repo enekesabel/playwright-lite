@@ -7,6 +7,7 @@ import { format, resolveConfig } from "prettier";
 import {
   pageLedger,
   locatorLedger,
+  selectorsLedger,
   locatorAssertionLedger,
   pageAssertionLedger,
   genericExpectLedger,
@@ -150,8 +151,22 @@ export async function renderReadme(root = projectRoot) {
   const markdown = Handlebars.compile(template, { strict: true })({
     playwrightVersion: pkg.devDependencies["@playwright/test"],
     apiTables: [
-      { name: "Page", rows: rowsFor(pageLedger, memberUrl("page")) },
-      { name: "Locator", rows: rowsFor(locatorLedger, memberUrl("locator")) },
+      {
+        name: "Page",
+        covers: "",
+        rows: rowsFor(pageLedger, memberUrl("page")),
+      },
+      {
+        name: "Locator",
+        covers: "",
+        rows: rowsFor(locatorLedger, memberUrl("locator")),
+      },
+      {
+        name: "Selectors",
+        covers:
+          'Playwright\'s `selectors`, exported as `import { selectors } from "@enekesabel/playwright-lite"`.',
+        rows: rowsFor(selectorsLedger, memberUrl("selectors")),
+      },
     ],
     events: events.map((row) => ({
       ...row,

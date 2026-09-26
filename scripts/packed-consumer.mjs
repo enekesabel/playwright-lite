@@ -204,7 +204,7 @@ try {
     );
     await driver.addScriptTag({ path: bundlePath });
     const observed = await driver.evaluate(() => window.consumer.runConsumer());
-    assert.deepEqual(observed.exports, ["createPage", "expect"]);
+    assert.deepEqual(observed.exports, ["createPage", "expect", "selectors"]);
     assert.equal(observed.value, "Ada!");
     assert.equal(observed.saved, "Ada!");
     assert.equal(observed.clicks, 1);
