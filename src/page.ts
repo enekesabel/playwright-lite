@@ -4910,8 +4910,7 @@ export class PageImpl {
     // because it acts on the document's own caret rather than on an argument.
     if (inputType !== "insertText") return false;
     if (this.deepActiveElement() !== element) return false;
-    // Inputs that keep no caret of their own, such as date and checkbox, and
-    // hosts the editing engine refuses leave the command's result false.
+    // Hosts the editing engine refuses leave the command's result false.
     return this.document.execCommand("insertText", false, text);
   }
 
@@ -4935,11 +4934,17 @@ export class PageImpl {
   ) {
     this.assertActionDeadline(deadline, "press");
     if (!isEditableElement(element, this.window)) return;
+    // Chromium's editor hands a key's text only to an element that takes
+    // typed text. Text no key produced still reaches beforeinput on any other
+    // focused input, which then inserts nothing.
+    const takesText = takesTypedText(element, this.window);
+    if (typedByKey && !takesText) return;
     if (!this.dispatchBeforeInput(element, eventData, inputType)) return;
     // Chromium dispatches the legacy TextEvent for the text a key produces,
     // between beforeinput and input. Text that no key produced, such as
     // Keyboard.insertText, carries no keypress and no textInput either.
     if (typedByKey && !this.dispatchTextInput(element, text)) return;
+    if (!takesText) return;
     this.assertActionDeadline(deadline, "press");
     this.insertPressedText(element, text, inputType, eventData, deadline);
   }
@@ -4970,7 +4975,7 @@ export class PageImpl {
       element.click();
       return;
     }
-    if (isInputButton(element, this.window)) {
+    if (isKeyboardClickableInput(element, this.window)) {
       element.click();
       return;
     }
@@ -6547,13 +6552,19 @@ function isHtmlButton(
   return element instanceof browserWindow.HTMLButtonElement;
 }
 
-function isInputButton(
+/**
+ * Input types Chromium activates with a click on Enter and Space, like a
+ * button (its KeyboardClickableInputTypeView).
+ */
+function isKeyboardClickableInput(
   element: Element,
   browserWindow: Window & typeof globalThis
 ): element is HTMLInputElement {
   return (
     element instanceof browserWindow.HTMLInputElement &&
-    ["button", "reset", "submit"].includes(element.type.toLowerCase())
+    ["button", "color", "file", "image", "reset", "submit"].includes(
+      element.type.toLowerCase()
+    )
   );
 }
 
@@ -6590,13 +6601,33 @@ function isEditableElement(
   return false;
 }
 
+/**
+ * Whether an editable element inserts text. Among inputs, only the types
+ * Chromium edits as a text field do (HTMLInputElement::IsTextField); a file,
+ * checkbox, date or color input keeps its value.
+ */
+function takesTypedText(
+  element: Element,
+  browserWindow: Window & typeof globalThis
+): boolean {
+  if (!isTextInput(element, browserWindow)) return true;
+  return [
+    "email",
+    "number",
+    "password",
+    "search",
+    "tel",
+    "text",
+    "url",
+  ].includes(element.type.toLowerCase());
+}
+
 function isSpaceActivatable(
   element: Element,
   browserWindow: Window & typeof globalThis
 ): element is HTMLButtonElement | HTMLInputElement {
   if (element instanceof browserWindow.HTMLButtonElement) return true;
+  if (isKeyboardClickableInput(element, browserWindow)) return true;
   if (!(element instanceof browserWindow.HTMLInputElement)) return false;
-  return ["button", "checkbox", "radio", "reset", "submit"].includes(
-    element.type.toLowerCase()
-  );
+  return ["checkbox", "radio"].includes(element.type.toLowerCase());
 }
