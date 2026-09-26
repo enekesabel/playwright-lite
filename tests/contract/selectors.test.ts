@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createPage, expect as pageExpect, selectors } from "../../src/index";
 
@@ -133,6 +133,44 @@ describe("Selectors.register", () => {
       path: "engine.js",
       content: tagEngineSource,
     });
+  });
+
+  // The pinned `removeHighlight` installs an (empty) glass pane of its own, so
+  // what must not survive is a pane still drawing a highlight.
+  it("leaves no highlight overlay behind across a registration", async () => {
+    const roots: ShadowRoot[] = [];
+    const attachShadow = Element.prototype.attachShadow;
+    const spy = vi
+      .spyOn(Element.prototype, "attachShadow")
+      .mockImplementation(function (this: Element, options: ShadowRootInit) {
+        const root = attachShadow.call(this, options);
+        if (this.localName === "x-pw-glass") roots.push(root);
+        return root;
+      });
+    const highlights = () =>
+      roots.flatMap((root) =>
+        Array.from(root.querySelectorAll("x-pw-highlight")).filter(
+          (element) => element.isConnected
+        )
+      );
+    try {
+      document.body.innerHTML = "<button>Save</button>";
+      const button = createPage().locator("button");
+      await button.highlight();
+      await expect.poll(() => highlights().length).toBe(1);
+
+      await selectors.register("afterHighlight", tagEngineSource);
+      await button.hideHighlight();
+
+      await expect.poll(() => highlights().length).toBe(0);
+      expect(
+        Array.from(document.querySelectorAll("x-pw-glass")).filter(
+          (glass) => glass.isConnected
+        )
+      ).toHaveLength(1);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   // Last: as in Playwright, a source that throws breaks every later selector.

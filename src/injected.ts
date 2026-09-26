@@ -49,6 +49,9 @@ export function injectedScriptFor(
       stableRafCount: 0,
       testIdAttributeName,
     });
+    // The replaced InjectedScript owns the highlight overlay it drew, which
+    // the new one cannot remove, so it takes the overlay down first.
+    entry?.injectedScript.hideHighlight();
     entry = { engineCount: customEngines.length, injectedScript };
     byTestId.set(testIdAttributeName, entry);
   }
