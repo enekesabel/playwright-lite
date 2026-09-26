@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.6.0](https://github.com/enekesabel/playwright-lite/compare/v0.5.0...v0.6.0) (2026-09-26)
+
+
+### Features
+
+* add expect(page).toMatchAriaSnapshot and follow the pinned inline matcher ([#228](https://github.com/enekesabel/playwright-lite/issues/228)) ([41f7a64](https://github.com/enekesabel/playwright-lite/commit/41f7a64858b9f5b526a1ce539ba06be3c50d88af))
+* add page.mouse on the pointer that click and hover share ([#221](https://github.com/enekesabel/playwright-lite/issues/221)) ([59125f8](https://github.com/enekesabel/playwright-lite/commit/59125f8780abd5fc3a104573252a38d0055f998f))
+* add page.viewportSize; record emulateMedia and popup as out of scope ([#225](https://github.com/enekesabel/playwright-lite/issues/225)) ([b70ceff](https://github.com/enekesabel/playwright-lite/commit/b70ceff0162c71e534db66586dcdbc16e8838cb0))
+* add same-document goBack, goForward and reload ([#174](https://github.com/enekesabel/playwright-lite/issues/174)) ([503ad6f](https://github.com/enekesabel/playwright-lite/commit/503ad6f17968e1f2168cadc720b21d95f7de15b1))
+* add the filechooser event and FileChooser over intercepted file inputs ([#234](https://github.com/enekesabel/playwright-lite/issues/234)) ([fb9594f](https://github.com/enekesabel/playwright-lite/commit/fb9594f2b39b9307d51f041d06e3a0803648ed4e))
+* close() disposes the page instance; isClosed() and asyncDispose follow ([#216](https://github.com/enekesabel/playwright-lite/issues/216)) ([783a0a2](https://github.com/enekesabel/playwright-lite/commit/783a0a27ba66a0cf9646b429cd32c2dc2dd27c6b))
+* register custom selector engines with selectors.register ([#218](https://github.com/enekesabel/playwright-lite/issues/218)) ([e54f482](https://github.com/enekesabel/playwright-lite/commit/e54f482b900be7c16d0f981c7e2896f3cc5547c3))
+* resolve waitForNavigation for same-document navigations ([#177](https://github.com/enekesabel/playwright-lite/issues/177)) ([acf9141](https://github.com/enekesabel/playwright-lite/commit/acf9141932ad8aa8f49e9c3ebbc0a10e1c157c57))
+* run locator handlers before actions and assertions ([#212](https://github.com/enekesabel/playwright-lite/issues/212)) ([e4ef4eb](https://github.com/enekesabel/playwright-lite/commit/e4ef4eb4112a16bbd3f4c48c49635904c12bb859))
+
+
+### Bug Fixes
+
+* collapse call logs and report pre-match expect errors like Playwright ([#236](https://github.com/enekesabel/playwright-lite/issues/236)) ([6ff953f](https://github.com/enekesabel/playwright-lite/commit/6ff953f47834efe6e773864419817395cc77f5fd))
+* derive Locator description() and toString() from the selector ([#169](https://github.com/enekesabel/playwright-lite/issues/169)) ([47d4322](https://github.com/enekesabel/playwright-lite/commit/47d4322d1dec6a648b85f2cf4283e02d268a7a40))
+* honour strict in ElementHandle.waitForSelector ([#165](https://github.com/enekesabel/playwright-lite/issues/165)) ([da8ffc7](https://github.com/enekesabel/playwright-lite/commit/da8ffc73f0f2eb1ab8aba4a3b7dfbff931a2f3be))
+* import the page globals locatorHandlers reads ([#230](https://github.com/enekesabel/playwright-lite/issues/230)) ([bcce3eb](https://github.com/enekesabel/playwright-lite/commit/bcce3eb8ef08a1bf77ffd48d9c2f7107b30253cb))
+* infer the MIME type of in-memory file payloads ([#167](https://github.com/enekesabel/playwright-lite/issues/167)) ([04cf8d6](https://github.com/enekesabel/playwright-lite/commit/04cf8d6751a4db47dbbeaa63179c31dde61926bb))
+* insert no key text into file and other non-text inputs ([#237](https://github.com/enekesabel/playwright-lite/issues/237)) ([b613aeb](https://github.com/enekesabel/playwright-lite/commit/b613aebb8b272b4f4d99c91b2265c199d75a7134))
+* keep the builtins the adapter reads when the page deletes or replaces them ([#219](https://github.com/enekesabel/playwright-lite/issues/219)) ([e656d87](https://github.com/enekesabel/playwright-lite/commit/e656d878db31e02db65c73c72c04da54c2fe2653))
+* match Playwright's expect locator and abort failure text ([#196](https://github.com/enekesabel/playwright-lite/issues/196)) ([f627ab7](https://github.com/enekesabel/playwright-lite/commit/f627ab730c3efa0a653c74f3815c8d90b9cec0ed))
+* reject evaluate results deeper than Chromium's protocol accepts ([#233](https://github.com/enekesabel/playwright-lite/issues/233)) ([67eae30](https://github.com/enekesabel/playwright-lite/commit/67eae3081a7759d0527543f0b34bc0debaf150f2))
+* report an already-aborted assertion without a call log ([#213](https://github.com/enekesabel/playwright-lite/issues/213)) ([308bbcf](https://github.com/enekesabel/playwright-lite/commit/308bbcf73895e6601d813fad379d71076cab3714))
+* use pinned error text for selector queries and waitForSelector options ([#227](https://github.com/enekesabel/playwright-lite/issues/227)) ([4dd7e0f](https://github.com/enekesabel/playwright-lite/commit/4dd7e0f740ebc7d6f80205cafa9dd0b08160af84))
+
 ## [0.5.0](https://github.com/enekesabel/playwright-lite/compare/v0.4.0...v0.5.0) (2026-09-24)
 
 
