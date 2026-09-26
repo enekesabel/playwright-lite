@@ -644,4 +644,38 @@ describe("Page.on", () => {
     expect(() => window.alert.call({}, "hi")).toThrow(TypeError);
     expect(seen).toEqual([]);
   });
+
+  // ── File chooser events ────────────────────────────────────────
+
+  const fileChooserPage = listenedPages();
+
+  it("patches file input activation only while a filechooser listener exists", () => {
+    const click = HTMLElement.prototype.click;
+    const showPicker = HTMLInputElement.prototype.showPicker;
+    const input = document.createElement("input");
+    input.type = "file";
+    document.body.append(input);
+    const cancelled = () =>
+      !input.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, cancelable: true })
+      );
+    const page = fileChooserPage();
+    const listener = () => {};
+
+    page.on("pageerror", () => {});
+    expect(HTMLElement.prototype.click).toBe(click);
+    page.on("filechooser", listener);
+    page.on("filechooser", listener);
+    expect(HTMLElement.prototype.click).not.toBe(click);
+    expect(HTMLInputElement.prototype.showPicker).not.toBe(showPicker);
+    expect(cancelled()).toBe(true);
+
+    page.off("filechooser", listener);
+    expect(HTMLElement.prototype.click).not.toBe(click);
+    page.off("filechooser", listener);
+    expect(HTMLElement.prototype.click).toBe(click);
+    expect(HTMLInputElement.prototype.showPicker).toBe(showPicker);
+    expect(cancelled()).toBe(false);
+    input.remove();
+  });
 });

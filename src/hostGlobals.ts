@@ -6,7 +6,7 @@ import { Map, WeakMap } from "virtual:playwright-lite-globals";
  * Playwright reports. A page nobody subscribed on replaces nothing.
  */
 
-type HostFunction = (...args: never[]) => unknown;
+export type HostFunction = (...args: never[]) => unknown;
 
 /**
  * One instance per window, created by `create` on first use and shared by
@@ -93,6 +93,8 @@ export class HostObservation<Report extends (...args: never[]) => void> {
   constructor(
     members: readonly HostMember[],
     private readonly options: {
+      /** Runs after the first subscription has installed the wrappers. */
+      onFirstSubscribe?: () => void;
       /** Runs after the last release has restored the wrappers. */
       onLastRelease?: () => void;
     } = {}
@@ -107,7 +109,10 @@ export class HostObservation<Report extends (...args: never[]) => void> {
     // accessor synchronously, which must already see an active subscription
     // and must not start a second installation by subscribing again.
     this.reporters.set(report, (this.reporters.get(report) ?? 0) + 1);
-    if (first) for (const wrapper of this.wrappers) wrapper.install();
+    if (first) {
+      for (const wrapper of this.wrappers) wrapper.install();
+      this.options.onFirstSubscribe?.();
+    }
     let released = false;
     return () => {
       if (released) return;

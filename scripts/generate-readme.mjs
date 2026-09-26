@@ -56,6 +56,7 @@ const genericExpectUrls = new Map([
 
 // Page event names are one lowercase word; their anchors split the words.
 const eventAnchors = new Map([
+  ["filechooser", "file-chooser"],
   ["framenavigated", "frame-navigated"],
   ["pageerror", "page-error"],
   ["requestfailed", "request-failed"],

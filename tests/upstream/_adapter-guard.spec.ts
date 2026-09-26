@@ -455,6 +455,23 @@ test("an error a network object's member raises is not a transport failure", asy
   expect((page as any).__pwLiteTransportFailures).toEqual([]);
 });
 
+test("an error a FileChooser's setFiles raises is not a transport failure", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<input type=file>");
+  const [chooser] = await Promise.all([
+    adapterPage.waitForEvent("filechooser"),
+    adapterPage.click("input"),
+  ]);
+  await expect(chooser.setFiles("/no/such/path")).rejects.toThrow(
+    "setFiles: file paths are not supported"
+  );
+  const execution = await page.evaluate(() => (window as any).__pwLiteEvidence);
+  expect(execution.entered).toContain("FileChooser.setFiles");
+  expect((page as any).__pwLiteTransportFailures).toEqual([]);
+});
+
 test("a call the bridge dispatches to a missing adapter member is a transport failure", async ({
   page,
   adapterPage,

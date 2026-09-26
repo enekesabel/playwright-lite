@@ -4106,6 +4106,36 @@
       "evidence": "waitForEvent('filechooser', { timeout: 1 }) rejects with playwright.errors.TimeoutError. This proves only the wait's explicit-timeout path: no file chooser opens, and the ledger's waitForEvent row says unsupported event names are accepted and time out."
     },
     {
+      "id": "page-filechooser.spec.ts > should return the same file chooser when there are many watchdogs simultaneously",
+      "method": "Page.waitForEvent",
+      "evidence": "Two concurrent waitForEvent('filechooser') calls resolve with identical FileChoosers for the one input.click() the test's page function makes on the input. The bridge keeps one proxy per adapter chooser object, so === holds only because the adapter handed both waits the same chooser."
+    },
+    {
+      "id": "page-filechooser.spec.ts > should work for \"multiple\"",
+      "method": "Page.waitForEvent",
+      "evidence": "For page.click on <input multiple type=file>, the FileChooser that waitForEvent('filechooser') resolves with reports isMultiple() true, read from the adapter's chooser when it crosses the bridge."
+    },
+    {
+      "id": "page-filechooser.spec.ts > should work for \"webkitdirectory\"",
+      "method": "Page.waitForEvent",
+      "evidence": "For page.click on <input multiple webkitdirectory type=file>, the FileChooser that waitForEvent('filechooser') resolves with reports isMultiple() true, the input's multiple as pinned _onFileChooserOpened reads it. It is read from the adapter's chooser when it crosses the bridge."
+    },
+    {
+      "id": "page-filechooser.spec.ts > should work for single file pick",
+      "method": "Page.waitForEvent",
+      "evidence": "For page.click on <input type=file>, the FileChooser that waitForEvent('filechooser') resolves with reports isMultiple() false. isMultiple() is read from the adapter's chooser when it crosses the bridge, so this certifies the reported payload, not a separate FileChooser.isMultiple call."
+    },
+    {
+      "id": "page-filechooser.spec.ts > should work when file input is attached to DOM",
+      "method": "Page.waitForEvent",
+      "evidence": "waitForEvent('filechooser') resolves with a truthy FileChooser when page.click activates the <input type=file> the native setContent wrote: the wait's listener installed the file chooser observation, which cancels and reports the adapter click on the input."
+    },
+    {
+      "id": "page-filechooser.spec.ts > should work with no timeout",
+      "method": "Page.waitForEvent",
+      "evidence": "waitForEvent('filechooser', { timeout: 0 }) never times out and resolves with a FileChooser when, 50 ms later, the page's own click() activates a file input it created and never inserted: the wrapped HTMLElement.prototype.click reports an input the window listener cannot see."
+    },
+    {
       "id": "page-fill.spec.ts > fill back to back",
       "method": "Page.fill",
       "evidence": "Consecutive fills on distinct inputs produce the two independently asserted values."

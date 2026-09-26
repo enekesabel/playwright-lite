@@ -47,6 +47,11 @@ import {
 } from "./network";
 import { dialogObservationFor, Dialog, type DialogReport } from "./dialog";
 import {
+  FileChooser,
+  fileChooserObservationFor,
+  type FileChooserReport,
+} from "./fileChooser";
+import {
   CONSOLE_EVENT,
   CONSOLE_MESSAGE_LIMIT,
   buildConsoleMessage,
@@ -508,6 +513,7 @@ export class PageImpl {
   private readonly navigationFeed: PageFeed;
   private readonly networkFeed: PageFeed;
   private readonly dialogFeed: PageFeed;
+  private readonly fileChooserFeed: PageFeed;
   private readonly consoleFeed: PageFeed;
   /** Pinned client/page.ts and server/page.ts `_locatorHandlers`, as one. */
   private readonly locatorHandlers: LocatorHandlers;
@@ -553,6 +559,23 @@ export class PageImpl {
       );
     };
     this.dialogFeed = new PageFeed(() => this.dialogs.subscribe(reportDialog));
+    // Pinned server/page.ts `_onFileChooserOpened`: `isMultiple` is the
+    // input's `multiple` at activation, and one chooser reaches every listener.
+    const reportFileChooser: FileChooserReport = (input) => {
+      this.emit(
+        "filechooser",
+        new FileChooser(
+          this as unknown as Page,
+          this.lifetime,
+          this.elementHandleFor(input)!,
+          !!input.multiple
+        )
+      );
+    };
+    const fileChoosers = fileChooserObservationFor(browserWindow);
+    this.fileChooserFeed = new PageFeed(() =>
+      fileChoosers.subscribe(reportFileChooser)
+    );
     const reportConsole = (call: ConsoleCall) => {
       const message = buildConsoleMessage(
         this as unknown as Page,
@@ -1735,46 +1758,45 @@ export class PageImpl {
     selector: string | Element,
     files: InputFiles,
     options: PageSetInputFilesOptions = {},
-    strict = false,
-    // Only names a selector that found nothing, which a handle never reports.
-    label = typeof selector === "string" ? selector : "elementHandle"
+    // `method` names the member in validation and timeout messages.
+    { strict = false, method = "setInputFiles" } = {}
   ): Promise<void> {
-    assertPageActionOptions("setInputFiles", options, [
-      "noWaitAfter",
-      "strict",
-    ]);
+    assertPageActionOptions(method, options, ["noWaitAfter", "strict"]);
     if (options.strict !== undefined && typeof options.strict !== "boolean")
-      throw new TypeError("setInputFiles strict must be a boolean");
-    const payloads = await inputFilePayloads(files);
+      throw new TypeError(`${method} strict must be a boolean`);
+    const payloads = await inputFilePayloads(files, method);
     const deadline = this.createActionDeadline(options.timeout);
     this.attachActionSignal(deadline, options.signal);
+    // Mirrors pinned server/dom.ts _setInputFiles: label retargeting and
+    // input/multiple/directory validation, without visibility/enabled checks.
+    const assign = (element: Element) => {
+      this.assertActionDeadline(deadline, method);
+      const input = (
+        this.injected as typeof this.injected & QueryCapableInjectedScript
+      ).retarget(element, "follow-label");
+      if (!input) throw new Error("Element is not connected");
+      if (!(input instanceof this.window.HTMLInputElement))
+        throw new Error("Node is not an HTMLInputElement");
+      if (payloads.length > 1 && !input.multiple && !input.webkitdirectory)
+        throw new Error("Non-multiple file input can only accept single file");
+      if (input.webkitdirectory)
+        throw new Error(
+          "[webkitdirectory] input requires passing a path to a directory; directory uploads are not supported."
+        );
+      const error = this.injected.setInputFiles(input, payloads);
+      if (error) throw new Error(error);
+    };
+    // A handle's node is assigned once, attached or not: the pinned
+    // ElementHandle.setInputFiles neither waits nor requires the node to be
+    // in the document, so an input a page created and clicked without
+    // inserting it still takes the files a file chooser sets.
+    if (typeof selector !== "string") return assign(selector);
     await this.query(
       selector,
-      label,
+      selector,
       { signal: options.signal, timeout: options.timeout },
       strict || options.strict === true,
-      (element) => {
-        this.assertActionDeadline(deadline, "setInputFiles");
-        // Mirrors pinned server/dom.ts _setInputFiles: label retargeting and
-        // input/multiple/directory validation, without visibility/enabled checks.
-        const input = (
-          this.injected as typeof this.injected & QueryCapableInjectedScript
-        ).retarget(element, "follow-label");
-        if (!input || !input.isConnected)
-          throw new Error("Element is not connected");
-        if (!(input instanceof this.window.HTMLInputElement))
-          throw new Error("Node is not an HTMLInputElement");
-        if (payloads.length > 1 && !input.multiple && !input.webkitdirectory)
-          throw new Error(
-            "Non-multiple file input can only accept single file"
-          );
-        if (input.webkitdirectory)
-          throw new Error(
-            "[webkitdirectory] input requires passing a path to a directory; directory uploads are not supported."
-          );
-        const error = this.injected.setInputFiles(input, payloads);
-        if (error) throw new Error(error);
-      },
+      assign,
       deadline,
       true
     );
@@ -2290,6 +2312,7 @@ export class PageImpl {
     this.navigationFeed.listen(this.isListened("framenavigated"));
     this.networkFeed.listen(this.isListened(...NETWORK_EVENTS));
     this.dialogFeed.listen(this.isListened("dialog"));
+    this.fileChooserFeed.listen(this.isListened("filechooser"));
     this.consoleFeed.listen(this.isListened(CONSOLE_EVENT));
   }
 
@@ -2372,6 +2395,7 @@ export class PageImpl {
         this.navigationFeed,
         this.networkFeed,
         this.dialogFeed,
+        this.fileChooserFeed,
         this.consoleFeed,
       ])
         feed.release();

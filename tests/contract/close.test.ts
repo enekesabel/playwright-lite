@@ -144,6 +144,8 @@ describe("Page.close", () => {
       send: XMLHttpRequest.prototype.send,
       alert: window.alert,
       log: console.log,
+      click: HTMLElement.prototype.click,
+      showPicker: HTMLInputElement.prototype.showPicker,
     });
     const original = wrapped();
     const first = createPage();
@@ -151,6 +153,7 @@ describe("Page.close", () => {
     for (const page of [first, second]) {
       page.on("request", () => {});
       page.on("dialog", () => {});
+      page.on("filechooser", () => {});
       page.on("console", () => {});
     }
     const installed = wrapped();
