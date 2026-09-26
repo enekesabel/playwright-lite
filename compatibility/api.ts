@@ -660,7 +660,7 @@ export const touchscreenLedger = {
 /** The package's `selectors` export, Playwright's `selectors`. */
 export const selectorsLedger = {
   register: partial(
-    "A `script` of `{ path }` rejects, where Playwright reads the file; pass `content`. `contentScript: true` has no effect: the engine sees the page's JavaScript globals, where Playwright runs it in an isolated world. An engine takes effect in pages already in use, where Playwright applies it to documents loaded afterwards, so a source that throws when evaluated fails the page's next selector, where Playwright fails the next document's selectors."
+    "A `script` of `{ path }` rejects, where Playwright reads the file; pass `content`. `contentScript: true` has no effect: the engine sees the page's JavaScript globals, where Playwright runs it in an isolated world. An engine takes effect in pages already in use, where Playwright applies it to documents loaded afterwards, so a source that throws when evaluated fails the page's next selector, where Playwright fails the next document's selectors. Registering an engine clears any active `highlight()`, which Playwright keeps."
   ),
   setTestIdAttribute: undecided(),
 } as const satisfies Ledger<Selectors>;
