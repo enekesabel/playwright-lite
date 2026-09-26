@@ -832,7 +832,10 @@ export class PageImpl {
       : [];
     if (signal.aborted)
       return isTargetClosedError(signal.reason)
-        ? unmatchedExpectation("aborted", isNot, signal, [...log, ...waitingFor])
+        ? unmatchedExpectation("aborted", isNot, signal, [
+            ...log,
+            ...waitingFor,
+          ])
         : alreadyAbortedExpectationResult(isNot, signal);
 
     let lastAttempt: LocatorExpectationAttempt | undefined;
