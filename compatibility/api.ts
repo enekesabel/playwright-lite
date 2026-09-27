@@ -138,6 +138,19 @@ const mouseDifferences = {
   },
 } as const;
 
+/**
+ * How `touchscreen.tap()` differs, shared by the Touchscreen ledger and the
+ * README's Touchscreen section.
+ */
+const tapDifference = {
+  lite: "Needs the document to report touch points (`navigator.maxTouchPoints` above 0) and otherwise throws Playwright's `hasTouch` error; dispatches Chromium's touch, pointer and compatibility mouse events, but no gesture handling runs, so every tap is a single tap and nothing zooms.",
+  playwright:
+    "Needs the `hasTouch` context option; the browser counts quick taps close together as a multi-tap (`detail` 2 and a `dblclick`) and can zoom on a double tap.",
+} as const;
+
+const tapNote =
+  "Runs `touchscreen.tap()` after the actionability checks; see [Touchscreen](#touchscreen).";
+
 /** The Page events this package fires, in README order. */
 export const events: readonly EventRow[] = [
   {
@@ -367,6 +380,19 @@ export const objectSections: readonly ObjectSection[] = [
       "A `wheel` event is always cancelable and reaches the page's listeners before any scroll. When every `wheel` listener is passive, the browser scrolls first and reports `cancelable` as `false`.",
     ],
   },
+  {
+    name: "Touchscreen",
+    covers:
+      "`page.touchscreen` taps the document with one touch point per tap, which `page.tap()` and `locator.tap()` also use.",
+    members: [{ member: "`tap()`", ...tapDifference }],
+    differences: [
+      "`page.tap()` and `locator.tap()` run `tap()` after the actionability checks, with the differences above.",
+    ],
+    edgeCases: [
+      "A `touchstart` event is always cancelable. When no listener on its path is non-passive, the browser reports `cancelable` as `false`.",
+      "The touch lists report an element inside an open shadow root to listeners outside it, where the browser reports the shadow host.",
+    ],
+  },
 ];
 
 export const pageLedger = {
@@ -511,10 +537,12 @@ export const pageLedger = {
     "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported."
   ),
   setViewportSize: outOfScope("Browser viewport resizing is excluded."),
-  tap: planned("Synthetic functional input only."),
+  tap: partial(tapNote),
   textContent: implemented(),
   title: implemented(),
-  touchscreen: planned("Synthetic functional input only."),
+  touchscreen: partial(
+    "Taps only where the document reports touch points, and runs no gesture handling; see [Touchscreen](#touchscreen)."
+  ),
   type: implemented(),
   uncheck: implemented(),
   unroute: outOfScope(
@@ -621,7 +649,7 @@ export const locatorLedger = {
   setInputFiles: partial(
     "Accepts only in-memory `{ name, mimeType, buffer }` objects; file paths and directory uploads are unsupported."
   ),
-  tap: undecided(),
+  tap: partial(tapNote),
   textContent: implemented(),
   toString: implemented(),
   type: implemented(),
@@ -654,7 +682,7 @@ export const mouseLedger = {
 } as const satisfies Ledger<Mouse>;
 
 export const touchscreenLedger = {
-  tap: planned("Synthetic functional input only."),
+  tap: partial(tapDifference.lite),
 } as const satisfies Ledger<Touchscreen>;
 
 /** The package's `selectors` export, Playwright's `selectors`. */
