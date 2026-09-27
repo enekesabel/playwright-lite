@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../../src/index";
 import { report, swallowWindowErrors } from "../pageEvents";
+import { emulateTouch } from "../touch";
 
 swallowWindowErrors();
 
@@ -666,8 +667,9 @@ describe("option-validation", () => {
   });
 
   // Contract coverage: no pinned spec passes an invalid argument to the
-  // mouse; the messages are the pinned protocol validator's.
-  const mouseCalls: [string, (page: Page) => Promise<unknown>, string][] = [
+  // mouse or the touchscreen; the messages are the pinned protocol
+  // validator's.
+  const inputCalls: [string, (page: Page) => Promise<unknown>, string][] = [
     [
       "mouse.move",
       (page) => page.mouse.move("1" as any, 0),
@@ -703,15 +705,26 @@ describe("option-validation", () => {
       (page) => page.mouse.wheel(0, "100" as any),
       "mouse.wheel: deltaY: expected float, got string",
     ],
+    [
+      "touchscreen.tap",
+      (page) => page.touchscreen.tap(0, "1" as any),
+      "touchscreen.tap: y: expected float, got string",
+    ],
   ];
 
-  it.each(mouseCalls)(
+  it.each(inputCalls)(
     "%s rejects an argument the pinned protocol rejects",
     async (_apiName, run, message) => {
       const page = createPage();
       const listening = new AbortController();
       const events: string[] = [];
-      for (const type of ["pointermove", "pointerdown", "pointerup", "wheel"])
+      for (const type of [
+        "pointermove",
+        "pointerdown",
+        "pointerup",
+        "wheel",
+        "touchstart",
+      ])
         document.addEventListener(type, () => events.push(type), {
           signal: listening.signal,
         });
@@ -818,6 +831,7 @@ describe("option-validation", () => {
       <input id="file" type="file"><button>Target</button>
     `;
       const page = createPage();
+      emulateTouch();
       const options = { noWaitAfter: "ignored" } as never;
       await page.fill("#text", "page", options);
       await page.locator("#text").fill("locator", options);
@@ -830,6 +844,8 @@ describe("option-validation", () => {
       await page.locator("button").hover(options);
       await page.dblclick("button", options);
       await page.locator("button").dblclick(options);
+      await page.tap("button", options);
+      await page.locator("button").tap(options);
       await page.check("#check", options);
       await page.locator("#check").uncheck(options);
       await page.locator("#check").check(options);

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { ADAPTER_TIMEOUT_ERROR } from "../../../src/errors";
 import { createPage } from "../../../src/index";
 import { prepareTraversal } from "../history";
+import { emulateTouch } from "../touch";
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -11,6 +12,7 @@ afterEach(() => {
 describe("timeouts", () => {
   it("forwards explicit timeout through locator terminal actions", async () => {
     document.body.innerHTML = "";
+    emulateTouch();
     const page = createPage();
     const locator = page.locator("#missing");
     const actions: [string, () => Promise<unknown>][] = [
@@ -19,6 +21,7 @@ describe("timeouts", () => {
       ["locator.press", () => locator.press("x", { timeout: 1 })],
       ["locator.clear", () => locator.clear({ timeout: 1 })],
       ["locator.hover", () => locator.hover({ timeout: 1 })],
+      ["locator.tap", () => locator.tap({ timeout: 1 })],
       ["locator.check", () => locator.check({ timeout: 1 })],
       ["locator.uncheck", () => locator.uncheck({ timeout: 1 })],
       ["locator.setChecked", () => locator.setChecked(true, { timeout: 1 })],

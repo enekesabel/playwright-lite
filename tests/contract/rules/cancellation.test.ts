@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../../src/index";
 import { prepareTraversal, stubLoading } from "../history";
+import { emulateTouch } from "../touch";
 
 type Page = ReturnType<typeof createPage>;
 type Options = { signal?: AbortSignal; timeout: number };
@@ -30,6 +31,7 @@ function actions(
     ["page.selectOption", (o) => page.selectOption("#select", "x", o)],
     ["page.setChecked", (o) => page.setChecked("#never", true, o)],
     ["page.setInputFiles", (o) => page.setInputFiles("#never", [], o)],
+    ["page.tap", (o) => page.tap("#never", o), emulateTouch],
     ["page.type", (o) => page.type("#never", "x", o)],
     ["page.uncheck", (o) => page.uncheck("#never", o)],
     [
@@ -76,6 +78,7 @@ function actions(
     ["locator.selectText", (o) => locator().selectText(o)],
     ["locator.setChecked", (o) => locator().setChecked(true, o)],
     ["locator.setInputFiles", (o) => locator().setInputFiles([], o)],
+    ["locator.tap", (o) => locator().tap(o), emulateTouch],
     ["locator.type", (o) => locator().type("x", o)],
     ["locator.uncheck", (o) => locator().uncheck(o)],
     ["locator.waitFor", (o) => locator().waitFor(o)],

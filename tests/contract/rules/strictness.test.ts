@@ -2,6 +2,7 @@ import type { Locator, Page } from "@playwright/test";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createPage } from "../../../src/index";
+import { emulateTouch } from "../touch";
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -97,6 +98,23 @@ const selectorActions: StrictnessCase[] = [
     },
     pageAction: (page, options) => page.click(".target", options),
     locatorAction: (locator) => locator.click(),
+    changed: ["A"],
+    unchanged: [],
+  },
+  {
+    apiName: "tap",
+    html: '<button class="target">A</button><button class="target">B</button>',
+    observe: () => {
+      emulateTouch();
+      const taps: string[] = [];
+      for (const button of targets<HTMLButtonElement>())
+        button.addEventListener("touchstart", () =>
+          taps.push(button.textContent!)
+        );
+      return () => taps;
+    },
+    pageAction: (page, options) => page.tap(".target", options),
+    locatorAction: (locator) => locator.tap(),
     changed: ["A"],
     unchanged: [],
   },

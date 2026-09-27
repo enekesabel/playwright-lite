@@ -85,6 +85,7 @@ describe("Page.close", () => {
       ["keyboard.press", () => page.keyboard.press("a")],
       ["mouse.click", () => page.mouse.click(1, 1)],
       ["mouse.wheel", () => page.mouse.wheel(0, 10)],
+      ["touchscreen.tap", () => page.touchscreen.tap(1, 1)],
       ["webStorage.getItem", () => page.localStorage.getItem("a")],
       ["webStorage.setItem", () => page.sessionStorage.setItem("a", "b")],
       ["elementHandle.click", () => handle.click()],
