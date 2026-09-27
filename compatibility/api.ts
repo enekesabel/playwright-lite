@@ -120,8 +120,8 @@ const historyTraversalNote =
  */
 const mouseDifferences = {
   move: {
-    lite: "Dispatches pointer and mouse move, over/out and enter/leave events to the element `elementFromPoint()` reports; moving with the left button held from a draggable element starts no HTML drag.",
-    playwright: "Starts an HTML drag from a draggable element.",
+    lite: "Dispatches pointer and mouse move, over/out and enter/leave events to the element `elementFromPoint()` reports; with the left button held after a press on a draggable element, it starts an HTML drag, emulated as [Drag and drop](#drag-and-drop) describes.",
+    playwright: "The browser starts a native HTML drag.",
   },
   down: {
     lite: "Dispatches `pointerdown`, `mousedown` and, for the right button, `contextmenu`, and moves focus as a press does, but starts no text selection, context menu or autoscroll.",
@@ -129,8 +129,8 @@ const mouseDifferences = {
       "The browser also selects text, opens its context menu and autoscrolls.",
   },
   up: {
-    lite: "Dispatches `pointerup`, `mouseup` and a `click`, `auxclick` or `dblclick` on the nearest common ancestor of the press and release targets; it drops nothing, since no HTML drag starts.",
-    playwright: "Drops an HTML drag that `move()` started.",
+    lite: "Dispatches `pointerup`, `mouseup` and a `click`, `auxclick` or `dblclick` on the nearest common ancestor of the press and release targets; during a drag it drops instead, as [Drag and drop](#drag-and-drop) describes.",
+    playwright: "Drops a native HTML drag.",
   },
   wheel: {
     lite: "Dispatches a `wheel` event and, unless it is canceled, scrolls the nearest ancestor that can scroll in the deltas' direction, or else the viewport, by the deltas at once.",
@@ -150,6 +150,9 @@ const tapDifference = {
 
 const tapNote =
   "Runs `touchscreen.tap()` after the actionability checks; see [Touchscreen](#touchscreen).";
+
+const dragNote =
+  "Emulates HTML drag and drop in the document, without the browser's default drop handling; see [Drag and drop](#drag-and-drop).";
 
 /** The Page events this package fires, in README order. */
 export const events: readonly EventRow[] = [
@@ -381,6 +384,22 @@ export const objectSections: readonly ObjectSection[] = [
     ],
   },
   {
+    name: "Drag and drop",
+    covers:
+      "`locator.dragTo()`, `page.dragAndDrop()` and `page.mouse` emulate HTML drag and drop in the document: a move with the left button held after a press on a draggable element starts a drag, with Chromium's drag events and `effectAllowed` and `dropEffect` negotiation, which the release drops and `Escape` cancels.",
+    differences: [
+      'A drag starts only from an element that is draggable, by `draggable="true"` or as a link or an image, where the browser also drags selected text.',
+      "The browser's default drop handling does not run: an editable element accepts a drop only when a `dragover` listener cancels the event, and dropped text is never inserted.",
+      "A dragged link or image carries no data unless a `dragstart` listener sets it, where the browser adds the link's URL or the image.",
+      "`getData()` and `setData()` work in every drag event, where the browser reads the data only in `dragstart` and `drop` and writes it only in `dragstart`.",
+    ],
+    edgeCases: [
+      "A drag starts on the first move with the button held, where the browser waits until the pointer has moved a few pixels.",
+      "Pressing on editable text inside a draggable element starts a drag, where the browser selects the text instead.",
+      "Every event of a drag carries the same `DataTransfer` object, where the browser gives the drop target a new one in each event.",
+    ],
+  },
+  {
     name: "Touchscreen",
     covers:
       "`page.touchscreen` taps the document with one touch point per tap, which `page.tap()` and `locator.tap()` also use.",
@@ -437,7 +456,7 @@ export const pageLedger = {
   ),
   dblclick: implemented(),
   dispatchEvent: implemented(),
-  dragAndDrop: undecided(),
+  dragAndDrop: partial(dragNote),
   emulateMedia: outOfScope(
     "A document cannot change its own media type or `prefers-color-scheme`."
   ),
@@ -486,7 +505,7 @@ export const pageLedger = {
   locator: implemented(),
   mainFrame: partial("Returns the same `Page` object, not a `Frame`."),
   mouse: partial(
-    "No HTML drag, text selection or context menu starts; see [Mouse](#mouse)."
+    "No text selection or context menu starts, and HTML drags are emulated; see [Mouse](#mouse)."
   ),
   off: partial(removalNote),
   on: partial(listenerNote),
@@ -593,7 +612,7 @@ export const locatorLedger = {
   describe: implemented(),
   description: implemented(),
   dispatchEvent: implemented(),
-  dragTo: undecided(),
+  dragTo: partial(dragNote),
   drop: partial(
     "Accepts only in-memory `{ name, mimeType, buffer }` file payloads; file paths are unsupported."
   ),
