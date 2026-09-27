@@ -6465,17 +6465,36 @@ function setNativeInputValue(
   nativeInputValue(browserWindow).set!.call(element, value);
 }
 
+// The input types whose value the pinned InjectedScript.fill assigns itself
+// (`kInputTypesToSetValue`); it types into every other fillable input.
+const injectedSetValueInputTypes = new Set([
+  "color",
+  "date",
+  "time",
+  "datetime-local",
+  "month",
+  "range",
+  "week",
+]);
+
 /**
  * Runs `run` with the element's own `value` accessor set aside, so the pinned
  * InjectedScript's `input.value = …` reaches the platform accessor as it does
  * in Playwright's isolated world. The page's accessor is restored afterwards.
+ * Only input types InjectedScript assigns are affected: for any other input,
+ * page code that runs during fill (a focus handler) keeps its own accessor.
  */
 function withNativeInputValue<T>(
   element: Element | null,
   browserWindow: Window & typeof globalThis,
   run: () => T
 ): T {
-  if (!element || !isTextInput(element, browserWindow)) return run();
+  if (
+    !element ||
+    !isTextInput(element, browserWindow) ||
+    !injectedSetValueInputTypes.has(element.type.toLowerCase())
+  )
+    return run();
   const own = Object.getOwnPropertyDescriptor(element, "value");
   if (!own?.configurable) return run();
   Object.defineProperty(element, "value", {
@@ -6485,7 +6504,9 @@ function withNativeInputValue<T>(
   try {
     return run();
   } finally {
-    Object.defineProperty(element, "value", own);
+    // Page code may have made the accessor non-configurable meanwhile.
+    if (Object.getOwnPropertyDescriptor(element, "value")?.configurable ?? true)
+      Object.defineProperty(element, "value", own);
   }
 }
 

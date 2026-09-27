@@ -248,6 +248,44 @@ describe("Locator.fill", () => {
     }
   );
 
+  it("keeps a page-defined value setter for page code that runs during fill", async () => {
+    // Playwright sets aside no page accessor for a typed input: a focus
+    // handler's own write goes through React's tracker, so only the typed
+    // result is a change.
+    document.body.innerHTML = '<input id="input" type="text" />';
+    const page = createPage();
+    const input = document.querySelector("#input") as HTMLInputElement;
+    const native = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value"
+    )!;
+    let recorded = input.value;
+    Object.defineProperty(input, "value", {
+      configurable: true,
+      get(this: HTMLInputElement) {
+        return native.get!.call(this);
+      },
+      set(this: HTMLInputElement, next: string) {
+        recorded = String(next);
+        native.set!.call(this, next);
+      },
+    });
+    const changes: string[] = [];
+    input.addEventListener("input", () => {
+      if (input.value === recorded) return;
+      recorded = input.value;
+      changes.push(input.value);
+    });
+    input.addEventListener("focus", () => {
+      input.value = "focused";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    await page.locator("#input").fill("hello");
+
+    expect(changes).toEqual(["focusedhello"]);
+  });
+
   it("retries disabled actions until the state becomes actionable", async () => {
     document.body.innerHTML = `
       <input id="input" disabled />
