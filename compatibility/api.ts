@@ -397,6 +397,8 @@ export const objectSections: readonly ObjectSection[] = [
       "A drag starts on the first move with the button held, where the browser waits until the pointer has moved a few pixels.",
       "Pressing on editable text inside a draggable element starts a drag, where the browser selects the text instead.",
       "Every event of a drag carries the same `DataTransfer` object, where the browser gives the drop target a new one in each event.",
+      "A `mouse.click()` or click action during a drag drops at the click point, where the browser's extra move cancels the drag.",
+      "A `mouse.wheel()` during a drag fires at once, where the browser delivers it after the drag ends.",
     ],
   },
   {

@@ -173,7 +173,7 @@ export class LocatorImpl {
     private readonly ownerPage: PageImpl,
     private selector: string,
     /** How errors name this locator. */
-    readonly label: string,
+    private readonly label: string,
     options?: LocatorOptions
   ) {
     // Mirrors pinned 26a9e47 Locator constructor option processing
