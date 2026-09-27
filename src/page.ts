@@ -1460,7 +1460,7 @@ export class PageImpl {
       QueryCapableInjectedScript;
     let result;
     try {
-      result = withNativeInputValue(
+      result = withNativeValueAssignment(
         injected.retarget(element, "follow-label"),
         this.window,
         () => this.actionableInjected.fill(element, value)
@@ -6478,13 +6478,17 @@ const injectedSetValueInputTypes = new Set([
 ]);
 
 /**
- * Runs `run` with the element's own `value` accessor set aside, so the pinned
- * InjectedScript's `input.value = …` reaches the platform accessor as it does
- * in Playwright's isolated world. The page's accessor is restored afterwards.
- * Only input types InjectedScript assigns are affected: for any other input,
- * page code that runs during fill (a focus handler) keeps its own accessor.
+ * Runs `run` so that the pinned InjectedScript's own `input.value = …`
+ * reaches the platform accessor, as it does from Playwright's isolated world,
+ * while every other access keeps the page's own accessor. Only input types
+ * InjectedScript assigns are affected.
+ *
+ * The input is focused first, where InjectedScript would focus it, so a focus
+ * handler writes through the page's accessor; InjectedScript's own focus is
+ * then a no-op. The accessor is set aside for the next write only, and is back
+ * before InjectedScript dispatches `input` and `change`.
  */
-function withNativeInputValue<T>(
+function withNativeValueAssignment<T>(
   element: Element | null,
   browserWindow: Window & typeof globalThis,
   run: () => T
@@ -6495,18 +6499,33 @@ function withNativeInputValue<T>(
     !injectedSetValueInputTypes.has(element.type.toLowerCase())
   )
     return run();
+  element.focus();
   const own = Object.getOwnPropertyDescriptor(element, "value");
   if (!own?.configurable) return run();
+  const native = nativeInputValue(browserWindow);
+  let restored = false;
+  const restore = () => {
+    if (restored) return;
+    restored = true;
+    // Page code may have made the accessor non-configurable meanwhile.
+    if (Object.getOwnPropertyDescriptor(element, "value")?.configurable ?? true)
+      Object.defineProperty(element, "value", own);
+  };
   Object.defineProperty(element, "value", {
-    ...nativeInputValue(browserWindow),
     configurable: true,
+    enumerable: own.enumerable,
+    get(this: HTMLInputElement) {
+      return (own.get ?? native.get)!.call(this);
+    },
+    set(this: HTMLInputElement, next: string) {
+      restore();
+      native.set!.call(this, next);
+    },
   });
   try {
     return run();
   } finally {
-    // Page code may have made the accessor non-configurable meanwhile.
-    if (Object.getOwnPropertyDescriptor(element, "value")?.configurable ?? true)
-      Object.defineProperty(element, "value", own);
+    restore();
   }
 }
 
