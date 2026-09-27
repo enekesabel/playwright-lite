@@ -6006,6 +6006,31 @@
       "evidence": "Upstream assertions verify text-is() should ignore comments through browser-side Page.$eval selector evaluation."
     },
     {
+      "id": "tap.spec.ts > should not send mouse events touchstart is canceled",
+      "method": "Page.tap",
+      "evidence": "With a non-passive document touchstart listener calling preventDefault, Page.tap dispatches the touch and touch-pointer events but none of the compatibility mouse events or click. Native setContent only writes the document."
+    },
+    {
+      "id": "tap.spec.ts > should not send mouse events when touchend is canceled",
+      "method": "Page.tap",
+      "evidence": "With a document touchend listener calling preventDefault, Page.tap dispatches the touch and touch-pointer events but none of the compatibility mouse events or click. Native setContent only writes the document."
+    },
+    {
+      "id": "tap.spec.ts > should send all of the correct events @smoke",
+      "method": "Page.tap",
+      "evidence": "After a setup Page.tap on #a, Page.tap on #b dispatches to #b exactly Chromium's 14-event tap sequence: pointerover, pointerenter, pointerdown, touchstart, pointerup, pointerout, pointerleave, touchend, then the compatibility mouseover, mouseenter, mousemove, mousedown, mouseup and click. Native setContent only writes the document."
+    },
+    {
+      "id": "tap.spec.ts > should work with modifiers",
+      "method": "Page.tap",
+      "evidence": "Page.tap('body', { modifiers: ['Alt'] }) holds Alt through the keyboard for the tap, so the touchstart the page listens for reports altKey true. Native setContent only writes the document."
+    },
+    {
+      "id": "tap.spec.ts > trial run should not tap",
+      "method": "Page.tap",
+      "evidence": "Page.tap with trial: true performs the tap with the pinned tap hit-target interceptor blocking its pointerdown, pointerup, touchstart and touchend, so #b records only pointerover, pointerenter, pointerout and pointerleave and no compatibility mouse event, as pinned dom.ts does. Native setContent only writes the document."
+    },
+    {
       "id": "to-match-aria-snapshot.spec.ts > call log should contain actual snapshot",
       "method": "Page._expect",
       "matcher": "Page.toMatchAriaSnapshot",
