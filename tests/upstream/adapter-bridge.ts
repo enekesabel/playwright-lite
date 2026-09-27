@@ -3016,6 +3016,8 @@ function initializeAdapterBridge(
       "dblclick",
       "wheel",
     ]);
+  if (host.__pwLiteAdapterPage.touchscreen)
+    instrument(host.__pwLiteAdapterPage.touchscreen, "Touchscreen", ["tap"]);
   for (const kind of ["localStorage", "sessionStorage"])
     instrument(host.__pwLiteAdapterPage[kind], `Page.${kind}`, [
       "items",
