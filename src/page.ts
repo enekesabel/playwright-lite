@@ -4836,17 +4836,28 @@ export class PageImpl {
     typedByKey = false
   ) {
     this.assertActionDeadline(deadline, "press");
-    if (!isEditableElement(element, this.window)) return;
-    // Chromium's editor hands a key's text only to an element that takes
-    // typed text. Text no key produced still reaches beforeinput on any other
-    // focused input, which then inserts nothing.
-    const takesText = takesTypedText(element, this.window);
+    const editable = isEditableElement(element, this.window);
+    // Text no key produced (Keyboard.insertText) reaches Chromium's editor
+    // whatever element has focus. A key's text and a line break are handled
+    // here only in an editable element.
+    const insertedText = !typedByKey && inputType === "insertText";
+    if (!editable && !insertedText) return;
+    // The editor hands a key's text only to an element that takes typed
+    // text. Inserted text still reaches beforeinput and textInput on any
+    // other focused element, which then inserts nothing; with nothing
+    // focused, only textInput reaches the body.
+    const takesText = editable && takesTypedText(element, this.window);
     if (typedByKey && !takesText) return;
-    if (!this.dispatchBeforeInput(element, eventData, inputType)) return;
-    // Chromium dispatches the legacy TextEvent for the text a key produces,
-    // between beforeinput and input. Text that no key produced, such as
-    // Keyboard.insertText, carries no keypress and no textInput either.
-    if (typedByKey && !this.dispatchTextInput(element, text)) return;
+    const nothingFocused = !editable && element === this.document.body;
+    if (
+      !nothingFocused &&
+      !this.dispatchBeforeInput(element, eventData, inputType)
+    )
+      return;
+    // Chromium dispatches the legacy TextEvent between beforeinput and input,
+    // for a key's text and for inserted text alike.
+    if ((typedByKey || insertedText) && !this.dispatchTextInput(element, text))
+      return;
     if (!takesText) return;
     this.assertActionDeadline(deadline, "press");
     this.insertPressedText(element, text, inputType, eventData, deadline);
