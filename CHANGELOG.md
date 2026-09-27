@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.0](https://github.com/enekesabel/playwright-lite/compare/v0.6.0...v0.7.0) (2026-09-27)
+
+
+### Features
+
+* add synthetic tap on touch-capable pages ([#246](https://github.com/enekesabel/playwright-lite/issues/246)) ([5b0bb08](https://github.com/enekesabel/playwright-lite/commit/5b0bb082348a5c920e5cbcbabb0f5b2e1d660cd9))
+* drag and drop with a synthetic pointer ([#248](https://github.com/enekesabel/playwright-lite/issues/248)) ([04219ce](https://github.com/enekesabel/playwright-lite/commit/04219ce5ac1047989385979b4f88d8053a5c33f8))
+
+
+### Bug Fixes
+
+* fire textInput from insertText like Chromium ([#244](https://github.com/enekesabel/playwright-lite/issues/244)) ([9ce2497](https://github.com/enekesabel/playwright-lite/commit/9ce2497c307c2204a8260fb2190f599c6e508cfb))
+* update React controlled inputs on fill ([#242](https://github.com/enekesabel/playwright-lite/issues/242)) ([2048f6d](https://github.com/enekesabel/playwright-lite/commit/2048f6d476cf469e11f2687c58b11bb4ab008819))
+* wait without a limit when an assertion's timeout is 0 ([#245](https://github.com/enekesabel/playwright-lite/issues/245)) ([fc9737b](https://github.com/enekesabel/playwright-lite/commit/fc9737b3a6dd0b66de43afbbe701b96cf76a10b9))
+
 ## [0.6.0](https://github.com/enekesabel/playwright-lite/compare/v0.5.0...v0.6.0) (2026-09-26)
 
 
