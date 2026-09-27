@@ -200,6 +200,10 @@ export type PointerActionOptions = NonNullable<Parameters<Page["click"]>[1]> &
   SteppedPointerOptions;
 type HoverActionOptions = NonNullable<Parameters<Page["hover"]>[1]>;
 type TapActionOptions = NonNullable<Parameters<Page["tap"]>[1]>;
+type DragAndDropOptions = NonNullable<Parameters<Page["dragAndDrop"]>[2]>;
+/** The two actions of a drag, as pinned frames.ts `dragAndDrop` names them. */
+type PointerActionName =
+  "click" | "dblclick" | "hover" | "tap" | "move and down" | "move and up";
 type DoubleClickActionOptions = NonNullable<Parameters<Page["dblclick"]>[1]> &
   SteppedPointerOptions;
 type CheckedActionOptions = NonNullable<Parameters<Page["check"]>[1]>;
@@ -324,7 +328,7 @@ type ActionableInjectedScript = {
   ): "done" | { hitTargetDescription: string };
   setupHitTargetInterceptor(
     element: Element,
-    action: "hover" | "mouse" | "tap",
+    action: "hover" | "mouse" | "tap" | "drag",
     point: ActionPoint,
     trial: boolean
   ): string | { stop(): "done" | { hitTargetDescription: string } };
@@ -421,6 +425,7 @@ const PAGE_LIFETIME_CALLS: Record<
   content: true,
   dblclick: true,
   dispatchEvent: true,
+  dragAndDrop: true,
   evaluate: true,
   evaluateHandle: true,
   exposeBinding: true,
@@ -1271,24 +1276,67 @@ export class PageImpl {
     await this.performPointerAction(selector, label, "tap", options, deadline);
   }
 
+  /**
+   * Pinned frames.ts `Frame.dragAndDrop`: a "move and down" pointer action
+   * on the source at `sourcePosition`, then a "move and up" one on the
+   * target at `targetPosition` that moves in `steps` and checks only that
+   * the target receives the drop point, not the events. Each is performed
+   * also in a trial run, whose press the interceptor blocks, as pinned.
+   * `labels` name the source and the target in errors.
+   */
+  async dragAndDropSelectors(
+    source: string,
+    target: string,
+    labels: { source: string; target: string },
+    options: DragAndDropOptions = {},
+    apiMethod?: "dragTo"
+  ): Promise<void> {
+    const method = apiMethod ?? "dragAndDrop";
+    const { sourcePosition, targetPosition, steps, ...shared } =
+      assertPointerActionOptions(method, options) as DragAndDropOptions;
+    const deadline = this.createActionDeadline(options.timeout);
+    const log: string[] = [];
+    await this.performPointerAction(
+      source,
+      labels.source,
+      "move and down",
+      { ...shared, position: sourcePosition },
+      deadline,
+      undefined,
+      apiMethod,
+      log
+    );
+    await this.performPointerAction(
+      target,
+      labels.target,
+      "move and up",
+      { ...shared, position: targetPosition, steps },
+      deadline,
+      undefined,
+      apiMethod,
+      log
+    );
+  }
+
   /** Pinned dom.ts owns the ordering: actionability, scroll, hit interception,
    * temporary modifiers, input, interception cleanup. Only input is synthetic.
+   * `log` carries the call log of an earlier action in the same call, as
+   * pinned dragAndDrop's two actions share one.
    */
   private async performPointerAction(
     selector: string | Element,
     label: string,
-    action: "click" | "dblclick" | "hover" | "tap",
+    action: PointerActionName,
     options: PointerActionOptions,
     deadline: ActionDeadline,
     checked?: boolean,
     apiMethod:
-      | "click"
-      | "dblclick"
-      | "hover"
+      | PointerActionName
       | "check"
       | "uncheck"
       | "setChecked"
-      | "tap" = action
+      | "dragTo" = action,
+    log?: string[]
   ): Promise<void> {
     try {
       if (action === "tap" && !supportsTouch(this.window))
@@ -1322,13 +1370,19 @@ export class PageImpl {
             selector,
             label,
             action,
-            action === "hover"
+            // Pinned dom.ts waits for enabled only before a click or a tap.
+            action === "hover" ||
+              action === "move and down" ||
+              action === "move and up"
               ? ["visible", "stable"]
               : ["visible", "enabled", "stable"],
             true,
             deadline,
             options.position,
-            options
+            options,
+            undefined,
+            undefined,
+            log
           );
           // A Locator may have resolved a replacement while waiting. Never
           // toggle it when its checked state already satisfies the request.
@@ -1342,7 +1396,11 @@ export class PageImpl {
           if (!options.force) {
             const result = this.actionableInjected.setupHitTargetInterceptor(
               target.element,
-              action === "hover" || action === "tap" ? action : "mouse",
+              action === "hover" || action === "tap"
+                ? action
+                : action === "move and up"
+                  ? "drag"
+                  : "mouse",
               target.point,
               !!options.trial
             );
@@ -1360,8 +1418,9 @@ export class PageImpl {
             if (options.modifiers)
               await this.keyboard.ensureModifiers(options.modifiers, deadline);
             this.assertActionDeadline(deadline, action);
-            // Pinned dom.ts performs a tap also in a trial run, whose events
-            // the interceptor then blocks; a tap leaves the mouse where it is.
+            // Pinned dom.ts performs a tap and each half of a drag also in a
+            // trial run, whose events the interceptor then blocks; a tap
+            // leaves the mouse where it is.
             if (action === "tap")
               await this.pointer.tap(target.point, { deadline, action });
             else
@@ -1370,7 +1429,14 @@ export class PageImpl {
                 { deadline, action },
                 options.steps
               );
-            if (!options.trial && action !== "hover" && action !== "tap")
+            if (action === "move and down")
+              await this.pointer.press("left", 1, { deadline, action });
+            else if (action === "move and up")
+              await this.pointer.release("left", 1, { deadline, action });
+            else if (
+              !options.trial &&
+              (action === "click" || action === "dblclick")
+            )
               await this.pointer.clickHere(
                 options.button ?? "left",
                 action === "dblclick" ? 2 : (options.clickCount ?? 1),
@@ -1397,6 +1463,13 @@ export class PageImpl {
             !this.hasCheckedState(target.element, checked)
           )
             throw new Error("Clicking the checkbox did not change its state");
+          // Pinned dom.ts logs these once the input is done.
+          log?.push(
+            `  performing ${action} action`,
+            `  ${options.trial ? "trial " : ""}${action} action done`,
+            "  waiting for scheduled navigations to finish",
+            "  navigations have finished"
+          );
           return;
         } catch (error) {
           if (typeof selector !== "string" && !selector.isConnected)
@@ -1422,7 +1495,7 @@ export class PageImpl {
     } catch (error) {
       const result = asError(error);
       const method = label.match(
-        /^(page|elementHandle)\.(click|dblclick|hover|check|uncheck|setChecked|tap)(?:\(|$)/
+        /^(page|elementHandle)\.(click|dblclick|hover|check|uncheck|setChecked|tap|dragAndDrop)(?:\(|$)/
       );
       const prefix = method
         ? `${method[1]}.${method[2]}`
@@ -2731,6 +2804,32 @@ export class PageImpl {
       ...options,
       strict: options?.strict ?? false,
     });
+  }
+
+  async dragAndDrop(
+    source: string,
+    target: string,
+    options?: DragAndDropOptions
+  ): Promise<void> {
+    await this.dragAndDropSelectors(
+      source,
+      target,
+      {
+        source: `page.dragAndDrop(${JSON.stringify(source)})`,
+        target: `page.dragAndDrop(${JSON.stringify(target)})`,
+      },
+      { ...options, strict: options?.strict ?? false }
+    );
+  }
+
+  /** Pinned crInput.ts: an Escape keydown cancels a drag instead. */
+  cancelDrag(deadline: ActionDeadline | undefined): Promise<boolean> {
+    return this.pointer.cancelDrag({ deadline, action: "press" });
+  }
+
+  /** Whether an HTML drag is in progress, during which Chromium delivers no keys. */
+  get dragging(): boolean {
+    return this.pointer.dragging;
   }
 
   async hover(selector: string, options?: HoverActionOptions): Promise<void> {
@@ -4454,15 +4553,12 @@ export class PageImpl {
     selector: string | Element,
     label: string,
     actionName:
-      | "click"
-      | "dblclick"
+      | PointerActionName
       | "drop"
       | "fill"
-      | "hover"
       | "select option"
       | "select text"
-      | "scroll into view"
-      | "tap",
+      | "scroll into view",
     states: ("visible" | "enabled" | "editable" | "stable")[],
     checkHitTarget: boolean,
     deadline: ActionDeadline,
@@ -4470,7 +4566,9 @@ export class PageImpl {
     pointerOptions?: PointerActionOptions,
     strict = pointerOptions?.strict ?? true,
     // Pinned dom.ts skips the state checks of every action that takes `force`.
-    force = pointerOptions?.force ?? false
+    force = pointerOptions?.force ?? false,
+    // The call log of an earlier action in the same call, continued here.
+    log: string[] = []
   ): Promise<ActionTarget> {
     let lastError: Error | undefined;
     let retry = 0;
@@ -4492,10 +4590,8 @@ export class PageImpl {
     // `_retryWithProgressIfNotConnected` for the locator and dom.ts
     // `_retryAction`/`_performPointerAction` for each attempt.
     // `compressCallLog` renders them when the action times out.
-    const log: string[] =
-      typeof selector === "string"
-        ? [`waiting for ${asLocator("javascript", selector)}`]
-        : [];
+    if (typeof selector === "string")
+      log.push(`waiting for ${asLocator("javascript", selector)}`);
     const logLine = (line: string) => {
       if (logsAttempts) log.push(line);
     };
@@ -4521,8 +4617,9 @@ export class PageImpl {
     while (true) {
       if (Date.now() >= deadline.expiresAt) throwTimeout();
       // Pinned dom.ts _retryAction runs the locator handlers before every
-      // attempt of an action that is not forced.
-      if (!force && this.locatorHandlers.size)
+      // attempt of an action that is not forced, except the drop that ends a
+      // drag, lest a handler move the mouse in the middle of the drag.
+      if (!force && actionName !== "move and up" && this.locatorHandlers.size)
         await this.locatorHandlers.checkpoint(
           deadline,
           (line) => logLine(`  ${line}`),
@@ -5323,6 +5420,11 @@ class BrowserKeyboard {
     const repeat = this.pressedKeys.has(description.code);
     this.pressedKeys.add(description.code);
     if (isModifier(description.key)) this.pressedModifiers.add(description.key);
+    // Pinned crInput.ts swallows the Escape keydown that cancels a drag;
+    // Chromium delivers no other key during a drag, which keeps its state.
+    if (description.code === "Escape" && (await this.page.cancelDrag(deadline)))
+      return;
+    if (this.page.dragging) return;
 
     const keyDownTarget = this.activeTarget();
     const keyDownAllowed = this.page.dispatchKeyboardEvent(
@@ -5384,6 +5486,10 @@ class BrowserKeyboard {
     if (isModifier(description.key))
       this.pressedModifiers.delete(description.key);
     this.pressedKeys.delete(description.code);
+    if (this.page.dragging) {
+      this.keydownState.delete(description.code);
+      return;
+    }
     const keyUpTarget = this.activeTarget();
     const keyUpAllowed = this.page.dispatchKeyboardEvent(
       keyUpTarget,
@@ -5881,17 +5987,19 @@ function assertPageDispatchEventOptions(
 
 function assertPointerActionOptions(
   method: string,
-  options: PointerActionOptions | undefined
-): PointerActionOptions {
+  options: (PointerActionOptions & DragAndDropOptions) | undefined
+): PointerActionOptions & DragAndDropOptions {
+  const drags = method === "dragAndDrop" || method === "dragTo";
   const supported = [
     "signal",
     "noWaitAfter",
-    "position",
+    drags ? "sourcePosition" : "position",
     "trial",
     "force",
     "scroll",
     "strict",
   ];
+  if (drags) supported.push("targetPosition", "steps");
   if (method === "click" || method === "dblclick")
     supported.push("button", "delay", "modifiers", "steps");
   if (method === "click") supported.push("clickCount");
@@ -5910,7 +6018,7 @@ function assertPointerActionOptions(
   }
   const unsupported = Object.keys(options).filter(
     (key) =>
-      options[key as keyof PointerActionOptions] !== undefined &&
+      options[key as keyof typeof options] !== undefined &&
       key !== "timeout" &&
       !supported.includes(key)
   );
@@ -5952,15 +6060,18 @@ function assertPointerActionOptions(
       ))
   )
     throw new TypeError("modifiers: expected an array of keyboard modifiers");
-  if (
-    options.position !== undefined &&
-    (!options.position ||
-      typeof options.position.x !== "number" ||
-      !Number.isFinite(options.position.x) ||
-      typeof options.position.y !== "number" ||
-      !Number.isFinite(options.position.y))
-  )
-    throw new TypeError(`${method} position must have finite x and y numbers`);
+  for (const key of ["position", "sourcePosition", "targetPosition"] as const) {
+    const position = options[key];
+    if (
+      position !== undefined &&
+      (!position ||
+        typeof position.x !== "number" ||
+        !Number.isFinite(position.x) ||
+        typeof position.y !== "number" ||
+        !Number.isFinite(position.y))
+    )
+      throw new TypeError(`${method} ${key} must have finite x and y numbers`);
+  }
   return options;
 }
 

@@ -1,13 +1,13 @@
 import type { Mouse } from "@playwright/test";
 import {
   Error,
-  Map,
   Math,
   Object,
   Promise,
   Set,
 } from "virtual:playwright-lite-globals";
 
+import { DragDataStore, type DragEventType, type DropEffect } from "./drag";
 import {
   guardLifetimeCalls,
   type LifetimeCalls,
@@ -178,9 +178,10 @@ export class BrowserMouse implements Mouse {
  * which `page.mouse` and the pointer actions (`click()`, `hover()` and their
  * relatives) share, plus the events Chromium derives from that raw input
  * (`server/chromium/crInput.ts`). Taps (`page.touchscreen` and `tap()`) run
- * here too, since their compatibility mouse events move the same mouse state.
- * Every event is script-dispatched in the current document, one browser task
- * each, like pinned `WebViewInput`.
+ * here too, since their compatibility mouse events move the same mouse state,
+ * and so does HTML drag and drop, which pinned `crDragDrop.ts` intercepts
+ * from the mouse. Every event is script-dispatched in the current document,
+ * one browser task each, like pinned `WebViewInput`.
  */
 export class Pointer {
   /** Pinned input.ts Mouse starts at the document origin and tracks its moves. */
@@ -196,10 +197,18 @@ export class Pointer {
   };
   /** Chromium numbers each new touch point after the mouse's pointer id 1. */
   private nextTouchId = 2;
-  /** The held buttons and the element each press hit; a drag starts from these. */
-  private readonly pressed = new Map<MouseButton, Element>();
-  /** Chromium keeps one click target: each press sets it and the first release consumes it. */
+  /** The held buttons, pinned input.ts Mouse `_buttons`. */
+  private readonly pressed = new Set<MouseButton>();
+  /** Chromium keeps one click target: each press sets it, a release or a drag consumes it. */
   private clickTarget: Element | undefined;
+  /**
+   * Chromium's `mouse_down_may_start_drag_`: where a single left press whose
+   * `mousedown` went uncanceled was made. The next move with the left button
+   * held tries a drag from there; any other press or a release forgets it.
+   */
+  private dragPress: Point | undefined;
+  /** The HTML drag in progress, from the move that starts it to its drop or cancel. */
+  private drag: ActiveDrag | undefined;
   /** A canceled `pointerdown` withholds `mousedown`, `mousemove` and `mouseup` until every button is up. */
   private mouseEventsWithheld = false;
   /** Pinned Mouse `_lastButton`: Chromium reports it as a move's `which`. */
@@ -420,7 +429,13 @@ export class Pointer {
     });
   }
 
+  /**
+   * One raw move. While a drag is in progress it drags over the document
+   * instead (pinned crDragDrop.ts `interceptDragCausedByMove`); a move with
+   * the left button held since a press that may start one tries a drag.
+   */
   private async moveStep(point: Point, input: PointerInput) {
+    if (this.drag) return this.dragOver(this.drag, point, input);
     await this.updateHover(point, input);
     const buttons = this.buttonsMask();
     const movement = this.lastMove
@@ -442,27 +457,164 @@ export class Pointer {
           movement,
         })
       );
+    // Pinned crDragDrop.ts intercepts a drag only on a move with the left
+    // button last pressed.
+    if (this.dragPress && this.lastButton === "left")
+      await this.startDrag(this.dragPress, point, input);
+  }
+
+  /**
+   * Chromium's drag start, with no distance threshold: `dragstart` at the
+   * press point on the nearest draggable flat-tree ancestor of the element
+   * now there. Unless that is canceled, the press no longer clicks, the
+   * pointer is canceled and leaves the element under it, and the drag enters
+   * the element under `point`.
+   */
+  private async startDrag(
+    pressPoint: Point,
+    point: Point,
+    input: PointerInput
+  ) {
+    this.dragPress = undefined;
+    const source = draggableAncestor(this.hitTarget(pressPoint));
+    if (!source) return;
+    const store = new DragDataStore(this.host.window);
+    const started = await this.task(input, () =>
+      this.fireDrag(source, "dragstart", pressPoint, store)
+    );
+    if (!started) return;
+    this.clickTarget = undefined;
+    const hovered = this.hovered.pointer;
+    this.hovered.pointer = undefined;
+    // Chromium reports these at the viewport origin, as a pressed left button.
+    const origin = { x: 0, y: 0 };
+    const canceled = { button: 0, buttons: 0 };
+    if (hovered) {
+      await this.task(input, () =>
+        this.fire(hovered, "pointercancel", origin, canceled)
+      );
+      await this.boundary(
+        "pointer",
+        hovered,
+        undefined,
+        origin,
+        canceled,
+        input
+      );
+    }
+    this.drag = {
+      source,
+      store,
+      target: undefined,
+      dragOverOnly: false,
+      operation: "none",
+    };
+    await this.dragOver(this.drag, point, input);
+  }
+
+  /**
+   * Chromium's `EventHandler::UpdateDragAndDrop` for the element under
+   * `point`: `drag` on the source, then `dragenter` on a new target and
+   * `dragleave` on the previous one; the next update over the same target
+   * fires only `dragover`, and every later one `drag` and `dragover`. The
+   * canceled `dragenter` or `dragover` chooses the drag's operation.
+   */
+  private async dragOver(drag: ActiveDrag, point: Point, input: PointerInput) {
+    const target = this.hitTarget(point);
+    const previous = drag.target;
+    const entering = target !== previous;
+    if (entering || !drag.dragOverOnly)
+      await this.task(input, () =>
+        this.fireDrag(drag.source, "drag", point, drag.store)
+      );
+    await this.task(input, () => {
+      const canceled = entering
+        ? !this.fireDrag(target, "dragenter", point, drag.store, {
+            relatedTarget: previous,
+          })
+        : !this.fireDrag(target, "dragover", point, drag.store);
+      drag.operation = drag.store.chosenOperation(canceled);
+    });
+    if (entering && previous)
+      await this.task(input, () =>
+        this.fireDrag(previous, "dragleave", point, drag.store, {
+          relatedTarget: target,
+        })
+      );
+    drag.target = target;
+    drag.dragOverOnly = entering;
+  }
+
+  /**
+   * Pinned crDragDrop.ts `drop`: Chromium drags over `point` once more,
+   * then drops on the target when an operation was chosen, and otherwise
+   * cancels with `drag` and `dragleave`; the source gets `dragend`.
+   */
+  private async drop(drag: ActiveDrag, point: Point, input: PointerInput) {
+    await this.dragOver(drag, point, input);
+    this.drag = undefined;
+    const target = drag.target!;
+    if (drag.operation !== "none")
+      await this.task(input, () =>
+        this.fireDrag(target, "drop", point, drag.store, {
+          operation: drag.operation,
+        })
+      );
+    else {
+      await this.task(input, () =>
+        this.fireDrag(drag.source, "drag", point, drag.store)
+      );
+      await this.task(input, () =>
+        this.fireDrag(target, "dragleave", point, drag.store)
+      );
+    }
+    await this.task(input, () =>
+      this.fireDrag(drag.source, "dragend", point, drag.store, {
+        operation: drag.operation,
+      })
+    );
+  }
+
+  /** Whether an HTML drag is in progress, pinned crDragDrop.ts `isDragging`. */
+  get dragging(): boolean {
+    return !!this.drag;
+  }
+
+  /**
+   * Pinned crDragDrop.ts `cancelDrag`, which pinned crInput.ts runs for an
+   * Escape keydown: the source gets `dragend` with no operation, and the
+   * button stays held. Resolves whether a drag was in progress.
+   */
+  async cancelDrag(input: PointerInput): Promise<boolean> {
+    const drag = this.drag;
+    if (!drag) return false;
+    this.drag = undefined;
+    await this.task(input, () =>
+      this.fireDrag(drag.source, "dragend", this.position, drag.store)
+    );
+    return true;
   }
 
   /**
    * crInput.ts mousePressed. The first button down is a `pointerdown`; a
    * further one is a chorded `pointermove`, while `mousedown` fires for each.
-   * An allowed `mousedown` moves focus as the browser does.
+   * An allowed `mousedown` moves focus as the browser does, and for a single
+   * left press it may start a drag. During a drag the press is only held.
    */
   async press(button: MouseButton, clickCount: number, input: PointerInput) {
     const point = this.position;
     const first = this.pressed.size === 0;
-    this.pressed.set(button, this.hitTarget(point));
+    this.pressed.add(button);
     this.lastButton = button;
+    if (this.drag) return;
+    this.dragPress = undefined;
     const fields = {
       button: BUTTONS[button].code,
       buttons: this.buttonsMask(),
     };
     // Like the release, boundary events the press brings carry its button.
     await this.updateHover(point, input, fields.button);
-    const target = this.hitTarget(point);
-    this.pressed.set(button, target);
-    this.clickTarget = target;
+    this.clickTarget = this.hitTarget(point);
     const pointerAllowed = await this.task(input, () =>
       this.fire(
         this.hitTarget(point),
@@ -480,7 +632,9 @@ export class Pointer {
           detail: clickCount,
         });
         this.host.assertDeadline(input.deadline, input.action);
-        if (allowed) this.focusForPress(current);
+        if (!allowed) return;
+        this.focusForPress(current);
+        if (button === "left" && clickCount <= 1) this.dragPress = point;
       });
     if (button === "right")
       await this.task(input, () =>
@@ -493,12 +647,14 @@ export class Pointer {
    * earlier one a chorded `pointermove`. The release that consumes the click
    * target fires `click` (`auxclick` for other buttons) on the nearest common
    * ancestor of the press and release targets, then `dblclick` for a second
-   * left click.
+   * left click. During a drag any release drops instead.
    */
   async release(button: MouseButton, clickCount: number, input: PointerInput) {
     const point = this.position;
     this.pressed.delete(button);
     this.lastButton = undefined;
+    this.dragPress = undefined;
+    if (this.drag) return this.drop(this.drag, point, input);
     const fields = {
       button: BUTTONS[button].code,
       buttons: this.buttonsMask(),
@@ -764,8 +920,38 @@ export class Pointer {
           })
         : type === "click" || type === "auxclick" || type === "contextmenu"
           ? new PointerEvent(type, { ...init, ...pointer })
-          : new MouseEvent(type, init)
+          : fields.dataTransfer
+            ? new this.host.window.DragEvent(type, {
+                ...init,
+                dataTransfer: fields.dataTransfer,
+              })
+            : new MouseEvent(type, init)
     );
+  }
+
+  /**
+   * A drag event as Chromium builds it: at `point`, left button with none
+   * held except in `dragstart`, and no modifiers in `dragend`. The store is
+   * readied for the event first; `drop` and `dragend` report `operation`.
+   */
+  private fireDrag(
+    target: Node,
+    type: DragEventType,
+    point: Point,
+    store: DragDataStore,
+    {
+      relatedTarget,
+      operation,
+    }: { relatedTarget?: Element; operation?: DropEffect } = {}
+  ): boolean {
+    store.prepare(type, operation);
+    return this.fire(target, type, point, {
+      button: 0,
+      buttons: type === "dragstart" ? this.buttonsMask() : 0,
+      relatedTarget,
+      dataTransfer: store.dataTransfer,
+      modifiers: type === "dragend" ? [] : undefined,
+    });
   }
 
   /**
@@ -821,12 +1007,13 @@ export class Pointer {
     fields: EventFields
   ): MouseEventInit {
     // Enter and leave events neither bubble nor cancel nor cross shadow roots;
-    // pointer capture events bubble but do not cancel.
-    const flows = !/(enter|leave)$/.test(type);
-    const modifiers = this.host.modifiers();
+    // pointer capture events bubble but do not cancel, and neither do the
+    // events that end a pointer or a drag.
+    const flows = !/^(pointer|mouse)(enter|leave)$/.test(type);
+    const modifiers = fields.modifiers ?? this.host.modifiers();
     return {
       bubbles: flows,
-      cancelable: flows && !type.endsWith("capture"),
+      cancelable: flows && !UNCANCELABLE.test(type),
       composed: flows,
       button: fields.button,
       buttons: fields.buttons,
@@ -862,7 +1049,27 @@ type EventFields = {
   pressure?: number;
   /** Screen coordinates other than the client ones. */
   screen?: Point;
+  /** Makes the event a DragEvent carrying this drag data store. */
+  dataTransfer?: DataTransfer;
+  /** Modifier keys other than the keyboard's. */
+  modifiers?: readonly string[];
 };
+
+/**
+ * An HTML drag in progress: pinned crDragDrop.ts `_dragState` together with
+ * what Chromium's renderer keeps for it (`drag_src_`, `drag_target_`,
+ * `should_only_fire_drag_over_event_` and the operation it last chose).
+ */
+type ActiveDrag = {
+  readonly source: Element;
+  readonly store: DragDataStore;
+  target: Element | undefined;
+  dragOverOnly: boolean;
+  operation: DropEffect;
+};
+
+/** Events that flow but cannot be canceled. */
+const UNCANCELABLE = /capture$|^pointercancel$|^dragleave$|^dragend$/;
 
 const CLICK_EVENTS = new Set(["mousedown", "mouseup", "click", "dblclick"]);
 const FORM_CONTROLS = new Set([
@@ -954,6 +1161,20 @@ function flatTreePath(node: Node): Node[] {
   )
     path.unshift(current);
   return path;
+}
+
+/**
+ * The element a press on `element` drags: its nearest flat-tree ancestor that
+ * is draggable, by `draggable="true"` or by default as a link or an image.
+ */
+function draggableAncestor(element: Element): Element | undefined {
+  for (
+    let node: Element | undefined = element;
+    node;
+    node = flatTreeParentElement(node)
+  )
+    if ((node as HTMLElement).draggable === true) return node;
+  return undefined;
 }
 
 /** The nearest connected flat-tree ancestor both elements share. */
