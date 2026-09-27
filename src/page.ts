@@ -869,7 +869,7 @@ export class PageImpl {
     const timeout = expectationTimeout(expectOptions.timeout);
     const signal = this.lifetime.bind(expectOptions.signal);
     // Raw pinned progress lines; `compressCallLog` renders them on failure.
-    const log = [`${title} with timeout ${timeout}ms`];
+    const log = [expectationTitleLine(title, timeout)];
     const waitingFor = selector
       ? [`waiting for ${asLocator("javascript", selector)}`]
       : [];
@@ -903,7 +903,8 @@ export class PageImpl {
       return unmatched({ error });
     }
     log.push(...waitingFor);
-    const deadline = Date.now() + timeout;
+    // Pinned `ProgressController.run` sets no deadline for `timeout: 0`.
+    const deadline = timeout ? Date.now() + timeout : Infinity;
 
     // Pinned `Frame._expectInternal` logs every check that does not settle the
     // assertion, the one-shot check included.
@@ -1036,7 +1037,7 @@ export class PageImpl {
     // Pinned `Frame.expect` checks the document element (`:root`) when no
     // locator is given, so the page log names it as the resolved locator.
     // Raw pinned progress lines; `compressCallLog` renders them on failure.
-    const log = [`${title} with timeout ${timeout}ms`];
+    const log = [expectationTitleLine(title, timeout)];
     if (signal.aborted)
       return isTargetClosedError(signal.reason)
         ? unmatchedExpectation("aborted", isNot, signal, log)
@@ -4975,17 +4976,28 @@ export class PageImpl {
     typedByKey = false
   ) {
     this.assertActionDeadline(deadline, "press");
-    if (!isEditableElement(element, this.window)) return;
-    // Chromium's editor hands a key's text only to an element that takes
-    // typed text. Text no key produced still reaches beforeinput on any other
-    // focused input, which then inserts nothing.
-    const takesText = takesTypedText(element, this.window);
+    const editable = isEditableElement(element, this.window);
+    // Text no key produced (Keyboard.insertText) reaches Chromium's editor
+    // whatever element has focus. A key's text and a line break are handled
+    // here only in an editable element.
+    const insertedText = !typedByKey && inputType === "insertText";
+    if (!editable && !insertedText) return;
+    // The editor hands a key's text only to an element that takes typed
+    // text. Inserted text still reaches beforeinput and textInput on any
+    // other focused element, which then inserts nothing; with nothing
+    // focused, only textInput reaches the body.
+    const takesText = editable && takesTypedText(element, this.window);
     if (typedByKey && !takesText) return;
-    if (!this.dispatchBeforeInput(element, eventData, inputType)) return;
-    // Chromium dispatches the legacy TextEvent for the text a key produces,
-    // between beforeinput and input. Text that no key produced, such as
-    // Keyboard.insertText, carries no keypress and no textInput either.
-    if (typedByKey && !this.dispatchTextInput(element, text)) return;
+    const nothingFocused = !editable && element === this.document.body;
+    if (
+      !nothingFocused &&
+      !this.dispatchBeforeInput(element, eventData, inputType)
+    )
+      return;
+    // Chromium dispatches the legacy TextEvent between beforeinput and input,
+    // for a key's text and for inserted text alike.
+    if ((typedByKey || insertedText) && !this.dispatchTextInput(element, text))
+      return;
     if (!takesText) return;
     this.assertActionDeadline(deadline, "press");
     this.insertPressedText(element, text, inputType, eventData, deadline);
@@ -5579,10 +5591,22 @@ function expectationTimeout(timeout: unknown): number {
   return Math.max(0, timeout);
 }
 
+/**
+ * The first call log line of an assertion. Pinned `FrameDispatcher.expect`
+ * names the timeout only when there is one: `0` means no deadline.
+ */
+function expectationTitleLine(title: string, timeout: number): string {
+  return timeout ? `${title} with timeout ${timeout}ms` : title;
+}
+
+/**
+ * Pinned `retryWithProgressAndBackoff` caps its backoff at a fifth of the
+ * timeout, and keeps the whole backoff when there is no timeout.
+ */
 function expectationBackoff(timeout: number, retryIndex: number): number {
   const backoff =
     EXPECT_RETRY_BACKOFF[Math.min(retryIndex, EXPECT_RETRY_BACKOFF.length - 1)];
-  return Math.min(backoff, Math.max(1, timeout / 5));
+  return timeout ? Math.min(backoff, Math.max(1, timeout / 5)) : backoff;
 }
 
 /**

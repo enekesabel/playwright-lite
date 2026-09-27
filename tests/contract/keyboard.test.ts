@@ -375,36 +375,47 @@ describe("Keyboard", () => {
     expect(events).toEqual(["keydown", "keypress"]);
   });
 
-  it("dispatches textInput between keypress and input when a key types text", async () => {
+  it("dispatches textInput between beforeinput and input when a key types or text is inserted", async () => {
     document.body.innerHTML = "<input id=input />";
     const page = createPage();
     const input = document.querySelector("#input") as HTMLInputElement;
     const events: string[] = [];
-    for (const type of ["keydown", "keypress", "textInput", "input", "keyup"])
+    for (const type of [
+      "keydown",
+      "keypress",
+      "beforeinput",
+      "textInput",
+      "input",
+      "keyup",
+    ])
       input.addEventListener(type, () => events.push(type));
-    let typed: string | null = null;
+    const typed: Array<string | null> = [];
     input.addEventListener("textInput", (event) => {
-      typed = (event as TextEvent).data;
+      typed.push((event as TextEvent).data);
     });
 
     input.focus();
     await page.keyboard.press("f");
-    await page.keyboard.insertText("g");
+    await page.keyboard.insertText("gh");
 
-    expect(input.value).toBe("fg");
-    expect(typed).toBe("f");
-    // insertText carries no keypress, so it carries no textInput either.
+    expect(input.value).toBe("fgh");
+    expect(typed).toEqual(["f", "gh"]);
+    // Chromium's Input.insertText dispatches textInput like a typed key,
+    // without the key events around it.
     expect(events).toEqual([
       "keydown",
       "keypress",
+      "beforeinput",
       "textInput",
       "input",
       "keyup",
+      "beforeinput",
+      "textInput",
       "input",
     ]);
   });
 
-  it("does not type a character whose textInput event is canceled", async () => {
+  it("does not type or insert text whose textInput event is canceled", async () => {
     document.body.innerHTML = "<input id=input />";
     const page = createPage();
     const input = document.querySelector("#input") as HTMLInputElement;
@@ -415,9 +426,50 @@ describe("Keyboard", () => {
 
     input.focus();
     await page.keyboard.press("f");
+    await page.keyboard.insertText("g");
 
     expect(input.value).toBe("");
-    expect(events).toEqual(["textInput", "keyup"]);
+    expect(events).toEqual(["textInput", "keyup", "textInput"]);
+  });
+
+  // Contract coverage: the corpus inserts text only into text fields.
+  // Chromium's Input.insertText reaches beforeinput and textInput on any
+  // focused element, and only textInput on the body when nothing has focus.
+  it("dispatches inserted text to a focused element that takes no text", async () => {
+    document.body.innerHTML = "<input id=input readonly /><button>b</button>";
+    const page = createPage();
+    const input = document.querySelector("#input") as HTMLInputElement;
+    const button = document.querySelector("button")!;
+    const events: string[] = [];
+    const record = (event: Event) =>
+      events.push(
+        `${event.type}@${(event.target as Element).localName}(${
+          (event as InputEvent | TextEvent).data
+        })`
+      );
+    for (const type of ["beforeinput", "textInput", "input"])
+      document.addEventListener(type, record, true);
+
+    try {
+      input.focus();
+      await page.keyboard.insertText("a");
+      button.focus();
+      await page.keyboard.insertText("b");
+      button.blur();
+      await page.keyboard.insertText("c");
+    } finally {
+      for (const type of ["beforeinput", "textInput", "input"])
+        document.removeEventListener(type, record, true);
+    }
+
+    expect(input.value).toBe("");
+    expect(events).toEqual([
+      "beforeinput@input(a)",
+      "textInput@input(a)",
+      "beforeinput@button(b)",
+      "textInput@button(b)",
+      "textInput@body(c)",
+    ]);
   });
 
   it("preserves Enter input metadata through textarea insertion", async () => {
@@ -446,17 +498,24 @@ describe("Keyboard", () => {
   });
 
   // Contract coverage: no corpus spec types into a file input. Chromium's
-  // Input.insertText reaches beforeinput on any focused input, but only a
-  // text field inserts the text.
+  // Input.insertText reaches beforeinput and textInput on any focused input,
+  // but only a text field inserts the text.
   it("types and inserts no text into a file input", async () => {
     document.body.innerHTML = "<input type=file />";
     const page = createPage();
     const input = document.querySelector("input") as HTMLInputElement;
     const events: string[] = [];
-    for (const type of ["keydown", "keypress", "beforeinput", "input", "keyup"])
+    for (const type of [
+      "keydown",
+      "keypress",
+      "beforeinput",
+      "textInput",
+      "input",
+      "keyup",
+    ])
       input.addEventListener(type, (event) =>
         events.push(
-          event instanceof InputEvent ? `${type}(${event.data})` : type
+          "data" in event ? `${type}(${(event as InputEvent).data})` : type
         )
       );
 
@@ -466,6 +525,12 @@ describe("Keyboard", () => {
 
     expect(input.value).toBe("");
     expect(input.files).toHaveLength(0);
-    expect(events).toEqual(["keydown", "keypress", "keyup", "beforeinput(xy)"]);
+    expect(events).toEqual([
+      "keydown",
+      "keypress",
+      "keyup",
+      "beforeinput(xy)",
+      "textInput(xy)",
+    ]);
   });
 });

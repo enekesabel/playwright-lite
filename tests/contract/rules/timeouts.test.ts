@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { ADAPTER_TIMEOUT_ERROR } from "../../../src/errors";
-import { createPage } from "../../../src/index";
+import { createPage, expect as browserExpect } from "../../../src/index";
 import { prepareTraversal } from "../history";
 import { emulateTouch } from "../touch";
 
@@ -168,5 +168,113 @@ describe("timeouts", () => {
         restore();
       }
     }
+  });
+});
+
+describe("timeout: 0", () => {
+  // Every configured default is shorter than the delay, so only a wait
+  // without a deadline sees its condition become true.
+  const DEFAULT_TIMEOUT = 20;
+  const DELAY = 100;
+  type Options = { timeout: 0; signal?: AbortSignal };
+  type Member = [string, (options: Options) => Promise<unknown>, () => void];
+
+  /** Each member with the change that ends its wait. */
+  function members(): Member[] {
+    const page = createPage({
+      actionTimeout: DEFAULT_TIMEOUT,
+      navigationTimeout: DEFAULT_TIMEOUT,
+    });
+    const assert = browserExpect.configure({ timeout: DEFAULT_TIMEOUT });
+    const target = page.locator("#target");
+    const showTarget = () => {
+      document.body.innerHTML = '<button id="target">Ready</button>';
+    };
+    const setTitle = () => {
+      document.title = "Timeout zero";
+    };
+    const setHash = () => {
+      location.hash = "timeout-zero";
+    };
+    return [
+      [
+        "expect(locator).toBeVisible",
+        (o) => assert(target).toBeVisible(o),
+        showTarget,
+      ],
+      [
+        "expect(locator).toHaveText",
+        (o) => assert(target).toHaveText("Ready", o),
+        showTarget,
+      ],
+      [
+        "expect(locator).toHaveCount",
+        (o) => assert(target).toHaveCount(1, o),
+        showTarget,
+      ],
+      [
+        "expect(locator).toMatchAriaSnapshot",
+        (o) => assert(target).toMatchAriaSnapshot('- button "Ready"', o),
+        showTarget,
+      ],
+      [
+        "expect(page).toHaveTitle",
+        (o) => assert(page).toHaveTitle("Timeout zero", o),
+        setTitle,
+      ],
+      [
+        "expect(page).toHaveURL",
+        (o) => assert(page).toHaveURL(/#timeout-zero$/, o),
+        setHash,
+      ],
+      ["locator.waitFor", (o) => target.waitFor(o), showTarget],
+      [
+        "page.waitForSelector",
+        (o) => page.waitForSelector("#target", o),
+        showTarget,
+      ],
+      [
+        "page.waitForFunction",
+        (o) =>
+          page.waitForFunction(
+            () => document.querySelector("#target"),
+            undefined,
+            o
+          ),
+        showTarget,
+      ],
+      ["page.waitForURL", (o) => page.waitForURL(/#timeout-zero$/, o), setHash],
+      ["locator.click", (o) => target.click(o), showTarget],
+    ];
+  }
+  const names = members().map(([apiName]) => apiName);
+  const member = (apiName: string) =>
+    members().find(([name]) => name === apiName)!;
+
+  afterEach(() => {
+    document.title = "";
+    history.replaceState(null, "", location.pathname + location.search);
+  });
+
+  it.each(names)(
+    "%s waits past the default until its condition holds",
+    async (apiName) => {
+      const [, run, settle] = member(apiName);
+      const timer = window.setTimeout(settle, DELAY);
+      try {
+        await run({ timeout: 0 });
+      } finally {
+        window.clearTimeout(timer);
+      }
+    }
+  );
+
+  it.each(names)("%s still ends on abort", async (apiName) => {
+    const [, run] = member(apiName);
+    const controller = new AbortController();
+    window.setTimeout(() => controller.abort(new Error("stop waiting")), DELAY);
+    await expect(
+      run({ timeout: 0, signal: controller.signal })
+    ).rejects.toThrow("stop waiting");
   });
 });
