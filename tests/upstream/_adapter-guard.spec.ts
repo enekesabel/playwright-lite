@@ -2407,14 +2407,14 @@ test("proxy does not expose real driver sub-objects", async ({
     });
   }
 
-  // Touchscreen is an adapter-routed object too. The adapter has no
-  // touchscreen yet, so the browser reports the missing member and the native
-  // touchscreen never runs.
+  // Touchscreen is an adapter-routed object too. This page has no touch, so
+  // the adapter's touchscreen rejects the tap and the native touchscreen
+  // never runs.
   (page.touchscreen as any).tap = () => {
     throw new Error("native touchscreen.tap must not be used");
   };
   await expect(proxyTouch.tap(0, 0)).rejects.toThrow(
-    "__pwLiteAdapterPage.touchscreen.tap is not a function"
+    "touchscreen.tap: hasTouch must be enabled on the browser context before using the touchscreen."
   );
   expect((page as any).__pwLiteNativeOperations).toEqual([]);
 });

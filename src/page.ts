@@ -62,6 +62,7 @@ import {
 import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
 import { BrowserMouse, Pointer } from "./mouse";
+import { BrowserTouchscreen, supportsTouch } from "./touchscreen";
 import type { Disposable, Keyboard, Locator, Page } from "@playwright/test";
 import type { ByRoleOptions, LocatorOptions } from "./locator";
 import { LOCATOR_BRAND, LocatorImpl } from "./locator";
@@ -198,6 +199,7 @@ type DropOptions = NonNullable<Parameters<Locator["drop"]>[1]>;
 export type PointerActionOptions = NonNullable<Parameters<Page["click"]>[1]> &
   SteppedPointerOptions;
 type HoverActionOptions = NonNullable<Parameters<Page["hover"]>[1]>;
+type TapActionOptions = NonNullable<Parameters<Page["tap"]>[1]>;
 type DoubleClickActionOptions = NonNullable<Parameters<Page["dblclick"]>[1]> &
   SteppedPointerOptions;
 type CheckedActionOptions = NonNullable<Parameters<Page["check"]>[1]>;
@@ -322,7 +324,7 @@ type ActionableInjectedScript = {
   ): "done" | { hitTargetDescription: string };
   setupHitTargetInterceptor(
     element: Element,
-    action: "hover" | "mouse",
+    action: "hover" | "mouse" | "tap",
     point: ActionPoint,
     trial: boolean
   ): string | { stop(): "done" | { hitTargetDescription: string } };
@@ -448,6 +450,7 @@ const PAGE_LIFETIME_CALLS: Record<
   selectOption: true,
   setChecked: true,
   setInputFiles: true,
+  tap: true,
   textContent: true,
   title: true,
   type: true,
@@ -480,7 +483,8 @@ export class PageImpl {
   readonly window: Window & typeof globalThis;
   readonly keyboard: BrowserKeyboard;
   readonly mouse: BrowserMouse;
-  /** The pointer `mouse` and the pointer actions share. */
+  readonly touchscreen: BrowserTouchscreen;
+  /** The pointer `mouse`, `touchscreen` and the pointer actions share. */
   private readonly pointer: Pointer;
   readonly evaluation: Evaluation;
   readonly localStorage: PageWebStorage;
@@ -539,6 +543,11 @@ export class PageImpl {
         this.waitWithinActionDeadline(durationMs, deadline, action),
     });
     this.mouse = new BrowserMouse(this.pointer, this.lifetime);
+    this.touchscreen = new BrowserTouchscreen(
+      this.pointer,
+      this.lifetime,
+      browserWindow
+    );
     this.evaluation = new Evaluation(this);
     this.localStorage = new PageWebStorage(this, "local");
     this.sessionStorage = new PageWebStorage(this, "session");
@@ -1247,13 +1256,28 @@ export class PageImpl {
     );
   }
 
+  /**
+   * Pinned frames.ts `Frame.tap`: the page must support touch, where pinned
+   * checks the context's `hasTouch`; then a pointer action whose input is a
+   * tap at the action point.
+   */
+  async tapSelector(
+    selector: string | Element,
+    label: string,
+    options: TapActionOptions = {},
+    deadline = this.createActionDeadline(options.timeout)
+  ): Promise<void> {
+    options = assertPointerActionOptions("tap", options);
+    await this.performPointerAction(selector, label, "tap", options, deadline);
+  }
+
   /** Pinned dom.ts owns the ordering: actionability, scroll, hit interception,
    * temporary modifiers, input, interception cleanup. Only input is synthetic.
    */
   private async performPointerAction(
     selector: string | Element,
     label: string,
-    action: "click" | "dblclick" | "hover",
+    action: "click" | "dblclick" | "hover" | "tap",
     options: PointerActionOptions,
     deadline: ActionDeadline,
     checked?: boolean,
@@ -1263,9 +1287,14 @@ export class PageImpl {
       | "hover"
       | "check"
       | "uncheck"
-      | "setChecked" = action
+      | "setChecked"
+      | "tap" = action
   ): Promise<void> {
     try {
+      if (action === "tap" && !supportsTouch(this.window))
+        throw new Error(
+          "The page does not support tap. Use hasTouch context option to enable touch support."
+        );
       this.attachActionSignal(deadline, options.signal);
       while (true) {
         this.assertActionDeadline(deadline, action);
@@ -1313,7 +1342,7 @@ export class PageImpl {
           if (!options.force) {
             const result = this.actionableInjected.setupHitTargetInterceptor(
               target.element,
-              action === "hover" ? "hover" : "mouse",
+              action === "hover" || action === "tap" ? action : "mouse",
               target.point,
               !!options.trial
             );
@@ -1331,12 +1360,17 @@ export class PageImpl {
             if (options.modifiers)
               await this.keyboard.ensureModifiers(options.modifiers, deadline);
             this.assertActionDeadline(deadline, action);
-            await this.pointer.moveTo(
-              target.point,
-              { deadline, action },
-              options.steps
-            );
-            if (!options.trial && action !== "hover")
+            // Pinned dom.ts performs a tap also in a trial run, whose events
+            // the interceptor then blocks; a tap leaves the mouse where it is.
+            if (action === "tap")
+              await this.pointer.tap(target.point, { deadline, action });
+            else
+              await this.pointer.moveTo(
+                target.point,
+                { deadline, action },
+                options.steps
+              );
+            if (!options.trial && action !== "hover" && action !== "tap")
               await this.pointer.clickHere(
                 options.button ?? "left",
                 action === "dblclick" ? 2 : (options.clickCount ?? 1),
@@ -1388,7 +1422,7 @@ export class PageImpl {
     } catch (error) {
       const result = asError(error);
       const method = label.match(
-        /^(page|elementHandle)\.(click|dblclick|hover|check|uncheck|setChecked)(?:\(|$)/
+        /^(page|elementHandle)\.(click|dblclick|hover|check|uncheck|setChecked|tap)(?:\(|$)/
       );
       const prefix = method
         ? `${method[1]}.${method[2]}`
@@ -2690,6 +2724,13 @@ export class PageImpl {
         options?.strict === true
       )
     );
+  }
+
+  async tap(selector: string, options?: TapActionOptions): Promise<void> {
+    await this.tapSelector(selector, `page.tap(${JSON.stringify(selector)})`, {
+      ...options,
+      strict: options?.strict ?? false,
+    });
   }
 
   async hover(selector: string, options?: HoverActionOptions): Promise<void> {
@@ -4420,7 +4461,8 @@ export class PageImpl {
       | "hover"
       | "select option"
       | "select text"
-      | "scroll into view",
+      | "scroll into view"
+      | "tap",
     states: ("visible" | "enabled" | "editable" | "stable")[],
     checkHitTarget: boolean,
     deadline: ActionDeadline,
@@ -5853,7 +5895,7 @@ function assertPointerActionOptions(
   if (method === "click" || method === "dblclick")
     supported.push("button", "delay", "modifiers", "steps");
   if (method === "click") supported.push("clickCount");
-  if (method === "hover") supported.push("modifiers");
+  if (method === "hover" || method === "tap") supported.push("modifiers");
   if (!options) return {};
   options = { ...options };
   // Pinned tBoolean/tFloat/tInt unwrap primitive objects without mutating

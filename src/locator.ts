@@ -140,6 +140,7 @@ const LOCATOR_LIFETIME_CALLS: Record<
   selectText: true,
   setChecked: true,
   setInputFiles: true,
+  tap: true,
   textContent: true,
   type: true,
   uncheck: true,
@@ -664,6 +665,13 @@ export class LocatorImpl {
         force
       )
     );
+  }
+
+  async tap(options?: Parameters<Locator["tap"]>[0]) {
+    await this.ownerPage.tapSelector(this.selector, this.label, {
+      ...options,
+      strict: true,
+    });
   }
 
   async hover(options?: Parameters<Locator["hover"]>[0]) {

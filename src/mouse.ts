@@ -19,6 +19,25 @@ import { validateFloat, validateInteger } from "./protocolValidation";
 type MouseButton = "left" | "middle" | "right";
 type Point = { x: number; y: number };
 
+/** The pointer an event reports, and its size and pressure while pressed. */
+type PointerSource = {
+  pointerId: number;
+  pointerType: "mouse" | "touch";
+  pressedSize: number;
+  pressedPressure: number;
+};
+
+/** Chromium's mouse: pointer id 1, pressure 0.5 while a button is held. */
+const MOUSE: PointerSource = {
+  pointerId: 1,
+  pointerType: "mouse",
+  pressedSize: 1,
+  pressedPressure: 0.5,
+};
+
+/** The two event kinds whose over/out and enter/leave state Chromium keeps apart. */
+type BoundaryKind = "pointer" | "mouse";
+
 /** The Page action an input belongs to; the mouse API itself has no deadline. */
 export type PointerInput = { deadline?: ActionDeadline; action: string };
 
@@ -158,14 +177,25 @@ export class BrowserMouse implements Mouse {
  * The one pointer of a Page: the analogue of pinned `server/input.ts` Mouse,
  * which `page.mouse` and the pointer actions (`click()`, `hover()` and their
  * relatives) share, plus the events Chromium derives from that raw input
- * (`server/chromium/crInput.ts`). Every event is script-dispatched in the
- * current document, one browser task each, like pinned `WebViewInput`.
+ * (`server/chromium/crInput.ts`). Taps (`page.touchscreen` and `tap()`) run
+ * here too, since their compatibility mouse events move the same mouse state.
+ * Every event is script-dispatched in the current document, one browser task
+ * each, like pinned `WebViewInput`.
  */
 export class Pointer {
   /** Pinned input.ts Mouse starts at the document origin and tracks its moves. */
   private position: Point = { x: 0, y: 0 };
-  /** The element under the pointer at the last boundary update. */
-  private hovered: Element | undefined;
+  /**
+   * The element under the mouse at the last boundary update, for its pointer
+   * events and its mouse events apart: a tap's compatibility mouse events
+   * move only the second, as in Chromium.
+   */
+  private readonly hovered: Record<BoundaryKind, Element | undefined> = {
+    pointer: undefined,
+    mouse: undefined,
+  };
+  /** Chromium numbers each new touch point after the mouse's pointer id 1. */
+  private nextTouchId = 2;
   /** The held buttons and the element each press hit; a drag starts from these. */
   private readonly pressed = new Map<MouseButton, Element>();
   /** Chromium keeps one click target: each press sets it and the first release consumes it. */
@@ -243,6 +273,151 @@ export class Pointer {
       if (count < clickCount)
         await this.host.wait(delay, input.deadline, input.action);
     }
+  }
+
+  /**
+   * Pinned crInput.ts tap: one touch point pressed and lifted at `point`,
+   * which Chromium turns into touch pointer events and touch events on the
+   * element under it and, unless a touch event was canceled, a tap gesture's
+   * compatibility mouse events. The touch point holds implicit pointer
+   * capture while it is down. The mouse's position stays where it was, as in
+   * pinned input.ts; each tap is a single tap, since no gesture detector
+   * counts taps.
+   */
+  async tap(point: Point, input: PointerInput) {
+    const touch: PointerSource = {
+      pointerId: this.nextTouchId++,
+      pointerType: "touch",
+      pressedSize: 2,
+      pressedPressure: 1,
+    };
+    const pressed = { button: 0, buttons: 1 };
+    const released = { button: 0, buttons: 0 };
+    const touchTarget = this.hitTarget(point);
+    let target = touchTarget;
+    await this.boundary(
+      "pointer",
+      undefined,
+      target,
+      point,
+      pressed,
+      input,
+      touch
+    );
+    const pointerAllowed = await this.task(input, () =>
+      this.fire(target, "pointerdown", point, pressed, touch)
+    );
+    const started = await this.task(input, () =>
+      this.fireTouch(touchTarget, "touchstart", point, true)
+    );
+    // A touch point captures the element it pressed, unless that has left the
+    // document; the element under it then takes its events.
+    const captured = target.isConnected;
+    if (!captured) {
+      const next = this.hitTarget(point);
+      await this.boundary(
+        "pointer",
+        target,
+        next,
+        point,
+        released,
+        input,
+        touch
+      );
+      target = next;
+    } else
+      await this.task(input, () =>
+        this.fire(target, "gotpointercapture", point, released, touch)
+      );
+    await this.task(input, () =>
+      this.fire(target, "pointerup", point, released, touch)
+    );
+    if (captured)
+      await this.task(input, () =>
+        this.fire(target, "lostpointercapture", point, released, touch)
+      );
+    await this.boundary(
+      "pointer",
+      target,
+      undefined,
+      point,
+      released,
+      input,
+      touch
+    );
+    const ended = await this.task(input, () =>
+      this.fireTouch(touchTarget, "touchend", point, false)
+    );
+    if (started && ended)
+      await this.tapGesture(point, pointerAllowed, touch, input);
+  }
+
+  /**
+   * Chromium's gesture tap at the tap point rounded to whole pixels: mouse
+   * over/out and enter/leave for the element under it, then `mousemove`,
+   * `mousedown`, which moves focus as a press does, and `mouseup` unless the
+   * touch's `pointerdown` was canceled, and a `click` from the touch pointer.
+   */
+  private async tapGesture(
+    touchPoint: Point,
+    pointerAllowed: boolean,
+    touch: PointerSource,
+    input: PointerInput
+  ) {
+    const point = { x: Math.round(touchPoint.x), y: Math.round(touchPoint.y) };
+    // Their screen coordinates are the touch point's, truncated.
+    const screen = {
+      x: Math.trunc(touchPoint.x),
+      y: Math.trunc(touchPoint.y),
+    };
+    // With the mouse events withheld, Chromium reports the boundary events
+    // as pressing the left button: `button` 0 and `which` 1.
+    const idle = { button: pointerAllowed ? -1 : 0, buttons: 0, screen };
+    const target = this.hitTarget(point);
+    const previous = this.hovered.mouse;
+    this.hovered.mouse = target;
+    if (previous !== target)
+      await this.boundary("mouse", previous, target, point, idle, input);
+    let pressTarget: Element | undefined;
+    if (pointerAllowed) {
+      await this.task(input, () =>
+        this.fire(this.hitTarget(point), "mousemove", point, {
+          ...idle,
+          button: -1,
+        })
+      );
+      await this.task(input, () => {
+        pressTarget = this.hitTarget(point);
+        const allowed = this.fire(pressTarget, "mousedown", point, {
+          button: 0,
+          buttons: 1,
+          detail: 1,
+          screen,
+        });
+        this.host.assertDeadline(input.deadline, input.action);
+        if (allowed) this.focusForPress(pressTarget);
+      });
+      await this.task(input, () =>
+        this.fire(this.hitTarget(point), "mouseup", point, {
+          button: 0,
+          buttons: 0,
+          detail: 1,
+          screen,
+        })
+      );
+    }
+    await this.task(input, () => {
+      const release = this.hitTarget(point);
+      const clicked = commonAncestor(pressTarget ?? release, release);
+      if (clicked)
+        this.fire(
+          clicked,
+          "click",
+          point,
+          { button: 0, buttons: 0, detail: 1, screen },
+          touch
+        );
+    });
   }
 
   private async moveStep(point: Point, input: PointerInput) {
@@ -388,30 +563,57 @@ export class Pointer {
     changedButton?: number
   ) {
     const target = this.hitTarget(point);
-    const previous = this.hovered;
-    if (previous === target) return;
-    const previousPath = previous?.isConnected ? flatTreePath(previous) : [];
-    const path = flatTreePath(target);
-    this.hovered = target;
-    const left = previousPath.filter((node) => !path.includes(node)).reverse();
-    const entered = path.filter((node) => !previousPath.includes(node));
     const buttons = this.buttonsMask();
     for (const kind of ["pointer", "mouse"] as const) {
+      const previous = this.hovered[kind];
+      if (previous === target) continue;
+      this.hovered[kind] = target;
       const button =
         changedButton ?? (kind === "pointer" ? -1 : this.lastButtonCode());
-      const send = (node: Node, type: string, relatedTarget?: Element) =>
-        this.task(input, () =>
-          this.fire(node, `${kind}${type}`, point, {
-            button,
-            buttons,
-            relatedTarget,
-          })
-        );
-      if (previous?.isConnected) await send(previous, "out", target);
-      for (const node of left) await send(node, "leave", target);
-      await send(target, "over", previous);
-      for (const node of entered) await send(node, "enter", previous);
+      await this.boundary(
+        kind,
+        previous,
+        target,
+        point,
+        { button, buttons },
+        input
+      );
     }
+  }
+
+  /**
+   * One pointer's or the mouse's over/out and enter/leave events for moving
+   * from `previous` to `target`, either of which may be none. A removed
+   * `previous` gets no events and the whole path of `target` is entered.
+   */
+  private async boundary(
+    kind: BoundaryKind,
+    previous: Element | undefined,
+    target: Element | undefined,
+    point: Point,
+    fields: Omit<EventFields, "relatedTarget">,
+    input: PointerInput,
+    source = MOUSE
+  ) {
+    const previousPath = previous?.isConnected ? flatTreePath(previous) : [];
+    const path = target ? flatTreePath(target) : [];
+    const left = previousPath.filter((node) => !path.includes(node)).reverse();
+    const entered = path.filter((node) => !previousPath.includes(node));
+    const send = (node: Node, type: string, relatedTarget?: Element) =>
+      this.task(input, () =>
+        this.fire(
+          node,
+          `${kind}${type}`,
+          point,
+          { ...fields, relatedTarget },
+          source
+        )
+      );
+    if (previous?.isConnected) await send(previous, "out", target);
+    for (const node of left) await send(node, "leave", target);
+    if (!target) return;
+    await send(target, "over", previous);
+    for (const node of entered) await send(node, "enter", previous);
   }
 
   private lastButtonCode(): number {
@@ -536,26 +738,80 @@ export class Pointer {
     target: Node,
     type: string,
     point: Point,
-    fields: EventFields
+    fields: EventFields,
+    source = MOUSE
   ): boolean {
     // Chromium never dispatches these to a disabled form control or its
     // content; the press still moves focus.
     if (CLICK_EVENTS.has(type) && insideDisabledControl(target)) return true;
     const { PointerEvent, MouseEvent } = this.host.window;
     const init = this.eventInit(type, point, fields);
-    const pointer = { pointerId: 1, pointerType: "mouse" };
+    const pointer = {
+      pointerId: source.pointerId,
+      pointerType: source.pointerType,
+    };
     return dispatch(
       target,
-      type.startsWith("pointer")
+      type.startsWith("pointer") || type.endsWith("pointercapture")
         ? new PointerEvent(type, {
             ...init,
             ...pointer,
             isPrimary: true,
-            pressure: fields.pressure ?? (fields.buttons ? 0.5 : 0),
+            width: fields.buttons ? source.pressedSize : 1,
+            height: fields.buttons ? source.pressedSize : 1,
+            pressure:
+              fields.pressure ?? (fields.buttons ? source.pressedPressure : 0),
           })
         : type === "click" || type === "auxclick" || type === "contextmenu"
           ? new PointerEvent(type, { ...init, ...pointer })
           : new MouseEvent(type, init)
+    );
+  }
+
+  /**
+   * A touch event for the one touch point of a tap, as crInput.ts sends it:
+   * radius 1, force 1, identifier 0; `touches` is empty once it lifts.
+   */
+  private fireTouch(
+    target: Element,
+    type: "touchstart" | "touchend",
+    point: Point,
+    down: boolean
+  ): boolean {
+    const { Touch, TouchEvent } = this.host.window;
+    const x = Math.fround(point.x);
+    const y = Math.fround(point.y);
+    const touch = new Touch({
+      identifier: 0,
+      target,
+      clientX: x,
+      clientY: y,
+      screenX: x,
+      screenY: y,
+      pageX: x + this.host.window.scrollX,
+      pageY: y + this.host.window.scrollY,
+      radiusX: 1,
+      radiusY: 1,
+      rotationAngle: 0,
+      force: 1,
+    });
+    const touches = down ? [touch] : [];
+    const modifiers = this.host.modifiers();
+    return dispatch(
+      target,
+      new TouchEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        view: this.host.window,
+        touches,
+        targetTouches: touches,
+        changedTouches: [touch],
+        altKey: modifiers.includes("Alt"),
+        ctrlKey: modifiers.includes("Control"),
+        metaKey: modifiers.includes("Meta"),
+        shiftKey: modifiers.includes("Shift"),
+      })
     );
   }
 
@@ -564,12 +820,13 @@ export class Pointer {
     point: Point,
     fields: EventFields
   ): MouseEventInit {
-    // Enter and leave events neither bubble nor cancel nor cross shadow roots.
+    // Enter and leave events neither bubble nor cancel nor cross shadow roots;
+    // pointer capture events bubble but do not cancel.
     const flows = !/(enter|leave)$/.test(type);
     const modifiers = this.host.modifiers();
     return {
       bubbles: flows,
-      cancelable: flows,
+      cancelable: flows && !type.endsWith("capture"),
       composed: flows,
       button: fields.button,
       buttons: fields.buttons,
@@ -578,8 +835,8 @@ export class Pointer {
       clientX: Math.fround(point.x),
       clientY: Math.fround(point.y),
       // Like pinned WebViewInput, screen coordinates are the client ones.
-      screenX: Math.fround(point.x),
-      screenY: Math.fround(point.y),
+      screenX: fields.screen?.x ?? Math.fround(point.x),
+      screenY: fields.screen?.y ?? Math.fround(point.y),
       movementX: fields.movement?.x ?? 0,
       movementY: fields.movement?.y ?? 0,
       view: this.host.window,
@@ -603,6 +860,8 @@ type EventFields = {
   relatedTarget?: Element;
   movement?: Point;
   pressure?: number;
+  /** Screen coordinates other than the client ones. */
+  screen?: Point;
 };
 
 const CLICK_EVENTS = new Set(["mousedown", "mouseup", "click", "dblclick"]);
