@@ -3531,6 +3531,66 @@
       "evidence": "A div becomes pointer-events:auto over the button only on :hover. Page.dispatchEvent still delivers the click to the button without any hover or hit-target check, so window.clicked is truthy. Native setContent only establishes the document."
     },
     {
+      "id": "page-drag.spec.ts > Drag and drop > should allow specifying the position",
+      "method": "Page.dragAndDrop",
+      "evidence": "Page.dragAndDrop with sourcePosition {34, 7} and targetPosition {10, 20} records #red's mousedown at offset 34;7 and #blue's mouseup at offset 10;20: each half of the drag acts at its own position. Listeners installed by Page.evaluateHandle and read back with JSHandle.jsonValue; native setContent only establishes the document."
+    },
+    {
+      "id": "page-drag.spec.ts > Drag and drop > should cancel on escape",
+      "method": "Keyboard.press",
+      "evidence": "With an emulated drag over #target, Keyboard.press('Escape') cancels it: body records dragend with no dragover or drop, the next Mouse.up is an ordinary mouseup at 240;350, and #source stays out of #target. Listeners installed through ElementHandle.evaluateHandle and read back with JSHandle.jsonValue; native goto only establishes the document."
+    },
+    {
+      "id": "page-drag.spec.ts > Drag and drop > should dragAndDrop with tweened mouse movement",
+      "method": "Page.dragAndDrop",
+      "evidence": "Page.dragAndDrop('#red', '#blue', { steps: 4 }) records mousemove and mousedown at #red's center 50;50, mousemoves at 75, 100, 125 and 150 and the mouseup at #blue's center 150;150: the source is pressed without steps and the target is reached in four interpolated steps. Listeners installed by Page.evaluateHandle and polled through JSHandle.jsonValue; native setContent only establishes the document."
+    },
+    {
+      "id": "page-drag.spec.ts > Drag and drop > should dragTo with tweened mouse movement",
+      "method": "Locator.dragTo",
+      "evidence": "locator('#red').dragTo(locator('#blue'), { steps: 4 }) records mousemove and mousedown at #red's center 50;50, mousemoves at 75, 100, 125 and 150 and the mouseup at #blue's center 150;150: the source is pressed without steps and the target is reached in four interpolated steps. Listeners installed by Page.evaluateHandle and polled through JSHandle.jsonValue; native setContent only establishes the document."
+    },
+    {
+      "id": "page-drag.spec.ts > Drag and drop > should not send dragover on the first mousemove",
+      "method": "Page.hover",
+      "evidence": "After Mouse.down on #source, the Page.hover move to #target records mousemove at 240;350, dragstart at the press point 120;86 and dragenter at 240;350, and no dragover: the move that starts the drag enters the target without dragging over it. Listeners installed through ElementHandle.evaluateHandle and read back with JSHandle.jsonValue; native goto only establishes the document."
+    },
+    {
+      "id": "page-drag.spec.ts > Drag and drop > should respect the drop effect",
+      "method": "Mouse.up",
+      "evidence": "For the 14 effectAllowed/dropEffect pairs the page's dragstart and dragover listeners set, a drag by Page.hover, Mouse.down, Page.hover and Mouse.up fires drop exactly when the target's dropEffect is an operation the source's effectAllowed allows (copy/copy, all/link, copyLink/link, linkMove/move, uninitialized/copy and the others as asserted) and never for none: the effects negotiate through the drag's DataTransfer. Native setContent only establishes each document."
+    },
+    {
+      "id": "page-drag.spec.ts > Drag and drop > should send the right events",
+      "method": "Mouse.up",
+      "evidence": "Across Page.hover over #source, Mouse.down, Page.hover over #target and Mouse.up, body records exactly mousemove and mousedown at 120;86, mousemove at 240;350, dragstart at the press point 120;86, dragenter at 240;350, then dragover and drop at 240;350 and dragend on the release, with no mouseup: Chromium's order for a drag. Listeners installed through ElementHandle.evaluateHandle and read back with JSHandle.jsonValue; native goto only establishes the document."
+    },
+    {
+      "id": "page-drag.spec.ts > Drag and drop > should work @smoke",
+      "method": "Mouse.up",
+      "evidence": "Page.hover over #source, Mouse.down, Page.hover over #target and Mouse.up emulate an HTML drag: the page's dragstart stores the source id with setData, #target's canceled dragover accepts the drop, and its drop listener reads the id with getData and appends #source to #target, which the  assertion finds. Native goto only establishes the document."
+    },
+    {
+      "id": "page-drag.spec.ts > Drag and drop > should work if the drag event is captured but not canceled",
+      "method": "Mouse.up",
+      "evidence": "A body dragstart listener that stops propagation without canceling does not stop the drag: after Page.hover over #source, Mouse.down, Page.hover over #target and Mouse.up, the drop listener has moved #source into #target, as the  assertion finds. Native goto only establishes the document."
+    },
+    {
+      "id": "page-drag.spec.ts > Drag and drop > should work with locators",
+      "method": "Locator.dragTo",
+      "evidence": "locator('#source').dragTo(locator('#target')) emulates the HTML drag: the page's drop listener appends #source to #target with the id its dragstart stored, which the  assertion finds. Native goto only establishes the document."
+    },
+    {
+      "id": "page-drag.spec.ts > Drag and drop > should work with the helper method",
+      "method": "Page.dragAndDrop",
+      "evidence": "Page.dragAndDrop('#source', '#target') presses #source, moves to #target and releases, emulating the HTML drag: the page's drop listener appends #source to #target with the id its dragstart stored, which the  assertion finds. Native goto only establishes the document."
+    },
+    {
+      "id": "page-drag.spec.ts > should handle custom dataTransfer",
+      "method": "Mouse.up",
+      "evidence": "Page.hover over the draggable button, Mouse.down, Mouse.move(100, 100) and Mouse.up drop on the document, whose drop listener, reached because dragenter and dragover are canceled, reads types ['custom-type'] and getData('custom-type') 'Hello World' that dragstart set, resolving the pending Page.evaluate. Native setContent only establishes the document."
+    },
+    {
       "id": "page-drag.spec.ts > should report event.buttons",
       "method": "Mouse.down",
       "evidence": "Mouse.move, Mouse.down, Mouse.move and Mouse.up over the div record mousemove buttons 0, mousedown 1, mousemove 1 and mouseup 0: the held left button is reported on the move between press and release. The logs array is read through Page.evaluateHandle and JSHandle.jsonValue."
