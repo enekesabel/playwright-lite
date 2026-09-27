@@ -855,7 +855,7 @@ export class PageImpl {
     const timeout = expectationTimeout(expectOptions.timeout);
     const signal = this.lifetime.bind(expectOptions.signal);
     // Raw pinned progress lines; `compressCallLog` renders them on failure.
-    const log = [`${title} with timeout ${timeout}ms`];
+    const log = [expectationTitleLine(title, timeout)];
     const waitingFor = selector
       ? [`waiting for ${asLocator("javascript", selector)}`]
       : [];
@@ -889,7 +889,8 @@ export class PageImpl {
       return unmatched({ error });
     }
     log.push(...waitingFor);
-    const deadline = Date.now() + timeout;
+    // Pinned `ProgressController.run` sets no deadline for `timeout: 0`.
+    const deadline = timeout ? Date.now() + timeout : Infinity;
 
     // Pinned `Frame._expectInternal` logs every check that does not settle the
     // assertion, the one-shot check included.
@@ -1022,7 +1023,7 @@ export class PageImpl {
     // Pinned `Frame.expect` checks the document element (`:root`) when no
     // locator is given, so the page log names it as the resolved locator.
     // Raw pinned progress lines; `compressCallLog` renders them on failure.
-    const log = [`${title} with timeout ${timeout}ms`];
+    const log = [expectationTitleLine(title, timeout)];
     if (signal.aborted)
       return isTargetClosedError(signal.reason)
         ? unmatchedExpectation("aborted", isNot, signal, log)
@@ -5431,10 +5432,22 @@ function expectationTimeout(timeout: unknown): number {
   return Math.max(0, timeout);
 }
 
+/**
+ * The first call log line of an assertion. Pinned `FrameDispatcher.expect`
+ * names the timeout only when there is one: `0` means no deadline.
+ */
+function expectationTitleLine(title: string, timeout: number): string {
+  return timeout ? `${title} with timeout ${timeout}ms` : title;
+}
+
+/**
+ * Pinned `retryWithProgressAndBackoff` caps its backoff at a fifth of the
+ * timeout, and keeps the whole backoff when there is no timeout.
+ */
 function expectationBackoff(timeout: number, retryIndex: number): number {
   const backoff =
     EXPECT_RETRY_BACKOFF[Math.min(retryIndex, EXPECT_RETRY_BACKOFF.length - 1)];
-  return Math.min(backoff, Math.max(1, timeout / 5));
+  return timeout ? Math.min(backoff, Math.max(1, timeout / 5)) : backoff;
 }
 
 /**
