@@ -166,6 +166,24 @@ describe("option-validation", () => {
       (page) => page.locator("#button").click({ unexpected: true } as any),
       /unsupported Playwright option\(s\): unexpected/,
     ],
+    // Pinned dragAndDrop takes `sourcePosition` and `targetPosition`, not
+    // the `position` of the other pointer actions.
+    [
+      "page.dragAndDrop",
+      (page) =>
+        page.dragAndDrop("#button", "#input", {
+          position: { x: 1, y: 1 },
+        } as any),
+      /^dragAndDrop\(\): unsupported Playwright option\(s\): position/,
+    ],
+    [
+      "locator.dragTo",
+      (page) =>
+        page
+          .locator("#button")
+          .dragTo(page.locator("#input"), { button: "right" } as any),
+      /^dragTo\(\): unsupported Playwright option\(s\): button/,
+    ],
     [
       "waitForLoadState",
       (page) => page.waitForLoadState("load", { unexpected: true } as any),
@@ -846,6 +864,8 @@ describe("option-validation", () => {
       await page.locator("button").dblclick(options);
       await page.tap("button", options);
       await page.locator("button").tap(options);
+      await page.dragAndDrop("button", "button", options);
+      await page.locator("button").dragTo(page.locator("button"), options);
       await page.check("#check", options);
       await page.locator("#check").uncheck(options);
       await page.locator("#check").check(options);

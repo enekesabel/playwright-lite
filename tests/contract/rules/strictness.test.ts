@@ -118,6 +118,23 @@ const selectorActions: StrictnessCase[] = [
     changed: ["A"],
     unchanged: [],
   },
+  {
+    apiName: "dragAndDrop",
+    html: '<div class="target" draggable="true">A</div><div class="target" draggable="true">B</div><div id="drop">drop</div>',
+    observe: () => {
+      const drags: string[] = [];
+      for (const element of targets<HTMLElement>())
+        element.addEventListener("dragstart", () =>
+          drags.push(element.textContent!)
+        );
+      return () => drags;
+    },
+    pageAction: (page, options) =>
+      page.dragAndDrop(".target", "#drop", options),
+    locatorAction: (locator) => locator.dragTo(locator.page().locator("#drop")),
+    changed: ["A"],
+    unchanged: [],
+  },
 ];
 
 describe("strictness", () => {

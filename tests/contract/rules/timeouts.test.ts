@@ -22,6 +22,7 @@ describe("timeouts", () => {
       ["locator.clear", () => locator.clear({ timeout: 1 })],
       ["locator.hover", () => locator.hover({ timeout: 1 })],
       ["locator.tap", () => locator.tap({ timeout: 1 })],
+      ["locator.dragTo", () => locator.dragTo(locator, { timeout: 1 })],
       ["locator.check", () => locator.check({ timeout: 1 })],
       ["locator.uncheck", () => locator.uncheck({ timeout: 1 })],
       ["locator.setChecked", () => locator.setChecked(true, { timeout: 1 })],

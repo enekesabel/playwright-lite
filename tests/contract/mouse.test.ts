@@ -344,6 +344,125 @@ describe("Mouse", () => {
     expect(log).toEqual(["b:4", "a:5"]);
   });
 
+  // Contract coverage: a documented difference, since Chromium waits for a
+  // few pixels of movement; the pinned drag tests record no pointer events.
+  it("starts a drag on the first move with the left button held, canceling the pointer until the drop", async () => {
+    document.body.innerHTML =
+      box("a", 10, 10).replace("<div", "<div draggable=true") +
+      box("b", 110, 10);
+    document
+      .getElementById("b")!
+      .addEventListener("dragover", (event) => event.preventDefault());
+    const page = createPage();
+    await page.mouse.move(20, 20);
+    await page.mouse.down();
+    const log: string[] = [];
+    for (const type of [
+      "pointercancel",
+      "pointerout",
+      "pointerover",
+      "pointermove",
+      "mousemove",
+      "dragstart",
+      "dragenter",
+      "drop",
+      "dragend",
+    ] as const)
+      on(type, (event) =>
+        log.push(
+          `${type}@${id(event.target)} ${event.clientX},${event.clientY}`
+        )
+      );
+
+    await page.mouse.move(21, 20);
+    await page.mouse.move(120, 20);
+    await page.mouse.up();
+    await page.mouse.move(125, 20);
+
+    expect(log).toEqual([
+      "pointermove@a 21,20",
+      "mousemove@a 21,20",
+      "dragstart@a 20,20",
+      "pointercancel@a 0,0",
+      "pointerout@a 0,0",
+      "dragenter@a 21,20",
+      "dragenter@b 120,20",
+      "drop@b 120,20",
+      "dragend@a 120,20",
+      "pointerover@b 125,20",
+      "pointermove@b 125,20",
+      "mousemove@b 125,20",
+    ]);
+  });
+
+  // Contract coverage: the pinned drag tests press and release the left
+  // button only.
+  it("ignores presses during a drag, drops on any release, and then clicks nothing", async () => {
+    document.body.innerHTML =
+      box("a", 10, 10).replace("<div", "<div draggable=true") +
+      box("b", 110, 10);
+    document
+      .getElementById("b")!
+      .addEventListener("dragover", (event) => event.preventDefault());
+    const page = createPage();
+    await page.mouse.move(20, 20);
+    await page.mouse.down();
+    const log: string[] = [];
+    for (const type of [
+      "pointerdown",
+      "mousedown",
+      "contextmenu",
+      "pointerup",
+      "mouseup",
+      "click",
+      "auxclick",
+      "drop",
+      "dragend",
+    ] as const)
+      on(type, (event) =>
+        log.push(`${type}@${id(event.target)} ${event.detail}`)
+      );
+
+    await page.mouse.move(120, 20);
+    await page.mouse.down({ button: "right" });
+    await page.mouse.up({ button: "right" });
+    await page.mouse.up();
+
+    expect(log).toEqual([
+      "drop@b 0",
+      "dragend@a 0",
+      "pointerup@b 0",
+      "mouseup@b 0",
+    ]);
+  });
+
+  // Contract coverage: the pinned drag tests start every drag with an
+  // uncanceled single left press.
+  it.each([
+    ["a canceled mousedown", { button: "left", clickCount: 1 }, true],
+    ["a double-click press", { button: "left", clickCount: 2 }, false],
+    ["the right button", { button: "right", clickCount: 1 }, false],
+  ] as const)(
+    "starts no drag after %s",
+    async (_name, press, cancelMousedown) => {
+      document.body.innerHTML =
+        box("a", 10, 10).replace("<div", "<div draggable=true") +
+        box("b", 110, 10);
+      if (cancelMousedown) on("mousedown", (event) => event.preventDefault());
+      const page = createPage();
+      const log: string[] = [];
+      for (const type of ["dragstart", "mousemove", "mouseup"] as const)
+        on(type, (event) => log.push(`${type}@${id(event.target)}`));
+
+      await page.mouse.move(20, 20);
+      await page.mouse.down(press);
+      await page.mouse.move(120, 20);
+      await page.mouse.up(press);
+
+      expect(log).toEqual(["mousemove@a", "mousemove@b", "mouseup@b"]);
+    }
+  );
+
   // Contract coverage: no pinned spec sets a default timeout around the mouse.
   it("ignores the default action timeout, as Playwright sends it no timeout", async () => {
     document.body.innerHTML = box("a", 10, 10);

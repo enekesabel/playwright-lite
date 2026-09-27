@@ -3,6 +3,50 @@ import { describe, expect, it } from "vitest";
 import { createPage } from "../../src/index";
 
 describe("Keyboard", () => {
+  // Contract coverage: the pinned drag tests press only Escape during a
+  // drag. Chromium delivers no other key until the drag ends.
+  it("dispatches no key events during a drag, but keeps the keys it holds", async () => {
+    document.body.innerHTML =
+      '<div id=a draggable=true style="position: absolute; left: 10px; top: 10px; width: 80px; height: 80px"></div>' +
+      '<div id=b style="position: absolute; left: 110px; top: 10px; width: 80px; height: 80px"></div>';
+    document
+      .getElementById("b")!
+      .addEventListener("dragover", (event) => event.preventDefault());
+    const page = createPage();
+    const log: string[] = [];
+    const listening = new AbortController();
+    for (const type of ["keydown", "keyup", "dragover"])
+      document.addEventListener(
+        type,
+        (event) =>
+          log.push(
+            event instanceof KeyboardEvent
+              ? `${type} ${event.key}`
+              : `${type} shift=${(event as DragEvent).shiftKey}`
+          ),
+        { signal: listening.signal }
+      );
+
+    try {
+      await page.mouse.move(20, 20);
+      await page.mouse.down();
+      await page.mouse.move(120, 20);
+      await page.keyboard.down("Shift");
+      await page.keyboard.press("a");
+      await page.mouse.move(125, 20);
+      await page.mouse.up();
+      await page.keyboard.up("Shift");
+    } finally {
+      listening.abort();
+    }
+
+    expect(log).toEqual([
+      "dragover shift=true",
+      "dragover shift=true",
+      "keyup Shift",
+    ]);
+  });
+
   it("does not activate a newly focused button during Space keydown or keyup", async () => {
     document.body.innerHTML =
       "<button id=keydown-first>first</button><button id=keydown-second>second</button>";
