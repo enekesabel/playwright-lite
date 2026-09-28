@@ -2,13 +2,35 @@
   "name": "@enekesabel/playwright-lite",
   "version": "0.7.0",
   "description": "Playwright-compatible Page and Locator operations in the current browser document",
+  "keywords": [
+    "playwright",
+    "locator",
+    "page",
+    "getbyrole",
+    "browser-automation",
+    "web-automation",
+    "dom",
+    "in-browser",
+    "client-side",
+    "testing",
+    "e2e",
+    "expect",
+    "assertions",
+    "ai-agent",
+    "browser-agent",
+    "onboarding"
+  ],
   "license": "MIT",
   "author": "Ábel Énekes",
+  "homepage": "https://github.com/enekesabel/playwright-lite#readme",
   "type": "module",
   "packageManager": "pnpm@11.24.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/enekesabel/playwright-lite.git"
+  },
+  "bugs": {
+    "url": "https://github.com/enekesabel/playwright-lite/issues"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
