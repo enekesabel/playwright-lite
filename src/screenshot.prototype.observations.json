@@ -1,0 +1,1355 @@
+{
+  "snapdom": "3.2.0",
+  "playwright": "1.62.1",
+  "browser": "151.0.7922.34",
+  "note": "Native Playwright compared to direct SnapDOM prototype. Not adapter compatibility evidence.",
+  "observations": [
+    {
+      "name": "viewport",
+      "dpr": 1,
+      "scroll": 0,
+      "options": {},
+      "width": 900,
+      "height": 700,
+      "bytes": 82761,
+      "mime": "image/png",
+      "milliseconds": 53,
+      "warnings": [],
+      "region": "viewport",
+      "meta": {
+        "w0": 900,
+        "h0": 700,
+        "vbW": 900,
+        "vbH": 700,
+        "targetW": 900,
+        "targetH": 700,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 700
+        }
+      },
+      "comparison": {
+        "nativeSize": [900, 700],
+        "renderedSize": [900, 700],
+        "differentPixelsPercent": 1.84,
+        "meanChannelDelta": 0.37,
+        "topLeft": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [152, 10, 251, 255],
+          "rendered": [152, 10, 251, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "fullPage",
+      "dpr": 1,
+      "scroll": 0,
+      "options": {
+        "fullPage": true
+      },
+      "width": 900,
+      "height": 1800,
+      "bytes": 106575,
+      "mime": "image/png",
+      "milliseconds": 37,
+      "warnings": [],
+      "region": {
+        "x": 0,
+        "y": 0,
+        "width": 900,
+        "height": 1800
+      },
+      "meta": {
+        "w0": 900,
+        "h0": 1800,
+        "vbW": 900,
+        "vbH": 1800,
+        "targetW": 900,
+        "targetH": 1800,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 1800
+        }
+      },
+      "comparison": {
+        "nativeSize": [900, 1800],
+        "renderedSize": [900, 1800],
+        "differentPixelsPercent": 0.71,
+        "meanChannelDelta": 0.14,
+        "topLeft": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "clip",
+      "dpr": 1,
+      "scroll": 0,
+      "options": {
+        "clip": {
+          "x": 80,
+          "y": 340,
+          "width": 220,
+          "height": 140
+        }
+      },
+      "width": 220,
+      "height": 140,
+      "bytes": 1822,
+      "mime": "image/png",
+      "milliseconds": 1035,
+      "warnings": [],
+      "region": {
+        "x": 80,
+        "y": 340,
+        "width": 220,
+        "height": 140
+      },
+      "meta": {
+        "w0": 220,
+        "h0": 140,
+        "vbW": 220,
+        "vbH": 140,
+        "targetW": 220,
+        "targetH": 140,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 80,
+          "y": 340,
+          "width": 220,
+          "height": 140
+        }
+      },
+      "comparison": {
+        "nativeSize": [220, 140],
+        "renderedSize": [220, 140],
+        "differentPixelsPercent": 0.05,
+        "meanChannelDelta": 0,
+        "topLeft": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [22, 76, 222, 255],
+          "rendered": [22, 76, 222, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "locator",
+      "dpr": 1,
+      "scroll": 0,
+      "options": {
+        "target": "#target"
+      },
+      "width": 220,
+      "height": 140,
+      "bytes": 1822,
+      "mime": "image/png",
+      "milliseconds": 29,
+      "warnings": [],
+      "region": {
+        "x": 80,
+        "y": 340,
+        "width": 220,
+        "height": 140
+      },
+      "meta": {
+        "w0": 220,
+        "h0": 140,
+        "vbW": 220,
+        "vbH": 140,
+        "targetW": 220,
+        "targetH": 140,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 80,
+          "y": 340,
+          "width": 220,
+          "height": 140
+        }
+      },
+      "comparison": {
+        "nativeSize": [220, 140],
+        "renderedSize": [220, 140],
+        "differentPixelsPercent": 0.05,
+        "meanChannelDelta": 0,
+        "topLeft": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [22, 76, 222, 255],
+          "rendered": [22, 76, 222, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 60],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "jpeg",
+      "dpr": 1,
+      "scroll": 0,
+      "options": {
+        "type": "jpeg",
+        "quality": 80
+      },
+      "width": 900,
+      "height": 700,
+      "bytes": 62602,
+      "mime": "image/jpeg",
+      "milliseconds": 33,
+      "warnings": [],
+      "region": "viewport",
+      "meta": {
+        "w0": 900,
+        "h0": 700,
+        "vbW": 900,
+        "vbH": 700,
+        "targetW": 900,
+        "targetH": 700,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 700
+        }
+      },
+      "comparison": {
+        "nativeSize": [900, 700],
+        "renderedSize": [900, 700],
+        "differentPixelsPercent": 4.28,
+        "meanChannelDelta": 0.41,
+        "topLeft": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [120, 42, 180, 255],
+          "rendered": [120, 42, 180, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "webp",
+      "dpr": 1,
+      "scroll": 0,
+      "options": {
+        "type": "webp",
+        "quality": 100
+      },
+      "width": 900,
+      "height": 700,
+      "bytes": 59246,
+      "mime": "image/webp",
+      "milliseconds": 44,
+      "warnings": [],
+      "region": "viewport",
+      "meta": {
+        "w0": 900,
+        "h0": 700,
+        "vbW": 900,
+        "vbH": 700,
+        "targetW": 900,
+        "targetH": 700,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 700
+        }
+      },
+      "comparison": {
+        "nativeSize": [900, 700],
+        "renderedSize": [900, 700],
+        "differentPixelsPercent": 1.84,
+        "meanChannelDelta": 0.37,
+        "topLeft": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [152, 10, 251, 255],
+          "rendered": [152, 10, 251, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "transparent",
+      "dpr": 1,
+      "scroll": 0,
+      "options": {
+        "omitBackground": true
+      },
+      "width": 900,
+      "height": 700,
+      "bytes": 79001,
+      "mime": "image/png",
+      "milliseconds": 33,
+      "warnings": [],
+      "region": "viewport",
+      "meta": {
+        "w0": 900,
+        "h0": 700,
+        "vbW": 900,
+        "vbH": 700,
+        "targetW": 900,
+        "targetH": 700,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 700
+        }
+      },
+      "comparison": {
+        "nativeSize": [900, 700],
+        "renderedSize": [900, 700],
+        "differentPixelsPercent": 1.84,
+        "meanChannelDelta": 0.39,
+        "topLeft": {
+          "native": [0, 0, 0, 0],
+          "rendered": [0, 0, 0, 0]
+        },
+        "center": {
+          "native": [152, 10, 251, 255],
+          "rendered": [152, 10, 251, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "mask",
+      "dpr": 1,
+      "scroll": 0,
+      "options": {
+        "target": "#target",
+        "mask": ["#cover"]
+      },
+      "width": 220,
+      "height": 140,
+      "bytes": 1825,
+      "mime": "image/png",
+      "milliseconds": 32,
+      "warnings": [],
+      "region": {
+        "x": 80,
+        "y": 340,
+        "width": 220,
+        "height": 140
+      },
+      "meta": {
+        "w0": 220,
+        "h0": 140,
+        "vbW": 220,
+        "vbH": 140,
+        "targetW": 220,
+        "targetH": 140,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 80,
+          "y": 340,
+          "width": 220,
+          "height": 140
+        }
+      },
+      "comparison": {
+        "nativeSize": [220, 140],
+        "renderedSize": [220, 140],
+        "differentPixelsPercent": 0.05,
+        "meanChannelDelta": 0,
+        "topLeft": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [255, 0, 255, 255],
+          "rendered": [255, 0, 255, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 60],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "style",
+      "dpr": 1,
+      "scroll": 0,
+      "options": {
+        "target": "#target",
+        "style": "#target { background: #00ff00 !important; }"
+      },
+      "width": 220,
+      "height": 140,
+      "bytes": 1751,
+      "mime": "image/png",
+      "milliseconds": 32,
+      "warnings": [],
+      "region": {
+        "x": 80,
+        "y": 340,
+        "width": 220,
+        "height": 140
+      },
+      "meta": {
+        "w0": 220,
+        "h0": 140,
+        "vbW": 220,
+        "vbH": 140,
+        "targetW": 220,
+        "targetH": 140,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 80,
+          "y": 340,
+          "width": 220,
+          "height": 140
+        }
+      },
+      "comparison": {
+        "nativeSize": [220, 140],
+        "renderedSize": [220, 140],
+        "differentPixelsPercent": 0.05,
+        "meanChannelDelta": 0,
+        "topLeft": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [22, 76, 222, 255],
+          "rendered": [22, 76, 222, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 60],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "nested-scroller",
+      "dpr": 1,
+      "scroll": 0,
+      "options": {
+        "target": "#scroller"
+      },
+      "width": 220,
+      "height": 100,
+      "bytes": 3486,
+      "mime": "image/png",
+      "milliseconds": 25,
+      "warnings": [],
+      "region": {
+        "x": 80,
+        "y": 550,
+        "width": 220,
+        "height": 100
+      },
+      "meta": {
+        "w0": 220,
+        "h0": 100,
+        "vbW": 220,
+        "vbH": 100,
+        "targetW": 220,
+        "targetH": 100,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 80,
+          "y": 550,
+          "width": 220,
+          "height": 100
+        }
+      },
+      "comparison": {
+        "nativeSize": [220, 100],
+        "renderedSize": [220, 100],
+        "differentPixelsPercent": 0.92,
+        "meanChannelDelta": 0.57,
+        "topLeft": {
+          "native": [134, 215, 175, 255],
+          "rendered": [134, 215, 175, 255]
+        },
+        "center": {
+          "native": [116, 192, 183, 255],
+          "rendered": [116, 192, 183, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 250],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "device-scale",
+      "dpr": 2,
+      "scroll": 0,
+      "options": {},
+      "width": 1800,
+      "height": 1400,
+      "bytes": 210193,
+      "mime": "image/png",
+      "milliseconds": 1058,
+      "warnings": [],
+      "region": "viewport",
+      "meta": {
+        "w0": 900,
+        "h0": 700,
+        "vbW": 900,
+        "vbH": 700,
+        "targetW": 900,
+        "targetH": 700,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 700
+        }
+      },
+      "comparison": {
+        "nativeSize": [1800, 1400],
+        "renderedSize": [1800, 1400],
+        "differentPixelsPercent": 3.31,
+        "meanChannelDelta": 2.16,
+        "topLeft": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [115, 9, 232, 255],
+          "rendered": [115, 9, 232, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "css-scale",
+      "dpr": 2,
+      "scroll": 0,
+      "options": {
+        "scale": "css"
+      },
+      "width": 900,
+      "height": 700,
+      "bytes": 82969,
+      "mime": "image/png",
+      "milliseconds": 35,
+      "warnings": [],
+      "region": "viewport",
+      "meta": {
+        "w0": 900,
+        "h0": 700,
+        "vbW": 900,
+        "vbH": 700,
+        "targetW": 900,
+        "targetH": 700,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 700
+        }
+      },
+      "comparison": {
+        "nativeSize": [900, 700],
+        "renderedSize": [900, 700],
+        "differentPixelsPercent": 5.41,
+        "meanChannelDelta": 3.13,
+        "topLeft": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [152, 10, 251, 255],
+          "rendered": [152, 10, 251, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "scrolled-viewport",
+      "dpr": 1,
+      "scroll": 600,
+      "options": {},
+      "width": 900,
+      "height": 700,
+      "bytes": 20145,
+      "mime": "image/png",
+      "milliseconds": 25,
+      "warnings": [],
+      "region": "viewport",
+      "meta": {
+        "w0": 900,
+        "h0": 700,
+        "vbW": 900,
+        "vbH": 700,
+        "targetW": 900,
+        "targetH": 700,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 0,
+          "y": 600,
+          "width": 900,
+          "height": 700
+        }
+      },
+      "comparison": {
+        "nativeSize": [900, 700],
+        "renderedSize": [900, 700],
+        "differentPixelsPercent": 0.64,
+        "meanChannelDelta": 0.01,
+        "topLeft": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 600],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 600],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "scrolled-fullPage",
+      "dpr": 1,
+      "scroll": 600,
+      "options": {
+        "fullPage": true
+      },
+      "width": 900,
+      "height": 1800,
+      "bytes": 107297,
+      "mime": "image/png",
+      "milliseconds": 35,
+      "warnings": [],
+      "region": {
+        "x": 0,
+        "y": 0,
+        "width": 900,
+        "height": 1800
+      },
+      "meta": {
+        "w0": 900,
+        "h0": 1800,
+        "vbW": 900,
+        "vbH": 1800,
+        "targetW": 900,
+        "targetH": 1800,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 0,
+          "y": 0,
+          "width": 900,
+          "height": 1800
+        }
+      },
+      "comparison": {
+        "nativeSize": [900, 1800],
+        "renderedSize": [900, 1800],
+        "differentPixelsPercent": 0.71,
+        "meanChannelDelta": 0.14,
+        "topLeft": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 600],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 600],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "scrolled-clip",
+      "dpr": 1,
+      "scroll": 600,
+      "options": {
+        "clip": {
+          "x": 80,
+          "y": 20,
+          "width": 220,
+          "height": 100
+        }
+      },
+      "width": 220,
+      "height": 100,
+      "bytes": 1649,
+      "mime": "image/png",
+      "milliseconds": 1029,
+      "warnings": [],
+      "region": {
+        "x": 80,
+        "y": 620,
+        "width": 220,
+        "height": 100
+      },
+      "meta": {
+        "w0": 220,
+        "h0": 100,
+        "vbW": 220,
+        "vbH": 100,
+        "targetW": 220,
+        "targetH": 100,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 80,
+          "y": 620,
+          "width": 220,
+          "height": 100
+        }
+      },
+      "comparison": {
+        "nativeSize": [220, 100],
+        "renderedSize": [220, 100],
+        "differentPixelsPercent": 10.01,
+        "meanChannelDelta": 0.03,
+        "topLeft": {
+          "native": [108, 183, 186, 255],
+          "rendered": [108, 183, 186, 255]
+        },
+        "center": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 600],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 600],
+        "targetBackground": "rgb(232, 72, 72)",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "animations-disabled",
+      "dpr": 1,
+      "scroll": 0,
+      "scenario": "animations",
+      "options": {
+        "animations": "disabled",
+        "clip": {
+          "x": 80,
+          "y": 340,
+          "width": 220,
+          "height": 140
+        }
+      },
+      "width": 220,
+      "height": 140,
+      "bytes": 1822,
+      "mime": "image/png",
+      "milliseconds": 29,
+      "warnings": [],
+      "region": {
+        "x": 80,
+        "y": 340,
+        "width": 220,
+        "height": 140
+      },
+      "meta": {
+        "w0": 220,
+        "h0": 140,
+        "vbW": 220,
+        "vbH": 140,
+        "targetW": 220,
+        "targetH": 140,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 80,
+          "y": 340,
+          "width": 220,
+          "height": 140
+        }
+      },
+      "comparison": {
+        "nativeSize": [220, 140],
+        "renderedSize": [220, 140],
+        "differentPixelsPercent": 80.23,
+        "meanChannelDelta": 97.54,
+        "topLeft": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [22, 76, 222, 255],
+          "rendered": [22, 76, 222, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(0, 255, 0)",
+        "finite": "finished",
+        "infinite": "running",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": "rgb(0, 255, 0)",
+        "finite": "finished",
+        "infinite": "running",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "caret-hide",
+      "dpr": 1,
+      "scroll": 0,
+      "scenario": "caret",
+      "options": {
+        "target": "#form",
+        "caret": "hide"
+      },
+      "width": 228,
+      "height": 56,
+      "bytes": 2457,
+      "mime": "image/png",
+      "milliseconds": 31,
+      "warnings": [],
+      "region": {
+        "x": 80,
+        "y": 340,
+        "width": 228,
+        "height": 56
+      },
+      "meta": {
+        "w0": 228,
+        "h0": 56,
+        "vbW": 228,
+        "vbH": 56,
+        "targetW": 228,
+        "targetH": 56,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 80,
+          "y": 340,
+          "width": 228,
+          "height": 56
+        }
+      },
+      "comparison": {
+        "nativeSize": [228, 56],
+        "renderedSize": [228, 56],
+        "differentPixelsPercent": 0.31,
+        "meanChannelDelta": 0.07,
+        "topLeft": {
+          "native": [231, 240, 250, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": null,
+        "inputCaret": "red",
+        "inputCaretPriority": "important",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 18],
+        "targetBackground": null,
+        "inputCaret": "red",
+        "inputCaretPriority": "important",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "caret-initial",
+      "dpr": 1,
+      "scroll": 0,
+      "scenario": "caret",
+      "options": {
+        "target": "#form",
+        "caret": "initial"
+      },
+      "width": 228,
+      "height": 56,
+      "bytes": 2457,
+      "mime": "image/png",
+      "milliseconds": 31,
+      "warnings": [],
+      "region": {
+        "x": 80,
+        "y": 340,
+        "width": 228,
+        "height": 56
+      },
+      "meta": {
+        "w0": 228,
+        "h0": 56,
+        "vbW": 228,
+        "vbH": 56,
+        "targetW": 228,
+        "targetH": 56,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 80,
+          "y": 340,
+          "width": 228,
+          "height": 56
+        }
+      },
+      "comparison": {
+        "nativeSize": [228, 56],
+        "renderedSize": [228, 56],
+        "differentPixelsPercent": 0.43,
+        "meanChannelDelta": 0.21,
+        "topLeft": {
+          "native": [231, 240, 250, 255],
+          "rendered": [255, 255, 255, 255]
+        },
+        "center": {
+          "native": [255, 255, 255, 255],
+          "rendered": [255, 255, 255, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": null,
+        "inputCaret": "red",
+        "inputCaretPriority": "important",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 18],
+        "targetBackground": null,
+        "inputCaret": "red",
+        "inputCaretPriority": "important",
+        "shadowBackground": null,
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "shadow-style",
+      "dpr": 1,
+      "scroll": 0,
+      "scenario": "shadow",
+      "options": {
+        "target": "#shadow-host",
+        "style": "#shadow-target { background: #00ff00 !important; }"
+      },
+      "width": 220,
+      "height": 140,
+      "bytes": 1235,
+      "mime": "image/png",
+      "milliseconds": 29,
+      "warnings": [],
+      "region": {
+        "x": 80,
+        "y": 340,
+        "width": 220,
+        "height": 140
+      },
+      "meta": {
+        "w0": 220,
+        "h0": 140,
+        "vbW": 220,
+        "vbH": 140,
+        "targetW": 220,
+        "targetH": 140,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 80,
+          "y": 340,
+          "width": 220,
+          "height": 140
+        }
+      },
+      "comparison": {
+        "nativeSize": [220, 140],
+        "renderedSize": [220, 140],
+        "differentPixelsPercent": 0,
+        "meanChannelDelta": 0,
+        "topLeft": {
+          "native": [0, 255, 0, 255],
+          "rendered": [0, 255, 0, 255]
+        },
+        "center": {
+          "native": [0, 255, 0, 255],
+          "rendered": [0, 255, 0, 255]
+        }
+      },
+      "nativeAfter": {
+        "scroll": [0, 0],
+        "targetBackground": null,
+        "shadowBackground": "rgb(255, 0, 0)",
+        "temporaryStylePresent": false
+      },
+      "prototypeAfter": {
+        "scroll": [0, 60],
+        "targetBackground": null,
+        "shadowBackground": "rgb(255, 0, 0)",
+        "temporaryStylePresent": false
+      }
+    },
+    {
+      "name": "lossless-format-measurement",
+      "results": [
+        {
+          "format": "png",
+          "width": 128,
+          "height": 128,
+          "changedChannels": 0,
+          "totalChannels": 65536,
+          "bytes": 1051
+        },
+        {
+          "format": "webp",
+          "width": 128,
+          "height": 128,
+          "changedChannels": 0,
+          "totalChannels": 65536,
+          "bytes": 898
+        },
+        {
+          "format": "jpeg",
+          "width": 128,
+          "height": 128,
+          "changedChannels": 18108,
+          "totalChannels": 65536,
+          "bytes": 14912
+        }
+      ]
+    },
+    {
+      "name": "readable-image",
+      "imageLoaded": true,
+      "width": 128,
+      "height": 128,
+      "bytes": 1051,
+      "mime": "image/png",
+      "milliseconds": 25,
+      "warnings": [],
+      "region": {
+        "x": 600,
+        "y": 340,
+        "width": 128,
+        "height": 128
+      },
+      "meta": {
+        "w0": 128,
+        "h0": 128,
+        "vbW": 128,
+        "vbH": 128,
+        "targetW": 128,
+        "targetH": 128,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 600,
+          "y": 340,
+          "width": 128,
+          "height": 128
+        }
+      }
+    },
+    {
+      "name": "cross-origin-image",
+      "imageLoaded": true,
+      "width": 128,
+      "height": 128,
+      "bytes": 863,
+      "mime": "image/png",
+      "milliseconds": 20,
+      "warnings": [
+        {
+          "code": "image-fallback",
+          "message": "image failed to inline, using placeholder: http://127.0.0.1:62623/image.png"
+        }
+      ],
+      "region": {
+        "x": 600,
+        "y": 340,
+        "width": 128,
+        "height": 128
+      },
+      "meta": {
+        "w0": 128,
+        "h0": 128,
+        "vbW": 128,
+        "vbH": 128,
+        "targetW": 128,
+        "targetH": 128,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 600,
+          "y": 340,
+          "width": 128,
+          "height": 128
+        }
+      }
+    },
+    {
+      "name": "broken-image",
+      "imageLoaded": false,
+      "width": 128,
+      "height": 128,
+      "bytes": 863,
+      "mime": "image/png",
+      "milliseconds": 19,
+      "warnings": [
+        {
+          "code": "image-fallback",
+          "message": "image failed to inline, using placeholder: http://127.0.0.1:62622/broken.png"
+        }
+      ],
+      "region": {
+        "x": 600,
+        "y": 340,
+        "width": 128,
+        "height": 128
+      },
+      "meta": {
+        "w0": 128,
+        "h0": 128,
+        "vbW": 128,
+        "vbH": 128,
+        "targetW": 128,
+        "targetH": 128,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 600,
+          "y": 340,
+          "width": 128,
+          "height": 128
+        }
+      }
+    },
+    {
+      "name": "tainted-canvas",
+      "readabilityError": "SecurityError",
+      "width": 128,
+      "height": 128,
+      "bytes": 897,
+      "mime": "image/png",
+      "milliseconds": 16,
+      "warnings": [],
+      "region": {
+        "x": 340,
+        "y": 340,
+        "width": 128,
+        "height": 128
+      },
+      "meta": {
+        "w0": 128,
+        "h0": 128,
+        "vbW": 128,
+        "vbH": 128,
+        "targetW": 128,
+        "targetH": 128,
+        "contentX": 0,
+        "contentY": 0,
+        "clip": {
+          "x": 340,
+          "y": 340,
+          "width": 128,
+          "height": 128
+        }
+      }
+    },
+    {
+      "name": "standalone-file-preview",
+      "status": "Width: 220 px\nHeight: 140 px\nFormat: image/png\nSize: 1822 bytes\nTime: 1057 ms\nWarnings: []"
+    }
+  ]
+}
