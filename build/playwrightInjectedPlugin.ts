@@ -22,6 +22,9 @@ const expectedMimeTypesSha256 =
   "fa27e7587fa87945e8afee7402ccdbc8463bc6cf0fc9c85f907f884402571986";
 const globalsId = "virtual:playwright-lite-globals";
 const resolvedGlobalsId = `\0${globalsId}`;
+/** SnapDOM's module, as tsdown and Vite (which leaves it unoptimized) load it. */
+const snapdomModule =
+  /[/\\]@zumer[/\\]snapdom[/\\]dist[/\\]snapdom\.mjs(?:\?|$)/;
 const expectedSnapshotNamesSha256 =
   "c7886655860636f469af6e7a681cd049264e60819e4a56590f03025815353191";
 /**
@@ -51,6 +54,12 @@ export function playwrightInjectedPlugin() {
       if (id === evaluationId) return resolvedEvaluationId;
       if (id === mimeId) return resolvedMimeId;
       if (id === globalsId) return resolvedGlobalsId;
+    },
+    // The screenshot renderer reads builtins by bare name like the pinned
+    // sources, so it gets the same bindings: a page that deletes or replaces
+    // one still gets captured.
+    transform(code: string, id: string) {
+      if (snapdomModule.test(id)) return `${snapshotBindings}\n${code}`;
     },
     load(id: string) {
       if (id === resolvedMimeId)

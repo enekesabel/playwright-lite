@@ -30,9 +30,11 @@ function delayedResponsePlugin(): Plugin {
 
 export default defineConfig({
   plugins: [playwrightInjectedPlugin(), delayedResponsePlugin()],
-  // The screenshot renderer is imported lazily; optimizing it up front keeps
-  // Vite from reloading the page when the first capture imports it.
-  optimizeDeps: { include: ["@zumer/snapdom"] },
+  // The screenshot renderer is served as published, so the injected plugin
+  // binds its builtins the way the package build does. It has no imports, so
+  // the first capture's lazy import discovers no dependency to optimize and
+  // Vite does not reload the page.
+  optimizeDeps: { exclude: ["@zumer/snapdom"] },
   test: {
     browser: {
       enabled: true,

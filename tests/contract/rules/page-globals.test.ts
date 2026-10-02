@@ -2,6 +2,7 @@ import { pageGlobalNames } from "virtual:playwright-lite-globals";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { createPage } from "../../../src/index";
+import { signature } from "../image";
 
 type Page = ReturnType<typeof createPage>;
 type FrameWindow = Window &
@@ -17,11 +18,15 @@ afterEach(() => {
 /**
  * The adapter, loaded as a module of its own in a same-origin frame showing
  * `body`. The test runner shares the test's realm and needs these globals
- * itself, so the page changing them is the frame's.
+ * itself, so the page changing them is the frame's. Vitest rewrites the
+ * adapter's dynamic imports to go through its runner, which the frame lacks,
+ * so the frame gets the pass-through runner Vitest gives its workers.
  */
 async function adapterFrame(body: string): Promise<FrameWindow> {
   frame = document.createElement("iframe");
-  frame.srcdoc = `${body}<script type="module">
+  frame.srcdoc = `${body}<script>
+    window.__vitest_browser_runner__ = { wrapDynamicImport: (f) => f() };
+  </script><script type="module">
     import { createPage } from "/src/index.ts";
     window.createPage = createPage;
   </script>`;
@@ -62,8 +67,9 @@ function settle(result: Promise<unknown>) {
 // Contract coverage: the corpus deletes one global per test (`Node` for click
 // and fill, `Event` for selectOption, `MutationObserver` for waitForSelector),
 // its deleted-`Map` count and overridden-`URL`/`Date`/`RegExp` evaluate tests
-// stop at the harness transport and at a mid-test navigation, and no spec
-// replaces a global with a working one.
+// stop at the harness transport and at a mid-test navigation, its
+// deleted-`Array` screenshot test compares against a snapshot image, and no
+// spec replaces a global with a working one.
 describe("page globals", () => {
   const cases: [
     string,
@@ -106,6 +112,11 @@ describe("page globals", () => {
       "late",
     ],
     ["locator.count", (page) => page.locator("li").count(), 2],
+    [
+      "page.screenshot",
+      async (page) => signature(await page.screenshot({ fullPage: true })),
+      "png",
+    ],
     [
       "page.evaluate",
       (page) => page.evaluate((year) => ({ year, list: ["a", 1] }), 2023),
