@@ -28,6 +28,7 @@ import {
   Map,
   Math,
   Object,
+  pageGlobals,
   Promise,
   Set,
   WeakMap,
@@ -1195,15 +1196,22 @@ function isUnverifiedURL(url: string | null): boolean {
 }
 
 type Renderer = typeof import("@zumer/snapdom").snapdom;
+/** SnapDOM's module as the build plugin serves it. */
+type RendererModule = {
+  createRenderer(globals: Record<string, unknown>): { snapdom: Renderer };
+};
 let renderer: Promise<Renderer> | undefined;
 
 /**
- * SnapDOM loads with the first capture and is reused after; a failed load is
- * forgotten, so a later capture tries again.
+ * SnapDOM loads with the first capture, bound to the page globals as they are
+ * then, and is reused after; a failed load is forgotten, so a later capture
+ * tries again.
  */
 function loadRenderer(): Promise<Renderer> {
-  renderer ??= import("@zumer/snapdom").then(
-    (module) => module.snapdom,
+  renderer ??= (
+    import("@zumer/snapdom") as unknown as Promise<RendererModule>
+  ).then(
+    (module) => module.createRenderer(pageGlobals()).snapdom,
     (error: unknown) => {
       renderer = undefined;
       throw error;

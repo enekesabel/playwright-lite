@@ -125,6 +125,8 @@ declare module "virtual:playwright-lite-mime" {
 declare module "virtual:playwright-lite-globals" {
   export const pageGlobalNames: readonly string[];
   export function resolvePageGlobals(): void;
+  /** Every binding below by name, as it is now. */
+  export function pageGlobals(): Record<string, unknown>;
   export const Node: typeof globalThis.Node;
   export const Element: typeof globalThis.Element;
   export const NodeFilter: typeof globalThis.NodeFilter;
