@@ -1,4 +1,10 @@
-import { Element, MutationObserver } from "virtual:playwright-lite-globals";
+import {
+  Document,
+  Element,
+  MutationObserver,
+  Object,
+  ShadowRoot,
+} from "virtual:playwright-lite-globals";
 
 import {
   HostObservation,
@@ -21,7 +27,17 @@ export type CaptureCall = {
   captured: boolean;
 };
 
-export type CaptureReport = (call: CaptureCall) => void;
+/**
+ * A `moveBefore()` call of `node`, reported before it runs and after it
+ * returns or throws: the browser keeps capture through that move, which
+ * removal records alone cannot tell from a removal.
+ */
+export type MoveCall = {
+  readonly method: "moveBefore" | "movedBefore";
+  readonly node: unknown;
+};
+
+export type CaptureReport = (call: CaptureCall | MoveCall) => void;
 
 /** The one capture observation of a window, shared by every `Page` created for it. */
 export const pointerCaptureObservationFor = perWindow(
@@ -36,6 +52,7 @@ export const pointerCaptureObservationFor = perWindow(
  * three `Element` members are wrapped: each call runs the browser's own first,
  * so a wrong receiver, a missing argument and an unknown pointer id fail as
  * they do natively, and is then recorded for the pointer that owns the id.
+ * `moveBefore()` is wrapped with them, where the browser has it.
  */
 export class PointerCaptureObservation {
   private readonly host: HostObservation<CaptureReport>;
@@ -51,10 +68,25 @@ export class PointerCaptureObservation {
       intercept: (original: HostFunction, thisArg, args) =>
         this.observe(method, original, thisArg, args),
     });
+    const moves: HostMember[] = [];
+    for (const parent of [
+      Element.prototype,
+      Document.prototype,
+      // DocumentFragment, for shadow roots.
+      Object.getPrototypeOf(ShadowRoot.prototype) as object,
+    ] as unknown as Record<string, unknown>[])
+      if (typeof parent.moveBefore === "function")
+        moves.push({
+          holder: parent,
+          name: "moveBefore",
+          intercept: (original: HostFunction, thisArg, args) =>
+            this.move(original, thisArg, args),
+        });
     this.host = new HostObservation([
       member("setPointerCapture", "set"),
       member("releasePointerCapture", "release"),
       member("hasPointerCapture", "has"),
+      ...moves,
     ]);
   }
 
@@ -100,6 +132,19 @@ export class PointerCaptureObservation {
     }
     const call = this.report(method, thisArg as Element, pointerId!);
     return method === "has" ? result === true || call.captured : result;
+  }
+
+  private move(
+    original: HostFunction,
+    thisArg: unknown,
+    args: unknown[]
+  ): unknown {
+    this.host.report({ method: "moveBefore", node: args[0] });
+    try {
+      return Reflect.apply(original, thisArg, args);
+    } finally {
+      this.host.report({ method: "movedBefore", node: args[0] });
+    }
   }
 
   private report(
@@ -150,21 +195,16 @@ export class PointerCapture {
 
   set pending(element: Element | undefined) {
     if (element === this.pending) return;
-    this.removals.disconnect();
     this.pendingTarget = element;
-    // Each tree on the element's way up to the document, since a document
-    // observer does not see into shadow trees.
-    for (let root = element?.getRootNode(); root;) {
-      this.removals.observe(root, { childList: true, subtree: true });
-      root =
-        root.nodeType === DOCUMENT_FRAGMENT_NODE
-          ? (root as ShadowRoot).host.getRootNode()
-          : undefined;
-    }
+    this.observeRemovals();
   }
 
   /** Records `call` when it is for this pointer. */
-  record(call: CaptureCall) {
+  record(call: CaptureCall | MoveCall) {
+    if ("node" in call) {
+      this.recordMove(call);
+      return;
+    }
     if (call.pointerId !== this.pointerId) return;
     call.owned = true;
     if (call.method === "set") {
@@ -173,6 +213,26 @@ export class PointerCapture {
       if (this.pending === call.element) this.pending = undefined;
     } else if (call.method === "has")
       call.captured ||= this.pending === call.element;
+  }
+
+  private recordMove(call: MoveCall) {
+    const records = this.removals.takeRecords();
+    if (call.method === "moveBefore") {
+      this.applyRemovals(records);
+      return;
+    }
+    // The move's own removal is the first record that removes just the moved
+    // node; any other removal still counts.
+    let move = -1;
+    for (let r = 0; r < records.length && move < 0; r++)
+      if (
+        records[r]!.removedNodes.length === 1 &&
+        records[r]!.removedNodes[0] === call.node
+      )
+        move = r;
+    this.applyRemovals(records, move);
+    // The moved element can now sit in other trees.
+    this.observeRemovals();
   }
 
   /** Forgets both targets without firing anything. */
@@ -184,15 +244,30 @@ export class PointerCapture {
     return !this.pending && !this.current;
   }
 
-  private applyRemovals(records: MutationRecord[]) {
+  private observeRemovals() {
+    this.removals.disconnect();
+    // Each tree on the element's way up to the document, since a document
+    // observer does not see into shadow trees.
+    for (let root = this.pendingTarget?.getRootNode(); root;) {
+      this.removals.observe(root, { childList: true, subtree: true });
+      root =
+        root.nodeType === DOCUMENT_FRAGMENT_NODE
+          ? (root as ShadowRoot).host.getRootNode()
+          : undefined;
+    }
+  }
+
+  /** Clears `pending` when one of `records`, except the one at `skip`, removed it. */
+  private applyRemovals(records: MutationRecord[], skip = -1) {
     const pending = this.pendingTarget;
     if (!pending) return;
     for (let r = 0; r < records.length; r++)
-      for (let i = 0; i < records[r]!.removedNodes.length; i++)
-        if (containsComposed(records[r]!.removedNodes[i]!, pending)) {
-          this.pending = undefined;
-          return;
-        }
+      if (r !== skip)
+        for (let i = 0; i < records[r]!.removedNodes.length; i++)
+          if (containsComposed(records[r]!.removedNodes[i]!, pending)) {
+            this.pending = undefined;
+            return;
+          }
   }
 }
 

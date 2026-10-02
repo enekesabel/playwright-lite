@@ -708,6 +708,31 @@ describe("Mouse", () => {
     ]);
   });
 
+  // Contract coverage: as above. Playwright's Chromium dispatches no click
+  // after the move either, which the log stops before.
+  it("keeps capture when moveBefore() moves the capture target's ancestor", async () => {
+    document.body.innerHTML = `<div id=w>${box("h", 10, 10)}</div>${box("t", 200, 10)}`;
+    const handle = captureOnPress();
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    await page.mouse.down();
+    await page.mouse.move(230, 30);
+    const log = record(CAPTURE_EVENTS);
+
+    (
+      document.body as unknown as {
+        moveBefore(node: Node, child: Node | null): void;
+      }
+    ).moveBefore(document.getElementById("w")!, null);
+    const captured = handle.hasPointerCapture(1);
+    await page.mouse.move(240, 40);
+    const events = [...log];
+    await page.mouse.up();
+
+    expect(captured).toBe(true);
+    expect(events).toEqual(["pointermove@h", "mousemove@h"]);
+  });
+
   // Contract coverage: as above.
   it("loses capture when a shadow host around the capture target leaves the document", async () => {
     document.body.innerHTML = `<div id=w></div>${box("t", 200, 10)}`;
@@ -895,19 +920,29 @@ describe("Mouse", () => {
   it("wraps the capture members only while a button is held or capture remains", async () => {
     document.body.innerHTML = box("h", 10, 10);
     captureOnPress();
-    const original = Element.prototype.setPointerCapture;
+    const holders = [
+      Element.prototype,
+      Document.prototype,
+      DocumentFragment.prototype,
+    ] as unknown as Record<string, unknown>[];
+    const members = () => [
+      Element.prototype.setPointerCapture,
+      ...holders.map((holder) => holder.moveBefore),
+    ];
+    const original = members();
     const page = createPage();
     await page.mouse.move(30, 30);
 
     await page.mouse.down();
-    const held = Element.prototype.setPointerCapture;
+    const held = members();
     await page.mouse.up();
-    const released = Element.prototype.setPointerCapture;
+    const released = members();
     await page.mouse.down();
     await page.close();
 
-    expect(held).not.toBe(original);
-    expect(released).toBe(original);
-    expect(Element.prototype.setPointerCapture).toBe(original);
+    expect(original.every((member) => typeof member === "function")).toBe(true);
+    held.forEach((member, i) => expect(member).not.toBe(original[i]));
+    expect(released).toEqual(original);
+    expect(members()).toEqual(original);
   });
 });

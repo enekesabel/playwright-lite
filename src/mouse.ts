@@ -15,7 +15,7 @@ import {
 } from "./lifetime";
 import type { ActionDeadline } from "./page";
 import {
-  type CaptureCall,
+  type CaptureReport,
   PointerCapture,
   pointerCaptureObservationFor,
 } from "./pointerCapture";
@@ -877,7 +877,7 @@ export class Pointer {
     ).subscribe(this.recordCapture);
   }
 
-  private readonly recordCapture = (call: CaptureCall) => {
+  private readonly recordCapture: CaptureReport = (call) => {
     this.mouseCapture.record(call);
     for (const capture of this.touchCaptures) capture.record(call);
   };
