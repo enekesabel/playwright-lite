@@ -80,9 +80,12 @@ import {
 } from "./selectors";
 import {
   capture,
+  ELEMENT_SCREENSHOT_OPTIONS,
+  enclosingIntRect,
   PAGE_SCREENSHOT_OPTIONS,
   pageRegion,
   pageScreenshotEncoding,
+  type ElementScreenshotOptions,
   type PageScreenshotOptions,
 } from "./screenshot";
 import {
@@ -3399,6 +3402,139 @@ export class PageImpl {
         region: () => pageRegion(browserWindow, encoding),
       });
     });
+  }
+
+  /**
+   * Pinned client/locator.ts `screenshot` resolves one attached element
+   * strictly, then captures it as pinned client/elementHandle.ts does with
+   * the time left; an element given directly is captured as it is, and a
+   * detached one is never resolved again. Pinned `screenshotElement` waits
+   * for it to be visible and stable, scrolls it into view if needed, and
+   * captures the page rectangle around it.
+   */
+  async elementScreenshot(
+    target: string | Element,
+    apiName: string,
+    label: string,
+    options: ElementScreenshotOptions = {}
+  ): Promise<Uint8Array> {
+    rejectUnsupportedOptions(
+      "screenshot",
+      options as Record<string, unknown>,
+      ELEMENT_SCREENSHOT_OPTIONS
+    );
+    const encoding = pageScreenshotEncoding(apiName, options);
+    const signal = this.lifetime.bind(options.signal);
+    if (signal?.aborted) throw actionAborted(signal, false);
+    const timeout = this.resolveTimeout(
+      options.timeout,
+      DEFAULT_ACTION_TIMEOUT
+    );
+    const expiresAt = timeout === 0 ? Infinity : Date.now() + timeout;
+    let element: Element;
+    if (typeof target === "string") {
+      try {
+        element = await this.query(
+          target,
+          label,
+          { signal: options.signal, timeout: options.timeout },
+          true,
+          (element) => element,
+          { timeout, expiresAt, signal },
+          true
+        );
+      } catch (error) {
+        if (error instanceof Error && error.name !== "AbortError")
+          error.message = `${apiName}: ${error.message}`;
+        throw error;
+      }
+    } else element = target;
+    // Pinned client/locator.ts `_withElement` hands the rest of the deadline
+    // on; an expired one leaves no time, which the capture reports.
+    const remaining =
+      expiresAt === Infinity ? 0 : Math.max(1, expiresAt - Date.now());
+    const browserWindow = this.window;
+    return capture({
+      apiName,
+      window: browserWindow,
+      encoding,
+      timeout: remaining,
+      signal,
+      title: "taking element screenshot",
+      describe: (element) => this.previewNode(element),
+      region: async (log, stopped) => {
+        await this.waitAndScrollIntoViewIfNeeded(element, log, stopped);
+        const box = this.boundingBoxForElement(element);
+        if (!box)
+          throw new Error("Node is either not visible or not an HTMLElement");
+        if (box.width === 0) throw new Error("Node has 0 width.");
+        if (box.height === 0) throw new Error("Node has 0 height.");
+        return enclosingIntRect({
+          ...box,
+          x: box.x + browserWindow.scrollX,
+          y: box.y + browserWindow.scrollY,
+        });
+      },
+    });
+  }
+
+  /**
+   * Pinned dom.ts `_waitAndScrollIntoViewIfNeeded` with `waitForVisible`, as
+   * element screenshots run it: retried on `_retryAction`'s schedule and
+   * call log until `stopped` aborts, and never on another element.
+   */
+  private async waitAndScrollIntoViewIfNeeded(
+    element: Element,
+    log: string[],
+    stopped: AbortSignal
+  ): Promise<void> {
+    const deadline: ActionDeadline = {
+      timeout: 0,
+      expiresAt: Infinity,
+      signal: stopped,
+    };
+    const waitTime = [0, 20, 100, 100, 500];
+    const detached = () => new Error("Element is not attached to the DOM");
+    for (let retry = 0; ; retry++) {
+      if (retry) {
+        log.push("retrying scroll into view action");
+        const delay = waitTime[Math.min(retry - 1, waitTime.length - 1)];
+        if (delay) {
+          log.push(`  waiting ${delay}ms`);
+          await this.waitWithinActionDeadline(delay, deadline, "screenshot");
+        }
+      } else log.push("attempting scroll into view action");
+      // Pinned `performActionPreChecks` runs the locator handlers first.
+      if (this.locatorHandlers.size)
+        await this.locatorHandlers.checkpoint(
+          deadline,
+          (line) => log.push(`  ${line}`),
+          () => new AdapterTimeoutError("Timeout exceeded.")
+        );
+      log.push("  waiting for element to be stable");
+      if (!element.isConnected) throw detached();
+      const result = await this.waitForActionDeadline(
+        this.actionableInjected.checkElementStates(element, [
+          "visible",
+          "stable",
+        ]),
+        deadline,
+        detached
+      );
+      if (result === "error:notconnected") throw detached();
+      if (result) {
+        log.push(`  element is not ${result.missingState}`);
+        continue;
+      }
+      // Pinned crPage `scrollRectIntoViewIfNeeded` reports an element without
+      // a layout box as not visible, and the action retries.
+      if (!this.hasLayoutBox(element)) {
+        log.push("  element is not visible");
+        continue;
+      }
+      this.scrollIntoViewIfNeeded(element);
+      return;
+    }
   }
 
   /**

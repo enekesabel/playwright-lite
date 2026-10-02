@@ -534,4 +534,29 @@ describe("ElementHandle", () => {
       expect(error!.message).toContain("Not a checkbox");
     }
   );
+
+  describe("screenshot", () => {
+    it("captures the element the handle holds", async () => {
+      document.body.style.margin = "0";
+      document.body.innerHTML = `<div id="target" style="width: 20px; height: 10px; background: rgb(255, 0, 0)"></div>`;
+      const handle = (await createPage().$("#target"))!;
+      const bytes = await handle.screenshot();
+      const image = await createImageBitmap(new Blob([bytes as BlobPart]));
+
+      expect([image.width, image.height]).toEqual([20, 10]);
+      document.body.removeAttribute("style");
+    });
+
+    it("rejects once its element is detached", async () => {
+      document.body.innerHTML = `<div id="target">x</div>`;
+      const handle = (await createPage().$("#target"))!;
+      document.getElementById("target")!.remove();
+
+      await expect(handle.screenshot()).rejects.toThrow(
+        new Error(
+          "elementHandle.screenshot: Element is not attached to the DOM\nCall log:\n  - taking element screenshot\n  - waiting for fonts to load...\n  - fonts loaded\n  - attempting scroll into view action\n    - waiting for element to be stable"
+        )
+      );
+    });
+  });
 });

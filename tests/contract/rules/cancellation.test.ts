@@ -79,6 +79,7 @@ function actions(
       "locator.scrollIntoViewIfNeeded",
       (o) => locator().scrollIntoViewIfNeeded(o),
     ],
+    ["locator.screenshot", (o) => locator().screenshot(o)],
     ["locator.selectOption", (o) => locator().selectOption("x", o)],
     ["locator.selectText", (o) => locator().selectText(o)],
     ["locator.setChecked", (o) => locator().setChecked(true, o)],

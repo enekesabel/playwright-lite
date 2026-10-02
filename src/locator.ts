@@ -136,6 +136,7 @@ const LOCATOR_LIFETIME_CALLS: Record<
   isVisible: true,
   press: true,
   pressSequentially: true,
+  screenshot: true,
   scrollIntoViewIfNeeded: true,
   selectOption: true,
   selectText: true,
@@ -802,6 +803,19 @@ export class LocatorImpl {
         undefined,
         options?.signal,
         force
+      )
+    );
+  }
+
+  async screenshot(
+    options?: Parameters<Locator["screenshot"]>[0]
+  ): Promise<Uint8Array> {
+    return withAbortPrefix("locator.screenshot", () =>
+      this.ownerPage.elementScreenshot(
+        this.selector,
+        "locator.screenshot",
+        this.label,
+        options
       )
     );
   }

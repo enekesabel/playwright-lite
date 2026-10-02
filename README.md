@@ -317,7 +317,7 @@ Targets Playwright **1.62.1**. Statuses describe API compatibility within the ru
 | [`page`](https://playwright.dev/docs/api/class-locator#locator-page)                                         |   ✅   |                                                                                                                                                                  |
 | [`press`](https://playwright.dev/docs/api/class-locator#locator-press)                                       |   ✅   |                                                                                                                                                                  |
 | [`pressSequentially`](https://playwright.dev/docs/api/class-locator#locator-press-sequentially)              |   ✅   |                                                                                                                                                                  |
-| [`screenshot`](https://playwright.dev/docs/api/class-locator#locator-screenshot)                             |   ❌   |                                                                                                                                                                  |
+| [`screenshot`](https://playwright.dev/docs/api/class-locator#locator-screenshot)                             |   ⚠️   | Returns a `Uint8Array` rendered from the DOM, and rejects `path`, `mask`, `style` and `animations: "disabled"`; see [Screenshots](#screenshots).                 |
 | [`scrollIntoViewIfNeeded`](https://playwright.dev/docs/api/class-locator#locator-scroll-into-view-if-needed) |   ✅   |                                                                                                                                                                  |
 | [`selectOption`](https://playwright.dev/docs/api/class-locator#locator-select-option)                        |   ✅   |                                                                                                                                                                  |
 | [`selectText`](https://playwright.dev/docs/api/class-locator#locator-select-text)                            |   ✅   |                                                                                                                                                                  |
@@ -442,7 +442,7 @@ A failed assertion throws an error whose `matcherResult` describes the failure: 
 
 The `ElementHandle` and `JSHandle` objects this package returns, for example from `$()`, `waitForSelector()`, `evaluateHandle()` or `locator.elementHandle()`.
 
-**Not available:** `ElementHandle.contentFrame()`, `ownerFrame()`, `screenshot()` and `tap()`.
+**Not available:** `ElementHandle.contentFrame()`, `ownerFrame()` and `tap()`.
 
 **Differences from Playwright:**
 
@@ -461,7 +461,7 @@ The `ElementHandle` and `JSHandle` objects this package returns, for example fro
 
 ### Screenshots
 
-`page.screenshot()` captures the current viewport, the full page or a clipped region by rendering the document's DOM into an image inside the page, with the geometry, codecs, `quality`, `scale` and `omitBackground` Playwright documents.
+`page.screenshot()` captures the current viewport, the full page or a clipped region, and `locator.screenshot()` and `elementHandle.screenshot()` the page rectangle around one element, by rendering the document's DOM into an image inside the page, with the geometry, waiting, codecs, `quality`, `scale` and `omitBackground` Playwright documents.
 
 **Differences from Playwright:**
 

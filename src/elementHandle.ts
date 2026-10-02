@@ -52,6 +52,7 @@ const ELEMENT_HANDLE_LIFETIME_CALLS: Record<
   isHidden: true,
   isVisible: true,
   press: true,
+  screenshot: true,
   scrollIntoViewIfNeeded: true,
   selectOption: true,
   selectText: true,
@@ -324,6 +325,19 @@ export class AdapterElementHandle extends AdapterJSHandle<Element> {
         undefined,
         options?.signal,
         force
+      )
+    );
+  }
+
+  async screenshot(
+    options?: Parameters<ElementHandle["screenshot"]>[0]
+  ): Promise<Uint8Array> {
+    return withAbortPrefix("elementHandle.screenshot", () =>
+      this.ownerPage.elementScreenshot(
+        this.requireElement(),
+        "elementHandle.screenshot",
+        "",
+        options
       )
     );
   }

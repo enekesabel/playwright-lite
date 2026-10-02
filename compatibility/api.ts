@@ -226,8 +226,7 @@ export const objectSections: readonly ObjectSection[] = [
     name: "ElementHandle and JSHandle",
     covers:
       "The `ElementHandle` and `JSHandle` objects this package returns, for example from `$()`, `waitForSelector()`, `evaluateHandle()` or `locator.elementHandle()`.",
-    notAvailable:
-      "`ElementHandle.contentFrame()`, `ownerFrame()`, `screenshot()` and `tap()`.",
+    notAvailable: "`ElementHandle.contentFrame()`, `ownerFrame()` and `tap()`.",
     members: [
       {
         member: "`ElementHandle.click()`",
@@ -244,7 +243,7 @@ export const objectSections: readonly ObjectSection[] = [
   {
     name: "Screenshots",
     covers:
-      "`page.screenshot()` captures the current viewport, the full page or a clipped region by rendering the document's DOM into an image inside the page, with the geometry, codecs, `quality`, `scale` and `omitBackground` Playwright documents.",
+      "`page.screenshot()` captures the current viewport, the full page or a clipped region, and `locator.screenshot()` and `elementHandle.screenshot()` the page rectangle around one element, by rendering the document's DOM into an image inside the page, with the geometry, waiting, codecs, `quality`, `scale` and `omitBackground` Playwright documents.",
     members: [
       {
         member: "Returned image",
@@ -712,7 +711,9 @@ export const locatorLedger = {
   page: implemented("Returns the adapter Page facade."),
   press: implemented(),
   pressSequentially: implemented(),
-  screenshot: undecided(),
+  screenshot: partial(
+    'Returns a `Uint8Array` rendered from the DOM, and rejects `path`, `mask`, `style` and `animations: "disabled"`; see [Screenshots](#screenshots).'
+  ),
   scrollIntoViewIfNeeded: implemented(),
   selectOption: implemented(),
   selectText: implemented(),

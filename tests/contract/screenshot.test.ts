@@ -677,3 +677,165 @@ describe("Page.screenshot", () => {
       expect((await decode(bytes)).pixel(25, 40)).toEqual([255, 0, 0, 255]);
   });
 });
+
+describe("Locator.screenshot", () => {
+  const red = [255, 0, 0, 255];
+  const blue = [0, 0, 255, 255];
+
+  it("captures the page rectangle around the element", async () => {
+    document.body.style.margin = "0";
+    document.body.innerHTML = `
+      <div id="target" style="position: absolute; left: 10.5px; top: 20.25px; width: 30px; height: 20px; background: rgb(255, 0, 0)"></div>
+      <div style="position: absolute; left: 20px; top: 25px; width: 10px; height: 10px; background: rgb(0, 0, 255)"></div>`;
+    const image = await decode(
+      await createPage().locator("#target").screenshot()
+    );
+
+    // Pinned `enclosingIntRect` of the box: x 10..41, y 20..41.
+    expect([image.width, image.height]).toEqual([31, 21]);
+    expect(image.pixel(25, 15)).toEqual(red);
+    // A covering sibling stays in the capture.
+    expect(image.pixel(15, 10)).toEqual(blue);
+  });
+
+  it("captures a disabled and a covered element", async () => {
+    document.body.style.margin = "0";
+    document.body.innerHTML = `
+      <button id="disabled" disabled style="position: absolute; left: 0; top: 0; width: 40px; height: 20px; border: 0; background: rgb(255, 0, 0)"></button>
+      <div id="covered" style="position: absolute; left: 0; top: 50px; width: 40px; height: 20px; background: rgb(255, 0, 0)"></div>
+      <div style="position: absolute; left: 0; top: 50px; width: 40px; height: 20px; background: rgb(0, 0, 255)"></div>`;
+    const page = createPage();
+
+    const disabled = await decode(await page.locator("#disabled").screenshot());
+    expect(disabled.pixel(20, 10)).toEqual(red);
+    const covered = await decode(await page.locator("#covered").screenshot());
+    expect(covered.pixel(20, 10)).toEqual(blue);
+  });
+
+  it("resolves one element strictly", async () => {
+    document.body.innerHTML = `<p>a</p><p>b</p>`;
+    const page = createPage();
+
+    await expect(page.locator("p").screenshot()).rejects.toThrow(
+      "locator.screenshot: strict mode violation"
+    );
+    await expect(
+      page.locator("#missing").screenshot({ timeout: 100 })
+    ).rejects.toMatchObject({
+      name: "TimeoutError",
+      message:
+        "locator.screenshot: Timeout 100ms exceeded.\nCall log:\n  - waiting for locator('#missing')",
+    });
+  });
+
+  it("waits for the element to be visible and stable", async () => {
+    document.body.innerHTML = `<div id="target" style="display: none; width: 20px; height: 20px; background: rgb(255, 0, 0)"></div>`;
+    const target = document.getElementById("target")!;
+    const page = createPage();
+
+    const error = await page
+      .locator("#target")
+      .screenshot({ timeout: 300 })
+      .then(
+        () => new Error("resolved"),
+        (error: Error) => error
+      );
+    expect(error.message).toMatch(
+      /^locator\.screenshot: Timeout \d+ms exceeded\.\nCall log:\n {2}- taking element screenshot\n {2}- waiting for fonts to load\.\.\.\n {2}- fonts loaded\n {2}- attempting scroll into view action\n {4}2 × waiting for element to be stable\n {6}- element is not visible\n {4}- retrying scroll into view action\n {4}- waiting 20ms\n/
+    );
+
+    setTimeout(() => (target.style.display = "block"), 100);
+    const image = await decode(
+      await page.locator("#target").screenshot({ timeout: 5_000 })
+    );
+    expect(image.pixel(10, 10)).toEqual(red);
+  });
+
+  it("captures the element it resolved, even once replaced", async () => {
+    document.body.innerHTML = `<div id="target" style="display: none">old</div>`;
+    const page = createPage();
+    const capture = page.locator("#target").screenshot({ timeout: 5_000 });
+    setTimeout(() => {
+      document.getElementById("target")!.remove();
+      document.body.innerHTML = `<div id="target">new</div>`;
+    }, 100);
+
+    await expect(capture).rejects.toThrow(
+      /^locator\.screenshot: Element is not attached to the DOM\nCall log:\n {2}- taking element screenshot/
+    );
+  });
+
+  it("scrolls the element into view only when needed", async () => {
+    document.body.style.margin = "0";
+    document.body.innerHTML = `
+      <div style="height: 3000px"></div>
+      <div id="near" style="position: absolute; left: 0; top: 1100px; width: 20px; height: 20px; background: rgb(255, 0, 0)"></div>
+      <div id="far" style="position: absolute; left: 0; top: 2500px; width: 20px; height: 20px; background: rgb(0, 0, 255)"></div>`;
+    window.scrollTo(0, 1000);
+    const page = createPage();
+
+    expect(
+      (await decode(await page.locator("#near").screenshot())).pixel(10, 10)
+    ).toEqual(red);
+    expect(window.scrollY).toBe(1000);
+    expect(
+      (await decode(await page.locator("#far").screenshot())).pixel(10, 10)
+    ).toEqual(blue);
+    expect(window.scrollY).not.toBe(1000);
+  });
+
+  it("scrolls a partly hidden element into its container's view", async () => {
+    document.body.style.margin = "0";
+    document.body.innerHTML = `
+      <div id="box" style="position: absolute; left: 0; top: 0; width: 100px; height: 100px; overflow: hidden">
+        <div style="height: 300px; padding-top: 150px; box-sizing: border-box">
+          <div id="target" style="width: 20px; height: 40px; background: rgb(255, 0, 0)"></div>
+        </div>
+      </div>`;
+    document.getElementById("box")!.scrollTop = 80;
+    const image = await decode(
+      await createPage().locator("#target").screenshot()
+    );
+
+    // Measured with Playwright 1.62.1: the box clipped the target at its
+    // bottom edge, so the box scrolls by 10px to reveal it.
+    expect([image.width, image.height]).toEqual([20, 40]);
+    expect(image.pixel(10, 5)).toEqual(red);
+    expect(image.pixel(10, 35)).toEqual(red);
+    expect(document.getElementById("box")!.scrollTop).toBe(90);
+  });
+
+  it("captures an element larger than the viewport", async () => {
+    document.body.style.margin = "0";
+    document.body.innerHTML = `
+      <div id="target" style="position: relative; width: 300px; height: ${innerHeight + 200}px; background: rgb(255, 0, 0)">
+        <div style="position: absolute; top: ${innerHeight + 100}px; width: 20px; height: 20px; background: rgb(0, 0, 255)"></div>
+      </div>
+      <div style="height: 2000px"></div>`;
+    window.scrollTo(0, 50);
+    const image = await decode(
+      await createPage().locator("#target").screenshot()
+    );
+
+    expect([image.width, image.height]).toEqual([300, innerHeight + 200]);
+    expect(image.pixel(10, 10)).toEqual(red);
+    expect(image.pixel(10, innerHeight + 110)).toEqual(blue);
+    // Measured with Playwright 1.62.1: a partly visible element taller than
+    // the viewport is not scrolled.
+    expect(window.scrollY).toBe(50);
+  });
+
+  it("rejects the Page-only options", async () => {
+    document.body.innerHTML = `<p>a</p>`;
+    const locator = createPage().locator("p");
+    for (const [option, value] of [
+      ["fullPage", false],
+      ["clip", { x: 0, y: 0, width: 1, height: 1 }],
+    ] as const)
+      await expect(
+        locator.screenshot({ [option]: value } as never)
+      ).rejects.toThrow(
+        `screenshot(): unsupported Playwright option(s): ${option}`
+      );
+  });
+});
