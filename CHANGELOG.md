@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.8.0](https://github.com/enekesabel/playwright-lite/compare/v0.7.0...v0.8.0) (2026-10-02)
+
+
+### Features
+
+* capture elements with Locator.screenshot and ElementHandle.screenshot ([#265](https://github.com/enekesabel/playwright-lite/issues/265)) ([ac2b585](https://github.com/enekesabel/playwright-lite/commit/ac2b585df73e1464c0f6e2fc625fbb87a5bfe64e))
+* capture the full page and clipped regions with Page.screenshot ([#264](https://github.com/enekesabel/playwright-lite/issues/264)) ([c94eb29](https://github.com/enekesabel/playwright-lite/commit/c94eb299c9ca89ad2d3ab26559f22cad198c5be2))
+* capture viewport screenshots with Page.screenshot ([#262](https://github.com/enekesabel/playwright-lite/issues/262)) ([c570dcf](https://github.com/enekesabel/playwright-lite/commit/c570dcf47e2523e2e7bdbf7707c78fff027f9285))
+* emulate explicit pointer capture for the mouse and taps ([#263](https://github.com/enekesabel/playwright-lite/issues/263)) ([266b6d1](https://github.com/enekesabel/playwright-lite/commit/266b6d18f9b404cd564343843343f3a11994541e))
+* mask elements and apply temporary styles in screenshots ([#268](https://github.com/enekesabel/playwright-lite/issues/268)) ([9f8acd4](https://github.com/enekesabel/playwright-lite/commit/9f8acd4726bfae276ce5ecfd45d5768a8bc69f32))
+
+
+### Bug Fixes
+
+* capture screenshots after the page deletes or replaces a kept global ([#274](https://github.com/enekesabel/playwright-lite/issues/274)) ([8579d7f](https://github.com/enekesabel/playwright-lite/commit/8579d7faa85c0bc51ed79a0ffe883a85b29faac8))
+* deliver input inside closed shadow roots an action has targeted ([#267](https://github.com/enekesabel/playwright-lite/issues/267)) ([d146d61](https://github.com/enekesabel/playwright-lite/commit/d146d61607bf4b225e03527d94c74d7a9c4425cd))
+* render animated values in screenshots instead of the author's base value ([#276](https://github.com/enekesabel/playwright-lite/issues/276)) ([37ec26b](https://github.com/enekesabel/playwright-lite/commit/37ec26b5f9f2c2c293b2ccc0badb8f32aa48d716))
+* send no click once the pressed element was removed or moved ([#271](https://github.com/enekesabel/playwright-lite/issues/271)) ([dfddbfb](https://github.com/enekesabel/playwright-lite/commit/dfddbfb2d9c45603c1ed56b8c7b0452dc9cb2fe0))
+
 ## [0.7.0](https://github.com/enekesabel/playwright-lite/compare/v0.6.0...v0.7.0) (2026-09-27)
 
 
