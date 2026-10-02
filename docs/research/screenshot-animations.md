@@ -23,7 +23,7 @@ node scripts/screenshot-animations-probe.mjs --json docs/research/screenshot-ani
 
 The probe installs `@zumer/snapdom@3.2.0` into the OS temp directory unless `SNAPDOM_DIST` names its `dist/snapdom.js`. `PROBE_CHROMIUM` selects a Chromium executable when Playwright's own is not installed. `--only <id>` runs one scenario (`stages`, `events` and `lifecycle` are also ids). The pinned preparation function is read from `playwright-core`'s compiled bundle and injected as Playwright does, `'(' + fn.toString() + ')(...)'`.
 
-Each scenario is rendered four ways and compared with a native `page.screenshot({ animations: "disabled", clip })` of the same fixture. "Different %" counts pixels whose RGB channel differs by more than 24 from native.
+Each scenario is rendered four ways and compared with a native `page.screenshot({ animations: "disabled", clip })` of the same fixture. The two scenarios marked `animations: "allow"` run no preparation and compare with a native `page.screenshot({ animations: "allow", clip })`, which records the in-flight transition value. "Different %" counts pixels whose RGB channel differs by more than 24 from native.
 
 | Variant   | What changes                                                                             |
 | --------- | ---------------------------------------------------------------------------------------- |
