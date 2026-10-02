@@ -676,6 +676,10 @@ function keepAnimatedValues(
         for (const [name, value] of Object.entries(keyframe)) {
           if (KEYFRAME_MEMBERS.has(name) || value == null) continue;
           if (name.startsWith("--")) properties.setProperty(name, `${value}`);
+          // Keyframes name the `offset` shorthand `cssOffset`, which no
+          // declaration attribute answers to.
+          else if (name === "cssOffset")
+            properties.setProperty("offset", `${value}`);
           else
             (properties as unknown as Record<string, string>)[name] =
               `${value}`;

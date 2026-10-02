@@ -1289,10 +1289,12 @@ describe("Locator.screenshot", () => {
         <div id="host"></div>`;
       const host = document.querySelector("#host")!;
       host.attachShadow({ mode: "open" }).innerHTML =
-        `<div id="shadowed" style="${box}; background: rgb(255, 0, 0)"></div>`;
+        `<style>#shadow-rule { background: rgb(255, 0, 0) }</style>
+        <div id="shadow-rule" style="${box}"></div>
+        <div id="shadowed" style="${box}; background: rgb(255, 0, 0)"></div>`;
       const targets = [
         ...document.querySelectorAll("#rule, .rule, #inline"),
-        host.shadowRoot!.querySelector("#shadowed")!,
+        ...host.shadowRoot!.querySelectorAll("#shadow-rule, #shadowed"),
       ];
       for (const target of targets)
         target.animate(
@@ -1316,6 +1318,7 @@ describe("Locator.screenshot", () => {
         "#inline",
         "#longhand",
         "#keyframes",
+        "#shadow-rule",
         "#shadowed",
       ]) {
         const image = await decode(await page.locator(selector).screenshot());
