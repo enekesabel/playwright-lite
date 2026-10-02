@@ -1,0 +1,429 @@
+{
+  "adapter": "dist",
+  "input": {
+    "native": {
+      "steps": [
+        {
+          "step": "mouse.click(60, 30) on #inner",
+          "events": [
+            "root pointerdown target=#inner path=#inner>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside pointerdown target=#host path=#host>body>html>#document>[object Window]",
+            "root mousedown target=#inner path=#inner>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside mousedown target=#host path=#host>body>html>#document>[object Window]",
+            "root focusin target=#inner path=#inner>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside focusin target=#host path=#host>body>html>#document>[object Window]",
+            "root mouseup target=#inner path=#inner>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside mouseup target=#host path=#host>body>html>#document>[object Window]",
+            "root click target=#inner path=#inner>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside click target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "mouse.click(85, 85) on #field",
+          "events": [
+            "root pointerdown target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside pointerdown target=#host path=#host>body>html>#document>[object Window]",
+            "root mousedown target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside mousedown target=#host path=#host>body>html>#document>[object Window]",
+            "root focusout target=#inner path=#inner>#document-fragment",
+            "root focusin target=#field path=#field>#document-fragment",
+            "root mouseup target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside mouseup target=#host path=#host>body>html>#document>[object Window]",
+            "root click target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside click target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "keyboard.type(\"abc\")",
+          "events": [
+            "root keydown target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside keydown target=#host path=#host>body>html>#document>[object Window]",
+            "root beforeinput target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside beforeinput target=#host path=#host>body>html>#document>[object Window]",
+            "root input target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside input target=#host path=#host>body>html>#document>[object Window]",
+            "root keydown target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside keydown target=#host path=#host>body>html>#document>[object Window]",
+            "root beforeinput target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside beforeinput target=#host path=#host>body>html>#document>[object Window]",
+            "root input target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside input target=#host path=#host>body>html>#document>[object Window]",
+            "root keydown target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside keydown target=#host path=#host>body>html>#document>[object Window]",
+            "root beforeinput target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside beforeinput target=#host path=#host>body>html>#document>[object Window]",
+            "root input target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside input target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "expect(locator(\"#host\")).toBeFocused()",
+          "events": []
+        },
+        {
+          "step": "locator(\"#host\").click() (centre is #field)",
+          "events": [
+            "root pointerdown target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside pointerdown target=#host path=#host>body>html>#document>[object Window]",
+            "root mousedown target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside mousedown target=#host path=#host>body>html>#document>[object Window]",
+            "root mouseup target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside mouseup target=#host path=#host>body>html>#document>[object Window]",
+            "root click target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside click target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "keyboard.type(\"d\")",
+          "events": [
+            "root keydown target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside keydown target=#host path=#host>body>html>#document>[object Window]",
+            "root beforeinput target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside beforeinput target=#host path=#host>body>html>#document>[object Window]",
+            "root input target=#field path=#field>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside input target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "mouse.click(220, 30) on nested #deep",
+          "events": [
+            "nested pointerdown target=#deep path=#deep>#document-fragment>#nestedHost>#document-fragment>#host>body>html>#document>[object Window]",
+            "root pointerdown target=#nestedHost path=#nestedHost>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside pointerdown target=#host path=#host>body>html>#document>[object Window]",
+            "nested mousedown target=#deep path=#deep>#document-fragment>#nestedHost>#document-fragment>#host>body>html>#document>[object Window]",
+            "root mousedown target=#nestedHost path=#nestedHost>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside mousedown target=#host path=#host>body>html>#document>[object Window]",
+            "root focusout target=#field path=#field>#document-fragment",
+            "nested focusin target=#deep path=#deep>#document-fragment>#nestedHost>#document-fragment",
+            "root focusin target=#nestedHost path=#nestedHost>#document-fragment",
+            "nested mouseup target=#deep path=#deep>#document-fragment>#nestedHost>#document-fragment>#host>body>html>#document>[object Window]",
+            "root mouseup target=#nestedHost path=#nestedHost>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside mouseup target=#host path=#host>body>html>#document>[object Window]",
+            "nested click target=#deep path=#deep>#document-fragment>#nestedHost>#document-fragment>#host>body>html>#document>[object Window]",
+            "root click target=#nestedHost path=#nestedHost>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside click target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "mouse.click(50, 220) on #outside",
+          "events": [
+            "outside pointerdown target=#outside path=#outside>body>html>#document>[object Window]",
+            "outside mousedown target=#outside path=#outside>body>html>#document>[object Window]",
+            "nested focusout target=#deep path=#deep>#document-fragment>#nestedHost>#document-fragment>#host>body>html>#document>[object Window]",
+            "root focusout target=#nestedHost path=#nestedHost>#document-fragment>#host>body>html>#document>[object Window]",
+            "outside focusout target=#host path=#host>body>html>#document>[object Window]",
+            "outside focusin target=#outside path=#outside>body>html>#document>[object Window]",
+            "outside mouseup target=#outside path=#outside>body>html>#document>[object Window]",
+            "outside click target=#outside path=#outside>body>html>#document>[object Window]"
+          ]
+        }
+      ],
+      "final": {
+        "activeElement": "#outside",
+        "rootActive": null,
+        "field": "dabc",
+        "hostShadowRoot": null,
+        "innerCount": 0,
+        "byRole": 1,
+        "aria": "- button \"Outside\""
+      }
+    },
+    "adapterLoadedLate": {
+      "steps": [
+        {
+          "step": "mouse.click(60, 30) on #inner",
+          "events": [
+            "outside pointerdown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mousedown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mouseup target=#host path=#host>body>html>#document>[object Window]",
+            "outside click target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "mouse.click(85, 85) on #field",
+          "events": [
+            "outside pointerdown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mousedown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mouseup target=#host path=#host>body>html>#document>[object Window]",
+            "outside click target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "keyboard.type(\"abc\")",
+          "events": [
+            "outside keydown target=body path=body>html>#document>[object Window]",
+            "outside keydown target=body path=body>html>#document>[object Window]",
+            "outside keydown target=body path=body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "expect(locator(\"#host\")).toBeFocused()",
+          "error": "page.evaluate: ExpectationError: expect(locator).toBeFocused() failed",
+          "events": []
+        },
+        {
+          "step": "locator(\"#host\").click() (centre is #field)",
+          "events": [
+            "outside pointerdown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mousedown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mouseup target=#host path=#host>body>html>#document>[object Window]",
+            "outside click target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "keyboard.type(\"d\")",
+          "events": [
+            "outside keydown target=body path=body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "mouse.click(220, 30) on nested #deep",
+          "events": [
+            "outside pointerdown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mousedown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mouseup target=#host path=#host>body>html>#document>[object Window]",
+            "outside click target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "mouse.click(50, 220) on #outside",
+          "events": [
+            "outside pointerdown target=#outside path=#outside>body>html>#document>[object Window]",
+            "outside mousedown target=#outside path=#outside>body>html>#document>[object Window]",
+            "outside focusin target=#outside path=#outside>body>html>#document>[object Window]",
+            "outside mouseup target=#outside path=#outside>body>html>#document>[object Window]",
+            "outside click target=#outside path=#outside>body>html>#document>[object Window]"
+          ]
+        }
+      ],
+      "final": {
+        "activeElement": "#outside",
+        "rootActive": null,
+        "field": "",
+        "hostShadowRoot": null,
+        "innerCount": 0,
+        "byRole": 1,
+        "aria": "- button \"Outside\""
+      }
+    },
+    "adapterLoadedEarly": {
+      "steps": [
+        {
+          "step": "mouse.click(60, 30) on #inner",
+          "events": [
+            "outside pointerdown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mousedown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mouseup target=#host path=#host>body>html>#document>[object Window]",
+            "outside click target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "mouse.click(85, 85) on #field",
+          "events": [
+            "outside pointerdown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mousedown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mouseup target=#host path=#host>body>html>#document>[object Window]",
+            "outside click target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "keyboard.type(\"abc\")",
+          "events": [
+            "outside keydown target=body path=body>html>#document>[object Window]",
+            "outside keydown target=body path=body>html>#document>[object Window]",
+            "outside keydown target=body path=body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "expect(locator(\"#host\")).toBeFocused()",
+          "error": "page.evaluate: ExpectationError: expect(locator).toBeFocused() failed",
+          "events": []
+        },
+        {
+          "step": "locator(\"#host\").click() (centre is #field)",
+          "events": [
+            "outside pointerdown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mousedown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mouseup target=#host path=#host>body>html>#document>[object Window]",
+            "outside click target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "keyboard.type(\"d\")",
+          "events": [
+            "outside keydown target=body path=body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "mouse.click(220, 30) on nested #deep",
+          "events": [
+            "outside pointerdown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mousedown target=#host path=#host>body>html>#document>[object Window]",
+            "outside mouseup target=#host path=#host>body>html>#document>[object Window]",
+            "outside click target=#host path=#host>body>html>#document>[object Window]"
+          ]
+        },
+        {
+          "step": "mouse.click(50, 220) on #outside",
+          "events": [
+            "outside pointerdown target=#outside path=#outside>body>html>#document>[object Window]",
+            "outside mousedown target=#outside path=#outside>body>html>#document>[object Window]",
+            "outside focusin target=#outside path=#outside>body>html>#document>[object Window]",
+            "outside mouseup target=#outside path=#outside>body>html>#document>[object Window]",
+            "outside click target=#outside path=#outside>body>html>#document>[object Window]"
+          ]
+        }
+      ],
+      "final": {
+        "activeElement": "#outside",
+        "rootActive": null,
+        "field": "",
+        "hostShadowRoot": null,
+        "innerCount": 0,
+        "byRole": 1,
+        "aria": "- button \"Outside\""
+      }
+    }
+  },
+  "capture": {
+    "native": {
+      "inlineScript": "reached",
+      "declarative": "reached",
+      "declarativeSerializable": "reached",
+      "customElementDeclarative": "reached",
+      "declarativeThenAttachShadow": "reached",
+      "otherRealm": "reached",
+      "isolatedWorld": "reached",
+      "afterLoad": "reached",
+      "detection": {
+        "closedHostBogusMode": "TypeError",
+        "plainBogusMode": "TypeError",
+        "closedHostShadowRoot": null,
+        "serializableGetHTML": true,
+        "internalsShadowRoot": true,
+        "attachShadowLooksNative": true
+      }
+    },
+    "adapterLoadedLate": {
+      "inlineScript": "host only",
+      "declarative": "host only",
+      "declarativeSerializable": "host only",
+      "customElementDeclarative": "host only",
+      "declarativeThenAttachShadow": "host only",
+      "otherRealm": "host only",
+      "isolatedWorld": "host only",
+      "afterLoad": "host only",
+      "detection": {
+        "closedHostBogusMode": "TypeError",
+        "plainBogusMode": "TypeError",
+        "closedHostShadowRoot": null,
+        "serializableGetHTML": true,
+        "internalsShadowRoot": true,
+        "attachShadowLooksNative": true
+      }
+    },
+    "adapterLoadedEarly": {
+      "inlineScript": "host only",
+      "declarative": "host only",
+      "declarativeSerializable": "host only",
+      "customElementDeclarative": "host only",
+      "declarativeThenAttachShadow": "host only",
+      "otherRealm": "host only",
+      "isolatedWorld": "host only",
+      "afterLoad": "host only",
+      "detection": {
+        "closedHostBogusMode": "TypeError",
+        "plainBogusMode": "TypeError",
+        "closedHostShadowRoot": null,
+        "serializableGetHTML": true,
+        "internalsShadowRoot": true,
+        "attachShadowLooksNative": true
+      }
+    }
+  },
+  "knownTarget": {
+    "native": {
+      "steps": [
+        {
+          "step": "locator(\"fixture=#inner\").click()",
+          "insideEvents": 5,
+          "outsideTargets": [
+            "pointerdown target=#host",
+            "mousedown target=#host",
+            "focusin target=#host",
+            "mouseup target=#host",
+            "click target=#host"
+          ]
+        },
+        {
+          "step": "locator(\"fixture=#field\").fill(\"xy\")",
+          "insideEvents": 4,
+          "outsideTargets": ["beforeinput target=#host", "input target=#host"]
+        },
+        {
+          "step": "locator(\"fixture=#field\").pressSequentially(\"z\")",
+          "insideEvents": 3,
+          "outsideTargets": [
+            "keydown target=#host",
+            "beforeinput target=#host",
+            "input target=#host"
+          ]
+        },
+        {
+          "step": "locator(\"fixture=#field\").press(\"Backspace\")",
+          "insideEvents": 3,
+          "outsideTargets": [
+            "keydown target=#host",
+            "beforeinput target=#host",
+            "input target=#host"
+          ]
+        }
+      ],
+      "field": "xy"
+    },
+    "adapter": {
+      "steps": [
+        {
+          "step": "locator(\"fixture=#inner\").click()",
+          "insideEvents": 0,
+          "outsideTargets": [
+            "pointerdown target=#host",
+            "mousedown target=#host",
+            "mouseup target=#host",
+            "click target=#host"
+          ]
+        },
+        {
+          "step": "locator(\"fixture=#field\").fill(\"xy\")",
+          "insideEvents": 2,
+          "outsideTargets": ["focusin target=#host", "input target=#host"]
+        },
+        {
+          "step": "locator(\"fixture=#field\").pressSequentially(\"z\")",
+          "insideEvents": 0,
+          "outsideTargets": ["keydown target=#host"]
+        },
+        {
+          "step": "locator(\"fixture=#field\").press(\"Backspace\")",
+          "insideEvents": 0,
+          "outsideTargets": ["keydown target=#host"]
+        }
+      ],
+      "field": "xy"
+    }
+  },
+  "coexistence": {
+    "two runtime copies, page wraps after them": {
+      "reached": false,
+      "nativeCalls": 1,
+      "pageWrapperCalls": 1,
+      "error": null
+    },
+    "frozen Element.prototype before load": {
+      "reached": false,
+      "nativeCalls": 1,
+      "pageWrapperCalls": 0,
+      "error": null
+    }
+  }
+}

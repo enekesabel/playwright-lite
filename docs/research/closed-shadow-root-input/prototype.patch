@@ -1,0 +1,169 @@
+diff --git a/src/closedShadowRoots.ts b/src/closedShadowRoots.ts
+new file mode 100644
+index 0000000..cecd493
+--- /dev/null
++++ b/src/closedShadowRoots.ts
+@@ -0,0 +1,61 @@
++/**
++ * THROWAWAY PROTOTYPE for #259, not production code.
++ *
++ * Wraps `Element.prototype.attachShadow` when this module is evaluated and
++ * keeps each closed root it sees in a module-private WeakMap, so input
++ * (hit-testing and keyboard focus) can descend into it. Locators, ARIA
++ * snapshots and every other page-state path never read this map.
++ *
++ * An action whose target element sits inside closed roots also records each
++ * root on the way up from it, since holding the element already reaches them.
++ *
++ * The wrapper is permanent: a root attached while it is absent is lost for
++ * good, so it cannot follow the install-on-subscription, restore-on-dispose
++ * rule for host globals.
++ */
++const closedRoots = new WeakMap<Element, ShadowRoot>();
++
++function install() {
++  const proto = globalThis.Element?.prototype;
++  if (!proto) return;
++  const descriptor = Object.getOwnPropertyDescriptor(proto, "attachShadow");
++  const original = descriptor?.value as
++    | ((this: Element, init: ShadowRootInit) => ShadowRoot)
++    | undefined;
++  if (typeof original !== "function") return;
++  const wrapper = new Proxy(original, {
++    apply(target, thisArg: Element, args: [ShadowRootInit]) {
++      const root = Reflect.apply(target, thisArg, args) as ShadowRoot;
++      if (root.mode === "closed") closedRoots.set(thisArg, root);
++      return root;
++    },
++  });
++  try {
++    Object.defineProperty(proto, "attachShadow", {
++      ...descriptor,
++      value: wrapper,
++    });
++  } catch {
++    // A frozen or non-configurable prototype keeps the native method.
++  }
++}
++
++install();
++
++/** The host's shadow root, open or known closed; `null` when out of reach. */
++export function inputShadowRoot(host: Element): ShadowRoot | null {
++  return host.shadowRoot ?? closedRoots.get(host) ?? null;
++}
++
++/** Records every closed root enclosing `element`, then returns it. */
++export function learnClosedRoots<T extends Element>(element: T): T {
++  for (
++    let root = element.getRootNode();
++    root.nodeType === 11 && (root as ShadowRoot).host;
++    root = (root as ShadowRoot).host.getRootNode()
++  ) {
++    const shadow = root as ShadowRoot;
++    if (shadow.mode === "closed") closedRoots.set(shadow.host, shadow);
++  }
++  return element;
++}
+diff --git a/src/mouse.ts b/src/mouse.ts
+index 3bcd964..edf40a1 100644
+--- a/src/mouse.ts
++++ b/src/mouse.ts
+@@ -1,4 +1,5 @@
+ import type { Mouse } from "@playwright/test";
++import { inputShadowRoot } from "./closedShadowRoots";
+ import {
+   Error,
+   Math,
+@@ -782,13 +783,17 @@ export class Pointer {
+     return mask;
+   }
+ 
+-  /** `elementFromPoint()`, followed into open shadow roots. */
++  /** `elementFromPoint()`, followed into open and known closed shadow roots. */
+   private hitTarget(point: Point): Element {
+     const document = this.host.window.document;
+     let target =
+       document.elementFromPoint(point.x, point.y) ?? document.documentElement;
+-    while (target.shadowRoot?.mode === "open") {
+-      const inner = target.shadowRoot.elementFromPoint(point.x, point.y);
++    for (
++      let root = inputShadowRoot(target);
++      root;
++      root = inputShadowRoot(target)
++    ) {
++      const inner = root.elementFromPoint(point.x, point.y);
+       if (!inner || inner === target) break;
+       target = inner;
+     }
+@@ -1207,6 +1212,6 @@ function mouseFocusable(element: Element): boolean {
+   return (
+     html.tabIndex >= 0 ||
+     html.isContentEditable ||
+-    !!element.shadowRoot?.delegatesFocus
++    !!inputShadowRoot(element)?.delegatesFocus
+   );
+ }
+diff --git a/src/page.ts b/src/page.ts
+index 423ac5f..8f8017c 100644
+--- a/src/page.ts
++++ b/src/page.ts
+@@ -1,4 +1,5 @@
+ import { Evaluation } from "./evaluation";
++import { inputShadowRoot, learnClosedRoots } from "./closedShadowRoots";
+ import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
+ import {
+   AdapterJSHandle,
+@@ -1636,7 +1637,7 @@ export class PageImpl {
+       options,
+       strict,
+       (element) => {
+-        const result = this.actionableInjected.focusNode(element);
++        const result = this.actionableInjected.focusNode(learnClosedRoots(element));
+         if (result === "error:notconnected")
+           throw new Error(`Element is not connected for locator ${label}`);
+       },
+@@ -2775,7 +2776,7 @@ export class PageImpl {
+       { signal: options?.signal, timeout: options?.timeout },
+       strict,
+       (element) => {
+-        const result = this.actionableInjected.focusNode(element, true);
++        const result = this.actionableInjected.focusNode(learnClosedRoots(element), true);
+         if (result === "error:notconnected")
+           throw new Error("Element is not connected");
+       },
+@@ -4827,7 +4828,7 @@ export class PageImpl {
+     position?: ActionPoint,
+     force = false
+   ): ActionPoint {
+-    const point = this.pointerPoint(element, position);
++    const point = this.pointerPoint(learnClosedRoots(element), position);
+     if (force) return point;
+     // Same retargeting as dom.ts setupHitTargetInterceptor, not a custom
+     // ancestor heuristic: nested labels/buttons/links retain pinned semantics.
+@@ -4886,7 +4887,7 @@ export class PageImpl {
+   }
+ 
+   private focusElement(element: Element) {
+-    this.actionableInjected.focusNode(element, true);
++    this.actionableInjected.focusNode(learnClosedRoots(element), true);
+   }
+ 
+   private insertFilledText(
+@@ -4959,11 +4960,12 @@ export class PageImpl {
+ 
+   deepActiveElement(): Element {
+     let target = this.document.activeElement ?? this.document.body;
+-    while (
+-      target.shadowRoot?.mode === "open" &&
+-      target.shadowRoot.activeElement
++    for (
++      let root = inputShadowRoot(target);
++      root?.activeElement;
++      root = inputShadowRoot(target)
+     )
+-      target = target.shadowRoot.activeElement;
++      target = root.activeElement;
+     return target;
+   }
+ 
