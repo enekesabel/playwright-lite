@@ -19,6 +19,7 @@ import { validateBoolean, validateString } from "./protocolValidation";
 import {
   Array,
   Error,
+  Map,
   Promise,
   Set,
   WeakMap,
@@ -243,7 +244,7 @@ async function run(
   if (cancelled()) return undefined;
   log.push("fonts loaded");
   const region = task.region();
-  assertCapturableContent(task, region);
+  const usedFonts = assertCapturableContent(task, region);
   const renderer = await loadRenderer();
   if (cancelled()) return undefined;
   const dpr = encoding.scale === "css" ? 1 : browserWindow.devicePixelRatio;
@@ -251,6 +252,7 @@ async function run(
   // `compose` paints the canvas background the browser would paint under it.
   let result: Awaited<ReturnType<Renderer>>;
   let rendered: HTMLCanvasElement;
+  let svg = "";
   try {
     result = await renderer(document.documentElement, {
       clip: region,
@@ -259,10 +261,20 @@ async function run(
       backgroundColor: null,
       cache: "disabled",
       invalidate: true,
+      plugins: [
+        {
+          name: "playwright-lite-embedded-fonts",
+          afterRender: (context) => {
+            svg = context.svgString ?? "";
+          },
+        },
+      ],
     });
     rendered = await result.toCanvas();
   } catch (error) {
     throw withMessagePrefix(error, task.apiName);
+  } finally {
+    removeRendererScaffolding(document);
   }
   if (cancelled()) return undefined;
   // A degraded capture is a failure, never a placeholder: SnapDOM records
@@ -276,6 +288,12 @@ async function run(
     throw new Error(
       `${task.apiName}: the capture is incomplete: ${degradations.map((warning) => warning.message).join("; ")}`
     );
+  const embedded = embeddedFontFamilies(svg);
+  for (const [name, { family, element }] of usedFonts)
+    if (!embedded.has(name))
+      throw new Error(
+        `${task.apiName}: cannot capture ${task.describe(element)}: its text uses the "${family}" web font, which the renderer could not embed.`
+      );
   const output = compose(browserWindow, rendered, encoding);
   const blob = await new Promise<Blob | null>((resolve) =>
     output.toBlob(
@@ -295,6 +313,19 @@ async function run(
     );
   const bytes = new Uint8Array(await blob.arrayBuffer());
   return cancelled() ? undefined : bytes;
+}
+
+/**
+ * SnapDOM leaves the hidden `<iframe>` it decodes images in attached to the
+ * document after a capture, and removes its style sandbox only when a capture
+ * succeeds. The queue runs one renderer per document at a time, so once one
+ * settles, neither is in use; SnapDOM creates them again when it needs them.
+ */
+function removeRendererScaffolding(document: Document) {
+  for (const element of document.querySelectorAll(
+    "iframe[data-snapdom-internal], #snapdom-sandbox[data-snapdom-internal]"
+  ))
+    element.remove();
 }
 
 /**
@@ -385,13 +416,23 @@ const URL_IMAGE_PROPERTIES = [
  * CSS and SVG), which cannot yet be verified. `<img>` failures are reported
  * by the renderer itself.
  */
-function assertCapturableContent(task: CaptureTask, region: DocumentRect) {
+/**
+ * Refuses content in `region` the renderer cannot reproduce or would replace
+ * without a warning, and returns the web fonts its text uses: the family the
+ * capture must embed, by lowercase name, and the first element that uses it.
+ */
+function assertCapturableContent(
+  task: CaptureTask,
+  region: DocumentRect
+): Map<string, { family: string; element: Element }> {
   const browserWindow = task.window;
   const refuse = (element: Element, reason: string): never => {
     throw new Error(
       `${task.apiName}: cannot capture ${task.describe(element)}: ${reason}`
     );
   };
+  const webFonts = loadedWebFontFamilies(browserWindow.document);
+  const usedFonts = new Map<string, { family: string; element: Element }>();
   for (const element of renderedElements(browserWindow.document)) {
     const box = element.getBoundingClientRect();
     if (
@@ -424,6 +465,12 @@ function assertCapturableContent(task: CaptureTask, region: DocumentRect) {
       );
     for (const pseudo of [null, "::before", "::after", "::marker"]) {
       const style = browserWindow.getComputedStyle(element, pseudo);
+      const family =
+        pseudo === "::marker" || !rendersText(element, pseudo, style)
+          ? undefined
+          : renderedWebFont(fontFamilies(style.fontFamily), webFonts);
+      if (family && !usedFonts.has(family.toLowerCase()))
+        usedFonts.set(family.toLowerCase(), { family, element });
       for (const property of URL_IMAGE_PROPERTIES) {
         const value = style.getPropertyValue(property);
         if (cssURLs(value).some(isUnverifiedURL))
@@ -434,6 +481,83 @@ function assertCapturableContent(task: CaptureTask, region: DocumentRect) {
       }
     }
   }
+  return usedFonts;
+}
+
+/**
+ * The families the rendered SVG embeds as data. SnapDOM skips a web font
+ * without a warning, such as one added through the `FontFace` API or one whose
+ * name looks like an icon font's; the page's own `@font-face` rules it copies
+ * keep URLs the rendered image cannot load. Text in such a font would render
+ * in a fallback font.
+ */
+function embeddedFontFamilies(svg: string): Set<string> {
+  const families = new Set<string>();
+  for (const [, rule] of svg.matchAll(/@font-face\s*\{([^}]*)\}/gi)) {
+    const family = /font-family\s*:\s*(['"]?)([^;'"]+)\1/i.exec(rule);
+    if (family && /url\(\s*['"]?data:/i.test(rule))
+      families.add(family[2].trim().toLowerCase());
+  }
+  return families;
+}
+
+function loadedWebFontFamilies(document: Document): Set<string> {
+  const families = new Set<string>();
+  for (const face of document.fonts)
+    if (face.status === "loaded")
+      families.add(face.family.replace(/^(['"])(.*)\1$/, "$2").toLowerCase());
+  return families;
+}
+
+/**
+ * CSS Fonts 4 §2.1.1 generic families, which always match, so the browser
+ * never falls back past one.
+ */
+const GENERIC_FAMILY =
+  /^(serif|sans-serif|monospace|cursive|fantasy|system-ui|ui-serif|ui-sans-serif|ui-monospace|ui-rounded|math|emoji|fangsong)$/i;
+
+/**
+ * The web font that renders text in `families`: the first loaded one before
+ * any generic family. A family that is neither may or may not be installed,
+ * so a web font after it counts as used.
+ */
+function renderedWebFont(
+  families: string[],
+  webFonts: Set<string>
+): string | undefined {
+  for (const family of families) {
+    if (webFonts.has(family.toLowerCase())) return family;
+    if (GENERIC_FAMILY.test(family)) return undefined;
+  }
+  return undefined;
+}
+
+/** The families of a computed `font-family`, unquoted, in order. */
+function fontFamilies(value: string): string[] {
+  return Array.from(
+    value.matchAll(
+      /\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^,]+))\s*(?:,|$)/g
+    ),
+    (match) => (match[1] ?? match[2] ?? match[3]).trim()
+  ).filter(Boolean);
+}
+
+/** Whether `element`, or its `pseudo` element, paints text of its own. */
+function rendersText(
+  element: Element,
+  pseudo: string | null,
+  style: CSSStyleDeclaration
+): boolean {
+  if (pseudo) return style.content !== "none" && style.content !== "normal";
+  if (
+    (element.localName === "input" || element.localName === "textarea") &&
+    ((element as HTMLInputElement).value ||
+      (element as HTMLInputElement).placeholder)
+  )
+    return true;
+  return Array.from(element.childNodes).some(
+    (node) => node.nodeType === 3 /* TEXT_NODE */ && node.nodeValue!.trim()
+  );
 }
 
 /** Every element of `document` and of the open shadow roots inside it. */

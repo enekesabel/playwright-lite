@@ -290,8 +290,8 @@ try {
     );
     const signatures = await esm
       .evaluate(async () => {
-        // The first capture also loads the renderer chunk, which can outlast
-        // the default action timeout on a slow runner.
+        // The first capture also loads the renderer chunk; a generous timeout
+        // keeps this a packaging check rather than a timing one.
         const png = await window.litePage.screenshot({ timeout: 30_000 });
         const webp = await window.litePage.screenshot({
           type: "webp",

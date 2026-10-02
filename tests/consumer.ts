@@ -78,8 +78,8 @@ export async function runConsumer() {
       consoleLocation = message.location();
   });
   console.log("consumer-console-probe");
-  // The first capture also loads the renderer chunk, which can outlast the
-  // default action timeout on a slow runner.
+  // The first capture also loads the renderer chunk; a generous timeout
+  // keeps this a packaging check rather than a timing one.
   const screenshot = await page.screenshot({ type: "jpeg", timeout: 30_000 });
   return {
     exports: Object.keys(publicExports).sort(),

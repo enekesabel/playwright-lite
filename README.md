@@ -475,6 +475,7 @@ The `ElementHandle` and `JSHandle` objects this package returns, for example fro
 
 - The pixels come from the DOM renderer, not the browser's compositor, so text antialiasing, form controls and some effects can differ while the geometry matches.
 - A capture rejects instead of substituting what it cannot reproduce: a `<canvas>` cross-origin content tainted, an image the renderer cannot load, and in the captured area, until their capture can be verified, `<video>`, `<iframe>`, `<frame>`, `<object>`, `<embed>`, SVG `<image>`, and CSS `background-image`, `mask-image`, `border-image-source`, `list-style-image` or `content` images that load from a URL. Images from `data:` URLs are captured.
+- Text whose web font the renderer cannot embed also rejects the capture: a font added through the `FontFace` API rather than an `@font-face` rule, or one whose family name looks like an icon font's, such as one containing `icon`, `glyph` or `symbols`.
 
 <details>
 <summary>Edge cases</summary>
@@ -484,6 +485,8 @@ The `ElementHandle` and `JSHandle` objects this package returns, for example fro
 - A `<canvas>` with `position: fixed` is resampled, so its pixels can differ slightly from the canvas's own.
 - Captures of one document run one at a time across all its `Page` objects, where Playwright queues them per page. A capture that times out or is aborted rejects at once, but rendering that already started finishes before the next capture begins.
 - The renderer can log a `console.warn()` message, such as a failed image request, which a `console` listener receives.
+- While a capture runs, the document holds a hidden `<iframe>` and, during rendering, a hidden `<div id="snapdom-sandbox">`; both are removed once the capture's rendering ends.
+- An image that failed to load within the previous 8 seconds rejects a capture even if it would load now, because the renderer remembers failed URLs for that long.
 
 </details>
 

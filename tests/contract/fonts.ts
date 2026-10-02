@@ -1,16 +1,18 @@
 import { afterEach, expect } from "vitest";
 
 /**
- * Web fonts whose load the test holds pending. Each one is removed again
- * when its test ends, so `document.fonts.ready` never waits on another
- * test's font.
+ * Web fonts a test adds. Each one is removed again when its test ends, so
+ * `document.fonts.ready` never waits on another test's font.
  */
 
 const added = new Set<FontFace>();
+const declarations = new Set<HTMLStyleElement>();
 
 afterEach(() => {
   for (const face of added) document.fonts.delete(face);
   added.clear();
+  for (const style of declarations) style.remove();
+  declarations.clear();
 });
 
 /**
@@ -27,4 +29,16 @@ export function pendingFont(ms: number): () => void {
     document.fonts.delete(face);
     added.delete(face);
   };
+}
+
+/**
+ * Declares the pinned fixture font, whose glyphs are filled black rectangles,
+ * as `family` in an `@font-face` rule for the rest of the test, and loads it.
+ */
+export async function webFont(family: string): Promise<void> {
+  const style = document.createElement("style");
+  style.textContent = `@font-face { font-family: "${family}"; src: url(/tests/assets/webfont/iconfont.woff2) }`;
+  document.head.append(style);
+  declarations.add(style);
+  await document.fonts.load(`16px "${family}"`, "+");
 }

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
-import { pendingFont } from "./fonts";
+import { pendingFont, webFont } from "./fonts";
 import { decode, isLosslessWebp, signature } from "./image";
 
 afterEach(() => {
@@ -385,6 +385,75 @@ describe("Page.screenshot", () => {
       document.body.innerHTML = markup;
       await expect(page.screenshot(), markup).rejects.toThrow(message);
     }
+  });
+
+  it("renders text in a loaded web font", async () => {
+    // Each glyph of the pinned fixture font is a filled black rectangle.
+    const ink = async (font: string) => {
+      document.body.innerHTML = `<span style="font: 40px ${font}">+-</span>`;
+      await document.fonts.ready;
+      const box = document.body.firstElementChild!.getBoundingClientRect();
+      const image = await decode(await createPage().screenshot());
+      let dark = 0;
+      for (let y = Math.ceil(box.top); y < Math.floor(box.bottom); y++)
+        for (let x = Math.ceil(box.left); x < Math.floor(box.right); x++)
+          if (image.pixel(x, y)[0] < 64) dark++;
+      return dark;
+    };
+    await webFont("pwtest-font");
+
+    expect(await ink("pwtest-font, serif")).toBeGreaterThan(
+      4 * (await ink("serif"))
+    );
+  });
+
+  it("rejects text in a web font the renderer would not embed", async () => {
+    // SnapDOM skips families named like icon fonts.
+    await webFont("pwtest-iconfont");
+    document.body.innerHTML = `<p style="font-family: pwtest-iconfont">+-</p>`;
+    await expect(createPage().screenshot()).rejects.toThrow(
+      'page.screenshot: cannot capture <p>+-</p>: its text uses the "pwtest-iconfont" web font, which the renderer could not embed.'
+    );
+
+    document.body.innerHTML = `<style>i::before { content: "+"; font-family: pwtest-iconfont }</style><i id="icon"></i>`;
+    await expect(createPage().screenshot()).rejects.toThrow(
+      'page.screenshot: cannot capture <i id="icon"></i>: its text uses the "pwtest-iconfont" web font'
+    );
+
+    // It embeds fonts from style sheets only, not ones added through the API.
+    const face = new FontFace(
+      "pwtest-api-font",
+      "url(/tests/assets/webfont/iconfont.woff2)"
+    );
+    document.fonts.add(await face.load());
+    try {
+      document.body.innerHTML = `<p style="font-family: pwtest-api-font">+-</p>`;
+      await expect(createPage().screenshot()).rejects.toThrow(
+        'page.screenshot: cannot capture <p>+-</p>: its text uses the "pwtest-api-font" web font, which the renderer could not embed.'
+      );
+    } finally {
+      document.fonts.delete(face);
+    }
+
+    // Text in another font, and an element without text, are captured.
+    document.body.innerHTML = `<p style="font-family: serif, pwtest-iconfont">+-</p><div style="font-family: pwtest-iconfont"></div>`;
+    await createPage().screenshot();
+  });
+
+  it("leaves none of the renderer's elements in the document", async () => {
+    const leftovers = () =>
+      document.querySelectorAll("iframe, #snapdom-sandbox").length;
+    document.body.innerHTML = boxes;
+    await createPage().screenshot();
+    expect(leftovers()).toBe(0);
+
+    document.body.innerHTML = `${boxes}<img src="/__delay/300/slow.gif">`;
+    const page = createPage();
+    await expect(page.screenshot({ timeout: 100 })).rejects.toThrow(
+      "page.screenshot: Timeout 100ms exceeded."
+    );
+    await page.screenshot({ timeout: 5_000 });
+    expect(leftovers()).toBe(0);
   });
 
   it("captures data URL images and media outside the viewport", async () => {
