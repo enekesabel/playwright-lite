@@ -15,12 +15,18 @@ import type { Locator, Page } from "@playwright/test";
 import { compressCallLog } from "./callLog";
 import { AdapterTimeoutError } from "./errors";
 import { isTargetClosedError, TargetClosedError } from "./lifetime";
-import { validateBoolean, validateString } from "./protocolValidation";
+import {
+  validateBoolean,
+  validateFloat,
+  validateInteger,
+  validateString,
+} from "./protocolValidation";
 import {
   Array,
   Error,
   Map,
   Math,
+  Object,
   Promise,
   Set,
   WeakMap,
@@ -97,7 +103,10 @@ export function pageScreenshotEncoding(
         "the `path` option is not supported; write the returned bytes yourself."
       );
     const type = validateEnum(options.type, "type", FORMATS);
-    const quality = validateInt(options.quality, "quality");
+    const quality =
+      options.quality === undefined
+        ? undefined
+        : validateInteger(options.quality, "quality");
     const fullPage = validateBoolean(options.fullPage, "fullPage");
     const clip =
       options.clip === undefined
@@ -385,6 +394,7 @@ async function run(
   let result: Awaited<ReturnType<Renderer>>;
   let rendered: HTMLCanvasElement;
   let svg = "";
+  let restoreBodyScroll: (() => void) | undefined;
   try {
     result = await renderer(document.documentElement, {
       clip: region,
@@ -396,6 +406,15 @@ async function run(
       plugins: [
         {
           name: "playwright-lite-embedded-fonts",
+          beforeClone: (context) => {
+            if (context.element === document.documentElement)
+              restoreBodyScroll = hideQuirksBodyScroll(document);
+          },
+          afterClone: (context) => {
+            if (context.element !== document.documentElement) return;
+            restoreBodyScroll?.();
+            keepBodyOffset(browserWindow, context.clone);
+          },
           afterRender: (context) => {
             svg = context.svgString ?? "";
           },
@@ -406,6 +425,7 @@ async function run(
   } catch (error) {
     throw withMessagePrefix(error, task.apiName);
   } finally {
+    restoreBodyScroll?.();
     removeRendererScaffolding(document);
   }
   if (cancelled()) return undefined;
@@ -445,6 +465,64 @@ async function run(
     );
   const bytes = new Uint8Array(await blob.arrayBuffer());
   return cancelled() ? undefined : bytes;
+}
+
+/**
+ * When `<body>` is the scrolling element, as in a quirks-mode document, its
+ * `scrollTop` and `scrollLeft` report the viewport's scroll offset, which
+ * SnapDOM takes for a scrolled box and shifts the body's content by again, on
+ * top of the region's own offset. While it clones, the body reports no scroll
+ * of its own, as in a standards-mode document; assigning to them still
+ * scrolls. Returns the restore, which is safe to call twice.
+ */
+function hideQuirksBodyScroll(document: Document): (() => void) | undefined {
+  const body = document.body;
+  if (!body || document.scrollingElement !== body) return undefined;
+  const properties = ["scrollTop", "scrollLeft"] as const;
+  for (const property of properties) {
+    let prototype: object | null = Object.getPrototypeOf(body);
+    let descriptor: PropertyDescriptor | undefined;
+    while (prototype && !descriptor) {
+      descriptor = Object.getOwnPropertyDescriptor(prototype, property);
+      prototype = Object.getPrototypeOf(prototype);
+    }
+    Object.defineProperty(body, property, {
+      configurable: true,
+      get: () => 0,
+      set(value: number) {
+        descriptor?.set?.call(body, value);
+      },
+    });
+  }
+  return () => {
+    for (const property of properties)
+      delete (body as unknown as Record<string, unknown>)[property];
+  };
+}
+
+/**
+ * SnapDOM zeroes the top margins that collapse up to the element it captures,
+ * so a page whose first content's top margin collapses through `<body>`, such
+ * as one that starts with a heading, would render that much higher. The root
+ * element contains the collapsed margin, so the clone puts it back as the
+ * body's own margin inside a root that contains it too.
+ */
+function keepBodyOffset(browserWindow: Window, clone: unknown) {
+  const { documentElement: root, body } = browserWindow.document;
+  const rootClone = clone as HTMLElement | undefined;
+  const bodyClone = rootClone?.querySelector<HTMLElement>(":scope > body");
+  if (!body || !rootClone || !bodyClone) return;
+  const rootStyle = browserWindow.getComputedStyle(root);
+  const bodyStyle = browserWindow.getComputedStyle(body);
+  if (bodyStyle.position !== "static" || bodyStyle.transform !== "none") return;
+  if (rootStyle.display === "block")
+    rootClone.style.setProperty("display", "flow-root", "important");
+  const offset =
+    body.getBoundingClientRect().top -
+    root.getBoundingClientRect().top -
+    parseFloat(rootStyle.borderTopWidth) -
+    parseFloat(rootStyle.paddingTop);
+  bodyClone.style.setProperty("margin-top", `${offset}px`, "important");
 }
 
 /**
@@ -542,16 +620,14 @@ const URL_IMAGE_PROPERTIES = [
 ];
 
 /**
- * Refuses a capture whose region holds content the renderer would replace
- * without reporting it: a canvas the page cannot read back, and the media
- * whose failures SnapDOM substitutes silently (frames, video, URL images in
- * CSS and SVG), which cannot yet be verified. `<img>` failures are reported
- * by the renderer itself.
- */
-/**
  * Refuses content in `region` the renderer cannot reproduce or would replace
  * without a warning, and returns the web fonts its text uses: the family the
  * capture must embed, by lowercase name, and the first element that uses it.
+ * A canvas the page cannot read back renders blank, and SnapDOM substitutes
+ * failed frames, video and URL images in CSS and SVG silently, so they cannot
+ * yet be verified; `<img>` failures are reported by the renderer itself.
+ * Content is found by its element's box, except a pseudo-element's URL image:
+ * a pseudo-element can paint outside that box unless the element clips it.
  */
 function assertCapturableContent(
   task: CaptureTask,
@@ -563,19 +639,35 @@ function assertCapturableContent(
       `${task.apiName}: cannot capture ${task.describe(element)}: ${reason}`
     );
   };
+  const refuseURLImages = (element: Element, style: CSSStyleDeclaration) => {
+    for (const property of URL_IMAGE_PROPERTIES) {
+      const value = style.getPropertyValue(property);
+      if (cssURLs(value).some(isUnverifiedURL))
+        refuse(
+          element,
+          `capturing a CSS ${property} from a URL is not supported yet.`
+        );
+    }
+  };
   const webFonts = loadedWebFontFamilies(browserWindow.document);
   const usedFonts = new Map<string, { family: string; element: Element }>();
   for (const element of renderedElements(browserWindow.document)) {
     const box = element.getBoundingClientRect();
-    if (
-      !intersects(region, {
-        x: box.left + browserWindow.scrollX,
-        y: box.top + browserWindow.scrollY,
-        width: box.width,
-        height: box.height,
-      })
-    )
+    const inRegion = intersects(region, {
+      x: box.left + browserWindow.scrollX,
+      y: box.top + browserWindow.scrollY,
+      width: box.width,
+      height: box.height,
+    });
+    const elementStyle = browserWindow.getComputedStyle(element);
+    if (!inRegion) {
+      for (const pseudo of ["::before", "::after", "::marker"] as const) {
+        const style = browserWindow.getComputedStyle(element, pseudo);
+        if (!clipsPseudo(elementStyle, pseudo, style))
+          refuseURLImages(element, style);
+      }
       continue;
+    }
     const name = element.localName;
     if (name === "canvas" && !isReadable(element as HTMLCanvasElement))
       refuse(
@@ -596,24 +688,47 @@ function assertCapturableContent(
         "capturing an SVG image from a URL is not supported yet."
       );
     for (const pseudo of [null, "::before", "::after", "::marker"]) {
-      const style = browserWindow.getComputedStyle(element, pseudo);
+      const style = pseudo
+        ? browserWindow.getComputedStyle(element, pseudo)
+        : elementStyle;
       const family =
         pseudo === "::marker" || !rendersText(element, pseudo, style)
           ? undefined
           : renderedWebFont(fontFamilies(style.fontFamily), webFonts);
       if (family && !usedFonts.has(family.toLowerCase()))
         usedFonts.set(family.toLowerCase(), { family, element });
-      for (const property of URL_IMAGE_PROPERTIES) {
-        const value = style.getPropertyValue(property);
-        if (cssURLs(value).some(isUnverifiedURL))
-          refuse(
-            element,
-            `capturing a CSS ${property} from a URL is not supported yet.`
-          );
-      }
+      refuseURLImages(element, style);
     }
   }
   return usedFonts;
+}
+
+/**
+ * Whether an element clips what its pseudo-element paints to its own box: its
+ * overflow clips, and it is the pseudo-element's containing block unless the
+ * pseudo-element is in flow. An outside list marker is never clipped.
+ */
+function clipsPseudo(
+  elementStyle: CSSStyleDeclaration,
+  pseudo: "::before" | "::after" | "::marker",
+  style: CSSStyleDeclaration
+): boolean {
+  return (
+    pseudo !== "::marker" &&
+    clipsToBox(elementStyle) &&
+    (style.position === "absolute"
+      ? elementStyle.position !== "static"
+      : style.position !== "fixed")
+  );
+}
+
+/** Whether an element clips what it paints inside it to its own box. */
+function clipsToBox(style: CSSStyleDeclaration): boolean {
+  return (
+    style.overflowX !== "visible" &&
+    style.overflowY !== "visible" &&
+    !/[1-9]/.test(style.overflowClipMargin)
+  );
 }
 
 /**
@@ -832,24 +947,6 @@ function validateEnum<T extends string>(
   if (!values.includes(value as T))
     throw new Error(`${name}: expected one of (${values.join("|")})`);
   return value as T;
-}
-
-/** Pinned validatorPrimitives.ts `tInt`. */
-function validateInt(value: unknown, name: string): number | undefined {
-  if (value === undefined) return undefined;
-  const number = value instanceof Number ? value.valueOf() : value;
-  if (typeof number !== "number")
-    throw new Error(`${name}: expected integer, got ${typeof value}`);
-  if (!Number.isInteger(number))
-    throw new Error(`${name}: expected integer, got float ${number}`);
-  return number;
-}
-
-/** Pinned validatorPrimitives.ts `tFloat`. */
-function validateFloat(value: unknown, name: string): number {
-  if (value instanceof Number) return value.valueOf();
-  if (typeof value === "number") return value;
-  throw new Error(`${name}: expected float, got ${typeof value}`);
 }
 
 /** Pinned validator.ts `Rect`. */

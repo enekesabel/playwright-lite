@@ -473,7 +473,9 @@ The `ElementHandle` and `JSHandle` objects this package returns, for example fro
 | `animations`    | `"disabled"` is rejected.                              | Stops CSS animations, transitions and Web Animations. |
 | `caret`         | Accepts both values; the text caret is never painted.  | `"initial"` keeps the caret visible.                  |
 
-- The pixels come from the DOM renderer, not the browser's compositor, so text antialiasing, form controls and some effects can differ while the geometry matches.
+- Buttons, text inputs, `<select>` and `<progress>` are drawn with plain borders and colors instead of the browser's native control styling; checkboxes, radio buttons and range inputs match.
+- Text sits at the same positions, but its edge pixels are antialiased differently.
+- A scroll container's scrollbars are drawn in the capture, where Playwright's headless browser hides them.
 - A capture rejects instead of substituting what it cannot reproduce: a `<canvas>` cross-origin content tainted, an image the renderer cannot load, and in the captured area, until their capture can be verified, `<video>`, `<iframe>`, `<frame>`, `<object>`, `<embed>`, SVG `<image>`, and CSS `background-image`, `mask-image`, `border-image-source`, `list-style-image` or `content` images that load from a URL. Images from `data:` URLs are captured.
 - Text whose web font the renderer cannot embed also rejects the capture: a font added through the `FontFace` API rather than an `@font-face` rule, or one whose family name looks like an icon font's, such as one containing `icon`, `glyph` or `symbols`.
 
@@ -485,7 +487,8 @@ The `ElementHandle` and `JSHandle` objects this package returns, for example fro
 - A `<canvas>` with `position: fixed` is resampled, so its pixels can differ slightly from the canvas's own.
 - Captures of one document run one at a time across all its `Page` objects, where Playwright queues them per page. A capture that times out or is aborted rejects at once, but rendering that already started finishes before the next capture begins.
 - The renderer can log a `console.warn()` message, such as a failed image request, which a `console` listener receives.
-- While a capture runs, the document holds a hidden `<iframe>` and, during rendering, a hidden `<div id="snapdom-sandbox">`; both are removed once the capture's rendering ends.
+- While a capture renders, the document temporarily holds extra hidden elements, which DOM queries and a `MutationObserver` can see; Playwright's capture leaves the document unchanged.
+- In a document without a doctype, `document.body.scrollTop` and `scrollLeft` read 0 while a capture copies the document.
 - A capture more than 32,767 device pixels tall or wide, such as the full page of a long document, rejects where Playwright returns the image.
 - A clip narrower or shorter than one CSS pixel rejects with `Cannot take screenshot with 0 width.` or `0 height.`, without Playwright's `Protocol error (Page.captureScreenshot):` prefix.
 - An image that failed to load within the previous 8 seconds rejects a capture even if it would load now, because the renderer remembers failed URLs for that long.
