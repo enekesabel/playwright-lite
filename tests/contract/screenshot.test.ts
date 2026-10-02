@@ -539,6 +539,15 @@ describe("Page.screenshot", () => {
         '<svg width="10" height="10"><image href="/__delay/0/a.gif" width="10" height="10"></image></svg>',
         "capturing an SVG image from a URL is not supported yet.",
       ],
+      // Resources without a box of their own paint within their `<svg>`.
+      [
+        '<svg width="10" height="10"><defs><pattern id="p" width="10" height="10" patternUnits="userSpaceOnUse"><image href="/__delay/0/a.gif" width="10" height="10"></image></pattern></defs><rect width="10" height="10" fill="url(#p)"></rect></svg>',
+        "capturing an SVG image from a URL is not supported yet.",
+      ],
+      [
+        '<svg width="10" height="10"><filter id="f"><feImage href="/__delay/0/a.gif"></feImage></filter><rect width="10" height="10" filter="url(#f)"></rect></svg>',
+        "capturing an SVG image from a URL is not supported yet.",
+      ],
     ];
     for (const [markup, message] of cases) {
       document.body.innerHTML = markup;

@@ -855,7 +855,20 @@ function assertCapturableContent(
   const webFonts = loadedWebFontFamilies(browserWindow.document);
   const usedFonts = new Map<string, { family: string; element: Element }>();
   for (const element of renderedElements(browserWindow.document)) {
-    const box = element.getBoundingClientRect();
+    const name = element.localName;
+    // An SVG image can paint through a filter, pattern, mask or `<use>`,
+    // none of which has a box of its own; it paints within its outermost
+    // `<svg>`.
+    const svgImage = isSvg(element) && (name === "image" || name === "feImage");
+    let owner: Element = element;
+    if (svgImage)
+      for (
+        let svg = (element as SVGElement).ownerSVGElement;
+        svg;
+        svg = svg.ownerSVGElement
+      )
+        owner = svg;
+    const box = owner.getBoundingClientRect();
     const rect = {
       x: box.left + browserWindow.scrollX,
       y: box.top + browserWindow.scrollY,
@@ -870,7 +883,6 @@ function assertCapturableContent(
       masks.some((mask) => contains(mask, painted))
     )
       continue;
-    const name = element.localName;
     if (name === "canvas" && !isReadable(element as HTMLCanvasElement))
       refuse(
         element,
@@ -879,8 +891,7 @@ function assertCapturableContent(
     if (UNVERIFIED_ELEMENTS.has(name) && !isSvg(element))
       refuse(element, `capturing <${name}> content is not supported yet.`);
     if (
-      isSvg(element) &&
-      (name === "image" || name === "feImage") &&
+      svgImage &&
       isUnverifiedURL(
         element.getAttribute("href") ?? element.getAttribute("xlink:href")
       )
