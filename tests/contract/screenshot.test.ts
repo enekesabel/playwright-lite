@@ -107,6 +107,16 @@ describe("Page.screenshot", () => {
     expect(window.scrollY).toBe(990);
   });
 
+  it("keeps a top margin that collapses through the body", async () => {
+    window.scrollTo(0, 0);
+    document.body.style.margin = "0";
+    document.body.innerHTML = `<div style="margin-top: 20px; height: 20px; background: rgb(0, 128, 0)"></div>`;
+    const image = await decode(await createPage().screenshot());
+
+    expect(image.pixel(5, 15)).toEqual([255, 255, 255, 255]);
+    expect(image.pixel(5, 25)).toEqual([0, 128, 0, 255]);
+  });
+
   it("maps device and CSS scale to the device pixel ratio", async () => {
     document.body.style.margin = "0";
     document.body.innerHTML = boxes;
@@ -463,6 +473,20 @@ describe("Page.screenshot", () => {
       <div style="width: 10px; height: 10px; background-image: url('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7')"></div>
       <div style="position: absolute; top: 4000px"><video></video><iframe></iframe></div>`;
     expect(signature(await createPage().screenshot())).toBe("png");
+  });
+
+  it("checks a pseudo-element that can paint into the viewport from outside it", async () => {
+    document.body.style.margin = "0";
+    document.body.innerHTML = `
+      <style>#m::before { content: ""; position: absolute; left: 60px; width: 10px; height: 10px; background-image: url(/__delay/0/a.gif) }</style>
+      <div id="m" style="position: absolute; left: -50px; top: 0; width: 20px; height: 20px"></div>`;
+    const page = createPage();
+    await expect(page.screenshot()).rejects.toThrow(
+      "capturing a CSS background-image from a URL is not supported yet."
+    );
+    // An element that clips the pseudo-element keeps it outside.
+    document.getElementById("m")!.style.overflow = "hidden";
+    expect(signature(await page.screenshot())).toBe("png");
   });
 
   it("keeps later captures independent of an abandoned one", async () => {
