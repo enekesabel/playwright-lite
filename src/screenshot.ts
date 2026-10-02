@@ -315,7 +315,12 @@ export function capture(task: CaptureTask): Promise<Uint8Array> {
       );
     work.then(
       (bytes) => settle(() => resolve(bytes!)),
-      (error: unknown) => settle(() => reject(error))
+      // Like any failure of a pinned operation, it ends with the call log.
+      (error: unknown) =>
+        settle(() => {
+          if (error instanceof Error) error.message += callLog(log);
+          reject(error);
+        })
     );
   });
 }

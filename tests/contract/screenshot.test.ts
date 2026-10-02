@@ -181,6 +181,14 @@ describe("Page.screenshot", () => {
       expect(events).toEqual([]);
     });
 
+    it("rejects a full page beyond the renderer's size limit", async () => {
+      document.body.style.cssText = "margin: 0; height: 40000px";
+      // Measured with Playwright 1.62.1, which returns the 40000 px image.
+      await expect(createPage().screenshot({ fullPage: true })).rejects.toThrow(
+        "page.screenshot: the capture is incomplete: capture 414x40000px exceeds decode limits"
+      );
+    });
+
     it("clips in viewport coordinates without fullPage", async () => {
       const events = await scrolledPage();
       const image = await decode(
@@ -233,7 +241,9 @@ describe("Page.screenshot", () => {
         { fullPage: true, clip: { x: 0, y: 3000, width: 10, height: 10 } },
       ])
         await expect(page.screenshot(options)).rejects.toThrow(
-          "page.screenshot: Clipped area is either empty or outside the resulting image"
+          new Error(
+            "page.screenshot: Clipped area is either empty or outside the resulting image\nCall log:\n  - taking page screenshot\n  - waiting for fonts to load...\n  - fonts loaded"
+          )
         );
     });
 

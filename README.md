@@ -486,6 +486,7 @@ The `ElementHandle` and `JSHandle` objects this package returns, for example fro
 - Captures of one document run one at a time across all its `Page` objects, where Playwright queues them per page. A capture that times out or is aborted rejects at once, but rendering that already started finishes before the next capture begins.
 - The renderer can log a `console.warn()` message, such as a failed image request, which a `console` listener receives.
 - While a capture runs, the document holds a hidden `<iframe>` and, during rendering, a hidden `<div id="snapdom-sandbox">`; both are removed once the capture's rendering ends.
+- A capture more than 32,767 device pixels tall or wide, such as the full page of a long document, rejects where Playwright returns the image.
 - A clip narrower or shorter than one CSS pixel rejects with `Cannot take screenshot with 0 width.` or `0 height.`, without Playwright's `Protocol error (Page.captureScreenshot):` prefix.
 - An image that failed to load within the previous 8 seconds rejects a capture even if it would load now, because the renderer remembers failed URLs for that long.
 
