@@ -411,7 +411,7 @@ export const objectSections: readonly ObjectSection[] = [
     ],
     edgeCases: [
       "A `touchstart` event is always cancelable. When no listener on its path is non-passive, the browser reports `cancelable` as `false`.",
-      "The touch lists report an element inside an open shadow root to listeners outside it, where the browser reports the shadow host.",
+      "The touch lists report an element inside a shadow root to listeners outside it, where the browser reports the shadow host.",
     ],
   },
 ];

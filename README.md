@@ -622,7 +622,7 @@ The package exports `Request` and `Response` types listing exactly the available
 <summary>Edge cases</summary>
 
 - A `touchstart` event is always cancelable. When no listener on its path is non-passive, the browser reports `cancelable` as `false`.
-- The touch lists report an element inside an open shadow root to listeners outside it, where the browser reports the shadow host.
+- The touch lists report an element inside a shadow root to listeners outside it, where the browser reports the shadow host.
 
 </details>
 
