@@ -20,6 +20,7 @@ import {
   Array,
   Error,
   Map,
+  Math,
   Promise,
   Set,
   WeakMap,
@@ -82,7 +83,7 @@ const MIME_TYPES: Record<ScreenshotFormat, string> = {
 export function pageScreenshotEncoding(
   apiName: string,
   options: PageScreenshotOptions
-): ScreenshotEncoding {
+): ScreenshotEncoding & PageScreenshotRegion {
   return withApiPrefix(apiName, () => {
     // Pinned client/page.ts derives the type from `path` before the call,
     // and writes the file afterwards; neither has a document counterpart.
@@ -93,10 +94,10 @@ export function pageScreenshotEncoding(
     const type = validateEnum(options.type, "type", FORMATS);
     const quality = validateInt(options.quality, "quality");
     const fullPage = validateBoolean(options.fullPage, "fullPage");
-    if (options.clip !== undefined) {
-      validateRect(options.clip, "clip");
-      throw new Error("the `clip` option is not supported yet.");
-    }
+    const clip =
+      options.clip === undefined
+        ? undefined
+        : validateRect(options.clip, "clip");
     const omitBackground = validateBoolean(
       options.omitBackground,
       "omitBackground"
@@ -112,13 +113,112 @@ export function pageScreenshotEncoding(
       validateString(options.maskColor, "maskColor");
     const style =
       options.style === undefined ? "" : validateString(options.style, "style");
-    if (fullPage) throw new Error("`fullPage: true` is not supported yet.");
     if (mask.length) throw new Error("the `mask` option is not supported yet.");
     if (style) throw new Error("the `style` option is not supported yet.");
     if (animations === "disabled")
       throw new Error('`animations: "disabled"` is not supported yet.');
-    return validateEncoding(type, quality, omitBackground, scale);
+    const encoding = validateEncoding(type, quality, omitBackground, scale);
+    // Pinned `validateScreenshotOptions` checks the clip after the codec.
+    if (clip) {
+      if (!(clip.width > 0))
+        throw new Error("Expected options.clip.width to be greater than 0.");
+      if (!(clip.height > 0))
+        throw new Error("Expected options.clip.height to be greater than 0.");
+    }
+    return { ...encoding, fullPage: fullPage ?? false, clip };
   });
+}
+
+/** What `page.screenshot()` captures, besides the encoding. */
+export type PageScreenshotRegion = {
+  fullPage: boolean;
+  clip: DocumentRect | undefined;
+};
+
+/**
+ * Pinned `screenshotPage`: the full page, or the viewport at the current
+ * scroll offset, each trimmed to the clip, which uses document coordinates
+ * for a full page and viewport coordinates otherwise.
+ */
+export function pageRegion(
+  browserWindow: Window & typeof globalThis,
+  { fullPage, clip }: PageScreenshotRegion
+): DocumentRect {
+  if (fullPage) {
+    const size = fullPageSize(browserWindow.document);
+    return clip ? trimClipToSize(clip, size) : { x: 0, y: 0, ...size };
+  }
+  const viewport = {
+    width: browserWindow.innerWidth,
+    height: browserWindow.innerHeight,
+  };
+  const rect = clip
+    ? trimClipToSize(clip, viewport)
+    : { x: 0, y: 0, ...viewport };
+  return {
+    ...rect,
+    x: rect.x + browserWindow.scrollX,
+    y: rect.y + browserWindow.scrollY,
+  };
+}
+
+/** Pinned screenshotter.ts `_fullPageSize`. */
+function fullPageSize(document: Document): { width: number; height: number } {
+  const { body, documentElement: root } = document;
+  if (!body || !root) return { width: 0, height: 0 };
+  return {
+    width: Math.max(
+      body.scrollWidth,
+      root.scrollWidth,
+      body.offsetWidth,
+      root.offsetWidth,
+      body.clientWidth,
+      root.clientWidth
+    ),
+    height: Math.max(
+      body.scrollHeight,
+      root.scrollHeight,
+      body.offsetHeight,
+      root.offsetHeight,
+      body.clientHeight,
+      root.clientHeight
+    ),
+  };
+}
+
+/** Pinned screenshotter.ts `trimClipToSize`. */
+function trimClipToSize(
+  clip: DocumentRect,
+  size: { width: number; height: number }
+): DocumentRect {
+  const x1 = Math.max(0, Math.min(clip.x, size.width));
+  const y1 = Math.max(0, Math.min(clip.y, size.height));
+  const x2 = Math.max(0, Math.min(clip.x + clip.width, size.width));
+  const y2 = Math.max(0, Math.min(clip.y + clip.height, size.height));
+  const result = { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+  if (!(result.width > 0 && result.height > 0))
+    throw new Error(
+      "Clipped area is either empty or outside the resulting image"
+    );
+  return result;
+}
+
+/**
+ * The device pixels a capture of `region` covers, as Chromium's
+ * `Page.captureScreenshot` takes them: the origin rounds to the nearest
+ * device pixel and the size truncates to whole CSS pixels.
+ */
+function devicePixelRegion(region: DocumentRect, dpr: number): DocumentRect {
+  const width = Math.trunc(region.width);
+  const height = Math.trunc(region.height);
+  if (!width) throw new Error("Cannot take screenshot with 0 width.");
+  if (!height) throw new Error("Cannot take screenshot with 0 height.");
+  return {
+    x: Math.round(region.x * dpr) / dpr,
+    y: Math.round(region.y * dpr) / dpr,
+    width,
+    height,
+  };
 }
 
 /** Pinned screenshotter.ts `validateScreenshotOptions`, for the codec. */
@@ -243,11 +343,13 @@ async function run(
   );
   if (cancelled()) return undefined;
   log.push("fonts loaded");
-  const region = task.region();
+  const dpr = encoding.scale === "css" ? 1 : browserWindow.devicePixelRatio;
+  const region = withApiPrefix(task.apiName, () =>
+    devicePixelRegion(task.region(), dpr)
+  );
   const usedFonts = assertCapturableContent(task, region);
   const renderer = await loadRenderer();
   if (cancelled()) return undefined;
-  const dpr = encoding.scale === "css" ? 1 : browserWindow.devicePixelRatio;
   // Rendered without a fill, so the page's own background shows through;
   // `compose` paints the canvas background the browser would paint under it.
   let result: Awaited<ReturnType<Renderer>>;

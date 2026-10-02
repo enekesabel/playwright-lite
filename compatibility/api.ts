@@ -244,7 +244,7 @@ export const objectSections: readonly ObjectSection[] = [
   {
     name: "Screenshots",
     covers:
-      "`page.screenshot()` captures the current viewport by rendering the document's DOM into an image inside the page, with the codecs, `quality`, `scale` and `omitBackground` Playwright documents.",
+      "`page.screenshot()` captures the current viewport, the full page or a clipped region by rendering the document's DOM into an image inside the page, with the geometry, codecs, `quality`, `scale` and `omitBackground` Playwright documents.",
     members: [
       {
         member: "Returned image",
@@ -257,10 +257,9 @@ export const objectSections: readonly ObjectSection[] = [
         playwright: "Also writes the image to the file.",
       },
       {
-        member: "`fullPage`, `clip`, `mask`, `style`",
-        lite: "Rejected, except `fullPage: false`, an empty `mask` and an empty `style`.",
-        playwright:
-          "Capture the full page or a region, cover elements, and apply a stylesheet.",
+        member: "`mask`, `style`",
+        lite: "Rejected, except an empty `mask` and an empty `style`.",
+        playwright: "Cover elements and apply a stylesheet.",
       },
       {
         member: "`animations`",
@@ -285,6 +284,7 @@ export const objectSections: readonly ObjectSection[] = [
       "Captures of one document run one at a time across all its `Page` objects, where Playwright queues them per page. A capture that times out or is aborted rejects at once, but rendering that already started finishes before the next capture begins.",
       "The renderer can log a `console.warn()` message, such as a failed image request, which a `console` listener receives.",
       'While a capture runs, the document holds a hidden `<iframe>` and, during rendering, a hidden `<div id="snapdom-sandbox">`; both are removed once the capture\'s rendering ends.',
+      "A clip narrower or shorter than one CSS pixel rejects with `Cannot take screenshot with 0 width.` or `0 height.`, without Playwright's `Protocol error (Page.captureScreenshot):` prefix.",
       "An image that failed to load within the previous 8 seconds rejects a capture even if it would load now, because the renderer remembers failed URLs for that long.",
     ],
   },
@@ -592,7 +592,7 @@ export const pageLedger = {
     "Capturing a screencast requires the browser process."
   ),
   screenshot: partial(
-    'Returns a `Uint8Array` rendered from the DOM, and rejects `path`, `fullPage: true`, `clip`, `mask`, `style` and `animations: "disabled"`; see [Screenshots](#screenshots).'
+    'Returns a `Uint8Array` rendered from the DOM, and rejects `path`, `mask`, `style` and `animations: "disabled"`; see [Screenshots](#screenshots).'
   ),
   selectOption: implemented(),
   sessionStorage: implemented("Native current-window Storage only."),

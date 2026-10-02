@@ -127,6 +127,165 @@ describe("Page.screenshot", () => {
     });
   });
 
+  describe("on a scrolled page", () => {
+    /**
+     * A 600 x 3000 page scrolled to y = 1000, with content positioned in the
+     * document, fixed to the viewport, stuck to it, and in a scrolled box.
+     */
+    async function scrolledPage() {
+      document.body.style.cssText = "margin: 0; width: 600px; height: 3000px";
+      document.body.innerHTML = `
+        <div style="position: absolute; left: 0; top: 0; width: 20px; height: 20px; background: rgb(255, 0, 0)"></div>
+        <div style="position: absolute; left: 0; top: 2000px; width: 20px; height: 20px; background: rgb(0, 0, 255)"></div>
+        <div style="position: fixed; left: 50px; top: 50px; width: 20px; height: 20px; background: rgb(0, 255, 0)"></div>
+        <div style="height: 400px"></div>
+        <div style="position: sticky; top: 10px; margin-left: 100px; width: 20px; height: 20px; background: rgb(255, 255, 0)"></div>
+        <div id="box" style="position: absolute; left: 200px; top: 1200px; width: 100px; height: 100px; overflow: hidden">
+          <div style="height: 300px; padding-top: 150px; box-sizing: border-box">
+            <div style="width: 20px; height: 20px; background: rgb(255, 0, 255)"></div>
+          </div>
+        </div>`;
+      document.getElementById("box")!.scrollTop = 100;
+      window.scrollTo(0, 1000);
+      // The scroll event of the setup fires at the next animation frame.
+      for (let frame = 0; frame < 2; frame++)
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      const events: string[] = [];
+      for (const type of ["scroll", "resize"])
+        window.addEventListener(type, () => events.push(type));
+      return events;
+    }
+
+    const red = [255, 0, 0, 255];
+    const blue = [0, 0, 255, 255];
+    const green = [0, 255, 0, 255];
+    const yellow = [255, 255, 0, 255];
+    const magenta = [255, 0, 255, 255];
+
+    it("captures the full page as it is laid out at the scroll offset", async () => {
+      const events = await scrolledPage();
+      const image = await decode(
+        await createPage().screenshot({ fullPage: true })
+      );
+
+      // Measured with Playwright 1.62.1: fixed and sticky content, and the
+      // scrolled box's content, stay where the scroll offsets put them.
+      expect([image.width, image.height]).toEqual([600, 3000]);
+      expect(image.pixel(5, 5)).toEqual(red);
+      expect(image.pixel(5, 2005)).toEqual(blue);
+      expect(image.pixel(55, 1055)).toEqual(green);
+      expect(image.pixel(105, 1015)).toEqual(yellow);
+      expect(image.pixel(205, 1255)).toEqual(magenta);
+      expect([window.scrollX, window.scrollY]).toEqual([0, 1000]);
+      expect(document.getElementById("box")!.scrollTop).toBe(100);
+      expect(events).toEqual([]);
+    });
+
+    it("clips in viewport coordinates without fullPage", async () => {
+      const events = await scrolledPage();
+      const image = await decode(
+        await createPage().screenshot({
+          clip: { x: 40, y: 40, width: 40, height: 40 },
+        })
+      );
+
+      expect([image.width, image.height]).toEqual([40, 40]);
+      expect(image.pixel(15, 15)).toEqual(green);
+      expect(image.pixel(5, 5)).toEqual([255, 255, 255, 255]);
+      expect(window.scrollY).toBe(1000);
+      expect(events).toEqual([]);
+    });
+
+    it("clips in document coordinates with fullPage", async () => {
+      await scrolledPage();
+      const image = await decode(
+        await createPage().screenshot({
+          fullPage: true,
+          clip: { x: 0, y: 1990, width: 50, height: 50 },
+        })
+      );
+
+      expect([image.width, image.height]).toEqual([50, 50]);
+      expect(image.pixel(5, 15)).toEqual(blue);
+      expect(window.scrollY).toBe(1000);
+    });
+
+    it("trims the clip to the viewport or the full page", async () => {
+      await scrolledPage();
+      const page = createPage();
+      const trimmed = await decode(
+        await page.screenshot({
+          clip: { x: innerWidth - 14, y: -10, width: 100, height: 30 },
+        })
+      );
+      expect([trimmed.width, trimmed.height]).toEqual([14, 20]);
+
+      const full = await decode(
+        await page.screenshot({
+          fullPage: true,
+          clip: { x: 590, y: 2990, width: 100, height: 100 },
+        })
+      );
+      expect([full.width, full.height]).toEqual([10, 10]);
+
+      for (const options of [
+        { clip: { x: innerWidth, y: 0, width: 10, height: 10 } },
+        { fullPage: true, clip: { x: 0, y: 3000, width: 10, height: 10 } },
+      ])
+        await expect(page.screenshot(options)).rejects.toThrow(
+          "page.screenshot: Clipped area is either empty or outside the resulting image"
+        );
+    });
+
+    it("rounds a fractional clip as Chromium does", async () => {
+      await scrolledPage();
+      const page = createPage();
+      const clip = { x: 10.5, y: 20.25, width: 100.3, height: 50.6 };
+      // Measured with Playwright 1.62.1: the origin rounds to the nearest
+      // device pixel and the size truncates to whole CSS pixels.
+      const css = await decode(await page.screenshot({ clip }));
+      expect([css.width, css.height]).toEqual([100, 50]);
+      expect(css.pixel(39, 30)).toEqual(green);
+      expect(css.pixel(38, 30)).toEqual([255, 255, 255, 255]);
+      expect(css.pixel(39, 29)).toEqual([255, 255, 255, 255]);
+
+      await withDevicePixelRatio(2, async () => {
+        const device = await decode(await page.screenshot({ clip }));
+        expect([device.width, device.height]).toEqual([200, 100]);
+        expect(device.pixel(79, 59)).toEqual(green);
+        expect(device.pixel(78, 59)).toEqual([255, 255, 255, 255]);
+        expect(device.pixel(79, 58)).toEqual([255, 255, 255, 255]);
+      });
+
+      await expect(
+        page.screenshot({ clip: { x: 0, y: 0, width: 0.5, height: 1 } })
+      ).rejects.toThrow(
+        "page.screenshot: Cannot take screenshot with 0 width."
+      );
+    });
+
+    it("checks content in the captured region only", async () => {
+      await scrolledPage();
+      const canvas = await taintedCanvas();
+      canvas.style.cssText = "position: absolute; left: 0; top: 2500px";
+      document.body.append(canvas);
+      const page = createPage();
+
+      expect(signature(await page.screenshot())).toBe("png");
+      expect(
+        signature(
+          await page.screenshot({
+            fullPage: true,
+            clip: { x: 0, y: 0, width: 600, height: 2400 },
+          })
+        )
+      ).toBe("png");
+      await expect(page.screenshot({ fullPage: true })).rejects.toThrow(
+        "its pixels cannot be read back"
+      );
+    });
+  });
+
   it("encodes JPEG at quality 80 by default", async () => {
     document.body.appendChild(patternedCanvas());
     const page = createPage();
@@ -233,11 +392,6 @@ describe("Page.screenshot", () => {
     const page = createPage();
     const cases: [object, string][] = [
       [{ path: "shot.png" }, "the `path` option is not supported"],
-      [{ fullPage: true }, "`fullPage: true` is not supported yet."],
-      [
-        { clip: { x: 0, y: 0, width: 10, height: 10 } },
-        "the `clip` option is not supported yet.",
-      ],
       [
         { mask: [page.locator("body")] },
         "the `mask` option is not supported yet.",
@@ -290,6 +444,22 @@ describe("Page.screenshot", () => {
       [
         { clip: { x: "0", y: 0, width: 1, height: 1 } },
         "clip.x: expected float, got string",
+      ],
+      [
+        { clip: { x: 0, y: 0, width: 0, height: 1 } },
+        "Expected options.clip.width to be greater than 0.",
+      ],
+      [
+        { clip: { x: 0, y: 0, width: 1, height: -1 } },
+        "Expected options.clip.height to be greater than 0.",
+      ],
+      [
+        {
+          type: "jpeg",
+          quality: 101,
+          clip: { x: 0, y: 0, width: 0, height: 1 },
+        },
+        "Expected options.quality to be between 0 and 100 (inclusive), got 101",
       ],
     ];
     for (const [options, message] of cases)
