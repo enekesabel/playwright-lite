@@ -1,7 +1,6 @@
 import {
   Document,
   Element,
-  MutationObserver,
   Object,
   ShadowRoot,
 } from "virtual:playwright-lite-globals";
@@ -12,6 +11,7 @@ import {
   type HostFunction,
   type HostMember,
 } from "./hostGlobals";
+import { RemovalWatch } from "./removalWatch";
 
 /**
  * A `setPointerCapture`, `releasePointerCapture` or `hasPointerCapture` call
@@ -164,22 +164,17 @@ export class PointerCaptureObservation {
   }
 }
 
-const DOCUMENT_FRAGMENT_NODE = 11;
-
 /**
  * One pointer's capture targets, as Chromium's `PointerEventManager` keeps
  * them: `pending` is what `setPointerCapture()` and `releasePointerCapture()`
  * change and `hasPointerCapture()` reads, and `current` takes its value before
  * the pointer's next event. Chromium clears `pending` the moment its element
- * leaves the document, so removals are observed while it is set and applied
- * before it is read, which catches an element that is added back before then.
+ * leaves the document, even if it is added back before it is read, but keeps
+ * it through a `moveBefore()` move.
  */
 export class PointerCapture {
-  private pendingTarget: Element | undefined;
+  private readonly pendingTarget = new RemovalWatch();
   current: Element | undefined;
-  private readonly removals = new MutationObserver((records) =>
-    this.applyRemovals(records)
-  );
 
   constructor(
     readonly pointerId: number,
@@ -189,14 +184,12 @@ export class PointerCapture {
 
   /** The pending target for the pointer's next event. */
   get pending(): Element | undefined {
-    this.applyRemovals(this.removals.takeRecords());
-    return this.pendingTarget;
+    return this.pendingTarget.element;
   }
 
   set pending(element: Element | undefined) {
     if (element === this.pending) return;
-    this.pendingTarget = element;
-    this.observeRemovals();
+    this.pendingTarget.element = element;
   }
 
   /** Records `call` when it is for this pointer. */
@@ -216,9 +209,9 @@ export class PointerCapture {
   }
 
   private recordMove(call: MoveCall) {
-    const records = this.removals.takeRecords();
+    const records = this.pendingTarget.takeRecords();
     if (call.method === "moveBefore") {
-      this.applyRemovals(records);
+      this.pendingTarget.apply(records);
       return;
     }
     // The move's own removal is the first record that removes just the moved
@@ -230,9 +223,9 @@ export class PointerCapture {
         records[r]!.removedNodes[0] === call.node
       )
         move = r;
-    this.applyRemovals(records, move);
+    this.pendingTarget.apply(records, move);
     // The moved element can now sit in other trees.
-    this.observeRemovals();
+    this.pendingTarget.observe();
   }
 
   /** Forgets both targets without firing anything. */
@@ -243,43 +236,4 @@ export class PointerCapture {
   get idle(): boolean {
     return !this.pending && !this.current;
   }
-
-  private observeRemovals() {
-    this.removals.disconnect();
-    // Each tree on the element's way up to the document, since a document
-    // observer does not see into shadow trees.
-    for (let root = this.pendingTarget?.getRootNode(); root;) {
-      this.removals.observe(root, { childList: true, subtree: true });
-      root =
-        root.nodeType === DOCUMENT_FRAGMENT_NODE
-          ? (root as ShadowRoot).host.getRootNode()
-          : undefined;
-    }
-  }
-
-  /** Clears `pending` when one of `records`, except the one at `skip`, removed it. */
-  private applyRemovals(records: MutationRecord[], skip = -1) {
-    const pending = this.pendingTarget;
-    if (!pending) return;
-    for (let r = 0; r < records.length; r++)
-      if (r !== skip)
-        for (let i = 0; i < records[r]!.removedNodes.length; i++)
-          if (containsComposed(records[r]!.removedNodes[i]!, pending)) {
-            this.pending = undefined;
-            return;
-          }
-  }
-}
-
-/** Whether `node` is `target` or one of its ancestors across shadow roots. */
-function containsComposed(node: Node, target: Node): boolean {
-  for (let at: Node | null = target; at; at = parentComposed(at))
-    if (at === node) return true;
-  return false;
-}
-
-function parentComposed(node: Node): Node | null {
-  return node.nodeType === DOCUMENT_FRAGMENT_NODE
-    ? (node as ShadowRoot).host
-    : node.parentNode;
 }

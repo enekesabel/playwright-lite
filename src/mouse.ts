@@ -21,6 +21,7 @@ import {
   pointerCaptureObservationFor,
 } from "./pointerCapture";
 import { validateFloat, validateInteger } from "./protocolValidation";
+import { RemovalWatch } from "./removalWatch";
 
 type MouseButton = "left" | "middle" | "right";
 type Point = { x: number; y: number };
@@ -205,8 +206,18 @@ export class Pointer {
   private nextTouchId = 2;
   /** The held buttons, pinned input.ts Mouse `_buttons`. */
   private readonly pressed = new Set<MouseButton>();
-  /** Chromium keeps one click target: each press sets it, a release or a drag consumes it. */
-  private clickTarget: Element | undefined;
+  /**
+   * Chromium keeps one click target: each press sets it, a release or a drag
+   * consumes it. Until then `mouseup` reports the click count as its
+   * `detail`, even after the element has been removed.
+   */
+  private clickTargetSet = false;
+  /**
+   * The element the click target was set to. Chromium forgets it once the
+   * element or an ancestor is removed, or moved with `moveBefore()`, even if
+   * it is back by the release, which then clicks nothing.
+   */
+  private readonly clickTarget = new RemovalWatch();
   /**
    * Chromium's `mouse_down_may_start_drag_`: where a single left press whose
    * `mousedown` went uncanceled was made. The next move with the left button
@@ -547,7 +558,8 @@ export class Pointer {
       this.fireDrag(source, "dragstart", pressPoint, store)
     );
     if (!started) return;
-    this.clickTarget = undefined;
+    this.clickTargetSet = false;
+    this.clickTarget.element = undefined;
     const captured = this.mouseCapture.current;
     this.mouseCapture.clear();
     const hovered = this.hovered.pointer;
@@ -703,7 +715,8 @@ export class Pointer {
     // Like the release, boundary events the press brings carry its button.
     await this.updateHover(point, input, fields.button, gained);
     const targets = this.eventTargets(point);
-    this.clickTarget = targets.mouse();
+    this.clickTargetSet = true;
+    this.clickTarget.element = targets.mouse();
     const pointerAllowed = await this.task(input, () =>
       this.fire(
         targets.pointer(),
@@ -750,6 +763,8 @@ export class Pointer {
       // A release interrupted before its last button lost capture still
       // ends it, so the next move goes to the element under the pointer.
       if (this.pressed.size === 0) this.mouseCapture.clear();
+      // A consumed click target is no longer watched.
+      if (!this.clickTargetSet) this.clickTarget.element = undefined;
       this.disposeIfIdle();
     }
   }
@@ -790,22 +805,27 @@ export class Pointer {
     );
     const withheld = this.mouseEventsWithheld;
     if (last) this.mouseEventsWithheld = false;
-    const pressTarget = this.clickTarget;
-    this.clickTarget = undefined;
+    const clickTargetSet = this.clickTargetSet;
+    this.clickTargetSet = false;
     if (!withheld)
       await this.task(input, () =>
         this.fire(targets.mouse(), "mouseup", point, {
           ...fields,
-          detail: pressTarget ? clickCount : 0,
+          detail: clickTargetSet ? clickCount : 0,
         })
       );
     if (last) {
       this.mouseCapture.pending = undefined;
       await this.processCapture(this.mouseCapture, point, released, input);
     }
-    if (pressTarget && clickCount >= 1) {
+    if (clickTargetSet && clickCount >= 1) {
       let clicked: Element | undefined;
       await this.task(input, () => {
+        // Read after the `pointerup` and `mouseup` listeners, whose removals
+        // count too.
+        const pressTarget = this.clickTarget.element;
+        this.clickTarget.element = undefined;
+        if (!pressTarget) return;
         clicked = captured?.isConnected
           ? captured
           : commonAncestor(pressTarget, this.hitTarget(point));

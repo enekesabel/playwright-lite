@@ -677,9 +677,8 @@ describe("Mouse", () => {
     ]);
   });
 
-  // Contract coverage: as above. Playwright's Chromium also dispatches no
-  // click after the press target left the document, which the log stops
-  // before.
+  // Contract coverage: as above. The release clicks nothing, since the
+  // pressed element left the document too.
   it("loses capture when the capture target leaves the document, even if it is added back before the next event", async () => {
     document.body.innerHTML = `<div id=w>${box("h", 10, 10)}</div>${box("t", 200, 10)}`;
     const handle = captureOnPress();
@@ -694,11 +693,10 @@ describe("Mouse", () => {
     document.body.prepend(wrapper);
     const captured = handle.hasPointerCapture(1);
     await page.mouse.move(240, 40);
-    const events = [...log];
     await page.mouse.up();
 
     expect(captured).toBe(false);
-    expect(events).toEqual([
+    expect(log).toEqual([
       "lostpointercapture@h",
       "pointerout@h<t",
       "pointerover@t<h",
@@ -706,12 +704,14 @@ describe("Mouse", () => {
       "mouseover@t<h",
       "pointermove@t",
       "mousemove@t",
+      "pointerup@t",
+      "mouseup@t",
     ]);
   });
 
-  // Contract coverage: as above. Playwright's Chromium dispatches no click
-  // after the move either, which the log stops before.
-  it("keeps capture when moveBefore() moves the capture target's ancestor", async () => {
+  // Contract coverage: as above. The move still counts as removing the
+  // pressed element, so the release clicks nothing.
+  it("keeps capture when moveBefore() moves the capture target's ancestor, but clicks nothing", async () => {
     document.body.innerHTML = `<div id=w>${box("h", 10, 10)}</div>${box("t", 200, 10)}`;
     const handle = captureOnPress();
     const page = createPage();
@@ -727,11 +727,20 @@ describe("Mouse", () => {
     ).moveBefore(document.getElementById("w")!, null);
     const captured = handle.hasPointerCapture(1);
     await page.mouse.move(240, 40);
-    const events = [...log];
     await page.mouse.up();
 
     expect(captured).toBe(true);
-    expect(events).toEqual(["pointermove@h", "mousemove@h"]);
+    expect(log).toEqual([
+      "pointermove@h",
+      "mousemove@h",
+      "pointerup@h",
+      "mouseup@h",
+      "lostpointercapture@h",
+      "pointerout@h<t",
+      "pointerover@t<h",
+      "mouseout@h<t",
+      "mouseover@t<h",
+    ]);
   });
 
   // Contract coverage: as above.
@@ -945,6 +954,218 @@ describe("Mouse", () => {
     held.forEach((member, i) => expect(member).not.toBe(original[i]));
     expect(released).toEqual(original);
     expect(members()).toEqual(original);
+  });
+
+  /** The press, release and click events, with `mouseup`'s click count. */
+  function recordPress() {
+    const log: string[] = [];
+    for (const type of [
+      "pointerdown",
+      "mousedown",
+      "pointerup",
+      "mouseup",
+      "click",
+      "auxclick",
+      "dblclick",
+    ] as const)
+      on(type, (event) =>
+        log.push(
+          `${type}@${id(event.target)}${type === "mouseup" ? `:${event.detail}` : ""}`
+        )
+      );
+    return log;
+  }
+
+  const moveBefore = (parent: ParentNode, node: Node) =>
+    (
+      parent as unknown as { moveBefore(node: Node, child: Node | null): void }
+    ).moveBefore(node, null);
+
+  const reinsert = (node: Element) => {
+    const parent = node.parentNode!;
+    node.remove();
+    parent.prepend(node);
+  };
+
+  // Contract coverage: no pinned test changes the document between a press
+  // and its release. The expected events are those Playwright's Chromium
+  // dispatches for the same input.
+  it.each([
+    {
+      change: "the pressed element is removed and added back",
+      html: `<div id=w>${box("h", 10, 10)}</div>`,
+      run: () => reinsert(document.getElementById("h")!),
+    },
+    {
+      change: "an ancestor is removed and added back",
+      html: `<div id=w>${box("h", 10, 10)}</div>`,
+      run: () => reinsert(document.getElementById("w")!),
+    },
+    {
+      change: "moveBefore() moves an ancestor",
+      html: `<div id=w>${box("h", 10, 10)}</div>`,
+      run: () => moveBefore(document.body, document.getElementById("w")!),
+    },
+    {
+      change: "moveBefore() moves the pressed element",
+      html: `<div id=w>${box("h", 10, 10)}</div>`,
+      run: () =>
+        moveBefore(
+          document.getElementById("w")!,
+          document.getElementById("h")!
+        ),
+    },
+  ])(
+    "clicks nothing when $change before the release",
+    async ({ html, run }) => {
+      document.body.innerHTML = html;
+      const page = createPage();
+      await page.mouse.move(30, 30);
+      const log = recordPress();
+
+      await page.mouse.down();
+      run();
+      await page.mouse.up();
+
+      expect(log).toEqual([
+        "pointerdown@h",
+        "mousedown@h",
+        "pointerup@h",
+        "mouseup@h:1",
+      ]);
+    }
+  );
+
+  // Contract coverage: as above.
+  it("clicks nothing when a shadow host around the pressed element is removed and added back", async () => {
+    document.body.innerHTML = "<div id=w></div>";
+    const host = document.getElementById("w")!;
+    host.attachShadow({ mode: "open" }).innerHTML = box("h", 10, 10);
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    const inside: string[] = [];
+    for (const type of ["mouseup", "click"] as const)
+      host.shadowRoot!.addEventListener(type, (event) =>
+        inside.push(`${type}@${id(event.target)}`)
+      );
+
+    await page.mouse.down();
+    reinsert(host);
+    await page.mouse.up();
+
+    expect(inside).toEqual(["mouseup@h"]);
+  });
+
+  // Contract coverage: as above.
+  it("clicks nothing when the pressed element is added back and the release lands elsewhere", async () => {
+    document.body.innerHTML = `<div id=w>${box("h", 10, 10)}</div>${box("t", 200, 10)}`;
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    const log = recordPress();
+
+    await page.mouse.down();
+    reinsert(document.getElementById("h")!);
+    await page.mouse.move(230, 30);
+    await page.mouse.up();
+
+    expect(log).toEqual([
+      "pointerdown@h",
+      "mousedown@h",
+      "pointerup@t",
+      "mouseup@t:1",
+    ]);
+  });
+
+  // Contract coverage: as above.
+  it("clicks nothing when the pressed element is still removed at the release", async () => {
+    document.body.innerHTML = `<div id=w style="position: absolute; left: 0; top: 0; width: 100px; height: 100px">${box("h", 10, 10)}</div>`;
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    const log = recordPress();
+
+    await page.mouse.down();
+    document.getElementById("h")!.remove();
+    await page.mouse.up();
+
+    expect(log).toEqual([
+      "pointerdown@h",
+      "mousedown@h",
+      "pointerup@w",
+      "mouseup@w:1",
+    ]);
+  });
+
+  // Contract coverage: as above.
+  it("clicks nothing when a mouseup listener removes the pressed element and adds it back", async () => {
+    document.body.innerHTML = `<div id=w>${box("h", 10, 10)}</div>`;
+    const pressed = document.getElementById("h")!;
+    pressed.addEventListener("mouseup", () => reinsert(pressed), {
+      once: true,
+    });
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    const log = recordPress();
+
+    await page.mouse.click(30, 30);
+
+    expect(log).toEqual([
+      "pointerdown@h",
+      "mousedown@h",
+      "pointerup@h",
+      "mouseup@h:1",
+    ]);
+  });
+
+  // Contract coverage: as above.
+  it("sends no dblclick when the second click's pressed element is added back before its release", async () => {
+    document.body.innerHTML = `<div id=w>${box("h", 10, 10)}</div>`;
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    const log = recordPress();
+
+    await page.mouse.down();
+    await page.mouse.up();
+    await page.mouse.down({ clickCount: 2 });
+    reinsert(document.getElementById("h")!);
+    await page.mouse.up({ clickCount: 2 });
+
+    expect(log).toEqual([
+      "pointerdown@h",
+      "mousedown@h",
+      "pointerup@h",
+      "mouseup@h:1",
+      "click@h",
+      "pointerdown@h",
+      "mousedown@h",
+      "pointerup@h",
+      "mouseup@h:2",
+    ]);
+  });
+
+  // Contract coverage: as above. Each press sets the one click target again,
+  // which the first release consumes.
+  it("clicks again after a later press on the added-back element", async () => {
+    document.body.innerHTML = `<div id=w>${box("h", 10, 10)}</div>`;
+    on("contextmenu", (event) => event.preventDefault());
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    const log = recordPress();
+
+    await page.mouse.down();
+    reinsert(document.getElementById("h")!);
+    await page.mouse.down({ button: "right" });
+    await page.mouse.up({ button: "right" });
+    await page.mouse.up();
+
+    expect(log).toEqual([
+      "pointerdown@h",
+      "mousedown@h",
+      "mousedown@h",
+      "mouseup@h:1",
+      "auxclick@h",
+      "pointerup@h",
+      "mouseup@h:0",
+    ]);
   });
 
   it("reaches an element in a closed shadow root once an action has targeted inside it", async () => {
