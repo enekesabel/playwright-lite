@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { closedShadow } from "./closedShadow";
 
 describe("Locator.click", () => {
   it("times out hidden or disabled actions without dispatching events", async () => {
@@ -508,6 +509,59 @@ describe("Locator.click", () => {
     }
 
     expect(moves).toEqual([[200, 300]]);
+  });
+
+  it("clicks an element inside nested closed shadow roots, which outside listeners see as the host", async () => {
+    const { host, roots } = await closedShadow(
+      "<button id=inner>inner</button>",
+      { depth: 2 }
+    );
+    const page = createPage();
+    const inner = roots[1].querySelector("#inner")!;
+    const name = (node: EventTarget) =>
+      node === window
+        ? "window"
+        : node === document
+          ? "document"
+          : (node as Element).id || (node as Node).nodeName;
+    const inside: string[] = [];
+    for (const type of ["pointerdown", "mousedown", "mouseup", "click"])
+      inner.addEventListener(type, (event) =>
+        inside.push(`${type}:${name(event.target!)}`)
+      );
+    const outside: string[][] = [];
+    const record = (event: Event) =>
+      outside.push(event.composedPath().map(name));
+    document.addEventListener("click", record);
+
+    try {
+      await page.locator("closed=inner").click();
+    } finally {
+      document.removeEventListener("click", record);
+    }
+
+    expect(inside).toEqual([
+      "pointerdown:inner",
+      "mousedown:inner",
+      "mouseup:inner",
+      "click:inner",
+    ]);
+    expect(outside).toEqual([["host", "BODY", "HTML", "document", "window"]]);
+    expect(roots[1].activeElement).toBe(inner);
+    expect(document.activeElement).toBe(host);
+  });
+
+  it("focuses through a closed shadow root that delegates focus", async () => {
+    const { host, roots } = await closedShadow(
+      "<span id=label>name</span><input id=field>",
+      { delegatesFocus: true }
+    );
+    const page = createPage();
+
+    await page.locator("closed=label").click();
+
+    expect(roots[0].activeElement).toBe(roots[0].querySelector("#field"));
+    expect(document.activeElement).toBe(host);
   });
 });
 

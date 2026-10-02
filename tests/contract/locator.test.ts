@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
 import { PageImpl } from "../../src/page";
+import { closedShadow } from "./closedShadow";
 
 describe("Locator.locator", () => {
   it("Locator.locator accepts LocatorOptions (without visible)", async () => {
@@ -34,6 +35,16 @@ describe("Locator.locator", () => {
     const page2 = createPage();
     const loc2 = page2.locator("div");
     expect(() => page1.locator("div").locator(loc2)).toThrow(/same frame/);
+  });
+
+  it("finds nothing inside a closed shadow root an action has targeted", async () => {
+    await closedShadow("<button id=inner>inner</button>");
+    const page = createPage();
+
+    await page.locator("closed=inner").click();
+
+    expect(await page.locator("body").locator("#inner").count()).toBe(0);
+    expect(await page.locator("body").locator("button").count()).toBe(0);
   });
 });
 
