@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { closedShadow } from "./closedShadow";
 
 describe("Locator.fill", () => {
   afterEach(() => {
@@ -307,6 +308,19 @@ describe("Locator.fill", () => {
     expect((document.querySelector("#input") as HTMLInputElement).value).toBe(
       "ready"
     );
+  });
+
+  it("fills an input inside a closed shadow root", async () => {
+    const { roots } = await closedShadow("<input id=field>");
+    const page = createPage();
+    const field = roots[0].querySelector("input")!;
+    const inputs: EventTarget[] = [];
+    field.addEventListener("input", (event) => inputs.push(event.target!));
+
+    await page.locator("closed=field").fill("ab");
+
+    expect(field.value).toBe("ab");
+    expect(inputs).toEqual([field]);
   });
 });
 

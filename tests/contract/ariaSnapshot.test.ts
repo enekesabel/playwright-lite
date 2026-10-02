@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { closedShadow } from "./closedShadow";
 
 describe("Locator.ariaSnapshot", () => {
   it("captures a locator subtree with the pinned mode and depth options", async () => {
@@ -44,6 +45,17 @@ describe("Locator.ariaSnapshot", () => {
       "locator.ariaSnapshot: cancel snapshot\nCall log:\n  - operation was aborted: cancel snapshot"
     );
     expect(inFlightError?.cause).toBe("cancel snapshot");
+  });
+
+  it("leaves out a closed shadow root an action has targeted", async () => {
+    await closedShadow("<button id=inner>inner</button>");
+    const page = createPage();
+    const before = await page.locator("body").ariaSnapshot();
+
+    await page.locator("closed=inner").click();
+
+    expect(await page.locator("body").ariaSnapshot()).toBe(before);
+    expect(before).not.toContain("inner");
   });
 });
 
