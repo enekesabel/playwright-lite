@@ -269,9 +269,11 @@ try {
           contentType: "text/html",
           body: "<!doctype html><p>Lazy renderer</p>",
         });
+      const file = resolve(installedRoot, path.slice(1));
+      if (!existsSync(file)) return route.fulfill({ status: 404 });
       return route.fulfill({
         contentType: "text/javascript",
-        body: readFileSync(resolve(installedRoot, path.slice(1))),
+        body: readFileSync(file),
       });
     });
     await esm.goto("http://consumer.test/");
@@ -286,14 +288,24 @@ try {
       !requested.includes(rendererPath),
       "The renderer loaded before any capture."
     );
-    const signatures = await esm.evaluate(async () => {
-      const png = await window.litePage.screenshot();
-      const webp = await window.litePage.screenshot({ type: "webp" });
-      return [
-        String.fromCharCode(...png.subarray(1, 4)),
-        String.fromCharCode(...webp.subarray(8, 12)),
-      ];
-    });
+    const signatures = await esm
+      .evaluate(async () => {
+        // The first capture also loads the renderer chunk, which can outlast
+        // the default action timeout on a slow runner.
+        const png = await window.litePage.screenshot({ timeout: 30_000 });
+        const webp = await window.litePage.screenshot({
+          type: "webp",
+          timeout: 30_000,
+        });
+        return [
+          String.fromCharCode(...png.subarray(1, 4)),
+          String.fromCharCode(...webp.subarray(8, 12)),
+        ];
+      })
+      .catch((error) => {
+        error.message += `\nRequested: ${requested.join(", ")}`;
+        throw error;
+      });
     assert.deepEqual(signatures, ["PNG", "WEBP"]);
     assert.equal(
       requested.filter((path) => path === rendererPath).length,

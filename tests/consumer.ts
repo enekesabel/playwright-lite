@@ -78,7 +78,9 @@ export async function runConsumer() {
       consoleLocation = message.location();
   });
   console.log("consumer-console-probe");
-  const screenshot = await page.screenshot({ type: "jpeg" });
+  // The first capture also loads the renderer chunk, which can outlast the
+  // default action timeout on a slow runner.
+  const screenshot = await page.screenshot({ type: "jpeg", timeout: 30_000 });
   return {
     exports: Object.keys(publicExports).sort(),
     value: await profile.name.inputValue(),
