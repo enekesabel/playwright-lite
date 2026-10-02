@@ -73,8 +73,9 @@ const preparationSource = pinnedPreparation();
 //   strip    per-capture afterClone plugin removing every <style> and stylesheet
 //            <link> from the clone. The generated computed-style classes stay.
 //   full     strip, plus re-resolving, on each clone element, the inline
-//            declarations of properties an Animation currently animates on its
-//            source element to the source's computed value (the way SnapDOM's own
+//            declarations of the properties (and their longhands) an Animation
+//            currently animates on its source element to the source's computed
+//            value (the way SnapDOM's own
 //            normalizeInlineStyleToComputed treats !important). Both use only
 //            documented plugin context (`clone`, `nodeMap`).
 const VARIANTS = ["default", "head", "strip", "full"];
@@ -98,13 +99,20 @@ const variantOptions = `(variant) => {
         for (const key of Object.keys(frame)) if (!META.has(key)) set.add(key.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase()));
       animated.set(target, set);
     }
+    const scratch = document.createElement("div").style;
+    const longhandsOf = (prop) => {
+      scratch.cssText = "";
+      scratch.setProperty(prop, "initial");
+      return new Set([prop, ...scratch]);
+    };
     for (const [cloned, source] of ctx.nodeMap) {
       const props = animated.get(source);
       if (!props || !cloned.style?.length) continue;
       const computed = getComputedStyle(source);
       for (const prop of props)
-        if (cloned.style.getPropertyValue(prop) !== "")
-          cloned.style.setProperty(prop, computed.getPropertyValue(prop), cloned.style.getPropertyPriority(prop));
+        for (const longhand of longhandsOf(prop))
+          if (cloned.style.getPropertyValue(longhand) !== "")
+            cloned.style.setProperty(longhand, computed.getPropertyValue(longhand), cloned.style.getPropertyPriority(longhand));
     }
   } }] };
 }`;
@@ -188,6 +196,23 @@ const scenarios = [
     setup: `document.querySelector("#t").animate([{borderColor:"#e84848",boxShadow:"0 0 0 0 #164cde",marginLeft:"0px",borderRadius:"0px",height:"80px"},{borderColor:"#00ff00",boxShadow:"10px 10px 0 0 #164cde",marginLeft:"15px",borderRadius:"30px",height:"60px"}],{duration:60000,fill:"forwards"})`,
     clip: { x: 0, y: 0, width: 160, height: 140 },
     probe: [[22, 40]],
+  },
+  {
+    id: "waapi-inline-longhand-shorthand",
+    group: "animation",
+    title:
+      "WAAPI animates the `background` shorthand; the inline style sets only `background-color`",
+    html:
+      css(`#t{${BOX}}`) + `<div id=t style="background-color:#e84848"></div>`,
+    setup: WAAPI_FILL,
+  },
+  {
+    id: "waapi-finite-fill-body-style",
+    group: "animation",
+    title:
+      "WAAPI finite fill, base from a <style> in the body after its target",
+    html: `<div id=t></div><style>html,body{margin:0}#t{${BOX}background:#e84848}</style>`,
+    setup: WAAPI_FILL,
   },
   {
     id: "waapi-finite-fill-important",
@@ -338,6 +363,18 @@ const scenarios = [
       css(
         `#w{container-type:inline-size;position:absolute;left:20px;top:20px;width:300px}#t{height:100px;width:100px;background:#e84848}@container (min-width:200px){#t{background:#164cde}}@supports (display:grid){#t{outline:4px solid #00ff00}}`
       ) + `<div id=w><div id=t></div></div>`,
+  },
+  {
+    id: "static-inline-svg-style",
+    group: "regression",
+    title: "<style> inside an inline <svg> painting its shapes",
+    html:
+      css(``) +
+      `<svg id=t width=140 height=140 style="position:absolute;left:0;top:0"><style>.a{fill:#164cde}#b{fill:#e84848;stroke:#000;stroke-width:4}</style><rect class=a x=10 y=10 width=60 height=60 /><circle id=b cx=100 cy=100 r=30 /></svg>`,
+    probe: [
+      [40, 40],
+      [100, 100],
+    ],
   },
   {
     id: "static-custom-properties",

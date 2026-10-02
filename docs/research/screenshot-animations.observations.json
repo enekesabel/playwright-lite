@@ -437,6 +437,118 @@
       "fullVersusDefaultDifferentPercent": 28.3
     },
     {
+      "id": "waapi-inline-longhand-shorthand",
+      "group": "animation",
+      "title": "WAAPI animates the `background` shorthand; the inline style sets only `background-color`",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 51.02
+    },
+    {
+      "id": "waapi-finite-fill-body-style",
+      "group": "animation",
+      "title": "WAAPI finite fill, base from a <style> in the body after its target",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 51.02
+    },
+    {
       "id": "waapi-finite-fill-important",
       "group": "animation",
       "title": "WAAPI finite, fill forwards, base !important (author wins live too)",
@@ -1328,6 +1440,82 @@
           ],
           "warnings": [],
           "liveAfterPreparation": "rgb(22, 76, 222)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "static-inline-svg-style",
+      "group": "regression",
+      "title": "<style> inside an inline <svg> painting its shapes",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [40, 40],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            },
+            {
+              "at": [100, 100],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [40, 40],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            },
+            {
+              "at": [100, 100],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [40, 40],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            },
+            {
+              "at": [100, 100],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [40, 40],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            },
+            {
+              "at": [100, 100],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
         }
       },
       "fullVersusDefaultDifferentPercent": 0

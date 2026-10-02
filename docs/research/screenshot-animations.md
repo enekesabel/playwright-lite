@@ -9,7 +9,7 @@ The mismatch is not an animation bug and not a raster or encoding bug. SnapDOM 3
 - **Stylesheet mechanism (the retained fixture).** With `document.documentElement` as the capture root, the clone keeps `<head style="display:none !important"><style>…</style></head>`. The author rule `#target { background: #e84848 }` sits inside the SVG's `foreignObject`, and it beats SnapDOM's generated `.c1 { background-color: rgb(0, 255, 0) }` by specificity (`#id`) or by source order (`.class`, because the cloned `<style>` comes after the generated one).
 - **Inline mechanism (a second cause, not in the retained fixture).** An authored `style="background:#e84848"` is copied onto the clone and outranks the generated class. SnapDOM already re-resolves inline declarations to computed values for `!important` and context-dependent values (`normalizeInlineStyleToComputed`), but not for animated properties.
 - **Scope.** Any value that lives only in the animation or transition layer is affected: finished fill-forwards animations, and, with `animations: "allow"`, any animation or transition still in flight. The default capture mode is therefore wrong for in-flight transitions today, not only the disabled mode.
-- **Correction.** A per-capture `afterClone` plugin using only documented plugin context (`ctx.clone`, `ctx.nodeMap`) removes the cloned `<style>`/stylesheet `<link>` elements and re-resolves inline declarations of animated properties to the source's computed value. It matched native Playwright on every animation scenario probed and changed no static regression scenario. No new public option, global registration or renderer fork is needed.
+- **Correction.** A per-capture `afterClone` plugin using only documented plugin context (`ctx.clone`, `ctx.nodeMap`) removes the cloned `<style>`/stylesheet `<link>` elements and re-resolves inline declarations of animated properties, and their longhands, to the source's computed value. It matched native Playwright on every animation scenario probed and changed no static regression scenario. No new public option, global registration or renderer fork is needed.
 - **Preparation is reused unchanged.** The pinned `inPagePrepareForScreenshots` runs as injected. Its finish, cancel and event ordering are the same with a capture in the middle as without. The correction does not freeze or cancel anything.
 
 All measurements are Chromium 141.0.7390.37 (Playwright 1.62.1, SnapDOM 3.2.0). Firefox and WebKit were not available and are unverified. The prototype recorded the same red result on Chromium 151.
@@ -60,13 +60,15 @@ The tag rule is lower specificity than `.c1` and loses, which is why the origina
 
 ## Probed scenarios
 
-Rows are center-sample colour and difference from native. `native` is the reference colour. Full numbers, including the second sample point and warnings, are in `screenshot-animations.observations.json`.
+Rows are the colour sampled in the target and the difference from native. `native` is the reference colour. Full numbers, including the second sample point and warnings, are in `screenshot-animations.observations.json`.
 
 | Scenario                                                                   | native     | default    | `full`    |
 | -------------------------------------------------------------------------- | ---------- | ---------- | --------- |
 | Retained fixture (WAAPI finite fill, infinite cover)                       | green      | red, 80.2% | green, 0% |
 | WAAPI finite fill, `#id` or `.class` base                                  | green      | red, 51%   | green, 0% |
 | WAAPI finite fill, inline base                                             | green      | red, 51%   | green, 0% |
+| WAAPI animates `background`, inline sets only `background-color`           | green      | red, 51%   | green, 0% |
+| WAAPI finite fill, base from a `<style>` in the body                       | green      | red, 51%   | green, 0% |
 | WAAPI finite fill, inline background, opacity, transform, width            | half-green | red, 51%   | 0%        |
 | WAAPI finite fill, inline border-color, box-shadow, margin, radius, height | white      | red, 28%   | 0%        |
 | WAAPI finite, no fill                                                      | red        | red, 0%    | red, 0%   |
@@ -80,7 +82,7 @@ Rows are center-sample colour and difference from native. `native` is the refere
 | **`animations: "allow"`**, CSS transition in flight (stylesheet)           | red        | green, 51% | red, 0%   |
 | **`animations: "allow"`**, transition from an inline write in flight       | red        | green, 51% | red, 0%   |
 
-Static regression scenarios, run through the same four variants: pseudo-elements, `:nth-child`/attribute/`:has()`/`:is()`/`:not()`, `:checked + label`, `@media`, `@container`/`@supports`, `:root` custom properties, a `<style>` in the body after its target, the pinned `style` option on the document and on an open shadow root, and pinned caret hiding. `full` differed from `default` by 0% in every one. The two remaining differences from native are the accepted caret rendering (0.94%) and a 0.01% difference on `:checked`; both are identical across variants.
+Static regression scenarios, run through the same four variants: pseudo-elements, `:nth-child`/attribute/`:has()`/`:is()`/`:not()`, `:checked + label`, `@media`, `@container`/`@supports`, `:root` custom properties, a `<style>` in the body after its target, the a `<style>` inside an inline `<svg>` painting its shapes, the pinned `style` option on the document and on an open shadow root, and pinned caret hiding. `full` differed from `default` by 0% in every one. The two remaining differences from native are the accepted caret rendering (0.94%) and a 0.01% difference on `:checked`; both are identical across variants.
 
 ## Preparation semantics with a capture in the middle
 
@@ -124,22 +126,23 @@ const stripAuthorStylesAndAnimatedInline = {
       if (!props || !cloned.style?.length) continue;
       const computed = getComputedStyle(source);
       for (const prop of props)
-        if (cloned.style.getPropertyValue(prop) !== "")
-          cloned.style.setProperty(
-            prop,
-            computed.getPropertyValue(prop),
-            cloned.style.getPropertyPriority(prop)
-          );
+        for (const longhand of longhandsOf(prop))
+          if (cloned.style.getPropertyValue(longhand) !== "")
+            cloned.style.setProperty(
+              longhand,
+              computed.getPropertyValue(longhand),
+              cloned.style.getPropertyPriority(longhand)
+            );
     }
   },
 };
 ```
 
-`rootsOf` walks open shadow roots as the pinned preparation does, and `KEYFRAME_META` is `offset`, `easing`, `composite`, `computedOffset`. The probe's `full` variant is this code.
+`rootsOf` walks open shadow roots as the pinned preparation does, `KEYFRAME_META` is `offset`, `easing`, `composite`, `computedOffset`, and `longhandsOf(prop)` is `prop` plus the longhands the browser expands it to, found by setting it on a scratch element. Expanding matters when the keyframes animate `background` and the inline style sets only `background-color`, or the reverse. The probe's `full` variant is this code.
 
 Why this and not the alternatives:
 
-- **Stripping the head is not enough.** `exclude: ["head"]` fixes the stylesheet mechanism only; the inline case stays red, and `<style>` elements in the body or inside the subtree stay.
+- **Stripping the head is not enough.** `exclude: ["head"]` fixes the stylesheet mechanism only. The inline case stays red, and so does a base rule from a `<style>` placed in the body after its target (measured: `head` red, `strip` green).
 - **Why dropping clone styles is safe.** An element-root capture never has them (the clone has no `<head>`), and its output is already correct. The computed snapshot already carries `@media`, `@container`, `:root` variables, pseudo-elements and structural selectors, as the regression table shows. Fonts are read from the live document (`src/modules/fonts.js:929`, `:1070`), not from the clone.
 - **Freezing animations differently is rejected.** `commitStyles()` then `cancel()` would write inline styles into the live page and cancel animations that native Playwright finishes, which the pinned event tests observe. The issue also asks to reuse the pinned semantics rather than freeze everything. The pinned preparation already produces the right live state; only the render step was wrong. This alternative was reasoned about, not probed.
 - **An upstream change is also possible.** The smallest renderer-side fix is to include animated properties in `normalizeInlineStyleToComputed`'s re-resolve set and not to retain document `<style>` clones when the capture root is the document. That is a SnapDOM change, so it is a recommendation, not something this repository can ship. No SnapDOM release after 3.2.0 exists yet (`3.2.1-dev.*` only); re-run the probe when pinning the production version.
@@ -175,7 +178,7 @@ No new public option, `createPage` setting or changed contract is required, so t
 
 Agent-ready criteria, for the slice that implements `animations: "disabled"` (the first capture slice should already include the plugin, because default captures of in-flight transitions are affected):
 
-1. The shared capture implementation applies a per-capture `afterClone` plugin equivalent to the one above on every capture. It uses only `ctx.clone` and `ctx.nodeMap`, registers nothing globally and adds no public option.
+1. The shared capture implementation applies a per-capture `afterClone` plugin equivalent to the one above on every capture: it drops cloned author stylesheets and re-resolves, to computed values, the inline declarations (and their longhands) of every property a current animation or transition targets on that element. It uses only `ctx.clone` and `ctx.nodeMap`, registers nothing globally and adds no public option. Keep its stylesheet strip even if a future SnapDOM release fixes the inline case, until the probe shows otherwise.
 2. `animations: "disabled"` runs the pinned `inPagePrepareForScreenshots` source unchanged, with `disableAnimations: true`, and keeps the cleanup in a closure owned by the capture operation, never in a slot another operation can overwrite. A document-wide coordinator serializes preparation across `Page` instances in one document.
 3. Cleanup runs in a `finally` on success, renderer error, timeout and abort, and does not run while the renderer is still reading the document for a result that will be returned.
 4. `animations: "allow"` is the default and runs no animation preparation, but still gets the plugin.
