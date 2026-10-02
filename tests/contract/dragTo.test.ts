@@ -98,6 +98,30 @@ describe("Locator.dragTo", () => {
     }
   );
 
+  // Contract coverage: no pinned drag test captures the pointer. Playwright's
+  // Chromium leaves the handle at 165px for the same drag.
+  it("drags a non-draggable handle that captures the pointer, as a pointer drag on the mouse", async () => {
+    document.body.innerHTML = box("h", 10) + box("t", 200);
+    const handle = document.getElementById("h")!;
+    let offset = 0;
+    handle.addEventListener("pointerdown", (event) => {
+      handle.setPointerCapture(event.pointerId);
+      offset = event.clientX - handle.offsetLeft;
+    });
+    handle.addEventListener("pointermove", (event) => {
+      if (handle.hasPointerCapture(event.pointerId))
+        handle.style.left = `${event.clientX - offset}px`;
+    });
+    const page = createPage();
+
+    await page
+      .locator("#h")
+      .dragTo(page.locator("#t"), { targetPosition: { x: 5, y: 5 } });
+
+    expect(handle.style.left).toBe("165px");
+    expect(handle.hasPointerCapture(1)).toBe(false);
+  });
+
   // Contract coverage: no pinned test writes the effects outside the events
   // Chromium lets change them.
   it("keeps effectAllowed from dragstart and ignores a dropEffect Chromium does not know", async () => {

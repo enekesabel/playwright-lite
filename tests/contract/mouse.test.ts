@@ -475,4 +475,335 @@ describe("Mouse", () => {
 
     expect(clicks).toBe(1);
   });
+
+  /** Each event of `types` as `type@target`, with `<relatedTarget>` when it has one. */
+  function record(types: readonly (keyof DocumentEventMap)[]) {
+    const log: string[] = [];
+    for (const type of types)
+      on(type, (event) => {
+        const related = (event as MouseEvent).relatedTarget;
+        log.push(
+          `${type}@${event.target === document ? "document" : id(event.target)}${related ? `<${id(related)}` : ""}`
+        );
+      });
+    return log;
+  }
+
+  const CAPTURE_EVENTS = [
+    "pointerover",
+    "pointerout",
+    "gotpointercapture",
+    "lostpointercapture",
+    "pointerdown",
+    "pointermove",
+    "pointerup",
+    "pointercancel",
+    "mouseover",
+    "mouseout",
+    "mousedown",
+    "mousemove",
+    "mouseup",
+    "click",
+    "auxclick",
+    "contextmenu",
+  ] as const;
+
+  /** A handle at (10, 10) that captures the pointer that presses it. */
+  function captureOnPress(target = "h") {
+    const handle = document.getElementById("h")!;
+    handle.addEventListener("pointerdown", (event) =>
+      document.getElementById(target)!.setPointerCapture(event.pointerId)
+    );
+    return handle;
+  }
+
+  // Contract coverage: no pinned test captures the pointer. The expected
+  // events are those Playwright's Chromium dispatches for the same input.
+  it("sends a captured mouse's events to the capture target, then enters the element under it after the release", async () => {
+    document.body.innerHTML = box("h", 10, 10) + box("t", 200, 10);
+    const handle = captureOnPress();
+    const has: boolean[] = [];
+    on("pointerdown", (event) =>
+      has.push(handle.hasPointerCapture(event.pointerId))
+    );
+    on("lostpointercapture", () => has.push(handle.hasPointerCapture(1)));
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    const log = record(CAPTURE_EVENTS);
+
+    await page.mouse.down();
+    await page.mouse.move(230, 30, { steps: 2 });
+    await page.mouse.up();
+
+    expect(has).toEqual([true, false]);
+    expect(log).toEqual([
+      "pointerdown@h",
+      "mousedown@h",
+      "gotpointercapture@h",
+      "pointermove@h",
+      "mousemove@h",
+      "pointermove@h",
+      "mousemove@h",
+      "pointerup@h",
+      "mouseup@h",
+      "lostpointercapture@h",
+      "click@h",
+      "pointerout@h<t",
+      "pointerover@t<h",
+      "mouseout@h<t",
+      "mouseover@t<h",
+    ]);
+  });
+
+  // Contract coverage: as above; Playwright's Chromium leaves the handle at
+  // 260px.
+  it("moves a handle that captures the pointer in several steps past its own box", async () => {
+    document.body.innerHTML = box("h", 10, 10) + box("t", 200, 10);
+    const handle = document.getElementById("h")!;
+    let offset = 0;
+    handle.addEventListener("pointerdown", (event) => {
+      handle.setPointerCapture(event.pointerId);
+      offset = event.clientX - handle.offsetLeft;
+    });
+    handle.addEventListener("pointermove", (event) => {
+      if (handle.hasPointerCapture(event.pointerId))
+        handle.style.left = `${event.clientX - offset}px`;
+    });
+    const page = createPage();
+
+    await page.mouse.move(50, 50);
+    await page.mouse.down();
+    await page.mouse.move(300, 60, { steps: 5 });
+    await page.mouse.up();
+
+    expect(handle.style.left).toBe("260px");
+  });
+
+  // Contract coverage: as above.
+  it("moves capture to another element: the pointer enters it, gains capture there, and clicks it", async () => {
+    document.body.innerHTML =
+      box("h", 10, 10) + box("o", 100, 10) + box("t", 200, 10);
+    captureOnPress("o");
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    const log = record(CAPTURE_EVENTS);
+
+    await page.mouse.down();
+    await page.mouse.up();
+
+    expect(log).toEqual([
+      "pointerdown@h",
+      "mousedown@h",
+      "pointerout@h<o",
+      "pointerover@o<h",
+      "gotpointercapture@o",
+      "mouseout@h<o",
+      "mouseover@o<h",
+      "pointerup@o",
+      "mouseup@o",
+      "lostpointercapture@o",
+      "click@o",
+      "pointerout@o<h",
+      "pointerover@h<o",
+      "mouseout@o<h",
+      "mouseover@h<o",
+    ]);
+  });
+
+  // Contract coverage: as above.
+  it("loses capture before the next event once released, leaving the mouse event with the capture target", async () => {
+    document.body.innerHTML = box("h", 10, 10) + box("t", 200, 10);
+    const handle = captureOnPress();
+    handle.addEventListener("pointermove", (event) => {
+      if (event.buttons) handle.releasePointerCapture(event.pointerId);
+    });
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    await page.mouse.down();
+    const log = record(CAPTURE_EVENTS);
+
+    await page.mouse.move(150, 30);
+    await page.mouse.move(230, 30);
+    const captured = handle.hasPointerCapture(1);
+    await page.mouse.up();
+
+    expect(captured).toBe(false);
+    expect(log).toEqual([
+      "gotpointercapture@h",
+      "pointermove@h",
+      "mousemove@h",
+      "lostpointercapture@h",
+      "pointerout@h<t",
+      "pointerover@t<h",
+      "mouseout@h<t",
+      "mouseover@t<h",
+      "pointermove@t",
+      "mousemove@t",
+      "pointerup@t",
+      "mouseup@t",
+      "click@body",
+    ]);
+  });
+
+  // Contract coverage: as above.
+  it("loses capture at the document once the capture target leaves it", async () => {
+    document.body.innerHTML = `<div id=w>${box("h", 10, 10)}</div>${box("t", 200, 10)}`;
+    const handle = captureOnPress();
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    await page.mouse.down();
+    await page.mouse.move(150, 30);
+    const log = record(CAPTURE_EVENTS);
+    handle.addEventListener("pointermove", () => handle.remove());
+
+    await page.mouse.move(160, 30);
+    const captured = handle.hasPointerCapture(1);
+    await page.mouse.move(230, 30);
+    await page.mouse.up();
+
+    expect(captured).toBe(false);
+    expect(log).toEqual([
+      "pointermove@h",
+      // The removed handle's mouse event goes to its old parent.
+      "mousemove@w",
+      "lostpointercapture@document",
+      "pointerover@t<h",
+      "mouseover@t<h",
+      "pointermove@t",
+      "mousemove@t",
+      "pointerup@t",
+      "mouseup@t",
+    ]);
+  });
+
+  // Contract coverage: as above.
+  it("keeps capture through a chorded press, and loses it with the next event after any release", async () => {
+    document.body.innerHTML = box("h", 10, 10) + box("t", 200, 10);
+    captureOnPress();
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    await page.mouse.down();
+    await page.mouse.move(230, 30);
+    const log = record(CAPTURE_EVENTS);
+
+    await page.mouse.down({ button: "right" });
+    await page.mouse.up();
+    await page.mouse.move(240, 30);
+    await page.mouse.up({ button: "right" });
+
+    expect(log).toEqual([
+      "pointermove@h",
+      "mousedown@h",
+      "contextmenu@h",
+      "pointermove@h",
+      "mouseup@h",
+      "click@h",
+      "lostpointercapture@h",
+      "pointerout@h<t",
+      "pointerover@t<h",
+      "mouseout@h<t",
+      "mouseover@t<h",
+      "pointermove@t",
+      "mousemove@t",
+      "pointerup@t",
+      "mouseup@t",
+    ]);
+  });
+
+  // Contract coverage: as above.
+  it("cancels a captured pointer at its capture target when an HTML drag starts", async () => {
+    document.body.innerHTML =
+      box("h", 10, 10).replace("<div", "<div draggable=true") +
+      box("t", 200, 10);
+    captureOnPress();
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    await page.mouse.down();
+    const log = record([...CAPTURE_EVENTS, "dragstart"]);
+
+    await page.mouse.move(150, 30);
+    const events = log.splice(0);
+    await page.keyboard.press("Escape");
+    await page.mouse.up();
+
+    expect(events).toEqual([
+      "gotpointercapture@h",
+      "pointermove@h",
+      "mousemove@h",
+      "dragstart@h",
+      "pointercancel@h",
+      "lostpointercapture@h",
+    ]);
+  });
+
+  // Contract coverage: as above.
+  it("ignores setPointerCapture while no button is held, and keeps the browser's own errors", async () => {
+    document.body.innerHTML = box("h", 10, 10) + box("t", 200, 10);
+    const handle = document.getElementById("h")!;
+    const results: string[] = [];
+    const attempt = (run: () => unknown) => {
+      try {
+        results.push(String(run()));
+      } catch (error) {
+        results.push((error as DOMException).name);
+      }
+    };
+    handle.addEventListener("pointermove", (event) =>
+      attempt(() => handle.setPointerCapture(event.pointerId))
+    );
+    handle.addEventListener("pointerdown", (event) => {
+      attempt(() => handle.setPointerCapture(7));
+      attempt(() =>
+        document.createElement("div").setPointerCapture(event.pointerId)
+      );
+      attempt(() => handle.setPointerCapture(event.pointerId));
+      attempt(() => handle.hasPointerCapture(event.pointerId));
+    });
+    const page = createPage();
+    const log = record(["gotpointercapture", "pointermove"]);
+
+    await page.mouse.move(30, 30);
+    await page.mouse.move(230, 30);
+    await page.mouse.move(30, 30);
+    log.push("down");
+    await page.mouse.down();
+    await page.mouse.up();
+
+    expect(results).toEqual([
+      "undefined",
+      "undefined",
+      "NotFoundError",
+      "InvalidStateError",
+      "undefined",
+      "true",
+    ]);
+    expect(log).toEqual([
+      "pointermove@h",
+      "pointermove@t",
+      "pointermove@h",
+      "down",
+      "gotpointercapture@h",
+    ]);
+  });
+
+  // Contract coverage: an adapter-specific boundary; Playwright replaces no
+  // page function.
+  it("wraps the capture members only while a button is held or capture remains", async () => {
+    document.body.innerHTML = box("h", 10, 10);
+    captureOnPress();
+    const original = Element.prototype.setPointerCapture;
+    const page = createPage();
+    await page.mouse.move(30, 30);
+
+    await page.mouse.down();
+    const held = Element.prototype.setPointerCapture;
+    await page.mouse.up();
+    const released = Element.prototype.setPointerCapture;
+    await page.mouse.down();
+    await page.close();
+
+    expect(held).not.toBe(original);
+    expect(released).toBe(original);
+    expect(Element.prototype.setPointerCapture).toBe(original);
+  });
 });

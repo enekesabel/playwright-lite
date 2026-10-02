@@ -14,6 +14,11 @@ import {
   type PageLifetime,
 } from "./lifetime";
 import type { ActionDeadline } from "./page";
+import {
+  type CaptureCall,
+  PointerCapture,
+  pointerCaptureObservationFor,
+} from "./pointerCapture";
 import { validateFloat, validateInteger } from "./protocolValidation";
 
 type MouseButton = "left" | "middle" | "right";
@@ -215,8 +220,23 @@ export class Pointer {
   private lastButton: MouseButton | undefined;
   /** Where the last move event fired, for `movementX` and `movementY`. */
   private lastMove: Point | undefined;
+  /** The mouse's explicit pointer capture, which needs a held button. */
+  private readonly mouseCapture = new PointerCapture(
+    MOUSE.pointerId,
+    () => this.pressed.size > 0 && !this.drag
+  );
+  /** The capture of the touch point a tap holds down. */
+  private touchCapture: PointerCapture | undefined;
+  /** Restores the capture members `observeCapture` wrapped. */
+  private unobserveCapture: (() => void) | undefined;
 
   constructor(private readonly host: PointerHost) {}
+
+  /** Restores what the pointer installed on the host; `page.close()` calls it. */
+  dispose() {
+    this.unobserveCapture?.();
+    this.unobserveCapture = undefined;
+  }
 
   /** Pinned crInput.ts mouseWheel at the current position. */
   async wheel(delta: Point, input: PointerInput) {
@@ -289,9 +309,10 @@ export class Pointer {
    * which Chromium turns into touch pointer events and touch events on the
    * element under it and, unless a touch event was canceled, a tap gesture's
    * compatibility mouse events. The touch point holds implicit pointer
-   * capture while it is down. The mouse's position stays where it was, as in
-   * pinned input.ts; each tap is a single tap, since no gesture detector
-   * counts taps.
+   * capture of the element it pressed while it is down, which its
+   * `pointerdown` listeners can release or move to another element. The
+   * mouse's position stays where it was, as in pinned input.ts; each tap is a
+   * single tap, since no gesture detector counts taps.
    */
   async tap(point: Point, input: PointerInput) {
     const touch: PointerSource = {
@@ -300,6 +321,23 @@ export class Pointer {
       pressedSize: 2,
       pressedPressure: 1,
     };
+    const capture = new PointerCapture(touch.pointerId, () => true);
+    this.touchCapture = capture;
+    this.observeCapture();
+    try {
+      await this.tapDown(point, touch, capture, input);
+    } finally {
+      this.touchCapture = undefined;
+      this.disposeIfIdle();
+    }
+  }
+
+  private async tapDown(
+    point: Point,
+    touch: PointerSource,
+    capture: PointerCapture,
+    input: PointerInput
+  ) {
     const pressed = { button: 0, buttons: 1 };
     const released = { button: 0, buttons: 0 };
     const touchTarget = this.hitTarget(point);
@@ -313,17 +351,26 @@ export class Pointer {
       input,
       touch
     );
+    // Chromium sets the implicit capture before `pointerdown` reaches its
+    // listeners.
+    capture.pending = target;
     const pointerAllowed = await this.task(input, () =>
       this.fire(target, "pointerdown", point, pressed, touch)
     );
     const started = await this.task(input, () =>
       this.fireTouch(touchTarget, "touchstart", point, true)
     );
-    // A touch point captures the element it pressed, unless that has left the
-    // document; the element under it then takes its events.
-    const captured = target.isConnected;
-    if (!captured) {
-      const next = this.hitTarget(point);
+    // Without a capture target still in the document, the element under the
+    // touch point takes its events.
+    const gained = await this.processCapture(
+      capture,
+      point,
+      released,
+      input,
+      touch
+    );
+    const next = capture.current ?? this.hitTarget(point);
+    if (next !== target) {
       await this.boundary(
         "pointer",
         target,
@@ -334,17 +381,16 @@ export class Pointer {
         touch
       );
       target = next;
-    } else
+    }
+    if (gained)
       await this.task(input, () =>
-        this.fire(target, "gotpointercapture", point, released, touch)
+        this.fire(gained.target, "gotpointercapture", point, released, touch)
       );
     await this.task(input, () =>
       this.fire(target, "pointerup", point, released, touch)
     );
-    if (captured)
-      await this.task(input, () =>
-        this.fire(target, "lostpointercapture", point, released, touch)
-      );
+    capture.pending = undefined;
+    await this.processCapture(capture, point, released, input, touch);
     await this.boundary(
       "pointer",
       target,
@@ -436,14 +482,21 @@ export class Pointer {
    */
   private async moveStep(point: Point, input: PointerInput) {
     if (this.drag) return this.dragOver(this.drag, point, input);
-    await this.updateHover(point, input);
     const buttons = this.buttonsMask();
+    const gained = await this.processCapture(
+      this.mouseCapture,
+      point,
+      { button: -1, buttons },
+      input
+    );
+    await this.updateHover(point, input, undefined, gained);
     const movement = this.lastMove
       ? { x: point.x - this.lastMove.x, y: point.y - this.lastMove.y }
       : undefined;
     this.lastMove = point;
+    const targets = this.eventTargets(point);
     await this.task(input, () =>
-      this.fire(this.hitTarget(point), "pointermove", point, {
+      this.fire(targets.pointer(), "pointermove", point, {
         button: -1,
         buttons,
         movement,
@@ -451,7 +504,7 @@ export class Pointer {
     );
     if (!this.mouseEventsWithheld)
       await this.task(input, () =>
-        this.fire(this.hitTarget(point), "mousemove", point, {
+        this.fire(targets.mouse(), "mousemove", point, {
           button: this.lastButtonCode(),
           buttons,
           movement,
@@ -484,12 +537,28 @@ export class Pointer {
     );
     if (!started) return;
     this.clickTarget = undefined;
+    const captured = this.mouseCapture.current;
+    this.mouseCapture.pending = this.mouseCapture.current = undefined;
     const hovered = this.hovered.pointer;
     this.hovered.pointer = undefined;
     // Chromium reports these at the viewport origin, as a pressed left button.
     const origin = { x: 0, y: 0 };
     const canceled = { button: 0, buttons: 0 };
-    if (hovered) {
+    // A captured pointer is canceled at its capture target, which loses
+    // capture there instead of the pointer leaving it.
+    if (captured) {
+      await this.task(input, () =>
+        this.fire(captured, "pointercancel", origin, canceled)
+      );
+      await this.task(input, () =>
+        this.fire(
+          this.captureEventTarget(captured),
+          "lostpointercapture",
+          origin,
+          canceled
+        )
+      );
+    } else if (hovered) {
       await this.task(input, () =>
         this.fire(hovered, "pointercancel", origin, canceled)
       );
@@ -600,6 +669,7 @@ export class Pointer {
    * further one is a chorded `pointermove`, while `mousedown` fires for each.
    * An allowed `mousedown` moves focus as the browser does, and for a single
    * left press it may start a drag. During a drag the press is only held.
+   * While a button is held, the page can capture the mouse.
    */
   async press(button: MouseButton, clickCount: number, input: PointerInput) {
     const point = this.position;
@@ -608,16 +678,24 @@ export class Pointer {
     this.lastButton = button;
     if (this.drag) return;
     this.dragPress = undefined;
+    if (first) this.observeCapture();
     const fields = {
       button: BUTTONS[button].code,
       buttons: this.buttonsMask(),
     };
+    const gained = await this.processCapture(
+      this.mouseCapture,
+      point,
+      fields,
+      input
+    );
     // Like the release, boundary events the press brings carry its button.
-    await this.updateHover(point, input, fields.button);
-    this.clickTarget = this.hitTarget(point);
+    await this.updateHover(point, input, fields.button, gained);
+    const targets = this.eventTargets(point);
+    this.clickTarget = targets.mouse();
     const pointerAllowed = await this.task(input, () =>
       this.fire(
-        this.hitTarget(point),
+        targets.pointer(),
         first ? "pointerdown" : "pointermove",
         point,
         fields
@@ -626,7 +704,7 @@ export class Pointer {
     if (first) this.mouseEventsWithheld = !pointerAllowed;
     if (!this.mouseEventsWithheld)
       await this.task(input, () => {
-        const current = this.hitTarget(point);
+        const current = targets.mouse();
         const allowed = this.fire(current, "mousedown", point, {
           ...fields,
           detail: clickCount,
@@ -638,18 +716,35 @@ export class Pointer {
       });
     if (button === "right")
       await this.task(input, () =>
-        this.fire(this.hitTarget(point), "contextmenu", point, fields)
+        this.fire(targets.mouse(), "contextmenu", point, fields)
       );
   }
 
   /**
    * crInput.ts mouseReleased. The last button up is a `pointerup`, an
    * earlier one a chorded `pointermove`. The release that consumes the click
-   * target fires `click` (`auxclick` for other buttons) on the nearest common
-   * ancestor of the press and release targets, then `dblclick` for a second
-   * left click. During a drag any release drops instead.
+   * target fires `click` (`auxclick` for other buttons) on the capture target
+   * or else the nearest common ancestor of the press and release targets,
+   * then `dblclick` for a second left click. During a drag any release drops
+   * instead.
+   *
+   * Chromium releases pointer capture with every button. The last one loses
+   * it right after `mouseup`, and once the click has fired the pointer enters
+   * the element under it; an earlier one loses it with the next event.
    */
   async release(button: MouseButton, clickCount: number, input: PointerInput) {
+    try {
+      await this.releaseButton(button, clickCount, input);
+    } finally {
+      this.disposeIfIdle();
+    }
+  }
+
+  private async releaseButton(
+    button: MouseButton,
+    clickCount: number,
+    input: PointerInput
+  ) {
     const point = this.position;
     this.pressed.delete(button);
     this.lastButton = undefined;
@@ -659,15 +754,24 @@ export class Pointer {
       button: BUTTONS[button].code,
       buttons: this.buttonsMask(),
     };
-    await this.updateHover(point, input, fields.button);
-    const last = this.pressed.size === 0;
     // crInput.ts sends mouseReleased without force, so its pressure is 0.
+    const released = { ...fields, pressure: 0 };
+    const gained = await this.processCapture(
+      this.mouseCapture,
+      point,
+      released,
+      input
+    );
+    await this.updateHover(point, input, fields.button, gained);
+    const last = this.pressed.size === 0;
+    const targets = this.eventTargets(point);
+    const captured = this.mouseCapture.current;
     await this.task(input, () =>
       this.fire(
-        this.hitTarget(point),
+        targets.pointer(),
         last ? "pointerup" : "pointermove",
         point,
-        { ...fields, pressure: 0 }
+        released
       )
     );
     const withheld = this.mouseEventsWithheld;
@@ -676,28 +780,37 @@ export class Pointer {
     this.clickTarget = undefined;
     if (!withheld)
       await this.task(input, () =>
-        this.fire(this.hitTarget(point), "mouseup", point, {
+        this.fire(targets.mouse(), "mouseup", point, {
           ...fields,
           detail: pressTarget ? clickCount : 0,
         })
       );
-    if (!pressTarget || clickCount < 1) return;
-    let clicked: Element | undefined;
-    await this.task(input, () => {
-      clicked = commonAncestor(pressTarget, this.hitTarget(point));
-      if (clicked)
-        this.fire(clicked, button === "left" ? "click" : "auxclick", point, {
-          ...fields,
-          detail: clickCount,
-        });
-    });
-    if (clicked && button === "left" && clickCount === 2)
-      await this.task(input, () =>
-        this.fire(clicked!, "dblclick", point, {
-          ...fields,
-          detail: clickCount,
-        })
-      );
+    if (last) {
+      this.mouseCapture.pending = undefined;
+      await this.processCapture(this.mouseCapture, point, released, input);
+    }
+    if (pressTarget && clickCount >= 1) {
+      let clicked: Element | undefined;
+      await this.task(input, () => {
+        clicked = captured?.isConnected
+          ? captured
+          : commonAncestor(pressTarget, this.hitTarget(point));
+        if (clicked)
+          this.fire(clicked, button === "left" ? "click" : "auxclick", point, {
+            ...fields,
+            detail: clickCount,
+          });
+      });
+      if (clicked && button === "left" && clickCount === 2)
+        await this.task(input, () =>
+          this.fire(clicked!, "dblclick", point, {
+            ...fields,
+            detail: clickCount,
+          })
+        );
+    }
+    if (!last) this.mouseCapture.pending = undefined;
+    else if (captured) await this.updateHover(point, input, fields.button);
   }
 
   /**
@@ -712,29 +825,120 @@ export class Pointer {
    * Chromium updates the element under a still pointer on a timer after a
    * layout change; a press or release that finds a new element brings the
    * boundary events itself, and they carry its `button`.
+   *
+   * A captured pointer stays over its capture target wherever it is. When
+   * the pointer has just gained capture, `gotpointercapture` fires between
+   * its pointer and its mouse boundary events.
    */
   private async updateHover(
     point: Point,
     input: PointerInput,
-    changedButton?: number
+    changedButton?: number,
+    gained?: GainedCapture
   ) {
-    const target = this.hitTarget(point);
+    const target = this.mouseCapture.current ?? this.hitTarget(point);
     const buttons = this.buttonsMask();
     for (const kind of ["pointer", "mouse"] as const) {
       const previous = this.hovered[kind];
-      if (previous === target) continue;
-      this.hovered[kind] = target;
-      const button =
-        changedButton ?? (kind === "pointer" ? -1 : this.lastButtonCode());
-      await this.boundary(
-        kind,
-        previous,
-        target,
-        point,
-        { button, buttons },
-        input
-      );
+      if (previous !== target) {
+        this.hovered[kind] = target;
+        const button =
+          changedButton ?? (kind === "pointer" ? -1 : this.lastButtonCode());
+        await this.boundary(
+          kind,
+          previous,
+          target,
+          point,
+          { button, buttons },
+          input
+        );
+      }
+      if (kind === "pointer" && gained)
+        await this.task(input, () =>
+          this.fire(gained.target, "gotpointercapture", point, gained.fields)
+        );
     }
+  }
+
+  /** Wraps the capture members while the mouse can capture or holds capture. */
+  private observeCapture() {
+    this.unobserveCapture ??= pointerCaptureObservationFor(
+      this.host.window
+    ).subscribe(this.recordCapture);
+  }
+
+  private readonly recordCapture = (call: CaptureCall) => {
+    this.mouseCapture.record(call);
+    this.touchCapture?.record(call);
+  };
+
+  /** Restores the capture members once no pointer can capture or holds capture. */
+  private disposeIfIdle() {
+    if (this.pressed.size === 0 && this.mouseCapture.idle && !this.touchCapture)
+      this.dispose();
+  }
+
+  /**
+   * Chromium's `ProcessPendingPointerCapture` before a pointer event with
+   * `fields`: the pending capture target becomes the current one, and the
+   * old one gets `lostpointercapture`. Resolves the target that gained
+   * capture, for the caller to announce after the pointer boundary events.
+   */
+  private async processCapture(
+    capture: PointerCapture,
+    point: Point,
+    fields: EventFields,
+    input: PointerInput,
+    source = MOUSE
+  ): Promise<GainedCapture | undefined> {
+    const pending = capture.pendingTarget();
+    const previous = capture.current;
+    if (pending === previous) return undefined;
+    capture.current = pending;
+    if (previous)
+      await this.task(input, () =>
+        this.fire(
+          this.captureEventTarget(previous),
+          "lostpointercapture",
+          point,
+          fields,
+          source
+        )
+      );
+    return pending && { target: pending, fields };
+  }
+
+  /** Chromium sends `lostpointercapture` to the document once the target has left it. */
+  private captureEventTarget(target: Element): Node {
+    return target.isConnected ? target : this.host.window.document;
+  }
+
+  /**
+   * Where a mouse pointer event at `point` and its compatibility mouse event
+   * go: the capture target, or else the element under the point. When the
+   * pointer event's listeners remove the capture target, Chromium sends the
+   * mouse event to its nearest ancestor still in the document.
+   */
+  private eventTargets(point: Point): {
+    pointer(): Element;
+    mouse(): Element;
+  } {
+    const captured = this.mouseCapture.current;
+    if (!captured) {
+      const hit = () => this.hitTarget(point);
+      return { pointer: hit, mouse: hit };
+    }
+    const path = flatTreePath(captured);
+    return {
+      pointer: () => captured,
+      mouse: () => {
+        for (let index = path.length - 1; index >= 0; index--) {
+          const node = path[index];
+          if (node.isConnected && node.nodeType === 1) return node as Element;
+        }
+        return this.host.window.document.documentElement;
+      },
+    };
   }
 
   /**
@@ -1054,6 +1258,9 @@ type EventFields = {
   /** Modifier keys other than the keyboard's. */
   modifiers?: readonly string[];
 };
+
+/** A capture target that `gotpointercapture` announces, with its event's fields. */
+type GainedCapture = { target: Element; fields: EventFields };
 
 /**
  * An HTML drag in progress: pinned crDragDrop.ts `_dragState` together with
