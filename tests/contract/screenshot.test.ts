@@ -1372,6 +1372,24 @@ describe("Locator.screenshot", () => {
     });
   });
 
+  it("draws list markers in a counter style the page defines", async () => {
+    const sheet = document.createElement("style");
+    sheet.textContent = `
+      @counter-style blocks { system: cyclic; symbols: "\\2588\\2588\\2588\\2588"; suffix: "" }
+      ol { list-style: blocks inside; margin: 0; padding: 0; font: 20px monospace; color: rgb(0, 0, 255) }`;
+    document.head.append(sheet);
+    try {
+      document.body.style.margin = "0";
+      document.body.innerHTML = `<ol><li></li></ol>`;
+      const image = await decode(await createPage().locator("ol").screenshot());
+
+      // The fourth block, where a decimal "1." marker would leave white.
+      expect(image.pixel(42, 12)).toEqual(blue);
+    } finally {
+      sheet.remove();
+    }
+  });
+
   it("rejects the Page-only options", async () => {
     document.body.innerHTML = `<p>a</p>`;
     const locator = createPage().locator("p");

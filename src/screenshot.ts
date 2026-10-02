@@ -644,8 +644,9 @@ const KEYFRAME_MEMBERS = new Set([
  * value only an animation holds, such as a finished fill-forwards animation's
  * or a running transition's, would render as the author's base value. The
  * clone drops the author stylesheets, which the computed style already
- * carries, and an animated element's inline declarations of the animated
- * properties take their computed value. An animation of a pseudo-element
+ * carries apart from the `@counter-style` rules it names, and an animated
+ * element's inline declarations of the animated properties take their
+ * computed value. An animation of a pseudo-element
  * needs neither: a pseudo-element has no inline style.
  */
 function keepAnimatedValues(
@@ -659,6 +660,30 @@ function keepAnimatedValues(
     "style, link[rel~=stylesheet]"
   ))
     element.remove();
+  // A computed `list-style-type` can name a `@counter-style` rule, so the
+  // clone keeps those rules alone.
+  const counterStyles: string[] = [];
+  const collect = (rules: CSSRuleList) => {
+    for (const rule of rules)
+      if (rule.type === 11) counterStyles.push(rule.cssText);
+      else if ("styleSheet" in rule)
+        readRules(rule.styleSheet as CSSStyleSheet);
+      else if ("cssRules" in rule) collect(rule.cssRules as CSSRuleList);
+  };
+  const readRules = (sheet: CSSStyleSheet | null) => {
+    try {
+      if (sheet) collect(sheet.cssRules);
+    } catch {
+      // Another origin's stylesheet cannot be read.
+    }
+  };
+  for (const scope of shadowRootsAndDocument(browserWindow.document))
+    for (const sheet of scope.styleSheets) readRules(sheet);
+  if (counterStyles.length) {
+    const style = browserWindow.document.createElement("style");
+    style.textContent = counterStyles.join("\n");
+    rootClone.append(style);
+  }
   // A scratch declaration per animated element expands each animated
   // property to the longhands an inline declaration may set.
   const animated = new Map<Element, CSSStyleDeclaration>();
