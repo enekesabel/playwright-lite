@@ -132,7 +132,8 @@ serializable. A `createPage()` warning about missed roots would be a guess.
 - **Learned roots** need none of this: when an action's target element sits
   inside closed roots, walking `getRootNode()` from it reaches each root. The
   prototype remembers them, so a later `page.keyboard` or `page.mouse` call
-  reaches the same root, as it would natively.
+  reaches the same root. Natively every root is reachable from the start, so
+  remembering makes coordinate input depend on earlier actions.
 
 ## Prior art
 
@@ -165,8 +166,12 @@ root (custom engine, handle) passes actionability but fires on the host.
 closed roots, record them from `getRootNode()` and let hit-testing and
 keyboard focus descend through recorded roots. No global patching, no new
 option, no #118 change; locators and snapshots are untouched. Covers Ayme's
-Inspector, which it reaches through a custom selector engine. Does not cover
-coordinate clicks or typing into a third-party widget no action has targeted.
+Inspector, which it reaches through a custom selector engine. Difference from
+Playwright that the ledger would state: a closed root becomes reachable for
+coordinate and keyboard input only once an action has targeted an element
+inside it, where Playwright reaches every root always. Remembering is needed
+for click-then-type; the alternative, descending only during the action that
+targets the element, breaks `locator.click()` followed by `page.keyboard`.
 
 **C. B plus an early `attachShadow` hook.** Also covers script-created roots
 of third-party widgets, but only when playwright-lite is evaluated before the
@@ -190,7 +195,9 @@ ARIA snapshots.
   `page.keyboard`, `page.touchscreen` and drag input reach elements in that
   root; nested learned roots too.
 - `mouseFocusable` reads `delegatesFocus` from a learned closed root.
-- A file input inside a learned closed root opens a `filechooser`.
+- To check in the follow-up, not probed here: whether a file input inside a
+  learned closed root opens a `filechooser` (`fileChooser.ts` reads the
+  retargeted `composedPath()[0]`).
 - Locators, `getByRole`, `ariaSnapshot()`, `toBeFocused()` and `evaluate`
   results are unchanged, asserted by contract tests.
 - README: the closed-root mouse edge case states what is reached and what is
