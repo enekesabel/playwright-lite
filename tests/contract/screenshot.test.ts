@@ -67,12 +67,14 @@ async function taintedCanvas(): Promise<HTMLCanvasElement> {
 }
 
 function withDevicePixelRatio<T>(ratio: number, run: () => Promise<T>) {
+  // The window's own property; deleting the stub would delete it too.
+  const original = Object.getOwnPropertyDescriptor(window, "devicePixelRatio")!;
   Object.defineProperty(window, "devicePixelRatio", {
     configurable: true,
     get: () => ratio,
   });
-  return run().finally(
-    () => delete (window as { devicePixelRatio?: number }).devicePixelRatio
+  return run().finally(() =>
+    Object.defineProperty(window, "devicePixelRatio", original)
   );
 }
 
