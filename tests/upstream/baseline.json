@@ -281,6 +281,16 @@
       "evidence": "The absolute xpath '/div[...]' matches nothing and $$ returns [], so an unmatched xpath= selector yields an empty array rather than a rejection."
     },
     {
+      "id": "elementhandle-screenshot.spec.ts > element screenshot > should fail to screenshot a detached element",
+      "method": "ElementHandle.screenshot",
+      "evidence": "After Page.evaluate removes the <h1> the handle points at, ElementHandle.screenshot rejects with 'Element is not attached to the DOM' instead of capturing anything."
+    },
+    {
+      "id": "elementhandle-screenshot.spec.ts > element screenshot > should timeout waiting for visible",
+      "method": "ElementHandle.screenshot",
+      "evidence": "A 50x0 div never becomes visible, so ElementHandle.screenshot({ timeout: 3000 }) rejects with 'elementHandle.screenshot: Timeout 3000ms exceeded' and a call log containing 'element is not visible': the capture waits for visibility within the caller's timeout."
+    },
+    {
       "id": "elementhandle-scroll-into-view.spec.ts > should scroll display:contents into view",
       "method": "ElementHandle.scrollIntoViewIfNeeded",
       "evidence": "The handled display:contents element has no box of its own, yet the asserted container scrollTop lands within 1px of 350, so its contents were really scrolled into view."
@@ -4734,6 +4744,46 @@
       "id": "page-network-response.spec.ts > should wait until response completes",
       "method": "Response.text",
       "evidence": "The response awaited from waitForEvent('response') reports status 200 while the server has sent only 'hello ', and its text() resolves with 'hello world!' only after the server writes the rest and ends: text() reads the observed fetch's body to its end rather than returning what had arrived with the headers. The test's requestfinished assertion is vacuous here, because the fixture cannot deliver an event to a Node listener; the promoted evidence is the body assertion."
+    },
+    {
+      "id": "page-screenshot.spec.ts > page screenshot > quality option should throw for png",
+      "method": "Page.screenshot",
+      "evidence": "quality 10 with no type (PNG by default) rejects with 'options.quality is unsupported for the png screenshots'."
+    },
+    {
+      "id": "page-screenshot.spec.ts > page screenshot > quality option should throw for webp when out of range",
+      "method": "Page.screenshot",
+      "evidence": "quality 101 with type 'webp' rejects with 'Expected options.quality to be between 0 and 100'."
+    },
+    {
+      "id": "page-screenshot.spec.ts > page screenshot > quality option should work for jpeg",
+      "method": "Page.screenshot",
+      "evidence": "Two JPEG captures of grid.html differ only in quality, and the quality 0 image has fewer bytes than the quality 100 one, so the quality option reaches the JPEG encoder."
+    },
+    {
+      "id": "page-screenshot.spec.ts > page screenshot > quality option should work for webp",
+      "method": "Page.screenshot",
+      "evidence": "Two WebP captures of grid.html differ only in quality, and the quality 0 image has fewer bytes than the quality 100 one, so the quality option reaches the WebP encoder."
+    },
+    {
+      "id": "page-screenshot.spec.ts > page screenshot > should allow transparency with webp",
+      "method": "Page.screenshot",
+      "evidence": "With omitBackground and type 'webp', the 300x300 capture decodes (pinned decodeWebp) to opaque black at (150,50), opaque white at (150,150) and alpha 0 at (150,250) under the transparent div: the viewport size, authored backgrounds and the omitted page background all survive WebP encoding."
+    },
+    {
+      "id": "page-screenshot.spec.ts > page screenshot > should throw on a negative clip size",
+      "method": "Page.screenshot",
+      "evidence": "A clip with width -100 is rejected before any capture with the pinned validator's 'Expected options.clip.width to be greater than 0'."
+    },
+    {
+      "id": "page-screenshot.spec.ts > page screenshot > should throw on clip outside the viewport",
+      "method": "Page.screenshot",
+      "evidence": "On a 500x500 viewport, a clip at y=650 lies entirely below the viewport, and Page.screenshot rejects with Playwright's 'Clipped area is either empty or outside the resulting image' instead of returning an empty image."
+    },
+    {
+      "id": "page-screenshot.spec.ts > page screenshot > zero quality option should throw for png",
+      "method": "Page.screenshot",
+      "evidence": "quality 0 with type 'png' still rejects with 'options.quality is unsupported for the png screenshots': a zero quality counts as given, not as absent."
     },
     {
       "id": "page-select-option.spec.ts > input event.composed should be true and cross shadow dom boundary",
