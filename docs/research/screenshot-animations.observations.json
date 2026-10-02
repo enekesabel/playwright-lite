@@ -1,0 +1,1726 @@
+{
+  "snapdom": "3.2.0",
+  "playwright": "1.62.1",
+  "chromium": "141.0.7390.37",
+  "note": "Diagnostic measurements; native Playwright is a feasibility reference, not adapter compatibility evidence.",
+  "results": [
+    {
+      "id": "retained-fixture",
+      "group": "animation",
+      "title": "Prototype fixture: stylesheet #target, WAAPI finite fill, infinite WAAPI on the cover",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 80.2,
+          "samples": [
+            {
+              "at": [20, 20],
+              "native": "#00ff00",
+              "snapdom": "#e84848"
+            },
+            {
+              "at": [110, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [20, 20],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            },
+            {
+              "at": [110, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [20, 20],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            },
+            {
+              "at": [110, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [20, 20],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            },
+            {
+              "at": [110, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 80.2
+    },
+    {
+      "id": "waapi-finite-fill-id",
+      "group": "animation",
+      "title": "WAAPI finite, fill forwards, base from #id rule",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 51.02
+    },
+    {
+      "id": "waapi-finite-fill-class",
+      "group": "animation",
+      "title": "WAAPI finite, fill forwards, base from .class rule",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 51.02
+    },
+    {
+      "id": "waapi-finite-fill-tag",
+      "group": "animation",
+      "title": "WAAPI finite, fill forwards, base from tag rule",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "waapi-finite-fill-inline",
+      "group": "animation",
+      "title": "WAAPI finite, fill forwards, base from inline style",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 51.02
+    },
+    {
+      "id": "waapi-inline-multi",
+      "group": "animation",
+      "title": "WAAPI finite fill on several inline-authored properties (background, opacity, transform, width)",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 50],
+              "native": "#7fff7f",
+              "snapdom": "#e84848"
+            },
+            {
+              "at": [30, 50],
+              "native": "#ffffff",
+              "snapdom": "#ffffff"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 50],
+              "native": "#7fff7f",
+              "snapdom": "#e84848"
+            },
+            {
+              "at": [30, 50],
+              "native": "#ffffff",
+              "snapdom": "#ffffff"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 50],
+              "native": "#7fff7f",
+              "snapdom": "#e84848"
+            },
+            {
+              "at": [30, 50],
+              "native": "#ffffff",
+              "snapdom": "#ffffff"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 50],
+              "native": "#7fff7f",
+              "snapdom": "#7fff7f"
+            },
+            {
+              "at": [30, 50],
+              "native": "#ffffff",
+              "snapdom": "#ffffff"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 51.02
+    },
+    {
+      "id": "waapi-inline-more",
+      "group": "animation",
+      "title": "WAAPI finite fill on inline-authored border-color, box-shadow, margin-left, border-radius, height",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 28.3,
+          "samples": [
+            {
+              "at": [22, 40],
+              "native": "#ffffff",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(221, 221, 221)"
+        },
+        "head": {
+          "differentPercentFromNative": 28.3,
+          "samples": [
+            {
+              "at": [22, 40],
+              "native": "#ffffff",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(221, 221, 221)"
+        },
+        "strip": {
+          "differentPercentFromNative": 28.3,
+          "samples": [
+            {
+              "at": [22, 40],
+              "native": "#ffffff",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(221, 221, 221)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [22, 40],
+              "native": "#ffffff",
+              "snapdom": "#ffffff"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(221, 221, 221)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 28.3
+    },
+    {
+      "id": "waapi-finite-fill-important",
+      "group": "animation",
+      "title": "WAAPI finite, fill forwards, base !important (author wins live too)",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "waapi-finite-nofill",
+      "group": "animation",
+      "title": "WAAPI finite, no fill: finishing reverts to the base value",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "waapi-infinite",
+      "group": "animation",
+      "title": "WAAPI infinite colour animation: cancelled, base value shows",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "css-finite-fill",
+      "group": "animation",
+      "title": "CSS @keyframes finite, fill forwards",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 51.02
+    },
+    {
+      "id": "css-finite-nofill",
+      "group": "animation",
+      "title": "CSS @keyframes finite, no fill",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "css-infinite-rotate",
+      "group": "animation",
+      "title": "CSS infinite rotation (pinned rotate-z shape)",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "css-transition-finish",
+      "group": "animation",
+      "title": "CSS transition in flight, finished by preparation (pinned css-transition shape)",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "css-transition-allow",
+      "group": "animation",
+      "title": "CSS transition in flight, animations allow (no preparation): native shows the in-flight value",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 51.02
+    },
+    {
+      "id": "css-transition-allow-inline",
+      "group": "animation",
+      "title": "CSS transition triggered by an inline style write, in flight, animations allow",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "head": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "strip": {
+          "differentPercentFromNative": 51.02,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(232, 72, 72)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 51.02
+    },
+    {
+      "id": "css-pseudo-finite-fill",
+      "group": "animation",
+      "title": "CSS finite fill-forwards animation on ::after",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "shadow-finite-fill",
+      "group": "animation",
+      "title": "WAAPI finite fill-forwards inside an open shadow root",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "static-pseudo",
+      "group": "regression",
+      "title": "::before/::after content and colours",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(221, 221, 221)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(221, 221, 221)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(221, 221, 221)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#e84848",
+              "snapdom": "#e84848"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(221, 221, 221)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "static-structural",
+      "group": "regression",
+      "title": ":nth-child, attribute, :has(), :is() and :not() rules",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [30, 85],
+              "native": "#000000",
+              "snapdom": "#000000"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [30, 85],
+              "native": "#000000",
+              "snapdom": "#000000"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [30, 85],
+              "native": "#000000",
+              "snapdom": "#000000"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [30, 85],
+              "native": "#000000",
+              "snapdom": "#000000"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "static-checked",
+      "group": "regression",
+      "title": ":checked + label sibling rule",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0.01,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 0.01,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0.01,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0.01,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "static-media",
+      "group": "regression",
+      "title": "@media (min-width) rule with a clip smaller than the viewport",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "static-container-supports",
+      "group": "regression",
+      "title": "@container and @supports rules",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "static-custom-properties",
+      "group": "regression",
+      "title": ":root custom properties through var()",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "static-body-style",
+      "group": "regression",
+      "title": "<style> element in the body, after its target",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#164cde",
+              "snapdom": "#164cde"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(22, 76, 222)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "static-screenshot-style",
+      "group": "regression",
+      "title": "pinned `style` option (temporary <style> appended to documentElement)",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(0, 255, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "static-screenshot-style-shadow",
+      "group": "regression",
+      "title": "pinned `style` option reaching an open shadow root",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "head": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        },
+        "full": {
+          "differentPercentFromNative": 0,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#00ff00",
+              "snapdom": "#00ff00"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgba(0, 0, 0, 0)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "static-caret-hide",
+      "group": "regression",
+      "title": "pinned caret hiding on a focused input",
+      "variants": {
+        "default": {
+          "differentPercentFromNative": 0.94,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#ffffff",
+              "snapdom": "#ffffff"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(255, 255, 255)"
+        },
+        "head": {
+          "differentPercentFromNative": 0.94,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#ffffff",
+              "snapdom": "#ffffff"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(255, 255, 255)"
+        },
+        "strip": {
+          "differentPercentFromNative": 0.94,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#ffffff",
+              "snapdom": "#ffffff"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(255, 255, 255)"
+        },
+        "full": {
+          "differentPercentFromNative": 0.94,
+          "samples": [
+            {
+              "at": [70, 70],
+              "native": "#ffffff",
+              "snapdom": "#ffffff"
+            }
+          ],
+          "warnings": [],
+          "liveAfterPreparation": "rgb(255, 255, 255)"
+        }
+      },
+      "fullVersusDefaultDifferentPercent": 0
+    },
+    {
+      "id": "stages",
+      "stages": {
+        "liveComputed": "rgb(0, 255, 0)",
+        "generatedClassBackground": [".c1{… background-color:rgb(0, 255, 0)"],
+        "clonedHead": "<head style=\"display: none !important;\"><style>html,body{margin:0}#t{position:absolute;left:20px;top:20px;width:100px;height:100px;background:#e84848}</style></head>",
+        "rasterWithClonedHead": [232, 72, 72],
+        "rasterWithoutClonedStyle": [0, 255, 0]
+      }
+    },
+    {
+      "id": "events",
+      "events": {
+        "css-transition": {
+          "prepareOnly": {
+            "events": ["onfinish", "transitionend"],
+            "playStatesBeforeCleanup": [],
+            "playStatesAfterCleanup": []
+          },
+          "withCapture": {
+            "events": ["onfinish", "transitionend"],
+            "playStatesBeforeCleanup": [],
+            "playStatesAfterCleanup": []
+          }
+        },
+        "css-animation-infinite": {
+          "prepareOnly": {
+            "events": ["oncancel", "animationcancel"],
+            "playStatesBeforeCleanup": [],
+            "playStatesAfterCleanup": ["running"]
+          },
+          "withCapture": {
+            "events": ["oncancel", "animationcancel"],
+            "playStatesBeforeCleanup": [],
+            "playStatesAfterCleanup": ["running"]
+          }
+        },
+        "css-animation-finite": {
+          "prepareOnly": {
+            "events": ["onfinish", "animationend"],
+            "playStatesBeforeCleanup": [],
+            "playStatesAfterCleanup": []
+          },
+          "withCapture": {
+            "events": ["onfinish", "animationend"],
+            "playStatesBeforeCleanup": [],
+            "playStatesAfterCleanup": []
+          }
+        },
+        "waapi-finite-fill": {
+          "prepareOnly": {
+            "events": ["onfinish"],
+            "playStatesBeforeCleanup": ["finished"],
+            "playStatesAfterCleanup": ["finished"]
+          },
+          "withCapture": {
+            "events": ["onfinish"],
+            "playStatesBeforeCleanup": ["finished"],
+            "playStatesAfterCleanup": ["finished"]
+          }
+        },
+        "waapi-infinite": {
+          "prepareOnly": {
+            "events": ["oncancel"],
+            "playStatesBeforeCleanup": [],
+            "playStatesAfterCleanup": ["running"]
+          },
+          "withCapture": {
+            "events": ["oncancel"],
+            "playStatesBeforeCleanup": [],
+            "playStatesAfterCleanup": ["running"]
+          }
+        }
+      }
+    },
+    {
+      "id": "lifecycle",
+      "lifecycle": {
+        "overlapSharedSlot": {
+          "infiniteAnimation": [],
+          "temporaryStyleElements": 1,
+          "cleanupSlot": "undefined"
+        },
+        "overlapOwnedCleanups": {
+          "infiniteAnimation": ["running"],
+          "temporaryStyleElements": 0,
+          "cleanupSlot": "undefined"
+        },
+        "errorPath": {
+          "rejected": "boom",
+          "infiniteAnimation": ["running"],
+          "temporaryStyleElements": 0,
+          "cleanupSlot": "undefined"
+        },
+        "abortPath": {
+          "rendererResolvedAfterCleanup": true,
+          "infiniteAnimation": ["running"],
+          "temporaryStyleElements": 0,
+          "cleanupSlot": "undefined"
+        },
+        "hostMarkup": {
+          "hostMarkupChanged": true,
+          "rendererIframesLeft": 1,
+          "hostMarkupChangedExceptRendererIframe": false,
+          "infiniteAnimation": ["running"],
+          "temporaryStyleElements": 0,
+          "cleanupSlot": "undefined"
+        }
+      }
+    }
+  ]
+}
