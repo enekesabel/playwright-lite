@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { closedShadow } from "./closedShadow";
 
 afterEach(() => {
   delete (window as any).__evaluationCalls;
@@ -99,6 +100,19 @@ describe("Locator.evaluate", () => {
       )
     ).rejects.toThrow("No elements found for locator callback");
     expect((window as any).__evaluationCalls).toBe(1);
+  });
+
+  it("sees a closed shadow root's host as the page does after an action focuses inside it", async () => {
+    await closedShadow("<input id=field>");
+    const page = createPage();
+
+    await page.locator("closed=field").click();
+
+    expect(
+      await page
+        .locator("#host")
+        .evaluate((host) => [host.shadowRoot, document.activeElement === host])
+    ).toEqual([null, true]);
   });
 });
 

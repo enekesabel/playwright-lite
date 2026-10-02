@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { closedShadow } from "./closedShadow";
 
 type StrictOptions = { strict?: boolean; timeout?: number };
 
@@ -32,6 +33,15 @@ describe("Locator.type", () => {
     await page.locator("#input").type("abc", { delay: 5, timeout: 0 });
 
     expect(input.value).toBe("abc");
+  });
+
+  it("types into an element inside nested closed shadow roots", async () => {
+    const { roots } = await closedShadow("<input id=field>", { depth: 2 });
+    const page = createPage();
+
+    await page.locator("closed=field").type("ab");
+
+    expect(roots[1].querySelector("input")!.value).toBe("ab");
   });
 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { closedShadow } from "./closedShadow";
 
 describe("Keyboard", () => {
   // Contract coverage: the pinned drag tests press only Escape during a
@@ -532,5 +533,34 @@ describe("Keyboard", () => {
       "beforeinput(xy)",
       "textInput(xy)",
     ]);
+  });
+
+  it("types into the element an action focused inside nested closed shadow roots", async () => {
+    const { roots } = await closedShadow("<input id=field>", { depth: 2 });
+    const page = createPage();
+
+    await page.locator("closed=field").focus();
+    await page.keyboard.type("ab");
+
+    expect(roots[1].querySelector("input")!.value).toBe("ab");
+  });
+
+  it("sends keys to the host of a closed shadow root no action has targeted", async () => {
+    const { roots } = await closedShadow("<input id=field>");
+    const page = createPage();
+    const field = roots[0].querySelector("input")!;
+    const targets: string[] = [];
+    const record = (event: Event) => targets.push((event.target as Element).id);
+    document.addEventListener("keydown", record);
+
+    field.focus();
+    try {
+      await page.keyboard.type("a");
+    } finally {
+      document.removeEventListener("keydown", record);
+    }
+
+    expect(field.value).toBe("");
+    expect(targets).toEqual(["host"]);
   });
 });
