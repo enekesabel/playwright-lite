@@ -381,7 +381,7 @@ export const objectSections: readonly ObjectSection[] = [
       "When the element under a still pointer changes, its over/out and enter/leave events fire with the next `mouse` call or pointer action; the browser fires them by itself after the next layout.",
       "Elements inside a closed shadow root receive nothing; their host receives the events.",
       "A `wheel` event is always cancelable and reaches the page's listeners before any scroll. When every `wheel` listener is passive, the browser scrolls first and reports `cancelable` as `false`.",
-      "When the pressed element leaves the document or is moved with `moveBefore()` before the release, even if it is added back, the browser sends no `click`; playwright-lite still sends one.",
+      "When the pressed element leaves the document and is added back, or is moved with `moveBefore()`, before the release, the browser sends no `click`; playwright-lite still sends one.",
     ],
   },
   {

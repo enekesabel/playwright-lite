@@ -331,6 +331,9 @@ export class Pointer {
     try {
       await this.tapDown(point, touch, capture, input, () => (down = false));
     } finally {
+      // An interrupted tap still ends its capture, which stops observing
+      // removals.
+      capture.clear();
       this.touchCaptures.delete(capture);
       this.disposeIfIdle();
     }
