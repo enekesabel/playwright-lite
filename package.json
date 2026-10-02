@@ -83,6 +83,7 @@
     "@types/formidable": "^3.5.1",
     "@types/node": "^24.0.0",
     "@vitest/browser-playwright": "^4.1.11",
+    "@zumer/snapdom": "3.2.0",
     "esbuild": "0.28.1",
     "eslint": "^10.9.1",
     "formidable": "^3.5.4",

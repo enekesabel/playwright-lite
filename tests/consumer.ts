@@ -78,6 +78,7 @@ export async function runConsumer() {
       consoleLocation = message.location();
   });
   console.log("consumer-console-probe");
+  const screenshot = await page.screenshot({ type: "jpeg" });
   return {
     exports: Object.keys(publicExports).sort(),
     value: await profile.name.inputValue(),
@@ -89,5 +90,6 @@ export async function runConsumer() {
     locatorSnapshot: await profile.save.ariaSnapshot(),
     expectObserved: observed,
     consoleLocation,
+    screenshotSignature: Array.from(screenshot.subarray(0, 3)),
   };
 }

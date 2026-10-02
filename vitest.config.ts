@@ -30,6 +30,9 @@ function delayedResponsePlugin(): Plugin {
 
 export default defineConfig({
   plugins: [playwrightInjectedPlugin(), delayedResponsePlugin()],
+  // The screenshot renderer is imported lazily; optimizing it up front keeps
+  // Vite from reloading the page when the first capture imports it.
+  optimizeDeps: { include: ["@zumer/snapdom"] },
   test: {
     browser: {
       enabled: true,

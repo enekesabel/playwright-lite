@@ -97,6 +97,7 @@ try {
     "LICENSES/JEST-EXPECT-BUNDLE-LICENSES.txt",
     "LICENSES/YAML-LICENSE.txt",
     "LICENSES/MIME-LICENSE.txt",
+    "LICENSES/SNAPDOM-LICENSE.txt",
   ]) {
     assert.ok(files.has(file), `Missing package file: ${file}`);
   }
@@ -117,6 +118,33 @@ try {
   assert.throws(() => consumerRequire.resolve("yaml"), {
     code: "MODULE_NOT_FOUND",
   });
+  // SnapDOM is bundled as a chunk of its own, which only a capture imports.
+  assert.equal(installedPackage.dependencies?.["@zumer/snapdom"], undefined);
+  assert.equal(installedPackage.devDependencies["@zumer/snapdom"], "3.2.0");
+  assert.throws(() => consumerRequire.resolve("@zumer/snapdom"), {
+    code: "MODULE_NOT_FOUND",
+  });
+  const rendererChunks = [...files].filter((file) =>
+    /^dist\/snapdom-[\w-]+\.mjs$/.test(file)
+  );
+  assert.equal(rendererChunks.length, 1, "Expected one renderer chunk.");
+  const rendererChunk = rendererChunks[0].slice("dist/".length);
+  const entrySource = readFileSync(
+    resolve(installedRoot, "dist/index.mjs"),
+    "utf8"
+  );
+  assert.ok(
+    entrySource.includes(`import("./${rendererChunk}")`),
+    "The renderer must load through a dynamic import."
+  );
+  assert.doesNotMatch(
+    entrySource,
+    new RegExp(
+      `^import[^(]*["']\\./${rendererChunk.replace(".", "\\.")}["']`,
+      "m"
+    ),
+    "The entry must not import the renderer statically."
+  );
   assert.throws(
     () => consumerRequire.resolve("@enekesabel/playwright-lite/dom"),
     { code: "ERR_PACKAGE_PATH_NOT_EXPORTED" }
@@ -129,6 +157,7 @@ try {
     declarations,
     /\b(?:AdapterJSHandle|LOCATOR_BRAND|isPlaywrightLiteLocator|resolveLocatorElements)\b/
   );
+  assert.doesNotMatch(declarations, /snapdom/i);
 
   if (runtimeCheck) {
     copyFileSync(
@@ -226,6 +255,51 @@ try {
     assert.ok(probeLine >= 0, "probe call not found in the built bundle");
     assert.equal(observed.consoleLocation?.url, bundlePath);
     assert.equal(observed.consoleLocation?.lineNumber, probeLine);
+    assert.deepEqual(observed.screenshotSignature, [0xff, 0xd8, 0xff]);
+
+    // The installed ES modules, served as they are: the renderer chunk is
+    // requested by the first capture only, and once.
+    const esm = await browser.newPage();
+    const requested = [];
+    await esm.route("http://consumer.test/**", (route) => {
+      const path = new URL(route.request().url()).pathname;
+      requested.push(path);
+      if (path === "/")
+        return route.fulfill({
+          contentType: "text/html",
+          body: "<!doctype html><p>Lazy renderer</p>",
+        });
+      return route.fulfill({
+        contentType: "text/javascript",
+        body: readFileSync(resolve(installedRoot, path.slice(1))),
+      });
+    });
+    await esm.goto("http://consumer.test/");
+    await esm.evaluate(async () => {
+      const { createPage } = await import("/dist/index.mjs");
+      window.litePage = createPage();
+      await window.litePage.title();
+    });
+    const rendererPath = `/dist/${rendererChunk}`;
+    assert.ok(requested.includes("/dist/index.mjs"));
+    assert.ok(
+      !requested.includes(rendererPath),
+      "The renderer loaded before any capture."
+    );
+    const signatures = await esm.evaluate(async () => {
+      const png = await window.litePage.screenshot();
+      const webp = await window.litePage.screenshot({ type: "webp" });
+      return [
+        String.fromCharCode(...png.subarray(1, 4)),
+        String.fromCharCode(...webp.subarray(8, 12)),
+      ];
+    });
+    assert.deepEqual(signatures, ["PNG", "WEBP"]);
+    assert.equal(
+      requested.filter((path) => path === rendererPath).length,
+      1,
+      "The renderer must load once and be reused."
+    );
   }
 
   console.log(

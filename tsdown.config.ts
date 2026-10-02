@@ -21,6 +21,8 @@ export default defineConfig({
       /[/\\]@jest[/\\]expect-utils[/\\]/,
       /[/\\]jest-matcher-utils[/\\]/,
       /[/\\]yaml[/\\]/,
+      // The screenshot renderer, loaded by the first capture as its own chunk.
+      /[/\\]@zumer[/\\]snapdom[/\\]/,
     ],
     neverBundle: ["@playwright/test"],
   },

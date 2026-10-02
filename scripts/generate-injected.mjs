@@ -172,6 +172,11 @@ try {
     "LICENSES/YAML-LICENSE.txt",
     readFileSync(resolve(yamlRoot, "LICENSE"))
   );
+  const snapdomRoot = dirname(require.resolve("@zumer/snapdom/package.json"));
+  output(
+    "LICENSES/SNAPDOM-LICENSE.txt",
+    readFileSync(resolve(snapdomRoot, "LICENSE"))
+  );
 } finally {
   rmSync(temporary, { recursive: true, force: true });
 }

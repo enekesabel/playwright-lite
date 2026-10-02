@@ -79,6 +79,12 @@ import {
   getByTitleSelector,
 } from "./selectors";
 import {
+  capture,
+  PAGE_SCREENSHOT_OPTIONS,
+  pageScreenshotEncoding,
+  type PageScreenshotOptions,
+} from "./screenshot";
+import {
   Element,
   ShadowRoot,
   Event,
@@ -452,6 +458,7 @@ const PAGE_LIFETIME_CALLS: Record<
   reload: true,
   removeLocatorHandler: true,
   requests: true,
+  screenshot: true,
   selectOption: true,
   setChecked: true,
   setInputFiles: true,
@@ -3362,6 +3369,40 @@ export class PageImpl {
 
   url(): string {
     return this.window.location.href;
+  }
+
+  /**
+   * Pinned server/screenshotter.ts `screenshotPage`: the current viewport,
+   * rendered from the document; see `capture`. Pinned client/page.ts returns
+   * a Node `Buffer`; this returns the bytes as a `Uint8Array`.
+   */
+  async screenshot(options: PageScreenshotOptions = {}): Promise<Uint8Array> {
+    return withAbortPrefix("page.screenshot", async () => {
+      rejectUnsupportedOptions(
+        "screenshot",
+        options as Record<string, unknown>,
+        PAGE_SCREENSHOT_OPTIONS
+      );
+      const encoding = pageScreenshotEncoding("page.screenshot", options);
+      const browserWindow = this.window;
+      return capture({
+        apiName: "page.screenshot",
+        window: browserWindow,
+        encoding,
+        timeout: this.resolveTimeout(options.timeout, DEFAULT_ACTION_TIMEOUT),
+        signal: this.lifetime.bind(options.signal),
+        title: "taking page screenshot",
+        describe: (element) => this.previewNode(element),
+        // Pinned `_originalViewportSize` reads the window's inner size when
+        // no viewport is emulated.
+        region: () => ({
+          x: browserWindow.scrollX,
+          y: browserWindow.scrollY,
+          width: browserWindow.innerWidth,
+          height: browserWindow.innerHeight,
+        }),
+      });
+    });
   }
 
   /**

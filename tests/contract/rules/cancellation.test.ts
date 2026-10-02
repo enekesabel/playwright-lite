@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../../src/index";
+import { pendingFont } from "../fonts";
 import { prepareTraversal, stubLoading } from "../history";
 import { emulateTouch } from "../touch";
 
@@ -29,6 +30,8 @@ function actions(
     ["page.focus", (o) => page.focus("#never", o)],
     ["page.hover", (o) => page.hover("#never", o)],
     ["page.press", (o) => page.press("#never", "a", o)],
+    // A capture waits for fonts first, so a pending one holds it.
+    ["page.screenshot", (o) => page.screenshot(o), () => pendingFont(1_000)],
     ["page.selectOption", (o) => page.selectOption("#select", "x", o)],
     ["page.setChecked", (o) => page.setChecked("#never", true, o)],
     ["page.setInputFiles", (o) => page.setInputFiles("#never", [], o)],

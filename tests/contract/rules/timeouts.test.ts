@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { ADAPTER_TIMEOUT_ERROR } from "../../../src/errors";
 import { createPage, expect as browserExpect } from "../../../src/index";
+import { pendingFont } from "../fonts";
 import { prepareTraversal } from "../history";
 import { emulateTouch } from "../touch";
 
@@ -84,6 +85,14 @@ describe("timeouts", () => {
     expect(locatorActionError.name).toBe("TimeoutError");
     expect(locatorActionError[ADAPTER_TIMEOUT_ERROR]).toBe(true);
     expect(locatorActionError.message).toContain("Timeout 20ms exceeded");
+
+    pendingFont(1_000);
+    const screenshotError = await page.screenshot().catch((error) => error);
+    expect(screenshotError.name).toBe("TimeoutError");
+    expect(screenshotError[ADAPTER_TIMEOUT_ERROR]).toBe(true);
+    expect(screenshotError.message).toBe(
+      "page.screenshot: Timeout 20ms exceeded.\nCall log:\n  - taking page screenshot\n  - waiting for fonts to load..."
+    );
 
     const waitForFunctionError = await page
       .waitForFunction(() => false)
@@ -245,6 +254,15 @@ describe("timeout: 0", () => {
       ],
       ["page.waitForURL", (o) => page.waitForURL(/#timeout-zero$/, o), setHash],
       ["locator.click", (o) => target.click(o), showTarget],
+      // A capture waits for its pending font, which loads after the delay.
+      [
+        "page.screenshot",
+        (o) => {
+          pendingFont(DELAY * 2);
+          return page.screenshot(o);
+        },
+        () => {},
+      ],
     ];
   }
   const names = members().map(([apiName]) => apiName);

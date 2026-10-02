@@ -17,3 +17,7 @@ Bundled under the ISC license. See LICENSES/YAML-LICENSE.txt.
 mime
 Copyright (c) 2023 Robert Kieffer.
 The file-name-to-MIME-type table and lookup of mime@4.1.0, as bundled by the pinned Playwright release, are included under the MIT license. See LICENSES/MIME-LICENSE.txt.
+
+SnapDOM
+Copyright (c) 2025 ZumerLab.
+@zumer/snapdom@3.2.0, which renders the document for screenshots, is bundled as a chunk the first capture loads, under the MIT license. See LICENSES/SNAPDOM-LICENSE.txt.

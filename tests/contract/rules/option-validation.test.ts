@@ -88,6 +88,11 @@ describe("option-validation", () => {
       /reload signal must be an AbortSignal/,
     ],
     [
+      "screenshot",
+      (page, options) => page.screenshot(options as any),
+      /^screenshot signal must be an AbortSignal/,
+    ],
+    [
       "elementHandle.waitForElementState",
       async (page, options) =>
         (await page.$("#input"))!.waitForElementState(

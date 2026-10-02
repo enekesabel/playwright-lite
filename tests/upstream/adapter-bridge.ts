@@ -1310,27 +1310,51 @@ let cachedBundle: string | undefined;
 function buildAdapterBundle(): string {
   if (cachedBundle) return cachedBundle;
 
-  const dist = readFileSync(ADAPTER_DIST_PATH, "utf8");
+  // The entry imports its lazily loaded chunks, such as the screenshot
+  // renderer, by a path relative to its own module, which a script has none
+  // of. Each chunk is carried in the bundle instead and evaluated on its
+  // first import, as the module would be.
+  const chunks: string[] = [];
+  const entry = asScript(readFileSync(ADAPTER_DIST_PATH, "utf8")).replace(
+    /\bimport\("\.\/([\w.-]+\.mjs)"\)/g,
+    (_, file: string) => {
+      if (!chunks.includes(file)) chunks.push(file);
+      return `__pwLiteImport(${JSON.stringify(file)})`;
+    }
+  );
+  const chunkModules = chunks.map((file) => {
+    const chunk = asScript(
+      readFileSync(resolve(dirname(ADAPTER_DIST_PATH), file), "utf8")
+    );
+    return `${JSON.stringify(file)}: () => {\n${chunk}\n},`;
+  });
 
-  // Strip ES module export declaration so the code runs as a script, and
-  // publish the same exports, under their exported names, as its result.
+  cachedBundle = [
+    "window.__pwLiteAdapter = (function() {",
+    `const __pwLiteChunks = {\n${chunkModules.join("\n")}\n};`,
+    "const __pwLiteModules = {};",
+    "const __pwLiteImport = (file) => Promise.resolve().then(() => __pwLiteModules[file] ??= __pwLiteChunks[file]());",
+    entry,
+    "})();",
+  ].join("\n");
+
+  return cachedBundle;
+}
+
+/**
+ * Strips an ES module's export declaration so its code runs as a script, and
+ * returns the same exports, under their exported names, as its result.
+ */
+function asScript(module: string): string {
   const exported: string[] = [];
-  const js = dist.replace(/^export\s+\{([^}]*)\}.*$/gm, (_, list: string) => {
+  const js = module.replace(/^export\s+\{([^}]*)\}.*$/gm, (_, list: string) => {
     for (const specifier of list.split(",")) {
       const [local, name = local] = specifier.trim().split(/\s+as\s+/);
       if (local) exported.push(`${JSON.stringify(name)}: ${local}`);
     }
     return "";
   });
-
-  cachedBundle = [
-    "window.__pwLiteAdapter = (function() {",
-    js,
-    `return { ${exported.join(", ")} };`,
-    "})();",
-  ].join("\n");
-
-  return cachedBundle;
+  return `${js}\nreturn { ${exported.join(", ")} };`;
 }
 
 // ── Page proxy ──────────────────────────────────────────────────────
