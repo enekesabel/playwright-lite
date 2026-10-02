@@ -517,6 +517,7 @@ async function run(
           afterClone: (context) =>
             stage(context, () => {
               restoreBodyScroll?.();
+              keepAnimatedValues(browserWindow, context.clone, context.nodeMap);
               keepBodyOffset(browserWindow, context.clone);
               cloned = true;
               if (cancelled()) lease.release();
@@ -625,6 +626,75 @@ function hideQuirksBodyScroll(document: Document): (() => void) | undefined {
     for (const property of properties)
       delete (body as unknown as Record<string, unknown>)[property];
   };
+}
+
+/** The members of a `getKeyframes()` keyframe that are not CSS properties. */
+const KEYFRAME_MEMBERS = new Set([
+  "offset",
+  "computedOffset",
+  "easing",
+  "composite",
+]);
+
+/**
+ * SnapDOM renders each element through a class holding its computed style,
+ * but the clone keeps the document's `<style>` and stylesheet `<link>`
+ * elements and each element's inline style, which outrank that class inside
+ * the image. Live, animations and transitions outrank them instead, so a
+ * value only an animation holds, such as a finished fill-forwards animation's
+ * or a running transition's, would render as the author's base value. The
+ * clone drops the author stylesheets, which the computed style already
+ * carries, and an animated element's inline declarations of the animated
+ * properties take their computed value. An animation of a pseudo-element
+ * needs neither: a pseudo-element has no inline style.
+ */
+function keepAnimatedValues(
+  browserWindow: Window,
+  clone: unknown,
+  nodeMap: unknown
+) {
+  const rootClone = clone as Element | null | undefined;
+  if (!rootClone) return;
+  for (const element of rootClone.querySelectorAll(
+    "style, link[rel~=stylesheet]"
+  ))
+    element.remove();
+  // A scratch declaration per animated element expands each animated
+  // property to the longhands an inline declaration may set.
+  const animated = new Map<Element, CSSStyleDeclaration>();
+  for (const scope of shadowRootsAndDocument(browserWindow.document))
+    for (const animation of scope.getAnimations()) {
+      const effect = animation.effect as KeyframeEffect | null;
+      const target = effect?.target;
+      if (!target || effect.pseudoElement) continue;
+      let properties = animated.get(target);
+      if (!properties) {
+        properties = browserWindow.document.createElement("div").style;
+        animated.set(target, properties);
+      }
+      for (const keyframe of effect.getKeyframes())
+        for (const [name, value] of Object.entries(keyframe)) {
+          if (KEYFRAME_MEMBERS.has(name) || value == null) continue;
+          if (name.startsWith("--")) properties.setProperty(name, `${value}`);
+          else
+            (properties as unknown as Record<string, string>)[name] =
+              `${value}`;
+        }
+    }
+  if (!animated.size) return;
+  for (const [cloned, source] of nodeMap as Map<Node, Node>) {
+    const properties = animated.get(source as Element);
+    const style = (cloned as Partial<ElementCSSInlineStyle>).style;
+    if (!properties || !style?.length) continue;
+    const computed = browserWindow.getComputedStyle(source as Element);
+    for (const property of properties)
+      if (style.getPropertyValue(property) !== "")
+        style.setProperty(
+          property,
+          computed.getPropertyValue(property),
+          style.getPropertyPriority(property)
+        );
+  }
 }
 
 /**
