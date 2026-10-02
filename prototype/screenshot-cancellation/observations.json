@@ -1,0 +1,1541 @@
+{
+  "generatedBy": "prototype/screenshot-cancellation/probe.mjs",
+  "environment": {
+    "node": "v22.22.0",
+    "playwright": "1.62.1",
+    "chromium": "141.0.7390.37",
+    "snapdom": "3.2.0",
+    "snapdomDistSha256": "b95213d41b0b0a5bf66a042ec889672e2ff2aadd510b242362844ef5091b30b2",
+    "pinnedPlaywrightSource": "26a9e470a7b3c7822084b09fb7f13902c5f37b51"
+  },
+  "scenarios": {
+    "stallFonts": {
+      "ok": true,
+      "result": {
+        "runs": {
+          "timeout": {
+            "rejectedAfterMs": 302,
+            "outcome": {
+              "ok": false,
+              "error": "locator.screenshot: Timeout 300ms exceeded.",
+              "name": "TimeoutError",
+              "findings": []
+            },
+            "rendererStarted": false,
+            "hostRestored": true
+          },
+          "signal": {
+            "rejectedAfterMs": 301,
+            "outcome": {
+              "ok": false,
+              "error": "locator.screenshot: aborted by caller",
+              "name": "Error",
+              "findings": []
+            },
+            "rendererStarted": false,
+            "hostRestored": true
+          },
+          "close": {
+            "rejectedAfterMs": 301,
+            "outcome": {
+              "ok": false,
+              "error": "locator.screenshot: Target page, context or browser has been closed",
+              "name": "TargetClosedError",
+              "findings": []
+            },
+            "rendererStarted": false,
+            "hostRestored": true
+          }
+        },
+        "fontStatusAfterServe": "loaded",
+        "nextCapture": {
+          "ok": true,
+          "fontFacesEmbedded": 0,
+          "warnings": [
+            "reconcile-risk"
+          ],
+          "findings": [
+            {
+              "at": "afterRender",
+              "kind": "webfont-not-embedded",
+              "family": "pwtest-iconfont"
+            }
+          ]
+        },
+        "hostRestored": true,
+        "unhandled": []
+      },
+      "wallMs": 1014,
+      "console": [
+        "warning: [snapdom] Inline/table text may re-wrap with fallback fonts. Use { reconcile: true } to check layout (~2x capture time)."
+      ]
+    },
+    "stallImage": {
+      "ok": true,
+      "result": {
+        "slow-timeout-coop": {
+          "rejectedAfterMs": 302,
+          "error": "locator.screenshot: Timeout 300ms exceeded.",
+          "stages": [
+            "1ms lease.wait",
+            "1ms lease.acquired",
+            "2ms prepared",
+            "2ms fonts.ready",
+            "18ms renderer.beforeSnap",
+            "18ms renderer.beforeClone",
+            "37ms renderer.afterClone",
+            "302ms rejected",
+            "302ms restored",
+            "302ms lease.released",
+            "3044ms renderer.beforeRender",
+            "3045ms renderer.settled"
+          ],
+          "rendererSettledAfterMs": 3045,
+          "rendererOutcome": "error",
+          "mutationsAfterRejection": [],
+          "snapdomNodesLeft": [],
+          "hostRestored": true,
+          "unhandled": []
+        },
+        "slow-signal-coop": {
+          "rejectedAfterMs": 300,
+          "error": "locator.screenshot: aborted by caller",
+          "stages": [
+            "0ms lease.wait",
+            "0ms lease.acquired",
+            "0ms prepared",
+            "0ms fonts.ready",
+            "0ms renderer.beforeSnap",
+            "0ms renderer.beforeClone",
+            "2ms renderer.afterClone",
+            "300ms rejected",
+            "300ms restored",
+            "300ms lease.released",
+            "3006ms renderer.beforeRender",
+            "3006ms renderer.settled"
+          ],
+          "rendererSettledAfterMs": 3006,
+          "rendererOutcome": "error",
+          "mutationsAfterRejection": [],
+          "snapdomNodesLeft": [],
+          "hostRestored": true,
+          "unhandled": []
+        },
+        "slow-close-coop": {
+          "rejectedAfterMs": 301,
+          "error": "locator.screenshot: Target page, context or browser has been closed",
+          "stages": [
+            "0ms lease.wait",
+            "0ms lease.acquired",
+            "0ms prepared",
+            "1ms fonts.ready",
+            "1ms renderer.beforeSnap",
+            "1ms renderer.beforeClone",
+            "3ms renderer.afterClone",
+            "301ms rejected",
+            "301ms restored",
+            "301ms lease.released",
+            "3004ms renderer.beforeRender",
+            "3004ms renderer.settled"
+          ],
+          "rendererSettledAfterMs": 3004,
+          "rendererOutcome": "error",
+          "mutationsAfterRejection": [],
+          "snapdomNodesLeft": [],
+          "hostRestored": true,
+          "unhandled": []
+        },
+        "slow-timeout-free": {
+          "rejectedAfterMs": 300,
+          "error": "locator.screenshot: Timeout 300ms exceeded.",
+          "stages": [
+            "0ms lease.wait",
+            "0ms lease.acquired",
+            "0ms prepared",
+            "0ms fonts.ready",
+            "0ms renderer.beforeSnap",
+            "0ms renderer.beforeClone",
+            "2ms renderer.afterClone",
+            "300ms rejected",
+            "300ms restored",
+            "300ms lease.released",
+            "3003ms renderer.beforeRender",
+            "3006ms renderer.afterRender",
+            "3007ms renderer.beforeExport",
+            "3034ms renderer.afterExport",
+            "3034ms renderer.settled"
+          ],
+          "rendererSettledAfterMs": 3034,
+          "rendererOutcome": "value",
+          "lateWarnings": [
+            "image-fallback"
+          ],
+          "mutationsAfterRejection": [
+            {
+              "t": 13288,
+              "type": "childList",
+              "target": "body",
+              "added": [
+                "iframe[snapdom-internal]"
+              ]
+            },
+            {
+              "t": 13307,
+              "type": "childList",
+              "target": "body",
+              "removed": [
+                "iframe[snapdom-internal]"
+              ]
+            }
+          ],
+          "snapdomNodesLeft": [],
+          "hostRestored": true,
+          "unhandled": []
+        },
+        "slow-signal-free": {
+          "rejectedAfterMs": 301,
+          "error": "locator.screenshot: aborted by caller",
+          "stages": [
+            "0ms lease.wait",
+            "0ms lease.acquired",
+            "0ms prepared",
+            "1ms fonts.ready",
+            "1ms renderer.beforeSnap",
+            "1ms renderer.beforeClone",
+            "3ms renderer.afterClone",
+            "301ms rejected",
+            "301ms restored",
+            "301ms lease.released",
+            "3004ms renderer.beforeRender",
+            "3005ms renderer.afterRender",
+            "3005ms renderer.beforeExport",
+            "3030ms renderer.afterExport",
+            "3030ms renderer.settled"
+          ],
+          "rendererSettledAfterMs": 3030,
+          "rendererOutcome": "value",
+          "lateWarnings": [
+            "image-fallback"
+          ],
+          "mutationsAfterRejection": [
+            {
+              "t": 16687,
+              "type": "childList",
+              "target": "body",
+              "added": [
+                "iframe[snapdom-internal]"
+              ]
+            },
+            {
+              "t": 16706,
+              "type": "childList",
+              "target": "body",
+              "removed": [
+                "iframe[snapdom-internal]"
+              ]
+            }
+          ],
+          "snapdomNodesLeft": [],
+          "hostRestored": true,
+          "unhandled": []
+        },
+        "slow-close-free": {
+          "rejectedAfterMs": 301,
+          "error": "locator.screenshot: Target page, context or browser has been closed",
+          "stages": [
+            "0ms lease.wait",
+            "0ms lease.acquired",
+            "0ms prepared",
+            "0ms fonts.ready",
+            "1ms renderer.beforeSnap",
+            "1ms renderer.beforeClone",
+            "3ms renderer.afterClone",
+            "301ms rejected",
+            "301ms restored",
+            "301ms lease.released",
+            "3004ms renderer.beforeRender",
+            "3005ms renderer.afterRender",
+            "3005ms renderer.beforeExport",
+            "3013ms renderer.afterExport",
+            "3013ms renderer.settled"
+          ],
+          "rendererSettledAfterMs": 3013,
+          "rendererOutcome": "value",
+          "lateWarnings": [
+            "image-fallback"
+          ],
+          "mutationsAfterRejection": [
+            {
+              "t": 20085,
+              "type": "childList",
+              "target": "body",
+              "added": [
+                "iframe[snapdom-internal]"
+              ]
+            },
+            {
+              "t": 20089,
+              "type": "childList",
+              "target": "body",
+              "removed": [
+                "iframe[snapdom-internal]"
+              ]
+            }
+          ],
+          "snapdomNodesLeft": [],
+          "hostRestored": true,
+          "unhandled": []
+        }
+      },
+      "wallMs": 20381,
+      "console": [
+        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:33741/res/slow-timeout-coop.png. Increase timeout or use a proxy"
+      ]
+    },
+    "stallFixedBackground": {
+      "ok": true,
+      "result": {
+        "first": {
+          "rejectedAfterMs": 1002,
+          "error": "locator.screenshot: Timeout 1000ms exceeded."
+        },
+        "aStagesBeforeRelease": [
+          "1ms lease.wait",
+          "1ms lease.acquired",
+          "1ms prepared",
+          "2ms fonts.ready",
+          "20ms renderer.beforeSnap",
+          "20ms renderer.beforeClone",
+          "32ms renderer.afterClone",
+          "1001ms rejected",
+          "1002ms restored",
+          "1002ms lease.released"
+        ],
+        "rendererPendingSevenSecondsAfterTimeout": true,
+        "second": {
+          "ok": true,
+          "waitedForLeaseMs": 1,
+          "tookMs": 38,
+          "size": [
+            80,
+            40
+          ],
+          "center": [
+            0,
+            0,
+            255,
+            255
+          ]
+        },
+        "aStillPendingAfterB": true,
+        "aAfterRelease": [
+          "renderer.beforeRender",
+          "renderer.settled CaptureCanceled: capture canceled before beforeRender"
+        ],
+        "mutationsAfterB": [
+          {
+            "t": 8136,
+            "type": "childList",
+            "target": "body",
+            "removed": [
+              "iframe[snapdom-internal]"
+            ]
+          }
+        ],
+        "hostRestored": true,
+        "unhandled": []
+      },
+      "wallMs": 8427,
+      "console": [
+        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:33741/res/hang.png. Increase timeout or use a proxy"
+      ]
+    },
+    "twoPages": {
+      "ok": true,
+      "result": {
+        "timeout": {
+          "a": {
+            "error": "locator.screenshot: Timeout 500ms exceeded.",
+            "rejectedAfterMs": 501
+          },
+          "b": {
+            "ok": true,
+            "pixel": [
+              0,
+              128,
+              0,
+              255
+            ],
+            "leaseAcquiredAfterMs": 502
+          },
+          "aRenderer": [
+            "502ms restored",
+            "502ms lease.released",
+            "3048ms renderer.beforeRender",
+            "3049ms renderer.settled CaptureCanceled: capture canceled before beforeRender"
+          ],
+          "hostRestoredWhenBothSettled": false,
+          "hostRestoredAfterLateWork": true,
+          "hostDiffAfterLateWork": {
+            "caretChanged": [],
+            "snapdomNodes": [],
+            "styleElements": 0,
+            "styleAttributes": []
+          },
+          "mutationsAfterARejected": 26,
+          "mutationsAfterBResolved": [
+            {
+              "t": 3140,
+              "type": "childList",
+              "target": "body",
+              "removed": [
+                "iframe[snapdom-internal]"
+              ]
+            }
+          ],
+          "snapdomNodesWhileARendererPending": [
+            "iframe[snapdom-internal]"
+          ],
+          "unhandled": []
+        },
+        "signal": {
+          "a": {
+            "error": "locator.screenshot: aborted by caller",
+            "rejectedAfterMs": 501
+          },
+          "b": {
+            "ok": true,
+            "pixel": [
+              0,
+              128,
+              0,
+              255
+            ],
+            "leaseAcquiredAfterMs": 502
+          },
+          "aRenderer": [
+            "3010ms renderer.beforeRender",
+            "3010ms renderer.settled CaptureCanceled: capture canceled before beforeRender"
+          ],
+          "hostRestoredWhenBothSettled": false,
+          "hostRestoredAfterLateWork": true,
+          "hostDiffAfterLateWork": {
+            "caretChanged": [],
+            "snapdomNodes": [],
+            "styleElements": 0,
+            "styleAttributes": []
+          },
+          "mutationsAfterARejected": 22,
+          "mutationsAfterBResolved": [
+            {
+              "t": 6523,
+              "type": "childList",
+              "target": "body",
+              "removed": [
+                "iframe[snapdom-internal]"
+              ]
+            }
+          ],
+          "snapdomNodesWhileARendererPending": [
+            "iframe[snapdom-internal]"
+          ],
+          "unhandled": []
+        },
+        "close": {
+          "a": {
+            "error": "locator.screenshot: Target page, context or browser has been closed",
+            "rejectedAfterMs": 501
+          },
+          "b": {
+            "ok": true,
+            "pixel": [
+              0,
+              128,
+              0,
+              255
+            ],
+            "leaseAcquiredAfterMs": 501
+          },
+          "aRenderer": [
+            "3012ms renderer.beforeRender",
+            "3012ms renderer.settled CaptureCanceled: capture canceled before beforeRender"
+          ],
+          "hostRestoredWhenBothSettled": false,
+          "hostRestoredAfterLateWork": true,
+          "hostDiffAfterLateWork": {
+            "caretChanged": [],
+            "snapdomNodes": [],
+            "styleElements": 0,
+            "styleAttributes": []
+          },
+          "mutationsAfterARejected": 11,
+          "mutationsAfterBResolved": [
+            {
+              "t": 9918,
+              "type": "childList",
+              "target": "body",
+              "removed": [
+                "iframe[snapdom-internal]"
+              ]
+            }
+          ],
+          "snapdomNodesWhileARendererPending": [
+            "iframe[snapdom-internal]"
+          ],
+          "unhandled": []
+        },
+        "uncoordinated": {
+          "a": {
+            "error": "locator.screenshot: Timeout 500ms exceeded.",
+            "rejectedAfterMs": 501
+          },
+          "b": {
+            "ok": true,
+            "pixel": [
+              255,
+              0,
+              0,
+              255
+            ],
+            "leaseAcquiredAfterMs": null
+          },
+          "aRenderer": [
+            "3004ms renderer.beforeRender",
+            "3004ms renderer.settled CaptureCanceled: capture canceled before beforeRender"
+          ],
+          "hostRestoredWhenBothSettled": false,
+          "hostRestoredAfterLateWork": false,
+          "hostDiffAfterLateWork": {
+            "caretChanged": [],
+            "snapdomNodes": [
+              "iframe[snapdom-internal]"
+            ],
+            "styleElements": 0,
+            "styleAttributes": [
+              [
+                "iframe[snapdom-internal]",
+                "position: absolute; left: -9999px; top: 0px; width: 0px; height: 0px; border: 0px; visibility: hidden; pointer-events: none;"
+              ]
+            ]
+          },
+          "mutationsAfterARejected": 0,
+          "mutationsAfterBResolved": [
+            {
+              "t": 10798,
+              "type": "childList",
+              "target": "html",
+              "removed": [
+                "style"
+              ]
+            },
+            {
+              "t": 10798,
+              "type": "attributes",
+              "target": "input#caret-a",
+              "attribute": "style",
+              "oldValue": "caret-color: transparent !important;",
+              "value": "caret-color: rgb(1, 2, 3) !important"
+            },
+            {
+              "t": 10798,
+              "type": "attributes",
+              "target": "input#caret-a",
+              "attribute": "style",
+              "oldValue": "caret-color: rgb(1, 2, 3) !important;",
+              "value": "caret-color: rgb(1, 2, 3) !important"
+            },
+            {
+              "t": 10798,
+              "type": "attributes",
+              "target": "input#caret-b",
+              "attribute": "style",
+              "oldValue": "caret-color: transparent !important;",
+              "value": "caret-color: blue"
+            },
+            {
+              "t": 10798,
+              "type": "attributes",
+              "target": "input#caret-b",
+              "attribute": "style",
+              "oldValue": "caret-color: blue;",
+              "value": "caret-color: blue"
+            },
+            {
+              "t": 10798,
+              "type": "attributes",
+              "target": "textarea#caret-c",
+              "attribute": "style",
+              "oldValue": "caret-color: transparent !important;",
+              "value": null
+            },
+            {
+              "t": 10798,
+              "type": "attributes",
+              "target": "textarea#caret-c",
+              "attribute": "style",
+              "oldValue": "caret-color: transparent !important;",
+              "value": null
+            },
+            {
+              "t": 10798,
+              "type": "attributes",
+              "target": "div#caret-d",
+              "attribute": "style",
+              "oldValue": "caret-color: transparent !important;",
+              "value": null
+            },
+            {
+              "t": 10798,
+              "type": "attributes",
+              "target": "div#caret-d",
+              "attribute": "style",
+              "oldValue": "caret-color: transparent !important;",
+              "value": null
+            }
+          ],
+          "snapdomNodesWhileARendererPending": [
+            "iframe[snapdom-internal]"
+          ],
+          "unhandled": []
+        }
+      },
+      "wallMs": 13602,
+      "console": [
+        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:33741/res/two-timeout.png. Increase timeout or use a proxy"
+      ]
+    },
+    "pinnedCleanupSlot": {
+      "ok": true,
+      "result": {
+        "leftoverStyleTags": [
+          "#x { color: red }"
+        ],
+        "hostRestored": false
+      },
+      "wallMs": 4,
+      "console": []
+    },
+    "lineClamp": {
+      "ok": true,
+      "result": {
+        "uncoordinated": {
+          "hostTextDuringCapture": "The quick brown fox jumps over the lazy …",
+          "hostTextAfterBoth": "The quick brown fox jumps over the lazy dog while the five boxing wizards jump quickly and the job requires extra pluck.",
+          "textRestored": true
+        },
+        "pageEditDuringCloneStage": {
+          "hostTextBeforeEdit": "The quick brown fox jumps over the lazy …",
+          "editAfterMs": 200,
+          "captureSettledAfterMs": 3006,
+          "hostTextAfterCapture": "Edited by the page",
+          "pageEditLost": false
+        },
+        "coordinated": {
+          "a": {
+            "error": "locator.screenshot: Timeout 300ms exceeded."
+          },
+          "b": {
+            "ok": true
+          },
+          "stages": [
+            "1ms A lease.wait",
+            "1ms A lease.acquired",
+            "1ms A prepared",
+            "1ms A fonts.ready",
+            "2ms A renderer.beforeSnap",
+            "2ms A renderer.beforeClone",
+            "101ms B lease.wait",
+            "302ms A rejected",
+            "302ms A restored",
+            "302ms A lease.held-for-clone",
+            "3007ms A renderer.afterClone",
+            "3008ms A lease.released",
+            "3008ms B lease.acquired",
+            "3008ms B prepared",
+            "3008ms B fonts.ready",
+            "3008ms A renderer.settled",
+            "3009ms B renderer.beforeSnap",
+            "3009ms B renderer.beforeClone",
+            "3019ms B renderer.afterClone",
+            "3028ms B renderer.beforeRender",
+            "3029ms B renderer.afterRender",
+            "3029ms B restored",
+            "3029ms B renderer.beforeExport",
+            "3048ms B renderer.afterExport",
+            "3049ms B renderer.settled",
+            "3050ms B resolved",
+            "3050ms B lease.released"
+          ],
+          "hostTextAfterBoth": "The quick brown fox jumps over the lazy dog while the five boxing wizards jump quickly and the job requires extra pluck.",
+          "textRestored": true,
+          "unhandled": []
+        }
+      },
+      "wallMs": 9283,
+      "console": [
+        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:33741/res/pseudo-raw.png. Increase timeout or use a proxy"
+      ]
+    },
+    "safeBoundary": {
+      "ok": true,
+      "result": {
+        "restoreAfterRender": {
+          "size": [
+            160,
+            50
+          ],
+          "left": [
+            0,
+            128,
+            0,
+            255
+          ],
+          "right": [
+            0,
+            128,
+            0,
+            255
+          ]
+        },
+        "restoreBeforeRender": {
+          "size": [
+            100,
+            50
+          ],
+          "left": [
+            0,
+            128,
+            0,
+            255
+          ],
+          "right": [
+            0,
+            128,
+            0,
+            255
+          ]
+        },
+        "restoreAfterClone": {
+          "size": [
+            100,
+            50
+          ],
+          "left": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "right": [
+            0,
+            0,
+            255,
+            255
+          ]
+        },
+        "detachedCloneStyle": {
+          "size": [
+            100,
+            50
+          ],
+          "left": [
+            0,
+            128,
+            0,
+            255
+          ],
+          "right": [
+            0,
+            128,
+            0,
+            255
+          ]
+        }
+      },
+      "wallMs": 180,
+      "console": []
+    },
+    "contamination": {
+      "ok": true,
+      "result": {
+        "errorCache": {
+          "canceled": "locator.screenshot: Timeout 300ms exceeded.",
+          "resourceStatusNow": 200,
+          "nextCapture": "locator.screenshot: capture degraded: {\"warnings\":[\"image-fallback\"],\"findings\":[{\"at\":\"afterRender\",\"kind\":\"image-substituted\",\"element\":\"i",
+          "nextWithCacheDisabled": "locator.screenshot: capture degraded: {\"warnings\":[\"image-fallback\"],\"findings\":[{\"at\":\"afterRender\",\"kind\":\"image-substituted\",\"element\":\"i",
+          "afterErrorTtl": "ok"
+        },
+        "backgroundCache": {
+          "whileMissing": "locator.screenshot: capture degraded: {\"warnings\":[],\"findings\":[{\"at\":\"afterRender\",\"kind\":\"external-css-url\",\"url\":\"/res/flakybg.png\"}]}",
+          "servedLater": "locator.screenshot: capture degraded: {\"warnings\":[],\"findings\":[{\"at\":\"afterRender\",\"kind\":\"external-css-url\",\"url\":\"/res/flakybg.png\"}]}",
+          "servedLaterInvalidate": "locator.screenshot: capture degraded: {\"warnings\":[],\"findings\":[{\"at\":\"afterRender\",\"kind\":\"external-css-url\",\"url\":\"/res/flakybg.png\"}]}",
+          "servedLaterCacheDisabled": {
+            "center": [
+              255,
+              0,
+              255,
+              255
+            ],
+            "findings": []
+          }
+        },
+        "cssomChange": {
+          "beforeChange": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "defaultOptions": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "burstFalse": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "operation": {
+            "center": [
+              255,
+              0,
+              0,
+              255
+            ],
+            "findings": []
+          },
+          "cacheDisabled": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "invalidate": [
+            0,
+            0,
+            255,
+            255
+          ]
+        },
+        "cssomChangeAgain": {
+          "cacheDisabled": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "operationWithCacheDisabled": {
+            "center": [
+              0,
+              0,
+              255,
+              255
+            ],
+            "findings": []
+          },
+          "operationWithInvalidateAndCacheDisabled": {
+            "center": [
+              0,
+              128,
+              0,
+              255
+            ],
+            "findings": []
+          }
+        }
+      },
+      "wallMs": 19753,
+      "console": [
+        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:33741/res/flaky.png. Increase timeout or use a proxy",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "warning: [snapDOM] HTTP 404 Not Found fetching dataURL: http://127.0.0.1:33741/res/flakybg.png"
+      ]
+    },
+    "media": {
+      "ok": true,
+      "result": {
+        "preScan": [
+          {
+            "kind": "unreadable-canvas",
+            "element": "canvas",
+            "error": "SecurityError"
+          },
+          {
+            "kind": "unreadable-video",
+            "element": "video[src=http://127.0.0.1:42453/video.webm]",
+            "error": "SecurityError"
+          },
+          {
+            "kind": "unreadable-video",
+            "element": "video[src=http://127.0.0.1:42453/video.webm]",
+            "error": "SecurityError"
+          },
+          {
+            "kind": "video-without-frame",
+            "element": "video[src=/res/stall-video.webm]",
+            "readyState": 0
+          },
+          {
+            "kind": "cross-origin-iframe",
+            "element": "iframe[src=http://127.0.0.1:42453/frame.html]"
+          }
+        ],
+        "preScanPreservesCanvas": {
+          "sameContext": true,
+          "samePixels": true,
+          "fillStyleKept": true,
+          "globalAlphaKept": true,
+          "untouchedCanvasStillAcceptsWebgl": true,
+          "tainted": {
+            "readable": false,
+            "error": "SecurityError"
+          }
+        },
+        "liveSvgImageHrefs": [
+          "/res/missing-svg.png",
+          "/res/green.png"
+        ],
+        "captures": {
+          "canvas-ok": {
+            "center": [
+              0,
+              128,
+              0,
+              255
+            ],
+            "checksum": "1f85a7c5",
+            "warnings": [],
+            "findings": [],
+            "replaced": {
+              "canvas": 1,
+              "video": 0,
+              "iframe": 0
+            }
+          },
+          "canvas-tainted": {
+            "center": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "checksum": "921e6a25",
+            "warnings": [],
+            "findings": [
+              {
+                "at": "preScan",
+                "kind": "unreadable-canvas",
+                "element": "canvas",
+                "error": "SecurityError"
+              },
+              {
+                "at": "afterClone",
+                "kind": "canvas-not-captured",
+                "element": "canvas"
+              }
+            ],
+            "replaced": {
+              "canvas": 1,
+              "video": 0,
+              "iframe": 0
+            }
+          },
+          "canvas-untouched": {
+            "center": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "checksum": "f4deb1c5",
+            "warnings": [],
+            "findings": [],
+            "replaced": {
+              "canvas": 1,
+              "video": 0,
+              "iframe": 0
+            }
+          },
+          "bg-failed": {
+            "center": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "checksum": "f4deb1c5",
+            "warnings": [],
+            "findings": [
+              {
+                "at": "afterRender",
+                "kind": "external-css-url",
+                "url": "/res/missing-bg.png"
+              }
+            ],
+            "replaced": {
+              "canvas": 0,
+              "video": 0,
+              "iframe": 0
+            }
+          },
+          "svg-image-failed": {
+            "center": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "checksum": "f4deb1c5",
+            "warnings": [],
+            "findings": [
+              {
+                "at": "afterRender",
+                "kind": "external-href",
+                "url": "/res/missing-svg.png"
+              }
+            ],
+            "replaced": {
+              "canvas": 0,
+              "video": 0,
+              "iframe": 0
+            }
+          },
+          "svg-image-ok": {
+            "center": [
+              0,
+              128,
+              0,
+              255
+            ],
+            "checksum": "1f85a7c5",
+            "warnings": [],
+            "findings": [],
+            "replaced": {
+              "canvas": 0,
+              "video": 0,
+              "iframe": 0
+            }
+          },
+          "svg-file-external": {
+            "center": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "checksum": "f4deb1c5",
+            "warnings": [],
+            "findings": [],
+            "replaced": {
+              "canvas": 0,
+              "video": 0,
+              "iframe": 0
+            }
+          },
+          "img-failed": {
+            "center": [
+              204,
+              204,
+              204,
+              255
+            ],
+            "checksum": "1e63c1d6",
+            "warnings": [
+              "image-fallback"
+            ],
+            "findings": [
+              {
+                "at": "afterRender",
+                "kind": "image-substituted",
+                "element": "img[src=/res/missing-img.png]"
+              }
+            ],
+            "replaced": {
+              "canvas": 0,
+              "video": 0,
+              "iframe": 0
+            }
+          },
+          "img-cross-no-cors": {
+            "center": [
+              204,
+              204,
+              204,
+              255
+            ],
+            "checksum": "1e63c1d6",
+            "warnings": [
+              "image-fallback"
+            ],
+            "findings": [
+              {
+                "at": "afterRender",
+                "kind": "image-substituted",
+                "element": "img[src=http://127.0.0.1:42453/res/green.png]"
+              }
+            ],
+            "replaced": {
+              "canvas": 0,
+              "video": 0,
+              "iframe": 0
+            }
+          },
+          "video-cross": {
+            "center": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "checksum": "921e6a25",
+            "warnings": [],
+            "findings": [
+              {
+                "at": "preScan",
+                "kind": "unreadable-video",
+                "element": "video[src=http://127.0.0.1:42453/video.webm]",
+                "error": "SecurityError"
+              },
+              {
+                "at": "afterClone",
+                "kind": "video-frame-not-captured",
+                "element": "video[src=http://127.0.0.1:42453/video.webm]",
+                "substitute": "empty"
+              }
+            ],
+            "replaced": {
+              "canvas": 0,
+              "video": 1,
+              "iframe": 0
+            }
+          },
+          "video-cross-poster": {
+            "center": [
+              0,
+              128,
+              0,
+              255
+            ],
+            "checksum": "1f85a7c5",
+            "warnings": [],
+            "findings": [
+              {
+                "at": "preScan",
+                "kind": "unreadable-video",
+                "element": "video[src=http://127.0.0.1:42453/video.webm]",
+                "error": "SecurityError"
+              },
+              {
+                "at": "afterClone",
+                "kind": "video-frame-not-captured",
+                "element": "video[src=http://127.0.0.1:42453/video.webm]",
+                "substitute": "poster"
+              }
+            ],
+            "replaced": {
+              "canvas": 0,
+              "video": 1,
+              "iframe": 0
+            }
+          },
+          "video-same": {
+            "center": [
+              2,
+              128,
+              2,
+              255
+            ],
+            "checksum": "54060045",
+            "warnings": [],
+            "findings": [],
+            "replaced": {
+              "canvas": 0,
+              "video": 1,
+              "iframe": 0
+            }
+          },
+          "video-stalled": {
+            "center": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "checksum": "f4deb1c5",
+            "warnings": [],
+            "findings": [
+              {
+                "at": "preScan",
+                "kind": "video-without-frame",
+                "element": "video[src=/res/stall-video.webm]",
+                "readyState": 0
+              },
+              {
+                "at": "afterClone",
+                "kind": "video-frame-not-captured",
+                "element": "video[src=/res/stall-video.webm]",
+                "substitute": "blank"
+              }
+            ],
+            "replaced": {
+              "canvas": 0,
+              "video": 1,
+              "iframe": 0
+            }
+          },
+          "iframe-cross": {
+            "center": [
+              249,
+              249,
+              249,
+              255
+            ],
+            "checksum": "c9cf4360",
+            "warnings": [],
+            "findings": [
+              {
+                "at": "preScan",
+                "kind": "cross-origin-iframe",
+                "element": "iframe[src=http://127.0.0.1:42453/frame.html]"
+              }
+            ],
+            "replaced": {
+              "canvas": 0,
+              "video": 0,
+              "iframe": 0
+            }
+          },
+          "iframe-same": {
+            "center": [
+              0,
+              128,
+              0,
+              255
+            ],
+            "checksum": "1f85a7c5",
+            "warnings": [],
+            "findings": [],
+            "replaced": {
+              "canvas": 0,
+              "video": 0,
+              "iframe": 1
+            }
+          },
+          "iframe-same-failed-bg": {
+            "center": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "checksum": "f4deb1c5",
+            "warnings": [],
+            "findings": [
+              {
+                "at": "afterRender (nested)",
+                "kind": "external-css-url",
+                "url": "/res/missing-frame-bg.png"
+              }
+            ],
+            "replaced": {
+              "canvas": 0,
+              "video": 0,
+              "iframe": 1
+            }
+          },
+          "font-icon-named": {
+            "center": [
+              0,
+              0,
+              0,
+              255
+            ],
+            "checksum": "687aa64c",
+            "warnings": [],
+            "findings": [
+              {
+                "at": "afterRender",
+                "kind": "webfont-not-embedded",
+                "family": "pwtest-iconfont"
+              }
+            ],
+            "replaced": {
+              "canvas": 0,
+              "video": 0,
+              "iframe": 0
+            }
+          },
+          "font-plain-named": {
+            "center": [
+              0,
+              0,
+              0,
+              255
+            ],
+            "checksum": "580867cc",
+            "warnings": [],
+            "findings": [],
+            "replaced": {
+              "canvas": 0,
+              "video": 0,
+              "iframe": 0
+            }
+          },
+          "img-failed (placeholders: false)": {
+            "warnings": [],
+            "findings": [
+              {
+                "at": "afterRender",
+                "kind": "image-substituted",
+                "element": "img[src=/res/missing-img.png]"
+              }
+            ]
+          }
+        }
+      },
+      "wallMs": 1758,
+      "console": [
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read",
+        "warning: [.WebGL-0x299c00115400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+        "warning: [.WebGL-0x299c00115400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "warning: [snapDOM] HTTP 404 Not Found fetching dataURL: http://127.0.0.1:33741/res/missing-bg.png",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "error: Access to fetch at 'http://127.0.0.1:42453/res/green.png' from origin 'http://127.0.0.1:33741' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested reso",
+        "error: Failed to load resource: net::ERR_FAILED",
+        "error: [snapDOM] Network/CORS fetching dataURL: http://127.0.0.1:42453/res/green.png. Try useProxy",
+        "warning: [snapdom] Unreadable cross-origin <iframe>; keeping its box. Use { placeholders: false } to hide it. JSHandle@node",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
+      ]
+    },
+    "caretRestoration": {
+      "ok": true,
+      "result": {
+        "pinned": {
+          "before": [
+            [
+              "authored",
+              "caret-color: rgb(1, 2, 3) !important;width:20px"
+            ],
+            [
+              "other-inline",
+              "width: 20px"
+            ],
+            [
+              "no-attribute",
+              null
+            ],
+            [
+              "editable",
+              null
+            ]
+          ],
+          "during": [
+            [
+              "authored",
+              "caret-color: transparent !important; width: 20px;"
+            ],
+            [
+              "other-inline",
+              "width: 20px; caret-color: transparent !important;"
+            ],
+            [
+              "no-attribute",
+              "caret-color: transparent !important;"
+            ],
+            [
+              "editable",
+              "caret-color: transparent !important;"
+            ]
+          ],
+          "after": [
+            [
+              "authored",
+              "caret-color: rgb(1, 2, 3) !important; width: 20px;"
+            ],
+            [
+              "other-inline",
+              "width: 20px;"
+            ],
+            [
+              "no-attribute",
+              ""
+            ],
+            [
+              "editable",
+              ""
+            ]
+          ],
+          "identical": false
+        },
+        "attributeText": {
+          "before": [
+            [
+              "authored",
+              "caret-color: rgb(1, 2, 3) !important;width:20px"
+            ],
+            [
+              "other-inline",
+              "width: 20px"
+            ],
+            [
+              "no-attribute",
+              null
+            ],
+            [
+              "editable",
+              null
+            ]
+          ],
+          "during": [
+            [
+              "authored",
+              "caret-color: transparent !important; width: 20px;"
+            ],
+            [
+              "other-inline",
+              "width: 20px; caret-color: transparent !important;"
+            ],
+            [
+              "no-attribute",
+              "caret-color: transparent !important;"
+            ],
+            [
+              "editable",
+              "caret-color: transparent !important;"
+            ]
+          ],
+          "after": [
+            [
+              "authored",
+              "caret-color: rgb(1, 2, 3) !important;width:20px"
+            ],
+            [
+              "other-inline",
+              "width: 20px"
+            ],
+            [
+              "no-attribute",
+              null
+            ],
+            [
+              "editable",
+              null
+            ]
+          ],
+          "identical": true
+        }
+      },
+      "wallMs": 8,
+      "console": []
+    },
+    "hostMutations": {
+      "ok": true,
+      "result": {
+        "rawSnapdom": {
+          "mutations": [
+            {
+              "t": 54,
+              "type": "childList",
+              "target": "body",
+              "added": [
+                "div#card"
+              ],
+              "removed": [
+                "#text",
+                "script",
+                "#text"
+              ]
+            },
+            {
+              "t": 73,
+              "type": "childList",
+              "target": "body",
+              "added": [
+                "div#snapdom-sandbox[snapdom-internal]"
+              ]
+            },
+            {
+              "t": 73,
+              "type": "childList",
+              "target": "div#snapdom-sandbox[snapdom-internal]",
+              "added": [
+                "div"
+              ]
+            },
+            {
+              "t": 73,
+              "type": "childList",
+              "target": "div#snapdom-sandbox[snapdom-internal]",
+              "removed": [
+                "div"
+              ]
+            },
+            {
+              "t": 73,
+              "type": "childList",
+              "target": "div#snapdom-sandbox[snapdom-internal]",
+              "added": [
+                "p"
+              ]
+            },
+            {
+              "t": 73,
+              "type": "childList",
+              "target": "div#snapdom-sandbox[snapdom-internal]",
+              "removed": [
+                "p"
+              ]
+            },
+            {
+              "t": 83,
+              "type": "childList",
+              "target": "body",
+              "removed": [
+                "div#snapdom-sandbox[snapdom-internal]"
+              ]
+            },
+            {
+              "t": 93,
+              "type": "childList",
+              "target": "body",
+              "added": [
+                "iframe[snapdom-internal]"
+              ]
+            }
+          ],
+          "leftAfterCapture": [
+            "iframe[snapdom-internal]"
+          ]
+        },
+        "operation": {
+          "mutations": [
+            {
+              "t": 219,
+              "type": "childList",
+              "target": "body",
+              "removed": [
+                "iframe[snapdom-internal]"
+              ]
+            }
+          ],
+          "leftAfterCapture": []
+        }
+      },
+      "wallMs": 289,
+      "console": []
+    }
+  }
+}
