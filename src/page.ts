@@ -3387,12 +3387,17 @@ export class PageImpl {
         options as Record<string, unknown>,
         PAGE_SCREENSHOT_OPTIONS
       );
-      const encoding = pageScreenshotEncoding("page.screenshot", options);
+      const encoding = pageScreenshotEncoding(
+        "page.screenshot",
+        options,
+        maskTarget
+      );
       const browserWindow = this.window;
       return capture({
         apiName: "page.screenshot",
         window: browserWindow,
         encoding,
+        preparation: encoding,
         timeout: this.resolveTimeout(options.timeout, DEFAULT_ACTION_TIMEOUT),
         signal: this.lifetime.bind(options.signal),
         title: "taking page screenshot",
@@ -3423,7 +3428,7 @@ export class PageImpl {
       options as Record<string, unknown>,
       ELEMENT_SCREENSHOT_OPTIONS
     );
-    const encoding = pageScreenshotEncoding(apiName, options);
+    const encoding = pageScreenshotEncoding(apiName, options, maskTarget);
     const signal = this.lifetime.bind(options.signal);
     if (signal?.aborted) throw actionAborted(signal, false);
     const timeout = this.resolveTimeout(
@@ -3458,6 +3463,7 @@ export class PageImpl {
       apiName,
       window: browserWindow,
       encoding,
+      preparation: encoding,
       timeout: remaining,
       signal,
       title: "taking element screenshot",
@@ -6030,6 +6036,15 @@ function actionPoint(
 function locatorBrand(value: unknown): LocatorBrandPayload | undefined {
   if (typeof value !== "object" || value === null) return undefined;
   return (value as { [LOCATOR_BRAND]?: LocatorBrandPayload })[LOCATOR_BRAND];
+}
+
+/**
+ * A screenshot `mask` entry's elements. Every `Page` of this package shares
+ * the document, so a Locator of any of them masks; Playwright masks only a
+ * Locator of the captured page.
+ */
+function maskTarget(value: unknown): (() => Element[]) | undefined {
+  return locatorBrand(value)?.resolveElements;
 }
 
 function asError(error: unknown): Error {

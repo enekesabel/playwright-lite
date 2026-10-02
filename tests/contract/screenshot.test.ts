@@ -368,31 +368,10 @@ describe("Page.screenshot", () => {
     expect(rootBackground.pixel(40, 40)).toEqual([0, 128, 0, 255]);
   });
 
-  it("accepts both caret values without changing the document", async () => {
-    document.body.innerHTML = `<input style="caret-color: red" autofocus>`;
-    const input = document.querySelector("input")!;
-    input.focus();
-    const page = createPage();
-    const observed: MutationRecord[] = [];
-    const observer = new MutationObserver((records) =>
-      observed.push(...records)
-    );
-    observer.observe(document, { attributes: true, subtree: true });
-
-    await page.screenshot({ caret: "hide" });
-    await page.screenshot({ caret: "initial" });
-    observer.disconnect();
-    expect(observed).toEqual([]);
-    expect(input.style.caretColor).toBe("red");
-  });
-
   it("accepts the default forms of options that have not landed", async () => {
     const page = createPage();
     for (const options of [
       { fullPage: false },
-      { mask: [] },
-      { maskColor: "#00FF00" },
-      { style: "" },
       { animations: "allow" as const },
     ])
       expect(signature(await page.screenshot(options))).toBe("png");
@@ -402,11 +381,6 @@ describe("Page.screenshot", () => {
     const page = createPage();
     const cases: [object, string][] = [
       [{ path: "shot.png" }, "the `path` option is not supported"],
-      [
-        { mask: [page.locator("body")] },
-        "the `mask` option is not supported yet.",
-      ],
-      [{ style: "body {}" }, "the `style` option is not supported yet."],
       [
         { animations: "disabled" },
         '`animations: "disabled"` is not supported yet.',
@@ -451,6 +425,9 @@ describe("Page.screenshot", () => {
       [{ maskColor: 5 }, "maskColor: expected string, got number"],
       [{ style: 5 }, "style: expected string, got number"],
       [{ mask: 5 }, "mask: expected array, got number"],
+      // Pinned client/page.ts reads the mask before the protocol validator.
+      [{ type: "gif", mask: [{}] }, "mask[0]: expected Locator, got object"],
+      [{ mask: [null] }, "mask[0]: expected Locator, got null"],
       [
         { clip: { x: "0", y: 0, width: 1, height: 1 } },
         "clip.x: expected float, got string",
@@ -676,11 +653,247 @@ describe("Page.screenshot", () => {
     for (const bytes of [results[0], results[2]])
       expect((await decode(bytes)).pixel(25, 40)).toEqual([255, 0, 0, 255]);
   });
+
+  describe("with masks", () => {
+    const pink = [255, 0, 255, 255];
+    const grey = [204, 204, 204, 255];
+
+    it("masks at document positions in the viewport, a clip and the full page", async () => {
+      document.body.style.margin = "0";
+      document.body.innerHTML = `
+        <div style="height: 3000px"></div>
+        <div class="mask" style="position: absolute; left: 10px; top: 1200px; width: 30px; height: 40px; background: rgb(204, 204, 204)"></div>
+        <div class="mask" style="position: fixed; left: 100px; top: 10px; width: 20px; height: 20px; background: rgb(204, 204, 204)"></div>`;
+      window.scrollTo(0, 1000);
+      const page = createPage();
+      const mask = [page.locator(".mask")];
+
+      const viewport = await decode(await page.screenshot({ mask }));
+      expect(viewport.pixel(15, 205)).toEqual(pink);
+      expect(viewport.pixel(105, 15)).toEqual(pink);
+      expect(viewport.pixel(45, 205)).not.toEqual(pink);
+
+      const clipped = await decode(
+        await page.screenshot({
+          mask,
+          clip: { x: 20, y: 210, width: 50, height: 50 },
+        })
+      );
+      expect(clipped.pixel(0, 0)).toEqual(pink);
+      expect(clipped.pixel(19, 29)).toEqual(pink);
+      expect(clipped.pixel(20, 30)).not.toEqual(pink);
+
+      // Fixed content, and its mask, sit at the scroll offset.
+      const full = await decode(
+        await page.screenshot({ mask, fullPage: true })
+      );
+      expect(full.pixel(15, 1205)).toEqual(pink);
+      expect(full.pixel(105, 1015)).toEqual(pink);
+      expect(full.pixel(105, 15)).not.toEqual(pink);
+    });
+
+    it("masks with a Locator of another Page of the document", async () => {
+      document.body.style.margin = "0";
+      document.body.innerHTML = `<div id="m" style="width: 30px; height: 30px; background: rgb(204, 204, 204)"></div>`;
+      const other = createPage();
+      const image = await decode(
+        await createPage().screenshot({ mask: [other.locator("#m")] })
+      );
+      expect(image.pixel(15, 15)).toEqual(pink);
+      expect(image.pixel(35, 15)).not.toEqual(grey);
+    });
+  });
+
+  describe("restoring the document", () => {
+    const fixture = `
+      <input id="plain"><textarea id="styled" style="color: red"></textarea>
+      <div contenteditable id="caret" style="caret-color: blue !important"></div>
+      <div id="host"></div>
+      <div id="box" style="width: 50px; height: 50px; background: rgb(0, 0, 255)"></div>`;
+    const style =
+      "#box { background: rgb(255, 0, 0) !important } p { color: red }";
+
+    function setUp(): () => string {
+      document.body.style.margin = "0";
+      document.body.innerHTML = fixture;
+      document
+        .getElementById("host")!
+        .attachShadow({ mode: "open" }).innerHTML = `<p>shadow</p><input>`;
+      const snapshot = () =>
+        document.documentElement.outerHTML +
+        document.getElementById("host")!.shadowRoot!.innerHTML;
+      return snapshot;
+    }
+
+    it("applies the style and hides the caret only while capturing", async () => {
+      const snapshot = setUp();
+      const before = snapshot();
+      const changes: string[] = [];
+      const observer = new MutationObserver((records) => {
+        for (const record of records)
+          if (record.type === "attributes")
+            changes.push(
+              `${(record.target as Element).id || "shadow input"}: ${(record.target as HTMLElement).style.caretColor}`
+            );
+          else
+            for (const node of record.addedNodes)
+              if (node.nodeName === "STYLE")
+                changes.push(`style in ${node.parentNode!.nodeName}`);
+      });
+      observer.observe(document, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+      });
+      observer.observe(document.getElementById("host")!.shadowRoot!, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+      });
+
+      const box = document.getElementById("box")!.getBoundingClientRect();
+      const image = await decode(await createPage().screenshot({ style }));
+      expect(image.pixel(box.x + 10, box.y + 10)).toEqual([255, 0, 0, 255]);
+      await Promise.resolve();
+      observer.disconnect();
+      expect(changes).toEqual(
+        expect.arrayContaining([
+          "style in HTML",
+          "style in #document-fragment",
+          "plain: transparent",
+          "styled: transparent",
+          "caret: transparent",
+          "shadow input: transparent",
+        ])
+      );
+      // Each touched `style` attribute gets its own text back.
+      expect(snapshot()).toBe(before);
+      expect(document.getElementById("plain")!.hasAttribute("style")).toBe(
+        false
+      );
+    });
+
+    it("leaves the caret alone with caret: initial", async () => {
+      const snapshot = setUp();
+      const before = snapshot();
+      const changes: MutationRecord[] = [];
+      const observer = new MutationObserver((records) =>
+        changes.push(...records)
+      );
+      observer.observe(document, { attributes: true, subtree: true });
+      await createPage().screenshot({ caret: "initial" });
+      await Promise.resolve();
+      observer.disconnect();
+      expect(changes).toEqual([]);
+      expect(snapshot()).toBe(before);
+    });
+
+    it("restores the document after an error, a timeout, an abort and close", async () => {
+      const snapshot = setUp();
+      const before = snapshot();
+      const page = createPage();
+
+      document.getElementById("box")!.append(await taintedCanvas());
+      const tainted = snapshot();
+      await expect(page.screenshot({ style })).rejects.toThrow(
+        "its pixels cannot be read back"
+      );
+      expect(snapshot()).toBe(tainted);
+      document.querySelector("canvas")!.remove();
+      expect(snapshot()).toBe(before);
+
+      const stalls = (): void => void pendingFont(10_000);
+      stalls();
+      await expect(page.screenshot({ style, timeout: 100 })).rejects.toThrow(
+        "page.screenshot: Timeout 100ms exceeded."
+      );
+      expect(snapshot()).toBe(before);
+
+      const controller = new AbortController();
+      const aborted = page.screenshot({
+        style,
+        timeout: 0,
+        signal: controller.signal,
+      });
+      setTimeout(() => controller.abort(new Error("stop")), 50);
+      await expect(aborted).rejects.toThrow("page.screenshot: stop");
+      expect(snapshot()).toBe(before);
+
+      const closed = page.screenshot({ style, timeout: 0 });
+      setTimeout(() => void page.close(), 50);
+      await expect(closed).rejects.toThrow(
+        "Target page, context or browser has been closed"
+      );
+      expect(snapshot()).toBe(before);
+    });
+
+    it("keeps a cancelled capture's preparation and masks out of the next", async () => {
+      document.body.style.margin = "0";
+      // A's masked element loads its background only in A's style, so A's
+      // renderer waits on it after cloning, and B never requests it.
+      document.body.innerHTML = `
+        <div id="a" style="width: 20px; height: 20px"></div>
+        <div id="b" style="width: 20px; height: 20px; background: rgb(0, 128, 0)"></div>`;
+      const before = document.documentElement.outerHTML;
+      const [first, second] = [createPage(), createPage()];
+      const cancelled = first.screenshot({
+        style: `#a { background-image: url(/__delay/6000/background.gif) } #b { background: rgb(255, 0, 0) !important }`,
+        mask: [first.locator("#a"), first.locator("#b")],
+        timeout: 300,
+      });
+      const next = second.screenshot({ timeout: 10_000 });
+      await expect(cancelled).rejects.toThrow("Timeout 300ms exceeded.");
+      const cancelledAt = performance.now();
+
+      const image = await decode(await next);
+      // The next capture did not wait for the cancelled renderer, which
+      // waits for its request for up to 3 seconds.
+      expect(performance.now() - cancelledAt).toBeLessThan(2_000);
+      expect(image.pixel(10, 30)).toEqual([0, 128, 0, 255]);
+      // Only the renderer's hidden frame waits for the cancelled renderer.
+      expect(
+        document.documentElement.outerHTML.replace(
+          /<iframe data-snapdom-internal=[^>]*><\/iframe>/,
+          ""
+        )
+      ).toBe(before);
+
+      // Once the cancelled renderer gives up, nothing of it remains.
+      await expect
+        .poll(() => document.querySelector("iframe[data-snapdom-internal]"), {
+          timeout: 10_000,
+        })
+        .toBeNull();
+      expect(document.documentElement.outerHTML).toBe(before);
+    });
+
+    it("lets the next capture start once a cancelled one stops cloning", async () => {
+      document.body.style.margin = "0";
+      document.body.innerHTML = `
+        <div id="a" style="width: 20px; height: 20px"></div>
+        <p id="clamp" style="width: 60px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden">The quick brown fox jumps over the lazy dog</p>`;
+      const text = document.getElementById("clamp")!.textContent;
+      const [first, second] = [createPage(), createPage()];
+      // Generated content is fetched while the renderer clones.
+      const cancelled = first.screenshot({
+        style: `#a::before { content: url(/__delay/6000/generated.gif) }`,
+        mask: [first.locator("#a")],
+        timeout: 300,
+      });
+      const next = second.screenshot({ timeout: 10_000 });
+      await expect(cancelled).rejects.toThrow("Timeout 300ms exceeded.");
+      const cancelledAt = performance.now();
+      expect(signature(await next)).toBe("png");
+      expect(performance.now() - cancelledAt).toBeGreaterThan(2_000);
+      expect(document.getElementById("clamp")!.textContent).toBe(text);
+    });
+  });
 });
 
 describe("Locator.screenshot", () => {
   const red = [255, 0, 0, 255];
   const blue = [0, 0, 255, 255];
+  const pink = [255, 0, 255, 255];
 
   it("captures the page rectangle around the element", async () => {
     document.body.style.margin = "0";
@@ -823,6 +1036,141 @@ describe("Locator.screenshot", () => {
     // Measured with Playwright 1.62.1: a partly visible element taller than
     // the viewport is not scrolled.
     expect(window.scrollY).toBe(50);
+  });
+
+  it("masks every element each mask Locator matches", async () => {
+    document.body.style.margin = "0";
+    document.body.innerHTML = `
+      <div id="target" style="position: absolute; left: 0; top: 0; width: 100px; height: 100px; background: rgb(0, 0, 255)">
+        <div class="m" style="position: absolute; left: 10px; top: 10px; width: 20px; height: 20px"></div>
+        <div class="m" style="position: absolute; left: 50px; top: 10px; width: 20px; height: 20px; visibility: hidden"></div>
+        <div class="m" style="display: none"></div>
+        <div style="position: absolute; left: 10px; top: 50px; width: 10px; height: 10px; overflow: hidden">
+          <div id="clipped" style="width: 30px; height: 30px"></div>
+        </div>
+      </div>
+      <div id="top" popover="manual" style="margin: 0; padding: 0; border: 0; left: 60px; top: 60px; width: 20px; height: 20px; background: rgb(0, 128, 0)"></div>`;
+    document.getElementById("top")!.showPopover();
+    const page = createPage();
+    const image = await decode(
+      await page.locator("#target").screenshot({
+        mask: [
+          page.locator(".m"),
+          page.locator("#clipped"),
+          page.locator("#top"),
+        ],
+      })
+    );
+    expect(image.pixel(15, 15)).toEqual(pink);
+    expect(image.pixel(55, 15)).toEqual(pink);
+    expect(image.pixel(35, 15)).toEqual(blue);
+    // The whole box of a clipped element, over every layer of the page.
+    expect(image.pixel(35, 75)).toEqual(pink);
+    expect(image.pixel(65, 65)).toEqual(pink);
+    expect(image.pixel(95, 95)).toEqual(blue);
+  });
+
+  it("paints masks in the mask color", async () => {
+    document.body.style.margin = "0";
+    document.body.innerHTML = `<div id="target" style="width: 40px; height: 40px; background: rgb(0, 0, 255)"><div id="m" style="width: 20px; height: 20px"></div></div>`;
+    const page = createPage();
+    const shot = async (maskColor: string) =>
+      (
+        await decode(
+          await page
+            .locator("#target")
+            .screenshot({ mask: [page.locator("#m")], maskColor })
+        )
+      ).pixel(10, 10);
+    expect(await shot("#00FF00")).toEqual([0, 255, 0, 255]);
+    expect(await shot("#ffffff")).toEqual([255, 255, 255, 255]);
+    expect(await shot("rgba(255, 0, 0, 0.5)")).toEqual([128, 0, 127, 255]);
+    // A color the browser cannot parse paints nothing, as in Playwright.
+    expect(await shot("nonsense")).toEqual(blue);
+    expect(await shot("")).toEqual(pink);
+  });
+
+  it("snaps masks to whole CSS pixels and scales them", async () => {
+    document.body.style.margin = "0";
+    document.body.innerHTML = `
+      <div id="target" style="position: absolute; left: 0; top: 0; width: 60px; height: 40px; background: rgb(0, 0, 255)">
+        <div id="m" style="position: absolute; left: 10.3px; top: 5.5px; width: 30.4px; height: 20.25px"></div>
+      </div>`;
+    const page = createPage();
+    const mask = [page.locator("#m")];
+    // Chromium paints the box from (10, 6) to (41, 26) in CSS pixels.
+    const edges = (image: Awaited<ReturnType<typeof decode>>, dpr: number) =>
+      [
+        [10 * dpr - 1, 10 * dpr],
+        [41 * dpr - 1, 41 * dpr],
+      ].map(([inside, outside]) => [
+        image.pixel(outside === 10 * dpr ? inside + 1 : inside, 15 * dpr),
+        image.pixel(outside === 10 * dpr ? inside : outside, 15 * dpr),
+      ]);
+    const device = await withDevicePixelRatio(2, async () =>
+      decode(await page.locator("#target").screenshot({ mask }))
+    );
+    expect(device.width).toBe(120);
+    expect(edges(device, 2)).toEqual([
+      [pink, blue],
+      [pink, blue],
+    ]);
+    expect(device.pixel(30, 11)).toEqual(blue);
+    expect(device.pixel(30, 12)).toEqual(pink);
+    expect(device.pixel(30, 51)).toEqual(pink);
+    expect(device.pixel(30, 52)).toEqual(blue);
+    const css = await withDevicePixelRatio(2, async () =>
+      decode(await page.locator("#target").screenshot({ mask, scale: "css" }))
+    );
+    expect(css.width).toBe(60);
+    expect(edges(css, 1)).toEqual([
+      [pink, blue],
+      [pink, blue],
+    ]);
+  });
+
+  it("skips the content checks for masked elements", async () => {
+    document.body.style.margin = "0";
+    document.body.innerHTML = `
+      <div id="target" style="width: 100px; height: 60px; background: rgb(0, 0, 255)">
+        <video style="display: block; width: 40px; height: 30px"></video>
+        <video style="position: relative; left: 50.6875px; top: 0.3px; display: block; width: 30.2px; height: 20.4px"></video>
+      </div>`;
+    const page = createPage();
+    await expect(page.locator("#target").screenshot()).rejects.toThrow(
+      "capturing <video> content is not supported yet."
+    );
+    const image = await decode(
+      await page
+        .locator("#target")
+        .screenshot({ mask: [page.locator("video")] })
+    );
+    expect(image.pixel(20, 15)).toEqual(pink);
+    expect(image.pixel(60, 15)).toEqual(blue);
+    // A fractionally placed element is inside its own snapped mask.
+    expect(image.pixel(60, 40)).toEqual(pink);
+    expect(image.pixel(90, 40)).toEqual(blue);
+  });
+
+  it("captures and masks the element as the style lays it out", async () => {
+    document.body.style.margin = "0";
+    document.body.innerHTML = `
+      <div id="target" style="position: absolute; left: 0; top: 0; width: 100px; height: 40px; background: rgb(0, 0, 255)">
+        <div id="m" style="position: absolute; left: 0; top: 0; width: 20px; height: 20px"></div>
+      </div>`;
+    const page = createPage();
+    const styles = document.querySelectorAll("style").length;
+    const image = await decode(
+      await page.locator("#target").screenshot({
+        style:
+          "#target { width: 160px !important } #m { left: 120px !important }",
+        mask: [page.locator("#m")],
+      })
+    );
+    expect(image.width).toBe(160);
+    expect(image.pixel(130, 10)).toEqual(pink);
+    expect(image.pixel(10, 10)).toEqual(blue);
+    expect(document.querySelectorAll("style")).toHaveLength(styles);
   });
 
   it("rejects the Page-only options", async () => {

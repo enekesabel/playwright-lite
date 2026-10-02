@@ -4,11 +4,12 @@
  * clones it into an SVG image and rasterizes that on a canvas, so the pixels
  * are the DOM renderer's, not the browser compositor's.
  *
- * One queue per window serializes captures, as the pinned `TaskQueue` does
- * per page: every `Page` of a window shares the document a capture reads.
- * The caller's deadline, signal and page closure reject the call at once; the
- * queued task notices at its next step and stops, but renderer work already
- * started cannot be stopped, so the queue waits for it and drops its result.
+ * Captures of one window take turns through a lease, as the pinned
+ * `TaskQueue` serializes them per page: every `Page` of a window shares the
+ * document a capture reads and prepares. The caller's deadline, signal and
+ * page closure reject the call at once and restore the document; the
+ * renderer cannot be stopped mid-stage, so it stops at its next stage
+ * boundary, and the next capture waits only while it is still cloning.
  */
 
 import type { Locator, Page } from "@playwright/test";
@@ -41,6 +42,20 @@ export type ScreenshotEncoding = {
   quality: number | undefined;
   omitBackground: boolean;
   scale: "css" | "device";
+};
+
+/**
+ * What a capture temporarily changes in the document, and covers in its
+ * output: pinned `_preparePageForScreenshot` and `_maskElements`.
+ */
+export type ScreenshotPreparation = {
+  /** CSS added to the document and its open shadow roots; "" adds none. */
+  style: string;
+  /** Pinned `caret !== "initial"`: makes editable text's caret transparent. */
+  hideCaret: boolean;
+  /** Each mask Locator's matching elements, resolved when the capture masks. */
+  mask: (() => Element[])[];
+  maskColor: string;
 };
 
 /** A rectangle in document coordinates, in CSS pixels. */
@@ -80,15 +95,16 @@ const MIME_TYPES: Record<ScreenshotFormat, string> = {
 };
 
 /**
- * Validates `options` in the order the pinned protocol validator reads
- * `PageScreenshotParams`, then applies pinned `validateScreenshotOptions`.
- * Options whose behaviour has not landed reject, while their default forms,
- * which change nothing, are accepted.
+ * Validates `options` in the order the pinned client and protocol validator
+ * read them, then applies pinned `validateScreenshotOptions`. `maskTarget`
+ * resolves one `mask` entry, or returns `undefined` when it is not a Locator.
+ * `animations: "disabled"` has not landed and rejects.
  */
 export function pageScreenshotEncoding(
   apiName: string,
-  options: PageScreenshotOptions
-): ScreenshotEncoding & PageScreenshotRegion {
+  options: PageScreenshotOptions,
+  maskTarget: (value: unknown) => (() => Element[]) | undefined
+): ScreenshotEncoding & PageScreenshotRegion & ScreenshotPreparation {
   return withApiPrefix(apiName, () => {
     // Pinned client/page.ts derives the type from `path` before the call,
     // and writes the file afterwards; neither has a document counterpart.
@@ -96,6 +112,9 @@ export function pageScreenshotEncoding(
       throw new Error(
         "the `path` option is not supported; write the returned bytes yourself."
       );
+    // Pinned client/page.ts maps each mask Locator to its frame and selector
+    // before the protocol validator runs.
+    const mask = validateMask(options.mask, maskTarget);
     const type = validateEnum(options.type, "type", FORMATS);
     const quality = validateInt(options.quality, "quality");
     const fullPage = validateBoolean(options.fullPage, "fullPage");
@@ -107,19 +126,18 @@ export function pageScreenshotEncoding(
       options.omitBackground,
       "omitBackground"
     );
-    validateEnum(options.caret, "caret", ["hide", "initial"]);
+    const caret = validateEnum(options.caret, "caret", ["hide", "initial"]);
     const animations = validateEnum(options.animations, "animations", [
       "disabled",
       "allow",
     ]);
     const scale = validateEnum(options.scale, "scale", ["css", "device"]);
-    const mask = validateMask(options.mask);
-    if (options.maskColor !== undefined)
-      validateString(options.maskColor, "maskColor");
+    const maskColor =
+      options.maskColor === undefined
+        ? undefined
+        : validateString(options.maskColor, "maskColor");
     const style =
       options.style === undefined ? "" : validateString(options.style, "style");
-    if (mask.length) throw new Error("the `mask` option is not supported yet.");
-    if (style) throw new Error("the `style` option is not supported yet.");
     if (animations === "disabled")
       throw new Error('`animations: "disabled"` is not supported yet.');
     const encoding = validateEncoding(type, quality, omitBackground, scale);
@@ -130,7 +148,16 @@ export function pageScreenshotEncoding(
       if (!(clip.height > 0))
         throw new Error("Expected options.clip.height to be greater than 0.");
     }
-    return { ...encoding, fullPage: fullPage ?? false, clip };
+    return {
+      ...encoding,
+      fullPage: fullPage ?? false,
+      clip,
+      style,
+      hideCaret: caret !== "initial",
+      mask,
+      // Pinned `_maskElements` falls back to `#F0F` for an empty color too.
+      maskColor: maskColor || "#F0F",
+    };
   });
 }
 
@@ -261,11 +288,12 @@ function validateEncoding(
   };
 }
 
-/** The steps of one capture, run in the window's queue. */
+/** The steps of one capture, run while it holds the window's lease. */
 export type CaptureTask = {
   apiName: string;
   window: Window & typeof globalThis;
   encoding: ScreenshotEncoding;
+  preparation: ScreenshotPreparation;
   /** The resolved timeout; 0 waits without a limit. */
   timeout: number;
   /** The caller's signal bound to the page's lifetime. */
@@ -284,12 +312,37 @@ export type CaptureTask = {
   ) => DocumentRect | Promise<DocumentRect>;
 };
 
-/** The pending work of each window's capture queue. */
-const queues = new WeakMap<Window, Promise<unknown>>();
+/**
+ * A window's capture turns, shared by every `Page` of the window. A capture
+ * holds the lease while it prepares, measures and clones the document, since
+ * neither the preparation nor SnapDOM's own temporary changes to the live
+ * document can overlap another capture's.
+ */
+type Coordinator = {
+  /** Settles once every lease granted so far has been released. */
+  turns: Promise<void>;
+  holding: boolean;
+  /** Renderers started in the window that have not settled yet. */
+  renderers: number;
+};
+
+type Lease = { release: () => void };
+
+const coordinators = new WeakMap<Window, Coordinator>();
+
+function coordinatorFor(browserWindow: Window): Coordinator {
+  let coordinator = coordinators.get(browserWindow);
+  if (!coordinator) {
+    coordinator = { turns: Promise.resolve(), holding: false, renderers: 0 };
+    coordinators.set(browserWindow, coordinator);
+  }
+  return coordinator;
+}
 
 /**
- * Runs `task` once the window's earlier captures have finished, and settles
- * with its bytes, or rejects when the deadline passes or `signal` aborts.
+ * Runs `task` once the window's earlier captures have released their lease,
+ * and settles with its bytes, or rejects when the deadline passes or
+ * `signal` aborts.
  */
 export function capture(task: CaptureTask): Promise<Uint8Array> {
   const log: string[] = [];
@@ -297,19 +350,30 @@ export function capture(task: CaptureTask): Promise<Uint8Array> {
   const stop = new AbortController();
   const { signal } = task;
   if (signal.aborted) return Promise.reject(aborted(signal, log, false));
-  const previous = queues.get(task.window) ?? Promise.resolve();
-  const work = previous.then(() =>
-    stop.signal.aborted ? undefined : run(task, log, stop.signal)
-  );
-  // The queue continues once this capture's own work has ended, however its
-  // caller fared, so no two captures ever overlap in one window.
-  queues.set(
-    task.window,
-    work.then(
-      () => {},
-      () => {}
-    )
-  );
+  const coordinator = coordinatorFor(task.window);
+  const document = task.window.document;
+  let release!: () => void;
+  const released = new Promise<void>((resolve) => (release = resolve));
+  let held = true;
+  const lease: Lease = {
+    release: () => {
+      if (!held) return;
+      held = false;
+      coordinator.holding = false;
+      removeRendererScaffolding(document, coordinator.renderers === 0);
+      release();
+    },
+  };
+  const previous = coordinator.turns;
+  coordinator.turns = previous.then(() => released);
+  const work = previous.then(() => {
+    if (stop.signal.aborted) return undefined;
+    coordinator.holding = true;
+    return run(task, log, stop.signal, lease, coordinator);
+  });
+  // The lease outlives a cancelled caller while its renderer clones, and
+  // otherwise ends with the capture's own work, however its caller fared.
+  work.then(lease.release, lease.release);
   return new Promise<Uint8Array>((resolve, reject) => {
     let timer: number | undefined;
     const settle = (finish: () => void) => {
@@ -345,48 +409,83 @@ export function capture(task: CaptureTask): Promise<Uint8Array> {
   });
 }
 
-/** The queued capture: fonts, region, renderer, checks and encoding. */
+/** Thrown at a renderer stage boundary once its caller stopped waiting. */
+class CaptureCancelled extends Error {}
+
+/**
+ * The capture under the lease: preparation, fonts, region, masks, renderer,
+ * checks and encoding. Once `stopped` aborts, the preparation is restored at
+ * once and the renderer stops at its next stage boundary.
+ */
 async function run(
   task: CaptureTask,
   log: string[],
-  stopped: AbortSignal
+  stopped: AbortSignal,
+  lease: Lease,
+  coordinator: Coordinator
 ): Promise<Uint8Array | undefined> {
   const cancelled = () => stopped.aborted;
   const { window: browserWindow, encoding } = task;
   const document = browserWindow.document;
   log.push(task.title);
-  // Pinned `_preparePageForScreenshot` waits for `document.fonts.ready` and
-  // ignores its rejection. A cancelled call stops waiting at once, so a
-  // stalled font never holds the queue for a later capture.
-  log.push("waiting for fonts to load...");
-  await untilStopped(
-    document.fonts.ready.then(
-      () => {},
-      () => {}
-    ),
-    stopped
+  // Pinned `_preparePageForScreenshot` prepares before waiting for fonts,
+  // so the element wait and the measurements see the temporary style.
+  const restore = prepareForScreenshot(
+    document,
+    task.preparation.style,
+    task.preparation.hideCaret
   );
-  if (cancelled()) return undefined;
-  log.push("fonts loaded");
-  const dpr = encoding.scale === "css" ? 1 : browserWindow.devicePixelRatio;
-  let region: DocumentRect;
+  let cloned = false;
+  const onStop = () => {
+    restore();
+    if (cloned) lease.release();
+  };
+  stopped.addEventListener("abort", onStop, { once: true });
   try {
-    region = devicePixelRegion(await task.region(log, stopped), dpr);
-  } catch (error) {
+    // Pinned `_preparePageForScreenshot` waits for `document.fonts.ready`
+    // and ignores its rejection. A cancelled call stops waiting at once, so
+    // a stalled font never holds the lease for a later capture.
+    log.push("waiting for fonts to load...");
+    await untilStopped(
+      document.fonts.ready.then(
+        () => {},
+        () => {}
+      ),
+      stopped
+    );
     if (cancelled()) return undefined;
-    throw withMessagePrefix(error, task.apiName);
-  }
-  if (cancelled()) return undefined;
-  const usedFonts = assertCapturableContent(task, region);
-  const renderer = await loadRenderer();
-  if (cancelled()) return undefined;
-  // Rendered without a fill, so the page's own background shows through;
-  // `compose` paints the canvas background the browser would paint under it.
-  let result: Awaited<ReturnType<Renderer>>;
-  let rendered: HTMLCanvasElement;
-  let svg = "";
-  try {
-    result = await renderer(document.documentElement, {
+    log.push("fonts loaded");
+    const dpr = encoding.scale === "css" ? 1 : browserWindow.devicePixelRatio;
+    let region: DocumentRect;
+    let masks: DocumentRect[];
+    try {
+      region = devicePixelRegion(await task.region(log, stopped), dpr);
+      if (cancelled()) return undefined;
+      // Pinned `_screenshot` masks once the region is known, just before
+      // the capture.
+      masks = maskRects(browserWindow, task.preparation.mask);
+    } catch (error) {
+      if (cancelled()) return undefined;
+      throw withMessagePrefix(error, task.apiName);
+    }
+    const usedFonts = assertCapturableContent(task, region, masks);
+    const renderer = await loadRenderer();
+    if (cancelled()) return undefined;
+    const root = document.documentElement;
+    let svg = "";
+    let rootColor: string | undefined;
+    // SnapDOM awaits each hook without catching, so a throw ends its
+    // pipeline: the only way to stop it, and only between stages. A
+    // same-origin frame is rendered by a nested capture with the same hooks.
+    const stage = (context: { element?: unknown }, onRoot?: () => void) => {
+      if (context.element === root) onRoot?.();
+      if (cancelled()) throw new CaptureCancelled();
+    };
+    // Rendered without a fill, so the page's own background shows through;
+    // `compose` paints the canvas background the browser would paint under
+    // it.
+    coordinator.renderers++;
+    const rendering = renderer(root, {
       clip: region,
       dpr,
       scale: 1,
@@ -395,69 +494,261 @@ async function run(
       invalidate: true,
       plugins: [
         {
-          name: "playwright-lite-embedded-fonts",
-          afterRender: (context) => {
-            svg = context.svgString ?? "";
-          },
+          name: "playwright-lite-capture",
+          beforeSnap: (context) => stage(context),
+          beforeClone: (context) => stage(context),
+          // SnapDOM undoes its own changes to the live document, such as
+          // rewritten line-clamped text, before this hook.
+          afterClone: (context) =>
+            stage(context, () => {
+              cloned = true;
+              if (cancelled()) lease.release();
+            }),
+          beforeRender: (context) => stage(context),
+          // Composing reads the live document's layout right up to here;
+          // exporting reads only the SVG.
+          afterRender: (context) =>
+            stage(context, () => {
+              svg = context.svgString ?? "";
+              rootColor = rootBackgroundColor(browserWindow);
+              restore();
+            }),
+          beforeExport: (context) => stage(context),
+          afterExport: (context) => stage(context),
         },
       ],
-    });
-    rendered = await result.toCanvas();
-  } catch (error) {
-    throw withMessagePrefix(error, task.apiName);
-  } finally {
-    removeRendererScaffolding(document);
-  }
-  if (cancelled()) return undefined;
-  // A degraded capture is a failure, never a placeholder: SnapDOM records
-  // each substitution it made, such as an image it could not load or an
-  // output it downscaled, as a warning. `reconcile-risk` only notes that
-  // inline text was laid out without a second measuring pass.
-  const degradations = result.warnings.filter(
-    (warning) => warning.code !== "reconcile-risk"
-  );
-  if (degradations.length)
-    throw new Error(
-      `${task.apiName}: the capture is incomplete: ${degradations.map((warning) => warning.message).join("; ")}`
+    }).then(async (result) => ({ result, canvas: await result.toCanvas() }));
+    const settled = () => {
+      coordinator.renderers--;
+      if (coordinator.renderers === 0 && !coordinator.holding)
+        removeRendererScaffolding(document, true);
+    };
+    rendering.then(settled, settled);
+    let result: Awaited<ReturnType<Renderer>>;
+    let rendered: HTMLCanvasElement;
+    try {
+      ({ result, canvas: rendered } = await rendering);
+    } catch (error) {
+      if (cancelled()) return undefined;
+      throw withMessagePrefix(error, task.apiName);
+    }
+    if (cancelled()) return undefined;
+    // A degraded capture is a failure, never a placeholder: SnapDOM records
+    // each substitution it made, such as an image it could not load or an
+    // output it downscaled, as a warning. `reconcile-risk` only notes that
+    // inline text was laid out without a second measuring pass.
+    const degradations = result.warnings.filter(
+      (warning) => warning.code !== "reconcile-risk"
     );
-  const embedded = embeddedFontFamilies(svg);
-  for (const [name, { family, element }] of usedFonts)
-    if (!embedded.has(name))
+    if (degradations.length)
       throw new Error(
-        `${task.apiName}: cannot capture ${task.describe(element)}: its text uses the "${family}" web font, which the renderer could not embed.`
+        `${task.apiName}: the capture is incomplete: ${degradations.map((warning) => warning.message).join("; ")}`
       );
-  const output = compose(browserWindow, rendered, encoding);
-  const blob = await new Promise<Blob | null>((resolve) =>
-    output.toBlob(
-      resolve,
-      MIME_TYPES[encoding.format],
-      encoding.format === "jpeg"
-        ? (encoding.quality ?? 80) / 100
-        : encoding.format === "webp"
-          ? (encoding.quality ?? 100) / 100
-          : undefined
-    )
-  );
-  // A browser that cannot encode a type silently returns a PNG instead.
-  if (!blob || blob.type !== MIME_TYPES[encoding.format])
-    throw new Error(
-      `${task.apiName}: this browser cannot encode ${encoding.format} images.`
+    const embedded = embeddedFontFamilies(svg);
+    for (const [name, { family, element }] of usedFonts)
+      if (!embedded.has(name))
+        throw new Error(
+          `${task.apiName}: cannot capture ${task.describe(element)}: its text uses the "${family}" web font, which the renderer could not embed.`
+        );
+    const output = compose(document, rendered, encoding, rootColor);
+    paintMasks(output, masks, region, dpr, task.preparation.maskColor);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      output.toBlob(
+        resolve,
+        MIME_TYPES[encoding.format],
+        encoding.format === "jpeg"
+          ? (encoding.quality ?? 80) / 100
+          : encoding.format === "webp"
+            ? (encoding.quality ?? 100) / 100
+            : undefined
+      )
     );
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  return cancelled() ? undefined : bytes;
+    // A browser that cannot encode a type silently returns a PNG instead.
+    if (!blob || blob.type !== MIME_TYPES[encoding.format])
+      throw new Error(
+        `${task.apiName}: this browser cannot encode ${encoding.format} images.`
+      );
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    return cancelled() ? undefined : bytes;
+  } finally {
+    stopped.removeEventListener("abort", onStop);
+    restore();
+  }
 }
 
 /**
- * SnapDOM leaves the hidden `<iframe>` it decodes images in attached to the
- * document after a capture, and removes its style sandbox only when a capture
- * succeeds. The queue runs one renderer per document at a time, so once one
- * settles, neither is in use; SnapDOM creates them again when it needs them.
+ * SnapDOM keeps a hidden style sandbox in `<body>` while it clones and
+ * removes it only when composing succeeds; it also leaves the hidden
+ * `<iframe>` it decodes images in attached after exporting. Only the lease
+ * holder clones, so the sandbox is unused between leases; the frame is
+ * removed only when no renderer of the window is running. SnapDOM creates
+ * either again when it needs it.
  */
-function removeRendererScaffolding(document: Document) {
+function removeRendererScaffolding(document: Document, frame: boolean) {
   for (const element of document.querySelectorAll(
-    "iframe[data-snapdom-internal], #snapdom-sandbox[data-snapdom-internal]"
+    frame
+      ? "iframe[data-snapdom-internal], #snapdom-sandbox[data-snapdom-internal]"
+      : "#snapdom-sandbox[data-snapdom-internal]"
   ))
     element.remove();
+}
+
+/**
+ * Pinned screenshotter.ts `inPagePrepareForScreenshots`, style and caret
+ * parts, for the document and its open shadow roots. The pinned function
+ * keeps its cleanup in one `window.__pwCleanupScreenshot`; this returns it,
+ * since every `Page` of a window shares the document. The cleanup runs once,
+ * and puts back each touched `style` attribute's own text, where the pinned
+ * one leaves it re-serialized and adds `style=""` to elements that had none.
+ */
+function prepareForScreenshot(
+  document: Document,
+  style: string,
+  hideCaret: boolean
+): () => void {
+  const cleanups: (() => void)[] = [];
+  const roots = shadowRootsAndDocument(document);
+  if (style)
+    for (const root of roots) {
+      const element = document.createElement("style");
+      element.textContent = style;
+      if (root === document) document.documentElement.append(element);
+      else root.append(element);
+      cleanups.push(() => element.remove());
+    }
+  if (hideCaret) {
+    const carets = new Map<
+      HTMLElement,
+      { value: string; priority: string; attribute: string | null; css: string }
+    >();
+    for (const root of roots)
+      for (const element of root.querySelectorAll<HTMLElement>(
+        "input,textarea,[contenteditable]"
+      )) {
+        carets.set(element, {
+          value: element.style.getPropertyValue("caret-color"),
+          priority: element.style.getPropertyPriority("caret-color"),
+          attribute: element.getAttribute("style"),
+          css: element.style.cssText,
+        });
+        element.style.setProperty("caret-color", "transparent", "important");
+      }
+    cleanups.push(() => {
+      for (const [element, before] of carets) {
+        element.style.setProperty("caret-color", before.value, before.priority);
+        // Unless the page changed the inline style meanwhile, its own
+        // attribute text goes back too.
+        if (element.style.cssText !== before.css) continue;
+        // Chromium writes CSSOM changes back to the attribute lazily, and a
+        // pending write-back can recreate a removed attribute; reading it
+        // first settles the write-back.
+        if (before.attribute === null) {
+          element.getAttribute("style");
+          element.removeAttribute("style");
+        } else if (element.getAttribute("style") !== before.attribute)
+          element.setAttribute("style", before.attribute);
+      }
+    });
+  }
+  let restored = false;
+  return () => {
+    if (restored) return;
+    restored = true;
+    for (const cleanup of cleanups) cleanup();
+  };
+}
+
+/** Pinned `collectRoots`: the document, then each open shadow root. */
+function shadowRootsAndDocument(
+  root: Document | ShadowRoot,
+  roots: (Document | ShadowRoot)[] = []
+): (Document | ShadowRoot)[] {
+  roots.push(root);
+  const document = root.ownerDocument ?? (root as Document);
+  const walker = document.createTreeWalker(root, 1 /* SHOW_ELEMENT */);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const shadowRoot = (node as Element).shadowRoot;
+    if (shadowRoot) shadowRootsAndDocument(shadowRoot, roots);
+  }
+  return roots;
+}
+
+/**
+ * The document rectangles pinned highlight.ts paints for each mask element:
+ * its bounding box in the fixed glass pane, which Chromium snaps to whole
+ * CSS pixels.
+ */
+function maskRects(
+  browserWindow: Window & typeof globalThis,
+  mask: (() => Element[])[]
+): DocumentRect[] {
+  const rects: DocumentRect[] = [];
+  for (const resolve of mask)
+    for (const element of resolve()) {
+      const rect = snappedRect(browserWindow, element.getBoundingClientRect());
+      if (rect.width > 0 && rect.height > 0) rects.push(rect);
+    }
+  return rects;
+}
+
+/**
+ * A viewport box in document coordinates, its edges rounded to whole CSS
+ * pixels as Chromium snaps a box it paints.
+ */
+function snappedRect(
+  browserWindow: Window & typeof globalThis,
+  box: DOMRect
+): DocumentRect {
+  const x = Math.round(box.left);
+  const y = Math.round(box.top);
+  return {
+    x: x + browserWindow.scrollX,
+    y: y + browserWindow.scrollY,
+    width: Math.round(box.right) - x,
+    height: Math.round(box.bottom) - y,
+  };
+}
+
+/**
+ * Paints each mask over the composed capture, above every layer of the page
+ * as the pinned glass pane is. A color the browser cannot parse paints
+ * nothing, as an invalid `background-color` does.
+ */
+function paintMasks(
+  output: HTMLCanvasElement,
+  masks: DocumentRect[],
+  region: DocumentRect,
+  dpr: number,
+  color: string
+) {
+  if (!masks.length) return;
+  const context = output.getContext("2d")!;
+  if (!setFillColor(context, color)) return;
+  const originX = Math.round(region.x * dpr);
+  const originY = Math.round(region.y * dpr);
+  for (const mask of masks)
+    context.fillRect(
+      mask.x * dpr - originX,
+      mask.y * dpr - originY,
+      mask.width * dpr,
+      mask.height * dpr
+    );
+}
+
+/**
+ * A canvas ignores a color it cannot parse and keeps its current fill, so a
+ * color is valid when it replaces both of two different fills.
+ */
+function setFillColor(
+  context: CanvasRenderingContext2D,
+  color: string
+): boolean {
+  for (const current of ["#000000", "#ffffff"]) {
+    context.fillStyle = current;
+    context.fillStyle = color;
+    if (context.fillStyle !== current) return true;
+  }
+  return false;
 }
 
 /**
@@ -465,13 +756,14 @@ function removeRendererScaffolding(document: Document) {
  * starts from white, which `omitBackground` makes transparent for every type
  * but JPEG, and paints the root background, propagated from `<body>` when
  * `<html>` has none, over the whole canvas, beyond the root element's box.
+ * `rootColor` is read while the capture's preparation still applies.
  */
 function compose(
-  browserWindow: Window & typeof globalThis,
+  document: Document,
   rendered: HTMLCanvasElement,
-  encoding: ScreenshotEncoding
+  encoding: ScreenshotEncoding,
+  rootColor: string | undefined
 ): HTMLCanvasElement {
-  const document = browserWindow.document;
   const output = document.createElement("canvas");
   output.width = rendered.width;
   output.height = rendered.height;
@@ -480,7 +772,6 @@ function compose(
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, output.width, output.height);
   }
-  const rootColor = rootBackgroundColor(browserWindow);
   if (rootColor) {
     context.fillStyle = rootColor;
     context.fillRect(0, 0, output.width, output.height);
@@ -542,20 +833,18 @@ const URL_IMAGE_PROPERTIES = [
 ];
 
 /**
- * Refuses a capture whose region holds content the renderer would replace
- * without reporting it: a canvas the page cannot read back, and the media
- * whose failures SnapDOM substitutes silently (frames, video, URL images in
- * CSS and SVG), which cannot yet be verified. `<img>` failures are reported
- * by the renderer itself.
- */
-/**
  * Refuses content in `region` the renderer cannot reproduce or would replace
  * without a warning, and returns the web fonts its text uses: the family the
  * capture must embed, by lowercase name, and the first element that uses it.
+ * A canvas the page cannot read back renders blank, and SnapDOM substitutes
+ * failed frames, video and URL images in CSS and SVG silently, so they cannot
+ * yet be verified; `<img>` failures are reported by the renderer itself.
+ * Elements inside a mask are skipped.
  */
 function assertCapturableContent(
   task: CaptureTask,
-  region: DocumentRect
+  region: DocumentRect,
+  masks: DocumentRect[]
 ): Map<string, { family: string; element: Element }> {
   const browserWindow = task.window;
   const refuse = (element: Element, reason: string): never => {
@@ -567,13 +856,18 @@ function assertCapturableContent(
   const usedFonts = new Map<string, { family: string; element: Element }>();
   for (const element of renderedElements(browserWindow.document)) {
     const box = element.getBoundingClientRect();
+    const rect = {
+      x: box.left + browserWindow.scrollX,
+      y: box.top + browserWindow.scrollY,
+      width: box.width,
+      height: box.height,
+    };
+    // A masked element's pixels are painted over, whatever they would be;
+    // its own mask covers its box snapped as the mask is.
+    const painted = snappedRect(browserWindow, box);
     if (
-      !intersects(region, {
-        x: box.left + browserWindow.scrollX,
-        y: box.top + browserWindow.scrollY,
-        width: box.width,
-        height: box.height,
-      })
+      !intersects(region, rect) ||
+      masks.some((mask) => contains(mask, painted))
     )
       continue;
     const name = element.localName;
@@ -711,6 +1005,15 @@ function intersects(a: DocumentRect, b: DocumentRect): boolean {
     b.x + b.width > a.x &&
     b.y < a.y + a.height &&
     b.y + b.height > a.y
+  );
+}
+
+function contains(outer: DocumentRect, inner: DocumentRect): boolean {
+  return (
+    inner.x >= outer.x &&
+    inner.y >= outer.y &&
+    inner.x + inner.width <= outer.x + outer.width &&
+    inner.y + inner.height <= outer.y + outer.height
   );
 }
 
@@ -867,9 +1170,19 @@ function validateRect(value: unknown, name: string): DocumentRect {
 }
 
 /** `mask` is an array of Locators; an empty one masks nothing. */
-function validateMask(value: unknown): unknown[] {
+function validateMask(
+  value: unknown,
+  maskTarget: (value: unknown) => (() => Element[]) | undefined
+): (() => Element[])[] {
   if (value === undefined) return [];
   if (!Array.isArray(value))
     throw new Error(`mask: expected array, got ${typeof value}`);
-  return value;
+  return value.map((entry: unknown, index) => {
+    const target = maskTarget(entry);
+    if (!target)
+      throw new Error(
+        `mask[${index}]: expected Locator, got ${entry === null ? "null" : typeof entry}`
+      );
+    return target;
+  });
 }

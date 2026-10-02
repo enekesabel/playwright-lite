@@ -243,7 +243,7 @@ export const objectSections: readonly ObjectSection[] = [
   {
     name: "Screenshots",
     covers:
-      "`page.screenshot()` captures the current viewport, the full page or a clipped region, and `locator.screenshot()` and `elementHandle.screenshot()` the page rectangle around one element, by rendering the document's DOM into an image inside the page, with the geometry, waiting, codecs, `quality`, `scale` and `omitBackground` Playwright documents.",
+      "`page.screenshot()` captures the current viewport, the full page or a clipped region, and `locator.screenshot()` and `elementHandle.screenshot()` the page rectangle around one element, by rendering the document's DOM into an image inside the page, with the geometry, waiting, codecs, masks, temporary `style`, `quality`, `scale` and `omitBackground` Playwright documents.",
     members: [
       {
         member: "Returned image",
@@ -256,9 +256,9 @@ export const objectSections: readonly ObjectSection[] = [
         playwright: "Also writes the image to the file.",
       },
       {
-        member: "`mask`, `style`",
-        lite: "Rejected, except an empty `mask` and an empty `style`.",
-        playwright: "Cover elements and apply a stylesheet.",
+        member: "`style`",
+        lite: "Applied to the document and its open shadow roots.",
+        playwright: "Also applied inside every frame.",
       },
       {
         member: "`animations`",
@@ -275,14 +275,17 @@ export const objectSections: readonly ObjectSection[] = [
       "The pixels come from the DOM renderer, not the browser's compositor, so text antialiasing, form controls and some effects can differ while the geometry matches.",
       "A capture rejects instead of substituting what it cannot reproduce: a `<canvas>` cross-origin content tainted, an image the renderer cannot load, and in the captured area, until their capture can be verified, `<video>`, `<iframe>`, `<frame>`, `<object>`, `<embed>`, SVG `<image>`, and CSS `background-image`, `mask-image`, `border-image-source`, `list-style-image` or `content` images that load from a URL. Images from `data:` URLs are captured.",
       "Text whose web font the renderer cannot embed also rejects the capture: a font added through the `FontFace` API rather than an `@font-face` rule, or one whose family name looks like an icon font's, such as one containing `icon`, `glyph` or `symbols`.",
+      "An element entirely inside a `mask` is exempt from these checks, since the mask covers it; an image that failed to load still rejects.",
     ],
     edgeCases: [
       "An image that failed to load in the page also rejects the capture, where Playwright captures the browser's broken-image rendering.",
       "The root background is painted over the whole image as a color only: a translucent one is applied twice inside the root element's box, and a background image on `<html>` or `<body>` covers only that element's box.",
       "A `<canvas>` with `position: fixed` is resampled, so its pixels can differ slightly from the canvas's own.",
-      "Captures of one document run one at a time across all its `Page` objects, where Playwright queues them per page. A capture that times out or is aborted rejects at once, but rendering that already started finishes before the next capture begins.",
+      "Captures of one document run one at a time across all its `Page` objects, where Playwright queues them per page. A capture that times out, is aborted or whose page closes rejects at once and removes its `style` and caret changes; the next capture waits only while the cancelled one is still copying the document, which can take up to 3 seconds when that copy loads a resource.",
+      "A `mask` Locator of another `Page` of the same document masks too; Playwright masks only with Locators of the captured page.",
+      'After a capture, each `style` attribute the caret hiding touched has its original text again, where Playwright re-serializes it and leaves `style=""` on elements that had none.',
       "The renderer can log a `console.warn()` message, such as a failed image request, which a `console` listener receives.",
-      'While a capture runs, the document holds a hidden `<iframe>` and, during rendering, a hidden `<div id="snapdom-sandbox">`; both are removed once the capture\'s rendering ends.',
+      'While a capture runs, the document holds a hidden `<iframe>` and, during rendering, a hidden `<div id="snapdom-sandbox">`; both are removed once no capture of the document is rendering.',
       "A capture more than 32,767 device pixels tall or wide, such as the full page of a long document, rejects where Playwright returns the image.",
       "A clip narrower or shorter than one CSS pixel rejects with `Cannot take screenshot with 0 width.` or `0 height.`, without Playwright's `Protocol error (Page.captureScreenshot):` prefix.",
       "An image that failed to load within the previous 8 seconds rejects a capture even if it would load now, because the renderer remembers failed URLs for that long.",
@@ -592,7 +595,7 @@ export const pageLedger = {
     "Capturing a screencast requires the browser process."
   ),
   screenshot: partial(
-    'Returns a `Uint8Array` rendered from the DOM, and rejects `path`, `mask`, `style` and `animations: "disabled"`; see [Screenshots](#screenshots).'
+    'Returns a `Uint8Array` rendered from the DOM, and rejects `path` and `animations: "disabled"`; see [Screenshots](#screenshots).'
   ),
   selectOption: implemented(),
   sessionStorage: implemented("Native current-window Storage only."),
@@ -712,7 +715,7 @@ export const locatorLedger = {
   press: implemented(),
   pressSequentially: implemented(),
   screenshot: partial(
-    'Returns a `Uint8Array` rendered from the DOM, and rejects `path`, `mask`, `style` and `animations: "disabled"`; see [Screenshots](#screenshots).'
+    'Returns a `Uint8Array` rendered from the DOM, and rejects `path` and `animations: "disabled"`; see [Screenshots](#screenshots).'
   ),
   scrollIntoViewIfNeeded: implemented(),
   selectOption: implemented(),
