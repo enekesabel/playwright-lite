@@ -120,7 +120,7 @@ const historyTraversalNote =
  */
 const mouseDifferences = {
   move: {
-    lite: "Dispatches pointer and mouse move, over/out and enter/leave events to the element `elementFromPoint()` reports; with the left button held after a press on a draggable element, it starts an HTML drag, emulated as [Drag and drop](#drag-and-drop) describes.",
+    lite: "Dispatches pointer and mouse move, over/out and enter/leave events to the element `elementFromPoint()` reports, or to the element holding pointer capture; with the left button held after a press on a draggable element, it starts an HTML drag, emulated as [Drag and drop](#drag-and-drop) describes.",
     playwright: "The browser starts a native HTML drag.",
   },
   down: {
@@ -129,7 +129,7 @@ const mouseDifferences = {
       "The browser also selects text, opens its context menu and autoscrolls.",
   },
   up: {
-    lite: "Dispatches `pointerup`, `mouseup` and a `click`, `auxclick` or `dblclick` on the nearest common ancestor of the press and release targets; during a drag it drops instead, as [Drag and drop](#drag-and-drop) describes.",
+    lite: "Dispatches `pointerup`, `mouseup` and a `click`, `auxclick` or `dblclick` on the element holding pointer capture, or else on the nearest common ancestor of the press and release targets; during a drag it drops instead, as [Drag and drop](#drag-and-drop) describes.",
     playwright: "Drops a native HTML drag.",
   },
   wheel: {
@@ -419,7 +419,7 @@ export const objectSections: readonly ObjectSection[] = [
   {
     name: "Mouse",
     covers:
-      "`page.mouse` moves the one pointer that `click()`, `hover()` and the other pointer actions also move, so its position, held buttons and the element under it carry over between them.",
+      "`page.mouse` moves the one pointer that `click()`, `hover()` and the other pointer actions also move, so its position, held buttons and the element under it carry over between them. While a button is held, an element can capture the pointer with `setPointerCapture()`, and the pointer's events go to it until the capture ends.",
     members: (["move", "down", "up", "wheel"] as const).map((member) => ({
       member: `\`${member}()\``,
       ...mouseDifferences[member],
@@ -429,14 +429,15 @@ export const objectSections: readonly ObjectSection[] = [
     ],
     edgeCases: [
       "When the element under a still pointer changes, its over/out and enter/leave events fire with the next `mouse` call or pointer action; the browser fires them by itself after the next layout.",
-      "Elements inside a closed shadow root receive nothing; their host receives the events.",
+      "Mouse and keyboard input reach an element inside a closed shadow root only once an action has targeted an element in that root, such as one a custom selector engine or a handle returns; until then its host receives the events, where the browser reaches every closed root.",
       "A `wheel` event is always cancelable and reaches the page's listeners before any scroll. When every `wheel` listener is passive, the browser scrolls first and reports `cancelable` as `false`.",
+      "When the pressed element leaves the document and is added back, or is moved with `moveBefore()`, before the release, the browser sends no `click`; playwright-lite still sends one.",
     ],
   },
   {
     name: "Drag and drop",
     covers:
-      "`locator.dragTo()`, `page.dragAndDrop()` and `page.mouse` emulate HTML drag and drop in the document: a move with the left button held after a press on a draggable element starts a drag, with Chromium's drag events and `effectAllowed` and `dropEffect` negotiation, which the release drops and `Escape` cancels.",
+      "`locator.dragTo()`, `page.dragAndDrop()` and `page.mouse` emulate HTML drag and drop in the document: a move with the left button held after a press on a draggable element starts a drag, with Chromium's drag events and `effectAllowed` and `dropEffect` negotiation, which the release drops and `Escape` cancels. On an element that is not draggable, `dragTo()` and `dragAndDrop()` make a plain pointer drag on the same pointer as `page.mouse`, so pointer capture applies as it does there.",
     differences: [
       'A drag starts only from an element that is draggable, by `draggable="true"` or as a link or an image, where the browser also drags selected text.',
       "The browser's default drop handling does not run: an editable element accepts a drop only when a `dragover` listener cancels the event, and dropped text is never inserted.",
@@ -461,7 +462,7 @@ export const objectSections: readonly ObjectSection[] = [
     ],
     edgeCases: [
       "A `touchstart` event is always cancelable. When no listener on its path is non-passive, the browser reports `cancelable` as `false`.",
-      "The touch lists report an element inside an open shadow root to listeners outside it, where the browser reports the shadow host.",
+      "The touch lists report an element inside a shadow root to listeners outside it, where the browser reports the shadow host.",
     ],
   },
 ];

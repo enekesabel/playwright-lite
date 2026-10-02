@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { closedShadow } from "./closedShadow";
 
 describe("Locator.getByRole", () => {
   it("Locator.getByRole supports full options including pressed", async () => {
@@ -13,6 +14,15 @@ describe("Locator.getByRole", () => {
     const page = createPage();
     const pressed = page.locator("div").getByRole("button", { pressed: true });
     expect(await pressed.count()).toBe(1);
+  });
+
+  it("finds nothing inside a closed shadow root an action has targeted", async () => {
+    await closedShadow("<button id=inner>inner</button>");
+    const page = createPage();
+
+    await page.locator("closed=inner").click();
+
+    expect(await page.locator("body").getByRole("button").count()).toBe(0);
   });
 });
 

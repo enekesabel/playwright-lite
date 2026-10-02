@@ -91,6 +91,108 @@ describe("Touchscreen", () => {
     ]);
   });
 
+  // Contract coverage: the pinned tap spec captures nothing explicitly. The
+  // expected events are those Playwright's Chromium dispatches for the same
+  // taps.
+  it.each([
+    [
+      "moves",
+      (event: PointerEvent) =>
+        document.getElementById("b")!.setPointerCapture(event.pointerId),
+      [
+        "pointerover@a",
+        "has:false,true",
+        "pointerdown@a",
+        "pointerout@a<b",
+        "pointerover@b<a",
+        "gotpointercapture@b",
+        "pointerup@b",
+        "lostpointercapture@b",
+        "pointerout@b",
+        "click@a",
+      ],
+    ],
+    [
+      "releases",
+      (event: PointerEvent) =>
+        document.getElementById("a")!.releasePointerCapture(event.pointerId),
+      [
+        "pointerover@a",
+        "has:false,false",
+        "pointerdown@a",
+        "pointerup@a",
+        "pointerout@a",
+        "click@a",
+      ],
+    ],
+  ] as const)(
+    "lets a pointerdown listener that %s the touch point's capture choose where it lifts",
+    async (_name, onPointerDown, expected) => {
+      emulateTouch();
+      document.body.innerHTML = box("a", 10, 10) + box("b", 110, 10);
+      const log: string[] = [];
+      document.getElementById("a")!.addEventListener("pointerdown", (event) => {
+        onPointerDown(event);
+        const has = ["a", "b"].map((name) =>
+          document.getElementById(name)!.hasPointerCapture(event.pointerId)
+        );
+        log.push(`has:${has}`);
+      });
+      const page = createPage();
+      for (const type of [
+        "pointerdown",
+        "pointerover",
+        "pointerout",
+        "gotpointercapture",
+        "pointerup",
+        "lostpointercapture",
+        "click",
+      ] as const)
+        on(type, (event) => {
+          const related = event.relatedTarget;
+          log.push(
+            `${type}@${id(event.target)}${related ? `<${id(related)}` : ""}`
+          );
+        });
+
+      await page.touchscreen.tap(20, 20);
+
+      expect(log).toEqual(expected);
+    }
+  );
+
+  // Contract coverage: as above.
+  it("lets the touch point be captured until its pointerup, and known until it ends", async () => {
+    emulateTouch();
+    document.body.innerHTML = box("a", 10, 10);
+    const target = document.getElementById("a")!;
+    const log: string[] = [];
+    for (const type of [
+      "pointerup",
+      "lostpointercapture",
+      "pointerout",
+      "click",
+    ] as const)
+      target.addEventListener(type, (event) => {
+        try {
+          target.setPointerCapture(event.pointerId);
+          log.push(`${type}:${target.hasPointerCapture(event.pointerId)}`);
+        } catch (error) {
+          log.push(`${type}:${(error as DOMException).name}`);
+        }
+      });
+    const page = createPage();
+
+    await page.touchscreen.tap(20, 20);
+
+    expect(log).toEqual([
+      "pointerup:true",
+      "lostpointercapture:false",
+      "pointerout:false",
+      "click:NotFoundError",
+    ]);
+  });
+
   // Contract coverage: the pinned tap spec taps whole-pixel points only.
   it("sends the compatibility mouse events at the tap point rounded to whole pixels", async () => {
     emulateTouch();

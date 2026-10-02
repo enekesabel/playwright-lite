@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { closedShadow } from "./closedShadow";
 
 describe("Locator.press", () => {
   it("press accepts the delay option", async () => {
@@ -389,6 +390,15 @@ describe("Locator.press", () => {
         ].map((event) => `${type}:${event}`)
       )
     );
+  });
+
+  it("presses into an element inside nested closed shadow roots", async () => {
+    const { roots } = await closedShadow("<input id=field>", { depth: 2 });
+    const page = createPage();
+
+    await page.locator("closed=field").press("a");
+
+    expect(roots[1].querySelector("input")!.value).toBe("a");
   });
 });
 
