@@ -44,6 +44,24 @@ export async function rafraf(target: Page | Frame, count = 1) {
   }
 }
 
+/**
+ * Mirrors microsoft/playwright@26a9e470a7b3c7822084b09fb7f13902c5f37b51
+ * tests/config/utils.ts for the unchanged screenshot specs. The pinned helper
+ * loads `expect` with `require`, which this ESM package lacks, so it imports it.
+ */
+export async function verifyViewport(
+  page: Page,
+  width: number,
+  height: number
+) {
+  // `expect` may clash in test runner tests if imported eagerly.
+  const { expect } = await import("@playwright/test");
+  expect(page.viewportSize()!.width).toBe(width);
+  expect(page.viewportSize()!.height).toBe(height);
+  expect(await page.evaluate("window.innerWidth")).toBe(width);
+  expect(await page.evaluate("window.innerHeight")).toBe(height);
+}
+
 export function expectedSSLError(
   browserName: string,
   platform: string,

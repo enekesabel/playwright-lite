@@ -1,9 +1,9 @@
 /**
- * Shim for upstream spec imports.
- * page-set-content.spec.ts imports `../../packages/playwright-core/lib/coreBundle`.
- * This file provides just enough structure for the import to resolve.
- * Tests using these internals are classified harness-unsupported.
+ * Stand-in for the upstream monorepo's built playwright-core bundle.
+ *
+ * Pinned upstream specs and tests/config/comparator.ts import it through the
+ * relative path ../../packages/playwright-core/lib/coreBundle. This repository
+ * installs the pinned playwright-core release instead, so the path re-exports
+ * that release's own bundle unchanged.
  */
-export const server = {
-  nullProgress: {} as unknown,
-};
+export * from "playwright-core/lib/coreBundle";

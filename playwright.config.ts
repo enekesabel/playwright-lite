@@ -18,6 +18,10 @@ export default defineConfig<{
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 0,
+  // The corpus copies upstream specs without their snapshot files, so a
+  // snapshot assertion has nothing to compare with. Report the missing file
+  // instead of writing the capture next to the copied spec.
+  updateSnapshots: "none",
   reporter: [["list"], ["json", { outputFile: "test-results/report.json" }]],
   use: {
     ...devices["Desktop Chrome"],

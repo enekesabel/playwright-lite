@@ -217,6 +217,10 @@ export const corpus = {
       "be5cea8a33c9413dbe9347d8cf1370ffbc119128d5c7aa53478a2c9165172242",
     "page-wait-for-navigation.spec.ts":
       "b3798a0e8539aa4c1b033bb201cc5d1e8ff3159df2cb2e15547758db3d2ee044",
+    "page-screenshot.spec.ts":
+      "0d4cb873c7a65cfad91b2b9c8f3b9f031633a780c6a4fa9b77084aebb3441afb",
+    "elementhandle-screenshot.spec.ts":
+      "d1852f48a6ed2a593ce96f602ca0f78683181f6969c05fe6e91545578af891ba",
     "tap.spec.ts":
       "47b0c63f3adf172a831a04315aac0a92357a525cf537704007d59a32f78050cd",
   },
