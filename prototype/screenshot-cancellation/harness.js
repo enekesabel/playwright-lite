@@ -981,6 +981,7 @@ scenarios.media = async () => {
   await control("missing-svg", "404");
   await control("missing-img", "404");
   await control("missing-frame-bg", "404");
+  await control("stall-frame-video", "stall");
   await control("stall-video", "stall");
   document.body.innerHTML = `
     <div id="canvas-ok" class="m"><canvas width="40" height="40"></canvas></div>

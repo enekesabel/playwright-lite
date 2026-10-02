@@ -55,7 +55,7 @@ const TYPES = {
 };
 const EXTERNAL_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><image href="/res/green.png" width="40" height="40"/></svg>`;
 const FRAME = `<!doctype html><body style="margin:0;background:rgb(0,128,0)"></body>`;
-const BROKEN_FRAME = `<!doctype html><body style="margin:0"><div style="width:40px;height:40px;background:url(/res/missing-frame-bg.png)"></div></body>`;
+const BROKEN_FRAME = `<!doctype html><body style="margin:0"><div style="width:40px;height:30px;background:url(/res/missing-frame-bg.png)"></div><video src="/res/stall-frame-video.webm" muted width="10" height="10"></video></body>`;
 const font = await readFile(resolve(here, "fixtures/iconfont.woff2"));
 let video = Buffer.alloc(0);
 

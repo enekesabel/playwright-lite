@@ -65,7 +65,7 @@
         "hostRestored": true,
         "unhandled": []
       },
-      "wallMs": 1014,
+      "wallMs": 1032,
       "console": [
         "warning: [snapdom] Inline/table text may re-wrap with fallback fonts. Use { reconcile: true } to check layout (~2x capture time)."
       ]
@@ -74,23 +74,23 @@
       "ok": true,
       "result": {
         "slow-timeout-coop": {
-          "rejectedAfterMs": 302,
+          "rejectedAfterMs": 301,
           "error": "locator.screenshot: Timeout 300ms exceeded.",
           "stages": [
-            "1ms lease.wait",
-            "1ms lease.acquired",
-            "2ms prepared",
-            "2ms fonts.ready",
-            "18ms renderer.beforeSnap",
-            "18ms renderer.beforeClone",
-            "37ms renderer.afterClone",
-            "302ms rejected",
-            "302ms restored",
-            "302ms lease.released",
-            "3044ms renderer.beforeRender",
-            "3045ms renderer.settled"
+            "0ms lease.wait",
+            "0ms lease.acquired",
+            "1ms prepared",
+            "1ms fonts.ready",
+            "17ms renderer.beforeSnap",
+            "17ms renderer.beforeClone",
+            "34ms renderer.afterClone",
+            "301ms rejected",
+            "301ms restored",
+            "301ms lease.released",
+            "3042ms renderer.beforeRender",
+            "3043ms renderer.settled"
           ],
-          "rendererSettledAfterMs": 3045,
+          "rendererSettledAfterMs": 3043,
           "rendererOutcome": "error",
           "mutationsAfterRejection": [],
           "snapdomNodesLeft": [],
@@ -98,23 +98,23 @@
           "unhandled": []
         },
         "slow-signal-coop": {
-          "rejectedAfterMs": 300,
+          "rejectedAfterMs": 301,
           "error": "locator.screenshot: aborted by caller",
           "stages": [
             "0ms lease.wait",
             "0ms lease.acquired",
-            "0ms prepared",
-            "0ms fonts.ready",
-            "0ms renderer.beforeSnap",
-            "0ms renderer.beforeClone",
-            "2ms renderer.afterClone",
-            "300ms rejected",
-            "300ms restored",
-            "300ms lease.released",
-            "3006ms renderer.beforeRender",
-            "3006ms renderer.settled"
+            "1ms prepared",
+            "1ms fonts.ready",
+            "1ms renderer.beforeSnap",
+            "1ms renderer.beforeClone",
+            "3ms renderer.afterClone",
+            "301ms rejected",
+            "301ms restored",
+            "301ms lease.released",
+            "3005ms renderer.beforeRender",
+            "3005ms renderer.settled"
           ],
-          "rendererSettledAfterMs": 3006,
+          "rendererSettledAfterMs": 3005,
           "rendererOutcome": "error",
           "mutationsAfterRejection": [],
           "snapdomNodesLeft": [],
@@ -135,10 +135,10 @@
             "301ms rejected",
             "301ms restored",
             "301ms lease.released",
-            "3004ms renderer.beforeRender",
-            "3004ms renderer.settled"
+            "3006ms renderer.beforeRender",
+            "3006ms renderer.settled"
           ],
-          "rendererSettledAfterMs": 3004,
+          "rendererSettledAfterMs": 3006,
           "rendererOutcome": "error",
           "mutationsAfterRejection": [],
           "snapdomNodesLeft": [],
@@ -155,24 +155,24 @@
             "0ms fonts.ready",
             "0ms renderer.beforeSnap",
             "0ms renderer.beforeClone",
-            "2ms renderer.afterClone",
+            "3ms renderer.afterClone",
             "300ms rejected",
             "300ms restored",
             "300ms lease.released",
-            "3003ms renderer.beforeRender",
+            "3004ms renderer.beforeRender",
             "3006ms renderer.afterRender",
-            "3007ms renderer.beforeExport",
-            "3034ms renderer.afterExport",
-            "3034ms renderer.settled"
+            "3008ms renderer.beforeExport",
+            "3039ms renderer.afterExport",
+            "3039ms renderer.settled"
           ],
-          "rendererSettledAfterMs": 3034,
+          "rendererSettledAfterMs": 3039,
           "rendererOutcome": "value",
           "lateWarnings": [
             "image-fallback"
           ],
           "mutationsAfterRejection": [
             {
-              "t": 13288,
+              "t": 13297,
               "type": "childList",
               "target": "body",
               "added": [
@@ -180,7 +180,7 @@
               ]
             },
             {
-              "t": 13307,
+              "t": 13319,
               "type": "childList",
               "target": "body",
               "removed": [
@@ -196,9 +196,9 @@
           "rejectedAfterMs": 301,
           "error": "locator.screenshot: aborted by caller",
           "stages": [
-            "0ms lease.wait",
-            "0ms lease.acquired",
-            "0ms prepared",
+            "1ms lease.wait",
+            "1ms lease.acquired",
+            "1ms prepared",
             "1ms fonts.ready",
             "1ms renderer.beforeSnap",
             "1ms renderer.beforeClone",
@@ -206,9 +206,9 @@
             "301ms rejected",
             "301ms restored",
             "301ms lease.released",
-            "3004ms renderer.beforeRender",
-            "3005ms renderer.afterRender",
-            "3005ms renderer.beforeExport",
+            "3005ms renderer.beforeRender",
+            "3006ms renderer.afterRender",
+            "3006ms renderer.beforeExport",
             "3030ms renderer.afterExport",
             "3030ms renderer.settled"
           ],
@@ -219,7 +219,7 @@
           ],
           "mutationsAfterRejection": [
             {
-              "t": 16687,
+              "t": 16699,
               "type": "childList",
               "target": "body",
               "added": [
@@ -227,7 +227,7 @@
               ]
             },
             {
-              "t": 16706,
+              "t": 16718,
               "type": "childList",
               "target": "body",
               "removed": [
@@ -243,10 +243,10 @@
           "rejectedAfterMs": 301,
           "error": "locator.screenshot: Target page, context or browser has been closed",
           "stages": [
-            "0ms lease.wait",
-            "0ms lease.acquired",
-            "0ms prepared",
-            "0ms fonts.ready",
+            "1ms lease.wait",
+            "1ms lease.acquired",
+            "1ms prepared",
+            "1ms fonts.ready",
             "1ms renderer.beforeSnap",
             "1ms renderer.beforeClone",
             "3ms renderer.afterClone",
@@ -254,19 +254,19 @@
             "301ms restored",
             "301ms lease.released",
             "3004ms renderer.beforeRender",
-            "3005ms renderer.afterRender",
-            "3005ms renderer.beforeExport",
-            "3013ms renderer.afterExport",
-            "3013ms renderer.settled"
+            "3007ms renderer.afterRender",
+            "3007ms renderer.beforeExport",
+            "3017ms renderer.afterExport",
+            "3017ms renderer.settled"
           ],
-          "rendererSettledAfterMs": 3013,
+          "rendererSettledAfterMs": 3017,
           "rendererOutcome": "value",
           "lateWarnings": [
             "image-fallback"
           ],
           "mutationsAfterRejection": [
             {
-              "t": 20085,
+              "t": 20109,
               "type": "childList",
               "target": "body",
               "added": [
@@ -274,7 +274,7 @@
               ]
             },
             {
-              "t": 20089,
+              "t": 20112,
               "type": "childList",
               "target": "body",
               "removed": [
@@ -287,9 +287,9 @@
           "unhandled": []
         }
       },
-      "wallMs": 20381,
+      "wallMs": 20414,
       "console": [
-        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:33741/res/slow-timeout-coop.png. Increase timeout or use a proxy"
+        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:40433/res/slow-timeout-coop.png. Increase timeout or use a proxy"
       ]
     },
     "stallFixedBackground": {
@@ -304,9 +304,9 @@
           "1ms lease.acquired",
           "1ms prepared",
           "2ms fonts.ready",
-          "20ms renderer.beforeSnap",
-          "20ms renderer.beforeClone",
-          "32ms renderer.afterClone",
+          "21ms renderer.beforeSnap",
+          "21ms renderer.beforeClone",
+          "37ms renderer.afterClone",
           "1001ms rejected",
           "1002ms restored",
           "1002ms lease.released"
@@ -314,8 +314,8 @@
         "rendererPendingSevenSecondsAfterTimeout": true,
         "second": {
           "ok": true,
-          "waitedForLeaseMs": 1,
-          "tookMs": 38,
+          "waitedForLeaseMs": 0,
+          "tookMs": 41,
           "size": [
             80,
             40
@@ -334,7 +334,7 @@
         ],
         "mutationsAfterB": [
           {
-            "t": 8136,
+            "t": 8139,
             "type": "childList",
             "target": "body",
             "removed": [
@@ -345,9 +345,9 @@
         "hostRestored": true,
         "unhandled": []
       },
-      "wallMs": 8427,
+      "wallMs": 8429,
       "console": [
-        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:33741/res/hang.png. Increase timeout or use a proxy"
+        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:40433/res/hang.png. Increase timeout or use a proxy"
       ]
     },
     "twoPages": {
@@ -356,7 +356,7 @@
         "timeout": {
           "a": {
             "error": "locator.screenshot: Timeout 500ms exceeded.",
-            "rejectedAfterMs": 501
+            "rejectedAfterMs": 502
           },
           "b": {
             "ok": true,
@@ -366,13 +366,11 @@
               0,
               255
             ],
-            "leaseAcquiredAfterMs": 502
+            "leaseAcquiredAfterMs": 503
           },
           "aRenderer": [
-            "502ms restored",
-            "502ms lease.released",
-            "3048ms renderer.beforeRender",
-            "3049ms renderer.settled CaptureCanceled: capture canceled before beforeRender"
+            "3049ms renderer.beforeRender",
+            "3050ms renderer.settled CaptureCanceled: capture canceled before beforeRender"
           ],
           "hostRestoredWhenBothSettled": false,
           "hostRestoredAfterLateWork": true,
@@ -382,10 +380,10 @@
             "styleElements": 0,
             "styleAttributes": []
           },
-          "mutationsAfterARejected": 26,
+          "mutationsAfterARejected": 16,
           "mutationsAfterBResolved": [
             {
-              "t": 3140,
+              "t": 3130,
               "type": "childList",
               "target": "body",
               "removed": [
@@ -411,11 +409,11 @@
               0,
               255
             ],
-            "leaseAcquiredAfterMs": 502
+            "leaseAcquiredAfterMs": 501
           },
           "aRenderer": [
-            "3010ms renderer.beforeRender",
-            "3010ms renderer.settled CaptureCanceled: capture canceled before beforeRender"
+            "3006ms renderer.beforeRender",
+            "3006ms renderer.settled CaptureCanceled: capture canceled before beforeRender"
           ],
           "hostRestoredWhenBothSettled": false,
           "hostRestoredAfterLateWork": true,
@@ -425,10 +423,10 @@
             "styleElements": 0,
             "styleAttributes": []
           },
-          "mutationsAfterARejected": 22,
+          "mutationsAfterARejected": 16,
           "mutationsAfterBResolved": [
             {
-              "t": 6523,
+              "t": 6515,
               "type": "childList",
               "target": "body",
               "removed": [
@@ -457,8 +455,8 @@
             "leaseAcquiredAfterMs": 501
           },
           "aRenderer": [
-            "3012ms renderer.beforeRender",
-            "3012ms renderer.settled CaptureCanceled: capture canceled before beforeRender"
+            "3008ms renderer.beforeRender",
+            "3009ms renderer.settled CaptureCanceled: capture canceled before beforeRender"
           ],
           "hostRestoredWhenBothSettled": false,
           "hostRestoredAfterLateWork": true,
@@ -471,7 +469,7 @@
           "mutationsAfterARejected": 11,
           "mutationsAfterBResolved": [
             {
-              "t": 9918,
+              "t": 9894,
               "type": "childList",
               "target": "body",
               "removed": [
@@ -487,7 +485,7 @@
         "uncoordinated": {
           "a": {
             "error": "locator.screenshot: Timeout 500ms exceeded.",
-            "rejectedAfterMs": 501
+            "rejectedAfterMs": 500
           },
           "b": {
             "ok": true,
@@ -500,8 +498,9 @@
             "leaseAcquiredAfterMs": null
           },
           "aRenderer": [
-            "3004ms renderer.beforeRender",
-            "3004ms renderer.settled CaptureCanceled: capture canceled before beforeRender"
+            "501ms restored",
+            "3006ms renderer.beforeRender",
+            "3006ms renderer.settled CaptureCanceled: capture canceled before beforeRender"
           ],
           "hostRestoredWhenBothSettled": false,
           "hostRestoredAfterLateWork": false,
@@ -518,10 +517,10 @@
               ]
             ]
           },
-          "mutationsAfterARejected": 0,
+          "mutationsAfterARejected": 9,
           "mutationsAfterBResolved": [
             {
-              "t": 10798,
+              "t": 10772,
               "type": "childList",
               "target": "html",
               "removed": [
@@ -529,7 +528,7 @@
               ]
             },
             {
-              "t": 10798,
+              "t": 10772,
               "type": "attributes",
               "target": "input#caret-a",
               "attribute": "style",
@@ -537,7 +536,7 @@
               "value": "caret-color: rgb(1, 2, 3) !important"
             },
             {
-              "t": 10798,
+              "t": 10772,
               "type": "attributes",
               "target": "input#caret-a",
               "attribute": "style",
@@ -545,7 +544,7 @@
               "value": "caret-color: rgb(1, 2, 3) !important"
             },
             {
-              "t": 10798,
+              "t": 10772,
               "type": "attributes",
               "target": "input#caret-b",
               "attribute": "style",
@@ -553,7 +552,7 @@
               "value": "caret-color: blue"
             },
             {
-              "t": 10798,
+              "t": 10772,
               "type": "attributes",
               "target": "input#caret-b",
               "attribute": "style",
@@ -561,7 +560,7 @@
               "value": "caret-color: blue"
             },
             {
-              "t": 10798,
+              "t": 10772,
               "type": "attributes",
               "target": "textarea#caret-c",
               "attribute": "style",
@@ -569,7 +568,7 @@
               "value": null
             },
             {
-              "t": 10798,
+              "t": 10772,
               "type": "attributes",
               "target": "textarea#caret-c",
               "attribute": "style",
@@ -577,7 +576,7 @@
               "value": null
             },
             {
-              "t": 10798,
+              "t": 10772,
               "type": "attributes",
               "target": "div#caret-d",
               "attribute": "style",
@@ -585,7 +584,7 @@
               "value": null
             },
             {
-              "t": 10798,
+              "t": 10772,
               "type": "attributes",
               "target": "div#caret-d",
               "attribute": "style",
@@ -599,9 +598,9 @@
           "unhandled": []
         }
       },
-      "wallMs": 13602,
+      "wallMs": 13580,
       "console": [
-        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:33741/res/two-timeout.png. Increase timeout or use a proxy"
+        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:40433/res/two-timeout.png. Increase timeout or use a proxy"
       ]
     },
     "pinnedCleanupSlot": {
@@ -612,7 +611,7 @@
         ],
         "hostRestored": false
       },
-      "wallMs": 4,
+      "wallMs": 7,
       "console": []
     },
     "lineClamp": {
@@ -625,7 +624,7 @@
         },
         "pageEditDuringCloneStage": {
           "hostTextBeforeEdit": "The quick brown fox jumps over the lazy …",
-          "editAfterMs": 200,
+          "editAfterMs": 201,
           "captureSettledAfterMs": 3006,
           "hostTextAfterCapture": "Edited by the page",
           "pageEditLost": false
@@ -640,40 +639,40 @@
           "stages": [
             "1ms A lease.wait",
             "1ms A lease.acquired",
-            "1ms A prepared",
-            "1ms A fonts.ready",
+            "2ms A prepared",
+            "2ms A fonts.ready",
             "2ms A renderer.beforeSnap",
             "2ms A renderer.beforeClone",
-            "101ms B lease.wait",
+            "102ms B lease.wait",
             "302ms A rejected",
             "302ms A restored",
             "302ms A lease.held-for-clone",
-            "3007ms A renderer.afterClone",
-            "3008ms A lease.released",
-            "3008ms B lease.acquired",
-            "3008ms B prepared",
-            "3008ms B fonts.ready",
-            "3008ms A renderer.settled",
-            "3009ms B renderer.beforeSnap",
-            "3009ms B renderer.beforeClone",
-            "3019ms B renderer.afterClone",
-            "3028ms B renderer.beforeRender",
-            "3029ms B renderer.afterRender",
-            "3029ms B restored",
-            "3029ms B renderer.beforeExport",
-            "3048ms B renderer.afterExport",
-            "3049ms B renderer.settled",
-            "3050ms B resolved",
-            "3050ms B lease.released"
+            "3006ms A renderer.afterClone",
+            "3007ms A lease.released",
+            "3007ms B lease.acquired",
+            "3007ms B prepared",
+            "3007ms B fonts.ready",
+            "3007ms A renderer.settled",
+            "3008ms B renderer.beforeSnap",
+            "3008ms B renderer.beforeClone",
+            "3010ms B renderer.afterClone",
+            "3010ms B renderer.beforeRender",
+            "3011ms B renderer.afterRender",
+            "3011ms B restored",
+            "3011ms B renderer.beforeExport",
+            "3031ms B renderer.afterExport",
+            "3031ms B renderer.settled",
+            "3032ms B resolved",
+            "3032ms B lease.released"
           ],
           "hostTextAfterBoth": "The quick brown fox jumps over the lazy dog while the five boxing wizards jump quickly and the job requires extra pluck.",
           "textRestored": true,
           "unhandled": []
         }
       },
-      "wallMs": 9283,
+      "wallMs": 9260,
       "console": [
-        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:33741/res/pseudo-raw.png. Increase timeout or use a proxy"
+        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:40433/res/pseudo-raw.png. Increase timeout or use a proxy"
       ]
     },
     "safeBoundary": {
@@ -752,7 +751,7 @@
           ]
         }
       },
-      "wallMs": 180,
+      "wallMs": 148,
       "console": []
     },
     "contamination": {
@@ -847,12 +846,12 @@
           }
         }
       },
-      "wallMs": 19753,
+      "wallMs": 19740,
       "console": [
-        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:33741/res/flaky.png. Increase timeout or use a proxy",
+        "error: [snapDOM] Timeout (3000ms): http://127.0.0.1:40433/res/flaky.png. Increase timeout or use a proxy",
         "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
         "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
-        "warning: [snapDOM] HTTP 404 Not Found fetching dataURL: http://127.0.0.1:33741/res/flakybg.png"
+        "warning: [snapDOM] HTTP 404 Not Found fetching dataURL: http://127.0.0.1:40433/res/flakybg.png"
       ]
     },
     "media": {
@@ -866,12 +865,12 @@
           },
           {
             "kind": "unreadable-video",
-            "element": "video[src=http://127.0.0.1:42453/video.webm]",
+            "element": "video[src=http://127.0.0.1:42127/video.webm]",
             "error": "SecurityError"
           },
           {
             "kind": "unreadable-video",
-            "element": "video[src=http://127.0.0.1:42453/video.webm]",
+            "element": "video[src=http://127.0.0.1:42127/video.webm]",
             "error": "SecurityError"
           },
           {
@@ -881,7 +880,13 @@
           },
           {
             "kind": "cross-origin-iframe",
-            "element": "iframe[src=http://127.0.0.1:42453/frame.html]"
+            "element": "iframe[src=http://127.0.0.1:42127/frame.html]"
+          },
+          {
+            "kind": "video-without-frame",
+            "element": "video[src=/res/stall-frame-video.webm]",
+            "readyState": 0,
+            "frame": "iframe[src=/frame-broken.html]"
           }
         ],
         "preScanPreservesCanvas": {
@@ -1075,7 +1080,7 @@
               {
                 "at": "afterRender",
                 "kind": "image-substituted",
-                "element": "img[src=http://127.0.0.1:42453/res/green.png]"
+                "element": "img[src=http://127.0.0.1:42127/res/green.png]"
               }
             ],
             "replaced": {
@@ -1097,13 +1102,13 @@
               {
                 "at": "preScan",
                 "kind": "unreadable-video",
-                "element": "video[src=http://127.0.0.1:42453/video.webm]",
+                "element": "video[src=http://127.0.0.1:42127/video.webm]",
                 "error": "SecurityError"
               },
               {
                 "at": "afterClone",
                 "kind": "video-frame-not-captured",
-                "element": "video[src=http://127.0.0.1:42453/video.webm]",
+                "element": "video[src=http://127.0.0.1:42127/video.webm]",
                 "substitute": "empty"
               }
             ],
@@ -1126,13 +1131,13 @@
               {
                 "at": "preScan",
                 "kind": "unreadable-video",
-                "element": "video[src=http://127.0.0.1:42453/video.webm]",
+                "element": "video[src=http://127.0.0.1:42127/video.webm]",
                 "error": "SecurityError"
               },
               {
                 "at": "afterClone",
                 "kind": "video-frame-not-captured",
-                "element": "video[src=http://127.0.0.1:42453/video.webm]",
+                "element": "video[src=http://127.0.0.1:42127/video.webm]",
                 "substitute": "poster"
               }
             ],
@@ -1200,7 +1205,7 @@
               {
                 "at": "preScan",
                 "kind": "cross-origin-iframe",
-                "element": "iframe[src=http://127.0.0.1:42453/frame.html]"
+                "element": "iframe[src=http://127.0.0.1:42127/frame.html]"
               }
             ],
             "replaced": {
@@ -1235,6 +1240,13 @@
             "checksum": "f4deb1c5",
             "warnings": [],
             "findings": [
+              {
+                "at": "preScan",
+                "kind": "video-without-frame",
+                "element": "video[src=/res/stall-frame-video.webm]",
+                "readyState": 0,
+                "frame": "iframe[src=/frame-broken.html]"
+              },
               {
                 "at": "afterRender (nested)",
                 "kind": "external-css-url",
@@ -1297,25 +1309,26 @@
           }
         }
       },
-      "wallMs": 1758,
+      "wallMs": 1785,
       "console": [
         "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
         "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
         "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
         "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
         "warning: Canvas2D: Multiple readback operations using getImageData are faster with the willReadFrequently attribute set to true. See: https://html.spec.whatwg.org/multipage/canvas.html#concept-canvas-will-read",
-        "warning: [.WebGL-0x299c00115400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
-        "warning: [.WebGL-0x299c00115400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+        "warning: [.WebGL-0x151c0015ee00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+        "warning: [.WebGL-0x151c0015ee00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
         "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
-        "warning: [snapDOM] HTTP 404 Not Found fetching dataURL: http://127.0.0.1:33741/res/missing-bg.png",
-        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
-        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "warning: [snapDOM] HTTP 404 Not Found fetching dataURL: http://127.0.0.1:40433/res/missing-bg.png",
         "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
         "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
-        "error: Access to fetch at 'http://127.0.0.1:42453/res/green.png' from origin 'http://127.0.0.1:33741' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested reso",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
+        "error: Access to fetch at 'http://127.0.0.1:42127/res/green.png' from origin 'http://127.0.0.1:40433' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested reso",
         "error: Failed to load resource: net::ERR_FAILED",
-        "error: [snapDOM] Network/CORS fetching dataURL: http://127.0.0.1:42453/res/green.png. Try useProxy",
+        "error: [snapDOM] Network/CORS fetching dataURL: http://127.0.0.1:42127/res/green.png. Try useProxy",
         "warning: [snapdom] Unreadable cross-origin <iframe>; keeping its box. Use { placeholders: false } to hide it. JSHandle@node",
+        "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
         "error: Failed to load resource: the server responded with a status of 404 (Not Found)",
         "error: Failed to load resource: the server responded with a status of 404 (Not Found)"
       ]
@@ -1438,7 +1451,7 @@
           "identical": true
         }
       },
-      "wallMs": 8,
+      "wallMs": 7,
       "console": []
     },
     "hostMutations": {
@@ -1447,7 +1460,7 @@
         "rawSnapdom": {
           "mutations": [
             {
-              "t": 54,
+              "t": 47,
               "type": "childList",
               "target": "body",
               "added": [
@@ -1460,7 +1473,7 @@
               ]
             },
             {
-              "t": 73,
+              "t": 62,
               "type": "childList",
               "target": "body",
               "added": [
@@ -1468,7 +1481,7 @@
               ]
             },
             {
-              "t": 73,
+              "t": 62,
               "type": "childList",
               "target": "div#snapdom-sandbox[snapdom-internal]",
               "added": [
@@ -1476,7 +1489,7 @@
               ]
             },
             {
-              "t": 73,
+              "t": 62,
               "type": "childList",
               "target": "div#snapdom-sandbox[snapdom-internal]",
               "removed": [
@@ -1484,7 +1497,7 @@
               ]
             },
             {
-              "t": 73,
+              "t": 62,
               "type": "childList",
               "target": "div#snapdom-sandbox[snapdom-internal]",
               "added": [
@@ -1492,7 +1505,7 @@
               ]
             },
             {
-              "t": 73,
+              "t": 62,
               "type": "childList",
               "target": "div#snapdom-sandbox[snapdom-internal]",
               "removed": [
@@ -1500,7 +1513,7 @@
               ]
             },
             {
-              "t": 83,
+              "t": 70,
               "type": "childList",
               "target": "body",
               "removed": [
@@ -1508,7 +1521,7 @@
               ]
             },
             {
-              "t": 93,
+              "t": 79,
               "type": "childList",
               "target": "body",
               "added": [
@@ -1523,7 +1536,7 @@
         "operation": {
           "mutations": [
             {
-              "t": 219,
+              "t": 207,
               "type": "childList",
               "target": "body",
               "removed": [
@@ -1534,7 +1547,7 @@
           "leftAfterCapture": []
         }
       },
-      "wallMs": 289,
+      "wallMs": 283,
       "console": []
     }
   }
