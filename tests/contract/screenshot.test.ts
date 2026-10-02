@@ -900,11 +900,12 @@ describe("Page.screenshot", () => {
     it("lets the next capture start once a cancelled one stops cloning", async () => {
       document.body.style.margin = "0";
       document.body.innerHTML = `
-        <div id="a" style="width: 20px; height: 20px"></div>
+        <div id="a" style="width: 20px; height: 20px; overflow: hidden"></div>
         <p id="clamp" style="width: 60px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden">The quick brown fox jumps over the lazy dog</p>`;
       const text = document.getElementById("clamp")!.textContent;
       const [first, second] = [createPage(), createPage()];
-      // Generated content is fetched while the renderer clones.
+      // Generated content is fetched while the renderer clones; `#a` clips
+      // it, so its mask covers it.
       const cancelled = first.screenshot({
         style: `#a::before { content: url(/__delay/6000/generated.gif) }`,
         mask: [first.locator("#a")],
@@ -1180,6 +1181,40 @@ describe("Locator.screenshot", () => {
     // A fractionally placed element is inside its own snapped mask.
     expect(image.pixel(60, 40)).toEqual(pink);
     expect(image.pixel(90, 40)).toEqual(blue);
+  });
+
+  it("still checks what a masked element paints outside its box", async () => {
+    const page = createPage();
+    const mask = [page.locator("#m")];
+    for (const style of [
+      "",
+      "overflow: hidden",
+      "position: relative; overflow: clip; overflow-clip-margin: 50px",
+    ]) {
+      document.body.innerHTML = `
+        <style>#m::before { content: ""; position: absolute; left: 60px; width: 10px; height: 10px; background-image: url(/__delay/0/a.gif) }</style>
+        <div id="target" style="position: relative; width: 100px; height: 60px">
+          <div id="m" style="width: 20px; height: 20px; ${style}"></div>
+        </div>`;
+      await expect(
+        page.locator("#target").screenshot({ mask })
+      ).rejects.toThrow(
+        "capturing a CSS background-image from a URL is not supported yet."
+      );
+    }
+    // The element clips a pseudo-element it positions.
+    document.getElementById("m")!.style.cssText =
+      "position: relative; width: 20px; height: 20px; overflow: hidden";
+    expect(signature(await page.locator("#target").screenshot({ mask }))).toBe(
+      "png"
+    );
+    document.body.innerHTML = `
+      <div id="target" style="width: 100px; height: 60px">
+        <video id="m" style="display: block; width: 40px; height: 30px; overflow: visible"></video>
+      </div>`;
+    await expect(page.locator("#target").screenshot({ mask })).rejects.toThrow(
+      "capturing <video> content is not supported yet."
+    );
   });
 
   it("captures and masks the element as the style lays it out", async () => {

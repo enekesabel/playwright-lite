@@ -839,7 +839,10 @@ const URL_IMAGE_PROPERTIES = [
  * A canvas the page cannot read back renders blank, and SnapDOM substitutes
  * failed frames, video and URL images in CSS and SVG silently, so they cannot
  * yet be verified; `<img>` failures are reported by the renderer itself.
- * Elements inside a mask are skipped.
+ * A mask exempts only what paints inside the element's box: its own
+ * background, and its replaced content, text and generated content when the
+ * element clips them to the box. Everything else can paint outside the mask,
+ * so it is still checked.
  */
 function assertCapturableContent(
   task: CaptureTask,
@@ -875,40 +878,57 @@ function assertCapturableContent(
       width: box.width,
       height: box.height,
     };
-    // A masked element's pixels are painted over, whatever they would be;
-    // its own mask covers its box snapped as the mask is.
+    if (!intersects(region, rect)) continue;
+    // A masked element's box is painted over, whatever it holds; its own
+    // mask covers its box snapped as the mask is.
     const painted = snappedRect(browserWindow, box);
-    if (
-      !intersects(region, rect) ||
-      masks.some((mask) => contains(mask, painted))
-    )
-      continue;
-    if (name === "canvas" && !isReadable(element as HTMLCanvasElement))
-      refuse(
-        element,
-        "its pixels cannot be read back, since cross-origin content tainted it."
-      );
-    if (UNVERIFIED_ELEMENTS.has(name) && !isSvg(element))
-      refuse(element, `capturing <${name}> content is not supported yet.`);
-    if (
-      svgImage &&
-      isUnverifiedURL(
-        element.getAttribute("href") ?? element.getAttribute("xlink:href")
+    const masked = masks.some((mask) => contains(mask, painted));
+    const elementStyle = browserWindow.getComputedStyle(element);
+    const clipsUnderMask = masked && clipsToBox(elementStyle);
+    if (!masked || !clipsToBox(browserWindow.getComputedStyle(owner))) {
+      if (name === "canvas" && !isReadable(element as HTMLCanvasElement))
+        refuse(
+          element,
+          "its pixels cannot be read back, since cross-origin content tainted it."
+        );
+      if (UNVERIFIED_ELEMENTS.has(name) && !isSvg(element))
+        refuse(element, `capturing <${name}> content is not supported yet.`);
+      if (
+        svgImage &&
+        isUnverifiedURL(
+          element.getAttribute("href") ?? element.getAttribute("xlink:href")
+        )
       )
-    )
-      refuse(
-        element,
-        "capturing an SVG image from a URL is not supported yet."
-      );
+        refuse(
+          element,
+          "capturing an SVG image from a URL is not supported yet."
+        );
+    }
     for (const pseudo of [null, "::before", "::after", "::marker"]) {
-      const style = browserWindow.getComputedStyle(element, pseudo);
+      const style = pseudo
+        ? browserWindow.getComputedStyle(element, pseudo)
+        : elementStyle;
+      // A positioned pseudo-element escapes the element's clip unless the
+      // element is its containing block.
+      const covered =
+        clipsUnderMask &&
+        (pseudo === null ||
+          (pseudo !== "::marker" &&
+            (style.position === "absolute"
+              ? elementStyle.position !== "static"
+              : style.position !== "fixed")));
       const family =
-        pseudo === "::marker" || !rendersText(element, pseudo, style)
+        covered || pseudo === "::marker" || !rendersText(element, pseudo, style)
           ? undefined
           : renderedWebFont(fontFamilies(style.fontFamily), webFonts);
       if (family && !usedFonts.has(family.toLowerCase()))
         usedFonts.set(family.toLowerCase(), { family, element });
       for (const property of URL_IMAGE_PROPERTIES) {
+        // A background paints within the border box.
+        if (
+          pseudo === null ? masked && property === "background-image" : covered
+        )
+          continue;
         const value = style.getPropertyValue(property);
         if (cssURLs(value).some(isUnverifiedURL))
           refuse(
@@ -1055,6 +1075,15 @@ function isSvg(element: Element): boolean {
 function cssURLs(value: string): string[] {
   return Array.from(value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/g)).map(
     (match) => match[2]
+  );
+}
+
+/** Whether an element clips what it paints inside it to its own box. */
+function clipsToBox(style: CSSStyleDeclaration): boolean {
+  return (
+    style.overflowX !== "visible" &&
+    style.overflowY !== "visible" &&
+    !/[1-9]/.test(style.overflowClipMargin)
   );
 }
 

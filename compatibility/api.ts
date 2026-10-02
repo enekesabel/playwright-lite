@@ -275,7 +275,7 @@ export const objectSections: readonly ObjectSection[] = [
       "The pixels come from the DOM renderer, not the browser's compositor, so text antialiasing, form controls and some effects can differ while the geometry matches.",
       "A capture rejects instead of substituting what it cannot reproduce: a `<canvas>` cross-origin content tainted, an image the renderer cannot load, and in the captured area, until their capture can be verified, `<video>`, `<iframe>`, `<frame>`, `<object>`, `<embed>`, SVG `<image>`, and CSS `background-image`, `mask-image`, `border-image-source`, `list-style-image` or `content` images that load from a URL. Images from `data:` URLs are captured.",
       "Text whose web font the renderer cannot embed also rejects the capture: a font added through the `FontFace` API rather than an `@font-face` rule, or one whose family name looks like an icon font's, such as one containing `icon`, `glyph` or `symbols`.",
-      "An element entirely inside a `mask` is exempt from these checks, since the mask covers it; an image that failed to load still rejects.",
+      "A `mask` exempts only what it covers from these checks: the background of an element entirely inside it, and the element's media, text and generated content when its `overflow` clips them to its box. Generated content positioned outside that clip, and an image that failed to load, still reject.",
     ],
     edgeCases: [
       "An image that failed to load in the page also rejects the capture, where Playwright captures the browser's broken-image rendering.",
