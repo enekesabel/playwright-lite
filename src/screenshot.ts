@@ -16,12 +16,18 @@ import type { Locator, Page } from "@playwright/test";
 import { compressCallLog } from "./callLog";
 import { AdapterTimeoutError } from "./errors";
 import { isTargetClosedError, TargetClosedError } from "./lifetime";
-import { validateBoolean, validateString } from "./protocolValidation";
+import {
+  validateBoolean,
+  validateFloat,
+  validateInteger,
+  validateString,
+} from "./protocolValidation";
 import {
   Array,
   Error,
   Map,
   Math,
+  Object,
   Promise,
   Set,
   WeakMap,
@@ -116,7 +122,10 @@ export function pageScreenshotEncoding(
     // before the protocol validator runs.
     const mask = validateMask(options.mask, maskTarget);
     const type = validateEnum(options.type, "type", FORMATS);
-    const quality = validateInt(options.quality, "quality");
+    const quality =
+      options.quality === undefined
+        ? undefined
+        : validateInteger(options.quality, "quality");
     const fullPage = validateBoolean(options.fullPage, "fullPage");
     const clip =
       options.clip === undefined
@@ -474,6 +483,7 @@ async function run(
     const root = document.documentElement;
     let svg = "";
     let rootColor: string | undefined;
+    let restoreBodyScroll: (() => void) | undefined;
     // SnapDOM awaits each hook without catching, so a throw ends its
     // pipeline: the only way to stop it, and only between stages. A
     // same-origin frame is rendered by a nested capture with the same hooks.
@@ -496,11 +506,17 @@ async function run(
         {
           name: "playwright-lite-capture",
           beforeSnap: (context) => stage(context),
-          beforeClone: (context) => stage(context),
+          beforeClone: (context) => {
+            stage(context);
+            if (context.element === root)
+              restoreBodyScroll = hideQuirksBodyScroll(document);
+          },
           // SnapDOM undoes its own changes to the live document, such as
           // rewritten line-clamped text, before this hook.
           afterClone: (context) =>
             stage(context, () => {
+              restoreBodyScroll?.();
+              keepBodyOffset(browserWindow, context.clone);
               cloned = true;
               if (cancelled()) lease.release();
             }),
@@ -519,6 +535,7 @@ async function run(
       ],
     }).then(async (result) => ({ result, canvas: await result.toCanvas() }));
     const settled = () => {
+      restoreBodyScroll?.();
       coordinator.renderers--;
       if (coordinator.renderers === 0 && !coordinator.holding)
         removeRendererScaffolding(document, true);
@@ -574,6 +591,64 @@ async function run(
     stopped.removeEventListener("abort", onStop);
     restore();
   }
+}
+
+/**
+ * When `<body>` is the scrolling element, as in a quirks-mode document, its
+ * `scrollTop` and `scrollLeft` report the viewport's scroll offset, which
+ * SnapDOM takes for a scrolled box and shifts the body's content by again, on
+ * top of the region's own offset. While it clones, the body reports no scroll
+ * of its own, as in a standards-mode document; assigning to them still
+ * scrolls. Returns the restore, which is safe to call twice.
+ */
+function hideQuirksBodyScroll(document: Document): (() => void) | undefined {
+  const body = document.body;
+  if (!body || document.scrollingElement !== body) return undefined;
+  const properties = ["scrollTop", "scrollLeft"] as const;
+  for (const property of properties) {
+    let prototype: object | null = Object.getPrototypeOf(body);
+    let descriptor: PropertyDescriptor | undefined;
+    while (prototype && !descriptor) {
+      descriptor = Object.getOwnPropertyDescriptor(prototype, property);
+      prototype = Object.getPrototypeOf(prototype);
+    }
+    Object.defineProperty(body, property, {
+      configurable: true,
+      get: () => 0,
+      set(value: number) {
+        descriptor?.set?.call(body, value);
+      },
+    });
+  }
+  return () => {
+    for (const property of properties)
+      delete (body as unknown as Record<string, unknown>)[property];
+  };
+}
+
+/**
+ * SnapDOM zeroes the top margins that collapse up to the element it captures,
+ * so a page whose first content's top margin collapses through `<body>`, such
+ * as one that starts with a heading, would render that much higher. The root
+ * element contains the collapsed margin, so the clone puts it back as the
+ * body's own margin inside a root that contains it too.
+ */
+function keepBodyOffset(browserWindow: Window, clone: unknown) {
+  const { documentElement: root, body } = browserWindow.document;
+  const rootClone = clone as HTMLElement | undefined;
+  const bodyClone = rootClone?.querySelector<HTMLElement>(":scope > body");
+  if (!body || !rootClone || !bodyClone) return;
+  const rootStyle = browserWindow.getComputedStyle(root);
+  const bodyStyle = browserWindow.getComputedStyle(body);
+  if (bodyStyle.position !== "static" || bodyStyle.transform !== "none") return;
+  if (rootStyle.display === "block")
+    rootClone.style.setProperty("display", "flow-root", "important");
+  const offset =
+    body.getBoundingClientRect().top -
+    root.getBoundingClientRect().top -
+    parseFloat(rootStyle.borderTopWidth) -
+    parseFloat(rootStyle.paddingTop);
+  bodyClone.style.setProperty("margin-top", `${offset}px`, "important");
 }
 
 /**
@@ -659,17 +734,10 @@ function prepareForScreenshot(
 }
 
 /** Pinned `collectRoots`: the document, then each open shadow root. */
-function shadowRootsAndDocument(
-  root: Document | ShadowRoot,
-  roots: (Document | ShadowRoot)[] = []
-): (Document | ShadowRoot)[] {
-  roots.push(root);
-  const document = root.ownerDocument ?? (root as Document);
-  const walker = document.createTreeWalker(root, 1 /* SHOW_ELEMENT */);
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    const shadowRoot = (node as Element).shadowRoot;
-    if (shadowRoot) shadowRootsAndDocument(shadowRoot, roots);
-  }
+function shadowRootsAndDocument(document: Document): (Document | ShadowRoot)[] {
+  const roots: (Document | ShadowRoot)[] = [document];
+  for (const element of renderedElements(document))
+    if (element.shadowRoot) roots.push(element.shadowRoot);
   return roots;
 }
 
@@ -832,6 +900,11 @@ const URL_IMAGE_PROPERTIES = [
   "content",
 ];
 
+/** The URL images a mask over the whole element does not cover. */
+const MASKED_URL_IMAGE_PROPERTIES = URL_IMAGE_PROPERTIES.filter(
+  (property) => property !== "background-image"
+);
+
 /**
  * Refuses content in `region` the renderer cannot reproduce or would replace
  * without a warning, and returns the web fonts its text uses: the family the
@@ -839,10 +912,11 @@ const URL_IMAGE_PROPERTIES = [
  * A canvas the page cannot read back renders blank, and SnapDOM substitutes
  * failed frames, video and URL images in CSS and SVG silently, so they cannot
  * yet be verified; `<img>` failures are reported by the renderer itself.
- * A mask exempts only what paints inside the element's box: its own
- * background, and its replaced content, text and generated content when the
- * element clips them to the box. Everything else can paint outside the mask,
- * so it is still checked.
+ * Content is found by its element's box, except a pseudo-element's URL image:
+ * a pseudo-element can paint outside that box unless the element clips it. A
+ * mask exempts only what paints inside the element's box: its own background,
+ * and its replaced content, text and generated content when the element clips
+ * them to the box.
  */
 function assertCapturableContent(
   task: CaptureTask,
@@ -854,6 +928,20 @@ function assertCapturableContent(
     throw new Error(
       `${task.apiName}: cannot capture ${task.describe(element)}: ${reason}`
     );
+  };
+  const refuseURLImages = (
+    element: Element,
+    style: CSSStyleDeclaration,
+    properties = URL_IMAGE_PROPERTIES
+  ) => {
+    for (const property of properties) {
+      const value = style.getPropertyValue(property);
+      if (cssURLs(value).some(isUnverifiedURL))
+        refuse(
+          element,
+          `capturing a CSS ${property} from a URL is not supported yet.`
+        );
+    }
   };
   const webFonts = loadedWebFontFamilies(browserWindow.document);
   const usedFonts = new Map<string, { family: string; element: Element }>();
@@ -878,13 +966,19 @@ function assertCapturableContent(
       width: box.width,
       height: box.height,
     };
-    if (!intersects(region, rect)) continue;
+    const elementStyle = browserWindow.getComputedStyle(element);
+    if (!intersects(region, rect)) {
+      for (const pseudo of ["::before", "::after", "::marker"] as const) {
+        const style = browserWindow.getComputedStyle(element, pseudo);
+        if (!clipsPseudo(elementStyle, pseudo, style))
+          refuseURLImages(element, style);
+      }
+      continue;
+    }
     // A masked element's box is painted over, whatever it holds; its own
     // mask covers its box snapped as the mask is.
     const painted = snappedRect(browserWindow, box);
     const masked = masks.some((mask) => contains(mask, painted));
-    const elementStyle = browserWindow.getComputedStyle(element);
-    const clipsUnderMask = masked && clipsToBox(elementStyle);
     if (!masked || !clipsToBox(browserWindow.getComputedStyle(owner))) {
       if (name === "canvas" && !isReadable(element as HTMLCanvasElement))
         refuse(
@@ -904,41 +998,56 @@ function assertCapturableContent(
           "capturing an SVG image from a URL is not supported yet."
         );
     }
-    for (const pseudo of [null, "::before", "::after", "::marker"]) {
+    for (const pseudo of [null, "::before", "::after", "::marker"] as const) {
       const style = pseudo
         ? browserWindow.getComputedStyle(element, pseudo)
         : elementStyle;
-      // A positioned pseudo-element escapes the element's clip unless the
-      // element is its containing block.
       const covered =
-        clipsUnderMask &&
-        (pseudo === null ||
-          (pseudo !== "::marker" &&
-            (style.position === "absolute"
-              ? elementStyle.position !== "static"
-              : style.position !== "fixed")));
+        masked &&
+        (pseudo === null
+          ? clipsToBox(elementStyle)
+          : clipsPseudo(elementStyle, pseudo, style));
       const family =
         covered || pseudo === "::marker" || !rendersText(element, pseudo, style)
           ? undefined
           : renderedWebFont(fontFamilies(style.fontFamily), webFonts);
       if (family && !usedFonts.has(family.toLowerCase()))
         usedFonts.set(family.toLowerCase(), { family, element });
-      for (const property of URL_IMAGE_PROPERTIES) {
-        // A background paints within the border box.
-        if (
-          pseudo === null ? masked && property === "background-image" : covered
-        )
-          continue;
-        const value = style.getPropertyValue(property);
-        if (cssURLs(value).some(isUnverifiedURL))
-          refuse(
-            element,
-            `capturing a CSS ${property} from a URL is not supported yet.`
-          );
-      }
+      // An element's own background paints within its border box.
+      if (pseudo === null && masked)
+        refuseURLImages(element, style, MASKED_URL_IMAGE_PROPERTIES);
+      else if (!covered) refuseURLImages(element, style);
     }
   }
   return usedFonts;
+}
+
+/**
+ * Whether an element clips what its pseudo-element paints to its own box: its
+ * overflow clips, and it is the pseudo-element's containing block unless the
+ * pseudo-element is in flow. An outside list marker is never clipped.
+ */
+function clipsPseudo(
+  elementStyle: CSSStyleDeclaration,
+  pseudo: "::before" | "::after" | "::marker",
+  style: CSSStyleDeclaration
+): boolean {
+  return (
+    pseudo !== "::marker" &&
+    clipsToBox(elementStyle) &&
+    (style.position === "absolute"
+      ? elementStyle.position !== "static"
+      : style.position !== "fixed")
+  );
+}
+
+/** Whether an element clips what it paints inside it to its own box. */
+function clipsToBox(style: CSSStyleDeclaration): boolean {
+  return (
+    style.overflowX !== "visible" &&
+    style.overflowY !== "visible" &&
+    !/[1-9]/.test(style.overflowClipMargin)
+  );
 }
 
 /**
@@ -1078,15 +1187,6 @@ function cssURLs(value: string): string[] {
   );
 }
 
-/** Whether an element clips what it paints inside it to its own box. */
-function clipsToBox(style: CSSStyleDeclaration): boolean {
-  return (
-    style.overflowX !== "visible" &&
-    style.overflowY !== "visible" &&
-    !/[1-9]/.test(style.overflowClipMargin)
-  );
-}
-
 /** A URL the renderer would fetch; `data:` URLs are embedded as they are. */
 function isUnverifiedURL(url: string | null): boolean {
   if (!url) return false;
@@ -1175,24 +1275,6 @@ function validateEnum<T extends string>(
   if (!values.includes(value as T))
     throw new Error(`${name}: expected one of (${values.join("|")})`);
   return value as T;
-}
-
-/** Pinned validatorPrimitives.ts `tInt`. */
-function validateInt(value: unknown, name: string): number | undefined {
-  if (value === undefined) return undefined;
-  const number = value instanceof Number ? value.valueOf() : value;
-  if (typeof number !== "number")
-    throw new Error(`${name}: expected integer, got ${typeof value}`);
-  if (!Number.isInteger(number))
-    throw new Error(`${name}: expected integer, got float ${number}`);
-  return number;
-}
-
-/** Pinned validatorPrimitives.ts `tFloat`. */
-function validateFloat(value: unknown, name: string): number {
-  if (value instanceof Number) return value.valueOf();
-  if (typeof value === "number") return value;
-  throw new Error(`${name}: expected float, got ${typeof value}`);
 }
 
 /** Pinned validator.ts `Rect`. */
