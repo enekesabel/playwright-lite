@@ -992,12 +992,12 @@ describe("Mouse", () => {
   // dispatches for the same input.
   it.each([
     {
-      change: "the pressed element is removed and added back",
+      change: "the pressed element is re-added",
       html: `<div id=w>${box("h", 10, 10)}</div>`,
       run: () => reinsert(document.getElementById("h")!),
     },
     {
-      change: "an ancestor is removed and added back",
+      change: "an ancestor is re-added",
       html: `<div id=w>${box("h", 10, 10)}</div>`,
       run: () => reinsert(document.getElementById("w")!),
     },
@@ -1007,7 +1007,7 @@ describe("Mouse", () => {
       run: () => moveBefore(document.body, document.getElementById("w")!),
     },
     {
-      change: "moveBefore() moves the pressed element",
+      change: "moveBefore() moves the element",
       html: `<div id=w>${box("h", 10, 10)}</div>`,
       run: () =>
         moveBefore(
