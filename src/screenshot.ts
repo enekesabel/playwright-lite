@@ -1208,15 +1208,12 @@ let renderer: Promise<Renderer> | undefined;
  * tries again.
  */
 function loadRenderer(): Promise<Renderer> {
-  renderer ??= (
-    import("@zumer/snapdom") as unknown as Promise<RendererModule>
-  ).then(
-    (module) => module.createRenderer(pageGlobals()).snapdom,
-    (error: unknown) => {
+  renderer ??= (import("@zumer/snapdom") as unknown as Promise<RendererModule>)
+    .then((module) => module.createRenderer(pageGlobals()).snapdom)
+    .catch((error: unknown) => {
       renderer = undefined;
       throw error;
-    }
-  );
+    });
   return renderer;
 }
 
