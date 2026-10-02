@@ -654,6 +654,27 @@ describe("Page.screenshot", () => {
       expect((await decode(bytes)).pixel(25, 40)).toEqual([255, 0, 0, 255]);
   });
 
+  it("captures a stylesheet change made between captures", async () => {
+    document.body.style.margin = "0";
+    document.body.innerHTML = `<div id="box" style="width: 20px; height: 20px"></div>`;
+    const sheet = document.createElement("style");
+    document.head.append(sheet);
+    try {
+      const page = createPage();
+      sheet.sheet!.insertRule("#box { background: rgb(255, 0, 0) }");
+      expect((await decode(await page.screenshot())).pixel(10, 10)).toEqual([
+        255, 0, 0, 255,
+      ]);
+      sheet.sheet!.deleteRule(0);
+      sheet.sheet!.insertRule("#box { background: rgb(0, 0, 255) }");
+      expect((await decode(await page.screenshot())).pixel(10, 10)).toEqual([
+        0, 0, 255, 255,
+      ]);
+    } finally {
+      sheet.remove();
+    }
+  });
+
   describe("with masks", () => {
     const pink = [255, 0, 255, 255];
     const grey = [204, 204, 204, 255];
