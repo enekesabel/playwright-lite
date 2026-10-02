@@ -236,6 +236,7 @@ export class Pointer {
   dispose() {
     this.unobserveCapture?.();
     this.unobserveCapture = undefined;
+    this.mouseCapture.clear();
   }
 
   /** Pinned crInput.ts mouseWheel at the current position. */
@@ -904,7 +905,7 @@ export class Pointer {
     input: PointerInput,
     source = MOUSE
   ): Promise<GainedCapture | undefined> {
-    const pending = capture.takePending();
+    const pending = capture.pending;
     const previous = capture.current;
     if (pending === previous) return undefined;
     capture.current = pending;

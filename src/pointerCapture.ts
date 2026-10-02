@@ -1,4 +1,4 @@
-import { Element } from "virtual:playwright-lite-globals";
+import { Element, MutationObserver } from "virtual:playwright-lite-globals";
 
 import {
   HostObservation,
@@ -119,21 +119,49 @@ export class PointerCaptureObservation {
   }
 }
 
+const DOCUMENT_FRAGMENT_NODE = 11;
+
 /**
  * One pointer's capture targets, as Chromium's `PointerEventManager` keeps
  * them: `pending` is what `setPointerCapture()` and `releasePointerCapture()`
  * change and `hasPointerCapture()` reads, and `current` takes its value before
- * the pointer's next event.
+ * the pointer's next event. Chromium clears `pending` the moment its element
+ * leaves the document, so removals are observed while it is set and applied
+ * before it is read, which catches an element that is added back before then.
  */
 export class PointerCapture {
-  pending: Element | undefined;
+  private pendingTarget: Element | undefined;
   current: Element | undefined;
+  private readonly removals = new MutationObserver((records) =>
+    this.applyRemovals(records)
+  );
 
   constructor(
     readonly pointerId: number,
     /** Whether the pointer is in the active buttons state, which capture needs. */
     private readonly active: () => boolean
   ) {}
+
+  /** The pending target for the pointer's next event. */
+  get pending(): Element | undefined {
+    this.applyRemovals(this.removals.takeRecords());
+    return this.pendingTarget;
+  }
+
+  set pending(element: Element | undefined) {
+    if (element === this.pending) return;
+    this.removals.disconnect();
+    this.pendingTarget = element;
+    // Each tree on the element's way up to the document, since a document
+    // observer does not see into shadow trees.
+    for (let root = element?.getRootNode(); root;) {
+      this.removals.observe(root, { childList: true, subtree: true });
+      root =
+        root.nodeType === DOCUMENT_FRAGMENT_NODE
+          ? (root as ShadowRoot).host.getRootNode()
+          : undefined;
+    }
+  }
 
   /** Records `call` when it is for this pointer. */
   record(call: CaptureCall) {
@@ -144,18 +172,7 @@ export class PointerCapture {
     } else if (call.method === "release") {
       if (this.pending === call.element) this.pending = undefined;
     } else if (call.method === "has")
-      call.captured ||=
-        this.pending === call.element && call.element.isConnected;
-  }
-
-  /**
-   * The pending target for the pointer's next event. Chromium clears it when
-   * the element leaves the document; that is noticed here, so an element
-   * added back before then keeps it.
-   */
-  takePending(): Element | undefined {
-    if (this.pending && !this.pending.isConnected) this.pending = undefined;
-    return this.pending;
+      call.captured ||= this.pending === call.element;
   }
 
   /** Forgets both targets without firing anything. */
@@ -166,4 +183,28 @@ export class PointerCapture {
   get idle(): boolean {
     return !this.pending && !this.current;
   }
+
+  private applyRemovals(records: MutationRecord[]) {
+    const pending = this.pendingTarget;
+    if (!pending) return;
+    for (let r = 0; r < records.length; r++)
+      for (let i = 0; i < records[r]!.removedNodes.length; i++)
+        if (containsComposed(records[r]!.removedNodes[i]!, pending)) {
+          this.pending = undefined;
+          return;
+        }
+  }
+}
+
+/** Whether `node` is `target` or one of its ancestors across shadow roots. */
+function containsComposed(node: Node, target: Node): boolean {
+  for (let at: Node | null = target; at; at = parentComposed(at))
+    if (at === node) return true;
+  return false;
+}
+
+function parentComposed(node: Node): Node | null {
+  return node.nodeType === DOCUMENT_FRAGMENT_NODE
+    ? (node as ShadowRoot).host
+    : node.parentNode;
 }

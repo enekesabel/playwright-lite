@@ -676,6 +676,64 @@ describe("Mouse", () => {
     ]);
   });
 
+  // Contract coverage: as above. Playwright's Chromium also dispatches no
+  // click after the press target left the document, which the log stops
+  // before.
+  it("loses capture when the capture target leaves the document, even if it is added back before the next event", async () => {
+    document.body.innerHTML = `<div id=w>${box("h", 10, 10)}</div>${box("t", 200, 10)}`;
+    const handle = captureOnPress();
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    await page.mouse.down();
+    await page.mouse.move(230, 30);
+    const log = record(CAPTURE_EVENTS);
+
+    const wrapper = document.getElementById("w")!;
+    wrapper.remove();
+    document.body.prepend(wrapper);
+    const captured = handle.hasPointerCapture(1);
+    await page.mouse.move(240, 40);
+    const events = [...log];
+    await page.mouse.up();
+
+    expect(captured).toBe(false);
+    expect(events).toEqual([
+      "lostpointercapture@h",
+      "pointerout@h<t",
+      "pointerover@t<h",
+      "mouseout@h<t",
+      "mouseover@t<h",
+      "pointermove@t",
+      "mousemove@t",
+    ]);
+  });
+
+  // Contract coverage: as above.
+  it("loses capture when a shadow host around the capture target leaves the document", async () => {
+    document.body.innerHTML = `<div id=w></div>${box("t", 200, 10)}`;
+    const host = document.getElementById("w")!;
+    host.attachShadow({ mode: "open" }).innerHTML = box("h", 10, 10);
+    const handle = host.shadowRoot!.getElementById("h")!;
+    handle.addEventListener("pointerdown", (event) =>
+      handle.setPointerCapture(event.pointerId)
+    );
+    const page = createPage();
+    await page.mouse.move(30, 30);
+    await page.mouse.down();
+    await page.mouse.move(230, 30);
+    const log = record(["lostpointercapture", "pointermove"]);
+
+    host.remove();
+    document.body.prepend(host);
+    const captured = handle.hasPointerCapture(1);
+    await page.mouse.move(240, 40);
+    const events = [...log];
+    await page.mouse.up();
+
+    expect(captured).toBe(false);
+    expect(events).toEqual(["lostpointercapture@w", "pointermove@t"]);
+  });
+
   // Contract coverage: as above.
   it("keeps capture through a chorded press, and loses it with the next event after any release", async () => {
     document.body.innerHTML = box("h", 10, 10) + box("t", 200, 10);
