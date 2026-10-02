@@ -34,11 +34,30 @@ function patternedCanvas(): HTMLCanvasElement {
   return canvas;
 }
 
+/**
+ * Another origin for the test server: `localhost` reaches it from a loopback
+ * address, and from `localhost` whichever loopback address it listens on.
+ */
+async function crossOrigin(): Promise<string> {
+  const hosts =
+    location.hostname === "localhost" ? ["127.0.0.1", "[::1]"] : ["localhost"];
+  for (const host of hosts) {
+    const origin = `${location.protocol}//${host}:${location.port}`;
+    const reachable = await fetch(`${origin}/__delay/0/probe.gif`, {
+      mode: "no-cors",
+    }).then(
+      () => true,
+      () => false
+    );
+    if (reachable) return origin;
+  }
+  throw new Error(`no other origin reaches ${location.origin}`);
+}
+
 /** A canvas a cross-origin image tainted, so its pixels cannot be read. */
 async function taintedCanvas(): Promise<HTMLCanvasElement> {
-  const host = location.hostname === "127.0.0.1" ? "localhost" : "127.0.0.1";
   const image = new Image();
-  image.src = `${location.protocol}//${host}:${location.port}/__delay/0/taint.gif`;
+  image.src = `${await crossOrigin()}/__delay/0/taint.gif`;
   await image.decode();
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 10;
