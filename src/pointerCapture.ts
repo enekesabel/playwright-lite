@@ -69,9 +69,21 @@ export class PointerCaptureObservation {
     thisArg: unknown,
     args: unknown[]
   ): unknown {
+    // The id is converted once, as WebIDL `long`, and the browser gets the
+    // converted value; a value that cannot convert, or a missing one, reaches
+    // the browser as given, which rejects it.
+    let pointerId: number | undefined;
+    if (args.length > 0)
+      try {
+        pointerId = (args[0] as number) | 0;
+      } catch {
+        // The browser throws its own error for it below.
+      }
+    const forwarded =
+      pointerId === undefined ? args : [pointerId, ...args.slice(1)];
     let result: unknown;
     try {
-      result = Reflect.apply(original, thisArg, args);
+      result = Reflect.apply(original, thisArg, forwarded);
     } catch (error) {
       // Only an id the browser does not know, which a synthetic touch point
       // is, goes on to the pointer that owns it; the browser has already
@@ -79,27 +91,26 @@ export class PointerCaptureObservation {
       if ((error as { name?: unknown } | null)?.name !== "NotFoundError")
         throw error;
       const element = thisArg as Element;
-      if (!this.report("own", element, args).owned) throw error;
+      if (!this.report("own", element, pointerId!).owned) throw error;
       if (method === "set" && !element.isConnected)
         throw new this.window.DOMException(
           "Failed to execute 'setPointerCapture' on 'Element': InvalidStateError",
           "InvalidStateError"
         );
     }
-    const call = this.report(method, thisArg as Element, args);
+    const call = this.report(method, thisArg as Element, pointerId!);
     return method === "has" ? result === true || call.captured : result;
   }
 
   private report(
     method: CaptureCall["method"],
     element: Element,
-    args: unknown[]
+    pointerId: number
   ): CaptureCall {
     const call: CaptureCall = {
       method,
       element,
-      // WebIDL `long`, as the browser converted it.
-      pointerId: (args[0] as number) | 0,
+      pointerId,
       owned: false,
       captured: false,
     };
@@ -133,19 +144,26 @@ export class PointerCapture {
     } else if (call.method === "release") {
       if (this.pending === call.element) this.pending = undefined;
     } else if (call.method === "has")
-      call.captured ||= this.pendingTarget() === call.element;
+      call.captured ||=
+        this.pending === call.element && call.element.isConnected;
   }
 
   /**
-   * The pending target. Chromium clears it when the element leaves the
-   * document; that is noticed here, when it is next read.
+   * The pending target for the pointer's next event. Chromium clears it when
+   * the element leaves the document; that is noticed here, so an element
+   * added back before then keeps it.
    */
-  pendingTarget(): Element | undefined {
+  takePending(): Element | undefined {
     if (this.pending && !this.pending.isConnected) this.pending = undefined;
     return this.pending;
   }
 
+  /** Forgets both targets without firing anything. */
+  clear() {
+    this.pending = this.current = undefined;
+  }
+
   get idle(): boolean {
-    return !this.pendingTarget() && !this.current;
+    return !this.pending && !this.current;
   }
 }

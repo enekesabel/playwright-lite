@@ -225,8 +225,8 @@ export class Pointer {
     MOUSE.pointerId,
     () => this.pressed.size > 0 && !this.drag
   );
-  /** The capture of the touch point a tap holds down. */
-  private touchCapture: PointerCapture | undefined;
+  /** The captures of the touch points taps hold down. */
+  private readonly touchCaptures = new Set<PointerCapture>();
   /** Restores the capture members `observeCapture` wrapped. */
   private unobserveCapture: (() => void) | undefined;
 
@@ -321,13 +321,16 @@ export class Pointer {
       pressedSize: 2,
       pressedPressure: 1,
     };
-    const capture = new PointerCapture(touch.pointerId, () => true);
-    this.touchCapture = capture;
+    // The touch point can capture until its `pointerup` has fired, and the
+    // browser knows its id until `touchend`.
+    let down = true;
+    const capture = new PointerCapture(touch.pointerId, () => down);
+    this.touchCaptures.add(capture);
     this.observeCapture();
     try {
-      await this.tapDown(point, touch, capture, input);
+      await this.tapDown(point, touch, capture, input, () => (down = false));
     } finally {
-      this.touchCapture = undefined;
+      this.touchCaptures.delete(capture);
       this.disposeIfIdle();
     }
   }
@@ -336,7 +339,8 @@ export class Pointer {
     point: Point,
     touch: PointerSource,
     capture: PointerCapture,
-    input: PointerInput
+    input: PointerInput,
+    lift: () => void
   ) {
     const pressed = { button: 0, buttons: 1 };
     const released = { button: 0, buttons: 0 };
@@ -389,6 +393,7 @@ export class Pointer {
     await this.task(input, () =>
       this.fire(target, "pointerup", point, released, touch)
     );
+    lift();
     capture.pending = undefined;
     await this.processCapture(capture, point, released, input, touch);
     await this.boundary(
@@ -403,6 +408,7 @@ export class Pointer {
     const ended = await this.task(input, () =>
       this.fireTouch(touchTarget, "touchend", point, false)
     );
+    this.touchCaptures.delete(capture);
     if (started && ended)
       await this.tapGesture(point, pointerAllowed, touch, input);
   }
@@ -538,7 +544,7 @@ export class Pointer {
     if (!started) return;
     this.clickTarget = undefined;
     const captured = this.mouseCapture.current;
-    this.mouseCapture.pending = this.mouseCapture.current = undefined;
+    this.mouseCapture.clear();
     const hovered = this.hovered.pointer;
     this.hovered.pointer = undefined;
     // Chromium reports these at the viewport origin, as a pressed left button.
@@ -736,6 +742,9 @@ export class Pointer {
     try {
       await this.releaseButton(button, clickCount, input);
     } finally {
+      // A release interrupted before its last button lost capture still
+      // ends it, so the next move goes to the element under the pointer.
+      if (this.pressed.size === 0) this.mouseCapture.clear();
       this.disposeIfIdle();
     }
   }
@@ -869,12 +878,16 @@ export class Pointer {
 
   private readonly recordCapture = (call: CaptureCall) => {
     this.mouseCapture.record(call);
-    this.touchCapture?.record(call);
+    for (const capture of this.touchCaptures) capture.record(call);
   };
 
   /** Restores the capture members once no pointer can capture or holds capture. */
   private disposeIfIdle() {
-    if (this.pressed.size === 0 && this.mouseCapture.idle && !this.touchCapture)
+    if (
+      this.pressed.size === 0 &&
+      this.mouseCapture.idle &&
+      this.touchCaptures.size === 0
+    )
       this.dispose();
   }
 
@@ -891,7 +904,7 @@ export class Pointer {
     input: PointerInput,
     source = MOUSE
   ): Promise<GainedCapture | undefined> {
-    const pending = capture.pendingTarget();
+    const pending = capture.takePending();
     const previous = capture.current;
     if (pending === previous) return undefined;
     capture.current = pending;
@@ -928,6 +941,7 @@ export class Pointer {
       const hit = () => this.hitTarget(point);
       return { pointer: hit, mouse: hit };
     }
+    // Taken before the pointer event, whose listeners may remove the target.
     const path = flatTreePath(captured);
     return {
       pointer: () => captured,

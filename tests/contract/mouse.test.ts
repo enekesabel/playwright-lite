@@ -786,6 +786,52 @@ describe("Mouse", () => {
     ]);
   });
 
+  // Contract coverage: as above.
+  it("converts the pointer id once, as the browser does", async () => {
+    document.body.innerHTML = box("h", 10, 10);
+    const handle = document.getElementById("h")!;
+    let next = 1;
+    let conversions = 0;
+    const has: boolean[] = [];
+    handle.addEventListener("pointerdown", () => {
+      handle.setPointerCapture({
+        valueOf: () => (conversions++, next++),
+      } as unknown as number);
+      has.push(handle.hasPointerCapture(1));
+    });
+    const page = createPage();
+
+    await page.mouse.move(30, 30);
+    await page.mouse.down();
+    await page.mouse.up();
+
+    expect({ conversions, has }).toEqual({ conversions: 1, has: [true] });
+  });
+
+  // Contract coverage: an adapter-specific boundary, since a Playwright
+  // release is one browser input that a timeout cannot split.
+  it("ends capture when a release is interrupted before its last button loses it", async () => {
+    document.body.innerHTML = box("h", 10, 10) + box("t", 200, 10);
+    const handle = captureOnPress();
+    handle.addEventListener("pointerup", () => {
+      const end = performance.now() + 300;
+      while (performance.now() < end);
+    });
+    const original = Element.prototype.setPointerCapture;
+    const page = createPage();
+    await page.mouse.move(30, 30);
+
+    await expect(page.locator("#h").click({ timeout: 150 })).rejects.toThrow(
+      /Timeout 150ms exceeded/
+    );
+    const log = record(["pointermove"]);
+    await page.mouse.move(230, 30);
+
+    expect(log).toEqual(["pointermove@t"]);
+    expect(handle.hasPointerCapture(1)).toBe(false);
+    expect(Element.prototype.setPointerCapture).toBe(original);
+  });
+
   // Contract coverage: an adapter-specific boundary; Playwright replaces no
   // page function.
   it("wraps the capture members only while a button is held or capture remains", async () => {

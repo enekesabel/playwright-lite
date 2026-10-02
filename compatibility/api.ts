@@ -369,7 +369,7 @@ export const objectSections: readonly ObjectSection[] = [
   {
     name: "Mouse",
     covers:
-      "`page.mouse` moves the one pointer that `click()`, `hover()` and the other pointer actions also move, so its position, held buttons and the element under it carry over between them. While a button is held, an element can capture the pointer with `setPointerCapture()`, and the pointer's events go to it until the capture ends, as in Playwright.",
+      "`page.mouse` moves the one pointer that `click()`, `hover()` and the other pointer actions also move, so its position, held buttons and the element under it carry over between them. While a button is held, an element can capture the pointer with `setPointerCapture()`, and the pointer's events go to it until the capture ends.",
     members: (["move", "down", "up", "wheel"] as const).map((member) => ({
       member: `\`${member}()\``,
       ...mouseDifferences[member],
