@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { closedShadow } from "./closedShadow";
 
 let listeners = new AbortController();
 
@@ -944,5 +945,28 @@ describe("Mouse", () => {
     held.forEach((member, i) => expect(member).not.toBe(original[i]));
     expect(released).toEqual(original);
     expect(members()).toEqual(original);
+  });
+
+  it("reaches an element in a closed shadow root once an action has targeted inside it", async () => {
+    const { roots } = await closedShadow(
+      '<button id=inner style="width: 80px; height: 80px">inner</button>'
+    );
+    const page = createPage();
+    const inner = roots[0].querySelector("#inner")!;
+    const inside: string[] = [];
+    inner.addEventListener("click", (event) =>
+      inside.push((event.target as Element).id)
+    );
+    const outside: string[] = [];
+    on("click", (event) => outside.push(id(event.target)));
+    const { left, top } = inner.getBoundingClientRect();
+
+    await page.mouse.click(left + 10, top + 10);
+    expect(inside).toEqual([]);
+
+    await page.locator("closed=inner").hover();
+    await page.mouse.click(left + 10, top + 10);
+    expect(inside).toEqual(["inner"]);
+    expect(outside).toEqual(["host", "host"]);
   });
 });

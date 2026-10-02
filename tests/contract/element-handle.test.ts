@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../src/index";
 import { PageImpl } from "../../src/page";
+import { closedShadow } from "./closedShadow";
 
 describe("ElementHandle", () => {
   it("keeps page dollar results fixed while querying within their subtree", async () => {
@@ -534,4 +535,21 @@ describe("ElementHandle", () => {
       expect(error!.message).toContain("Not a checkbox");
     }
   );
+
+  it("clicks and types into an element inside a closed shadow root", async () => {
+    const { roots } = await closedShadow("<input id=field>");
+    const page = createPage();
+    const field = roots[0].querySelector("input")!;
+    const clicks: EventTarget[] = [];
+    field.addEventListener("click", (event) => clicks.push(event.target!));
+    const handle = await page.evaluateHandle(() =>
+      window.closedShadowElements!.get("field")!
+    );
+
+    await handle.asElement()!.click();
+    await page.keyboard.type("ab");
+
+    expect(clicks).toEqual([field]);
+    expect(field.value).toBe("ab");
+  });
 });

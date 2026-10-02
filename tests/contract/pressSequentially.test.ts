@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createPage } from "../../src/index";
+import { closedShadow } from "./closedShadow";
 
 describe("Locator.pressSequentially", () => {
   it("types sequentially after clearing", async () => {
@@ -46,5 +47,14 @@ describe("Locator.pressSequentially", () => {
       .locator("#input")
       .pressSequentially("ab", { delay: 5, timeout: 0 });
     expect(input.value).toBe("ab");
+  });
+
+  it("types into an element inside nested closed shadow roots", async () => {
+    const { roots } = await closedShadow("<input id=field>", { depth: 2 });
+    const page = createPage();
+
+    await page.locator("closed=field").pressSequentially("ab");
+
+    expect(roots[1].querySelector("input")!.value).toBe("ab");
   });
 });

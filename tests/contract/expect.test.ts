@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { createPage, expect as browserExpect } from "../../src/index";
 import { PageImpl } from "../../src/page";
+import { closedShadow } from "./closedShadow";
 
 // eslint-disable-next-line no-control-regex -- matches ANSI color codes
 const stripAnsi = (text: string) => text.replace(/\u001b\[[0-9;]*m/g, "");
@@ -375,6 +376,16 @@ describe("expect(locator)", () => {
 
     extended("title").toHaveTitle("title");
     expect(customCalls).toBe(1);
+  });
+
+  it("toBeFocused reports focus inside a closed shadow root as the page does", async () => {
+    await closedShadow("<input id=field>");
+    const page = createPage();
+
+    await page.locator("closed=field").focus();
+
+    await browserExpect(page.locator("#host")).toBeFocused();
+    await browserExpect(page.locator("closed=field")).toBeFocused();
   });
 });
 

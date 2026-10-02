@@ -7,6 +7,7 @@ import {
   Set,
 } from "virtual:playwright-lite-globals";
 
+import { inputShadowRoot } from "./closedShadowRoots";
 import { DragDataStore, type DragEventType, type DropEffect } from "./drag";
 import {
   guardLifetimeCalls,
@@ -1004,13 +1005,17 @@ export class Pointer {
     return mask;
   }
 
-  /** `elementFromPoint()`, followed into open shadow roots. */
+  /** `elementFromPoint()`, followed into open and recorded closed roots. */
   private hitTarget(point: Point): Element {
     const document = this.host.window.document;
     let target =
       document.elementFromPoint(point.x, point.y) ?? document.documentElement;
-    while (target.shadowRoot?.mode === "open") {
-      const inner = target.shadowRoot.elementFromPoint(point.x, point.y);
+    for (
+      let root = inputShadowRoot(target);
+      root;
+      root = inputShadowRoot(target)
+    ) {
+      const inner = root.elementFromPoint(point.x, point.y);
       if (!inner || inner === target) break;
       target = inner;
     }
@@ -1432,6 +1437,6 @@ function mouseFocusable(element: Element): boolean {
   return (
     html.tabIndex >= 0 ||
     html.isContentEditable ||
-    !!element.shadowRoot?.delegatesFocus
+    !!inputShadowRoot(element)?.delegatesFocus
   );
 }

@@ -580,7 +580,7 @@ The package exports `Request` and `Response` types listing exactly the available
 <summary>Edge cases</summary>
 
 - When the element under a still pointer changes, its over/out and enter/leave events fire with the next `mouse` call or pointer action; the browser fires them by itself after the next layout.
-- Elements inside a closed shadow root receive nothing; their host receives the events.
+- Mouse and keyboard input reach an element inside a closed shadow root only once an action has targeted an element in that root, such as one a custom selector engine or a handle returns; until then its host receives the events, where the browser reaches every closed root.
 - A `wheel` event is always cancelable and reaches the page's listeners before any scroll. When every `wheel` listener is passive, the browser scrolls first and reports `cancelable` as `false`.
 - When the pressed element leaves the document and is added back, or is moved with `moveBefore()`, before the release, the browser sends no `click`; playwright-lite still sends one.
 
@@ -624,7 +624,7 @@ The package exports `Request` and `Response` types listing exactly the available
 <summary>Edge cases</summary>
 
 - A `touchstart` event is always cancelable. When no listener on its path is non-passive, the browser reports `cancelable` as `false`.
-- The touch lists report an element inside an open shadow root to listeners outside it, where the browser reports the shadow host.
+- The touch lists report an element inside a shadow root to listeners outside it, where the browser reports the shadow host.
 
 </details>
 

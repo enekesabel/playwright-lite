@@ -1,3 +1,4 @@
+import { inputShadowRoot, learnClosedRoots } from "./closedShadowRoots";
 import { Evaluation } from "./evaluation";
 import type { EvaluationFunction, EvaluationOptions } from "./evaluation";
 import {
@@ -1636,7 +1637,9 @@ export class PageImpl {
       options,
       strict,
       (element) => {
-        const result = this.actionableInjected.focusNode(element);
+        const result = this.actionableInjected.focusNode(
+          learnClosedRoots(element)
+        );
         if (result === "error:notconnected")
           throw new Error(`Element is not connected for locator ${label}`);
       },
@@ -2776,7 +2779,10 @@ export class PageImpl {
       { signal: options?.signal, timeout: options?.timeout },
       strict,
       (element) => {
-        const result = this.actionableInjected.focusNode(element, true);
+        const result = this.actionableInjected.focusNode(
+          learnClosedRoots(element),
+          true
+        );
         if (result === "error:notconnected")
           throw new Error("Element is not connected");
       },
@@ -4680,7 +4686,8 @@ export class PageImpl {
           ? this.ensureReceivesEvents(element, position, force)
           : actionPoint(element, position, this.window);
         if (Date.now() >= deadline.expiresAt) throwTimeout();
-        return { element, point };
+        // Input into the element must reach it through closed roots too.
+        return { element: learnClosedRoots(element), point };
       } catch (error) {
         if (typeof selector !== "string" && !selector.isConnected)
           throw new Error("Element is not attached to the DOM", {
@@ -4887,7 +4894,7 @@ export class PageImpl {
   }
 
   private focusElement(element: Element) {
-    this.actionableInjected.focusNode(element, true);
+    this.actionableInjected.focusNode(learnClosedRoots(element), true);
   }
 
   private insertFilledText(
@@ -4960,11 +4967,12 @@ export class PageImpl {
 
   deepActiveElement(): Element {
     let target = this.document.activeElement ?? this.document.body;
-    while (
-      target.shadowRoot?.mode === "open" &&
-      target.shadowRoot.activeElement
+    for (
+      let root = inputShadowRoot(target);
+      root?.activeElement;
+      root = inputShadowRoot(target)
     )
-      target = target.shadowRoot.activeElement;
+      target = root.activeElement;
     return target;
   }
 
