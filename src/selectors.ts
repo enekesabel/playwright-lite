@@ -1,7 +1,7 @@
 import type { Selectors } from "@playwright/test";
 import { Error, JSON, Set } from "virtual:playwright-lite-globals";
 
-import { registerSelectorEngine } from "./injected";
+import { DEFAULT_TEST_ID_ATTRIBUTE, registerSelectorEngine } from "./injected";
 
 export { getByTestIdSelector } from "virtual:playwright-lite-injected";
 
@@ -81,6 +81,20 @@ function protocolString(value: unknown, path: string): string {
 }
 
 /**
+ * Pinned client/locator.ts `_testIdAttributeName`, which every `getByTestId`
+ * reads, numbered by setter call so that a page's own `testIdAttribute`
+ * yields to a later `selectors.setTestIdAttribute()`.
+ */
+let sharedTestIdAttribute = { name: DEFAULT_TEST_ID_ATTRIBUTE, setting: 0 };
+
+export function currentTestIdAttribute(): {
+  readonly name: string;
+  readonly setting: number;
+} {
+  return sharedTestIdAttribute;
+}
+
+/**
  * Pinned client/selectors.ts `Selectors.register`, followed by the checks the
  * pinned protocol validator and server/selectors.ts `register` apply once the
  * engine reaches a browser context. The current document always has one, so
@@ -118,11 +132,23 @@ class SelectorsImpl {
     registerSelectorEngine(engineName, source);
     this.names.add(engineName);
   }
+
+  /**
+   * Pinned client/selectors.ts `Selectors.setTestIdAttribute`. Like the
+   * pinned client it takes the name as given; its protocol call, the only
+   * check, swallows a rejection.
+   */
+  setTestIdAttribute(attributeName: string): void {
+    sharedTestIdAttribute = {
+      name: attributeName,
+      setting: sharedTestIdAttribute.setting + 1,
+    };
+  }
 }
 
 /**
- * Playwright's `selectors`. A registered engine resolves in every `Page` of
- * this package, including those created before it was registered.
+ * Playwright's `selectors`. A registered engine and the test ID attribute
+ * apply to every `Page` of this package, including those created before.
  */
 export const selectors = new SelectorsImpl() as unknown as Selectors;
 

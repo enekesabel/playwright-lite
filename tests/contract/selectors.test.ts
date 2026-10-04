@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createPage, expect as pageExpect, selectors } from "../../src/index";
 
@@ -8,6 +8,78 @@ const tagEngineSource = `({
   query(root, selector) { return root.querySelector(selector); },
   queryAll(root, selector) { return Array.from(root.querySelectorAll(selector)); },
 })`;
+
+describe("Selectors.setTestIdAttribute", () => {
+  afterEach(() => selectors.setTestIdAttribute("data-testid"));
+
+  it("applies to getByTestId on every page, including pages created before", async () => {
+    document.body.innerHTML =
+      '<section data-qa="panel"><button data-qa="save">Save</button></section>';
+    const before = createPage();
+    const panel = before.locator("section");
+
+    selectors.setTestIdAttribute("data-qa");
+
+    expect(await before.getByTestId("save").textContent()).toBe("Save");
+    expect(await panel.getByTestId("save").textContent()).toBe("Save");
+    expect(await createPage().getByTestId("panel").count()).toBe(1);
+    await pageExpect(before.getByTestId("save")).toHaveText("Save");
+  });
+
+  it("leaves locators already created on the previous attribute", async () => {
+    document.body.innerHTML =
+      '<button data-testid="save">Default</button><button data-qa="save">Custom</button>';
+    const page = createPage();
+    const existing = page.getByTestId("save");
+
+    selectors.setTestIdAttribute("data-qa");
+
+    expect(await existing.textContent()).toBe("Default");
+    expect(await page.getByTestId("save").textContent()).toBe("Custom");
+  });
+
+  it("replaces a createPage testIdAttribute until a later page sets its own", async () => {
+    document.body.innerHTML =
+      '<button data-a="save">A</button><button data-b="save">B</button><button data-c="save">C</button>';
+    const first = createPage({ testIdAttribute: "data-a" });
+
+    selectors.setTestIdAttribute("data-b");
+    const second = createPage({ testIdAttribute: "data-c" });
+
+    expect(await first.getByTestId("save").textContent()).toBe("B");
+    expect(await second.getByTestId("save").textContent()).toBe("C");
+    expect(await createPage().getByTestId("save").textContent()).toBe("B");
+  });
+
+  // Pinned tests/library/selector-generator.spec.ts "should use data-testid
+  // in strict errors", which also needs a second browser context.
+  it("names strict-mode matches by the new attribute", async () => {
+    document.body.innerHTML =
+      "<div class='foo bar:0' data-custom-id='One'></div><div class='foo bar:1' data-custom-id='Two'></div>";
+    const page = createPage();
+
+    selectors.setTestIdAttribute("data-custom-id");
+
+    const error = await page
+      .locator(".foo")
+      .hover()
+      .catch((error: Error) => error);
+    expect((error as Error).message).toContain("strict mode violation");
+    expect((error as Error).message).toContain("aka getByTestId('One')");
+    expect((error as Error).message).toContain("aka getByTestId('Two')");
+  });
+
+  it("generates normalized test ID selectors with the new attribute", async () => {
+    document.body.innerHTML = '<div class="card" data-qa="save">Save</div>';
+    const page = createPage();
+
+    selectors.setTestIdAttribute("data-qa");
+
+    expect((await page.locator("div.card").normalize()).toString()).toBe(
+      "getByTestId('save')"
+    );
+  });
+});
 
 describe("Selectors.register", () => {
   it("resolves locators, $, $$ and expect through the engine", async () => {

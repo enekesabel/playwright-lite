@@ -645,9 +645,17 @@ type SelectorsWithWritableTestIdAttribute = Playwright["selectors"] & {
 };
 
 /**
- * Mirrors Playwright's selectors.setTestIdAttribute propagation in the
- * fixture only. The fixture passes its initial value to createPage and updates
- * the same adapter instance when upstream tests change the selector setting.
+ * Routes Playwright's `selectors.setTestIdAttribute` into the adapter's
+ * public `selectors` for the fixture's lifetime. Playwright's setter is
+ * synchronous, so the adapter call is queued and every later adapter call
+ * waits for it, which surfaces its failure there. A test's own call is
+ * recorded as `Selectors.setTestIdAttribute` and can be sabotaged like any
+ * member. Playwright's own setter still runs, for the pinned client Locator
+ * that answers `toString()` in Node.
+ *
+ * The fixture's configured attribute is not a call of the test: like
+ * Playwright's `testIdAttribute` option it reaches the adapter page as
+ * `createPage({ testIdAttribute })`.
  */
 export async function installTestIdAttributeSynchronization(
   realPage: Page,
@@ -659,47 +667,50 @@ export async function installTestIdAttributeSynchronization(
   const originalSetTestIdAttribute = selectors.setTestIdAttribute;
   let synchronization = Promise.resolve();
 
-  const synchronizeBrowser = (attributeName: string) =>
-    realPage.evaluate((testIdAttributeName) => {
+  const restore = () => {
+    selectors.setTestIdAttribute = originalSetTestIdAttribute;
+    originalSetTestIdAttribute.call(selectors, DEFAULT_TEST_ID_ATTRIBUTE);
+    testIdAttributeSynchronizers.delete(realPage);
+  };
+
+  originalSetTestIdAttribute.call(selectors, initialAttributeName);
+  try {
+    await realPage.evaluate((testIdAttributeName) => {
       (
         window as Window & { __pwLiteTestIdAttributeName?: string }
       ).__pwLiteTestIdAttributeName = testIdAttributeName;
-      const adapter = (
-        window as Window & { __pwLiteAdapterPage?: { testIdAttribute: string } }
-      ).__pwLiteAdapterPage;
-      if (adapter) adapter.testIdAttribute = testIdAttributeName;
-    }, attributeName);
-
-  const queueSynchronization = (attributeName: string) => {
-    synchronization = synchronization.then(
-      () => synchronizeBrowser(attributeName),
-      () => synchronizeBrowser(attributeName)
-    );
-  };
-
-  const synchronize = (attributeName: string) => {
-    originalSetTestIdAttribute.call(selectors, attributeName);
-    queueSynchronization(attributeName);
-  };
-
-  selectors.setTestIdAttribute = synchronize;
-  try {
-    synchronize(initialAttributeName);
-    await synchronization;
+    }, initialAttributeName);
   } catch (error) {
-    selectors.setTestIdAttribute = originalSetTestIdAttribute;
-    originalSetTestIdAttribute.call(selectors, DEFAULT_TEST_ID_ATTRIBUTE);
-    testIdAttributeSynchronizers.delete(realPage);
+    restore();
     throw error;
   }
+
+  selectors.setTestIdAttribute = (attributeName: string) => {
+    originalSetTestIdAttribute.call(selectors, attributeName);
+    const encodedArgs = encodeBridgeValueForPage([attributeName], realPage);
+    const call = () =>
+      evaluateAdapterNow<void>(
+        realPage,
+        (a: unknown[]) => {
+          const host = window as any;
+          return host.__pwLiteInvokeAdapter(
+            () => host.__pwLiteSelectorsCall("setTestIdAttribute", a),
+            a
+          );
+        },
+        encodedArgs
+      );
+    synchronization = synchronization.then(call, call);
+    // Awaited by the next adapter call; a call nothing awaits is not an
+    // unhandled rejection.
+    synchronization.catch(() => {});
+  };
   testIdAttributeSynchronizers.set(realPage, () => synchronization);
 
   return async () => {
-    selectors.setTestIdAttribute = originalSetTestIdAttribute;
-    originalSetTestIdAttribute.call(selectors, DEFAULT_TEST_ID_ATTRIBUTE);
     // The fixture discards this page. Reset only shared worker state; the
     // document may already be gone after a native navigation.
-    testIdAttributeSynchronizers.delete(realPage);
+    restore();
   };
 }
 
@@ -856,6 +867,15 @@ async function evaluateAdapter<Result>(
   arg: unknown
 ): Promise<Result> {
   await testIdAttributeSynchronizers.get(realPage)?.();
+  return evaluateAdapterNow(realPage, pageFunction, arg);
+}
+
+/** `evaluateAdapter` without waiting for a queued test ID attribute call. */
+async function evaluateAdapterNow<Result>(
+  realPage: Page,
+  pageFunction: unknown,
+  arg: unknown
+): Promise<Result> {
   const evaluateInScope = adapterEvaluations.get(realPage)!;
   const envelope = (await evaluateInScope(
     pageFunction,

@@ -6,11 +6,7 @@ import {
   assertEvaluationOptions,
   assertMaxArguments,
 } from "./jsHandle";
-import {
-  injectedScriptFor,
-  parseAriaExpectation,
-  DEFAULT_TEST_ID_ATTRIBUTE,
-} from "./injected";
+import { injectedScriptFor, parseAriaExpectation } from "./injected";
 import { AdapterTimeoutError } from "./errors";
 import { compressCallLog } from "./callLog";
 import {
@@ -78,6 +74,7 @@ import {
   getByTestIdSelector,
   getByTextSelector,
   getByTitleSelector,
+  currentTestIdAttribute,
 } from "./selectors";
 import {
   capture,
@@ -538,10 +535,21 @@ export class PageImpl {
   /** Pinned client/page.ts and server/page.ts `_locatorHandlers`, as one. */
   private readonly locatorHandlers: LocatorHandlers;
 
+  /**
+   * The `testIdAttribute` this page was created with, which holds until the
+   * next `selectors.setTestIdAttribute()`.
+   */
+  private readonly ownTestIdAttribute:
+    { readonly name: string; readonly setting: number } | undefined;
+
   constructor(
     browserWindow: Window & typeof globalThis,
-    public testIdAttribute = DEFAULT_TEST_ID_ATTRIBUTE
+    testIdAttribute?: string
   ) {
+    this.ownTestIdAttribute =
+      testIdAttribute === undefined
+        ? undefined
+        : { name: testIdAttribute, setting: currentTestIdAttribute().setting };
     this.window = browserWindow;
     this.document = browserWindow.document;
     this.keyboard = new BrowserKeyboard(this);
@@ -643,9 +651,16 @@ export class PageImpl {
     );
   }
 
+  /** The attribute `getByTestId` matches: the latest one set. */
+  get testIdAttribute(): string {
+    const shared = currentTestIdAttribute();
+    const own = this.ownTestIdAttribute;
+    return own && own.setting >= shared.setting ? own.name : shared.name;
+  }
+
   static fromWindow(
     browserWindow: Window & typeof globalThis = window,
-    testIdAttribute = DEFAULT_TEST_ID_ATTRIBUTE
+    testIdAttribute?: string
   ) {
     return new PageImpl(browserWindow, testIdAttribute);
   }

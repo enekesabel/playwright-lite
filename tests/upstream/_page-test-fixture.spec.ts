@@ -144,6 +144,42 @@ test.describe.serial("page fixture selectors.register route", () => {
   });
 });
 
+test.describe("page fixture selectors.setTestIdAttribute route", () => {
+  test("records the test's call as an adapter call", async ({
+    page,
+    playwright,
+  }) => {
+    await page.setContent('<b data-qa="x">x</b>');
+    playwright.selectors.setTestIdAttribute("data-qa");
+    await expect(page.getByTestId("x")).toHaveCount(1);
+
+    const evidence = await page.evaluate(
+      () => (window as any).__pwLiteEvidence
+    );
+    expect(
+      evidence.entered.filter(
+        (member: string) => member === "Selectors.setTestIdAttribute"
+      )
+    ).toEqual(["Selectors.setTestIdAttribute"]);
+  });
+
+  test.describe("under a sabotaged setTestIdAttribute", () => {
+    test.use({ sabotagedMethod: "Selectors.setTestIdAttribute" });
+
+    test("fails the next adapter call with the withheld marker", async ({
+      page,
+      playwright,
+    }) => {
+      await page.setContent('<b data-qa="x">x</b>');
+      playwright.selectors.setTestIdAttribute("data-qa");
+
+      await expect(page.getByTestId("x").count()).rejects.toThrow(
+        "__pwLiteSabotagedMethod: Selectors.setTestIdAttribute was withheld for promotion review."
+      );
+    });
+  });
+});
+
 test.describe("pageTest timeout configuration", () => {
   test.use({ actionTimeout: 15, navigationTimeout: 20 });
 
