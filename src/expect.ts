@@ -571,75 +571,87 @@ function assertTextExpected(
     );
 }
 
+/**
+ * `validate` runs before the returned promise exists, like the argument guards
+ * pinned 26a9e47 matchers/matchers.ts throws from its non-async matchers.
+ */
 function locatorMatcher(
   matcherName: string,
-  build: (args: unknown[]) => LocatorMatcherCall
+  build: (args: unknown[]) => LocatorMatcherCall,
+  validate?: (args: unknown[]) => void
 ): RawMatcherFn {
-  return async function (
-    this: MatcherContext,
-    actual: unknown,
-    ...args: unknown[]
-  ): Promise<MatcherResult> {
-    if (!isLocatorExpectationReceiver(actual)) {
-      throw new Error(
-        `${matcherName} can be used only with a playwright-lite Locator.`
-      );
-    }
+  return function (this: MatcherContext, actual: unknown, ...args: unknown[]) {
+    validate?.(args);
+    return matchLocator.call(this, matcherName, build, actual, args);
+  };
+}
 
-    const call = build(args);
-    const options = assertionOptions(call.options);
-    const timeout =
-      options.timeout ?? (this as MatcherContext & { timeout: number }).timeout;
-    const result = await actual._expect(
-      call.expression,
-      {
-        ...call.options,
-        isNot: !!this.isNot,
-        timeout,
-        signal: options.signal,
-      },
-      stepTitle(this)
+async function matchLocator(
+  this: MatcherContext,
+  matcherName: string,
+  build: (args: unknown[]) => LocatorMatcherCall,
+  actual: unknown,
+  args: unknown[]
+): Promise<MatcherResult> {
+  if (!isLocatorExpectationReceiver(actual)) {
+    throw new Error(
+      `${matcherName} can be used only with a playwright-lite Locator.`
     );
-    const pass = result.matches;
-    if (pass === !this.isNot)
-      return {
-        name: matcherName,
-        message: () => "",
-        pass,
-        expected: call.expected,
-      };
+  }
 
-    const received = result.received?.value;
-    const printed = locatorFailureDetails(
-      this.utils,
-      call,
-      received,
-      pass,
-      result.errorMessage
-    );
-    const message = () =>
-      formatLocatorMatcherMessage(this.utils, {
-        isNot: !!this.isNot,
-        promise: this.promise ?? "",
-        matcherName,
-        expectation: call.expectation,
-        locator: actual.toString(),
-        timeout,
-        timedOut: result.timedOut,
-        errorMessage: result.errorMessage,
-        log: result.log,
-        ...printed,
-      });
+  const call = build(args);
+  const options = assertionOptions(call.options);
+  const timeout =
+    options.timeout ?? (this as MatcherContext & { timeout: number }).timeout;
+  const result = await actual._expect(
+    call.expression,
+    {
+      ...call.options,
+      isNot: !!this.isNot,
+      timeout,
+      signal: options.signal,
+    },
+    stepTitle(this)
+  );
+  const pass = result.matches;
+  if (pass === !this.isNot)
     return {
       name: matcherName,
-      expected: call.expected,
-      actual: received,
-      ariaSnapshot: result.received?.ariaSnapshot,
-      log: result.log,
+      message: () => "",
       pass,
-      timeout: result.timedOut ? timeout : undefined,
-      message,
+      expected: call.expected,
     };
+
+  const received = result.received?.value;
+  const printed = locatorFailureDetails(
+    this.utils,
+    call,
+    received,
+    pass,
+    result.errorMessage
+  );
+  const message = () =>
+    formatLocatorMatcherMessage(this.utils, {
+      isNot: !!this.isNot,
+      promise: this.promise ?? "",
+      matcherName,
+      expectation: call.expectation,
+      locator: actual.toString(),
+      timeout,
+      timedOut: result.timedOut,
+      errorMessage: result.errorMessage,
+      log: result.log,
+      ...printed,
+    });
+  return {
+    name: matcherName,
+    expected: call.expected,
+    actual: received,
+    ariaSnapshot: result.received?.ariaSnapshot,
+    log: result.log,
+    pass,
+    timeout: result.timedOut ? timeout : undefined,
+    message,
   };
 }
 
@@ -1029,7 +1041,12 @@ const locatorMatchers: MatchersObject = {
       expectation: "expected",
     })
   ),
-  toHaveRole,
+  toHaveRole: textMatcher("to.have.role", {}, ([expected]) => {
+    // Pinned 26a9e47 matchers.ts `toHaveRole` checks `isString` before its
+    // async part; a boxed String passes and its text validation rejects.
+    if (typeof expected !== "string" && !(expected instanceof String))
+      throw new Error('"role" argument in toHaveRole must be a string');
+  }),
   toHaveText: locatorMatcher("toHaveText", ([expected, options]) => {
     if (!Array.isArray(expected)) assertTextExpected(expected);
     return Array.isArray(expected)
@@ -1088,7 +1105,8 @@ const locatorMatchers: MatchersObject = {
 
 function textMatcher(
   expression: string,
-  settings: { ignoreCase?: boolean; normalizeWhiteSpace?: boolean } = {}
+  settings: { ignoreCase?: boolean; normalizeWhiteSpace?: boolean } = {},
+  validate?: (args: unknown[]) => void
 ): RawMatcherFn {
   return locatorMatcher(
     expressionToMatcherName(expression),
@@ -1112,25 +1130,9 @@ function textMatcher(
         kind: "text",
         expectation: "expected",
       };
-    }
+    },
+    validate
   );
-}
-
-const toHaveRoleText = textMatcher("to.have.role");
-
-/**
- * Pinned 26a9e47 matchers.ts `toHaveRole` checks the role with `isString`
- * before its async part, so a non-string role throws synchronously. A boxed
- * String passes that check and its async text validation rejects.
- */
-function toHaveRole(
-  this: MatcherContext,
-  actual: unknown,
-  ...args: unknown[]
-): Promise<MatcherResult> {
-  if (typeof args[0] !== "string" && !(args[0] instanceof String))
-    throw new Error('"role" argument in toHaveRole must be a string');
-  return toHaveRoleText.call(this, actual, ...args) as Promise<MatcherResult>;
 }
 
 function classMatcher(
@@ -1139,43 +1141,48 @@ function classMatcher(
   arrayExpression: string,
   contains = false
 ): RawMatcherFn {
-  return locatorMatcher(matcherName, ([expected, options]) => {
-    if (
-      contains &&
-      (expected instanceof RegExp ||
-        (Array.isArray(expected) &&
-          expected.some((value) => value instanceof RegExp)))
-    )
-      throw new Error(
-        `"expected" argument in ${matcherName} cannot${Array.isArray(expected) ? " contain" : " be"} a RegExp value`
-      );
-    if (!Array.isArray(expected)) assertTextExpected(expected);
-    return Array.isArray(expected)
-      ? {
-          expression: arrayExpression,
-          expected,
-          options: {
-            ...timingOptions(options),
-            expectedText: serializeExpectedTextValues(
-              expected as (string | RegExp)[]
-            ),
-          },
-          kind: "equal",
-          expectation: "expected",
-        }
-      : {
-          expression,
-          expected,
-          options: {
-            ...timingOptions(options),
-            expectedText: serializeExpectedTextValues([
-              expected as string | RegExp,
-            ]),
-          },
-          kind: "text",
-          expectation: "expected",
-        };
-  });
+  const validate = contains
+    ? ([expected]: unknown[]) => {
+        if (
+          Array.isArray(expected) ? expected.some(isRegExp) : isRegExp(expected)
+        )
+          throw new Error(
+            `"expected" argument in ${matcherName} cannot ${Array.isArray(expected) ? "contain RegExp values" : "be a RegExp value"}`
+          );
+      }
+    : undefined;
+  return locatorMatcher(
+    matcherName,
+    ([expected, options]) => {
+      if (!Array.isArray(expected)) assertTextExpected(expected);
+      return Array.isArray(expected)
+        ? {
+            expression: arrayExpression,
+            expected,
+            options: {
+              ...timingOptions(options),
+              expectedText: serializeExpectedTextValues(
+                expected as (string | RegExp)[]
+              ),
+            },
+            kind: "equal",
+            expectation: "expected",
+          }
+        : {
+            expression,
+            expected,
+            options: {
+              ...timingOptions(options),
+              expectedText: serializeExpectedTextValues([
+                expected as string | RegExp,
+              ]),
+            },
+            kind: "text",
+            expectation: "expected",
+          };
+    },
+    validate
+  );
 }
 
 const SNAPSHOT_FILE_UNSUPPORTED =

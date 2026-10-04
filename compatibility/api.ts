@@ -805,9 +805,7 @@ export const locatorAssertionLedger = {
   toBeHidden: implemented(),
   toBeInViewport: implemented(),
   toBeVisible: implemented(),
-  toContainClass: partial(
-    "A RegExp `expected` rejects the returned promise, where Playwright throws synchronously."
-  ),
+  toContainClass: implemented(),
   toContainText: implemented(),
   toHaveAccessibleDescription: implemented(),
   toHaveAccessibleErrorMessage: implemented(),
