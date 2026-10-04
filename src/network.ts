@@ -80,6 +80,13 @@ export interface Request {
    */
   headers(): Record<string, string>;
   /** Reads `headers()`; a page never sees the headers that went on the wire. */
+  allHeaders(): Promise<Record<string, string>>;
+  /**
+   * One entry per name in `headers()`: the page sees a repeated header only
+   * as one value the browser joined with `, `.
+   */
+  headersArray(): Promise<{ name: string; value: string }[]>;
+  /** Reads `headers()`; a page never sees the headers that went on the wire. */
   headerValue(name: string): Promise<string | null>;
   postData(): string | null;
   postDataBuffer(): Uint8Array | null;
@@ -99,7 +106,16 @@ export interface Response {
   ok(): boolean;
   /** The response headers the browser exposes to this document. */
   headers(): Record<string, string>;
+  /** Reads `headers()`; a page never sees the headers received on the wire. */
+  allHeaders(): Promise<Record<string, string>>;
+  /**
+   * One entry per name in `headers()`: the page sees a repeated header only
+   * as one value the browser joined with `, `.
+   */
+  headersArray(): Promise<{ name: string; value: string }[]>;
   headerValue(name: string): Promise<string | null>;
+  /** The one value `headerValue()` reads, or none. */
+  headerValues(name: string): Promise<string[]>;
   body(): Promise<Uint8Array>;
   text(): Promise<string>;
   json(): Promise<unknown>;
@@ -168,6 +184,25 @@ async function xhrResponseBody(xhr: XMLHttpRequest): Promise<Uint8Array> {
   );
 }
 
+/**
+ * The value of header `name`, or `null`. Only own entries count, so a name
+ * such as `constructor` never reads the object's prototype.
+ */
+function headerValue(
+  headers: Record<string, string>,
+  name: string
+): string | null {
+  const key = name.toLowerCase();
+  return Object.hasOwn(headers, key) ? headers[key] : null;
+}
+
+/** One `{ name, value }` entry per header, in `headers()` order. */
+function headersArray(
+  headers: Record<string, string>
+): { name: string; value: string }[] {
+  return Object.entries(headers).map(([name, value]) => ({ name, value }));
+}
+
 function headersObject(headers: Headers): Record<string, string> {
   const result: Record<string, string> = {};
   headers.forEach((value, name) => {
@@ -228,8 +263,16 @@ class ObservedRequest implements Request {
     return { ...this._init.headers };
   }
 
+  async allHeaders() {
+    return this.headers();
+  }
+
+  async headersArray() {
+    return headersArray(this._init.headers);
+  }
+
   async headerValue(name: string) {
-    return this._init.headers[name.toLowerCase()] ?? null;
+    return headerValue(this._init.headers, name);
   }
 
   postData() {
@@ -326,8 +369,21 @@ class ObservedResponse implements Response {
     return { ...this._init.headers };
   }
 
+  async allHeaders() {
+    return this.headers();
+  }
+
+  async headersArray() {
+    return headersArray(this._init.headers);
+  }
+
   async headerValue(name: string) {
-    return this._init.headers[name.toLowerCase()] ?? null;
+    return headerValue(this._init.headers, name);
+  }
+
+  async headerValues(name: string) {
+    const value = await this.headerValue(name);
+    return value === null ? [] : [value];
   }
 
   async body(): Promise<Uint8Array> {

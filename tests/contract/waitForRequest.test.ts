@@ -10,8 +10,6 @@ import { assetUrl, contractUrl, restoreFetch, sendXhr } from "./network";
  */
 type AbsentOnRequest = Extract<
   keyof Request,
-  | "allHeaders"
-  | "headersArray"
   | "frame"
   | "redirectedFrom"
   | "redirectedTo"

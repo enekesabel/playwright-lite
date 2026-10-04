@@ -41,7 +41,7 @@ describe("Locator.tap", () => {
   });
 
   // Contract coverage: the pinned test that waits for a hidden element taps
-  // an ElementHandle, which has no `tap()` here.
+  // an ElementHandle and never waits for enabled.
   it("waits until the element is visible and enabled, then taps it", async () => {
     emulateTouch();
     document.body.innerHTML =

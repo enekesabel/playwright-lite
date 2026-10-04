@@ -6,11 +6,7 @@ import {
   assertEvaluationOptions,
   assertMaxArguments,
 } from "./jsHandle";
-import {
-  injectedScriptFor,
-  parseAriaExpectation,
-  DEFAULT_TEST_ID_ATTRIBUTE,
-} from "./injected";
+import { injectedScriptFor, parseAriaExpectation } from "./injected";
 import { AdapterTimeoutError } from "./errors";
 import { compressCallLog } from "./callLog";
 import {
@@ -78,6 +74,7 @@ import {
   getByTestIdSelector,
   getByTextSelector,
   getByTitleSelector,
+  currentTestIdAttribute,
 } from "./selectors";
 import {
   capture,
@@ -538,10 +535,21 @@ export class PageImpl {
   /** Pinned client/page.ts and server/page.ts `_locatorHandlers`, as one. */
   private readonly locatorHandlers: LocatorHandlers;
 
+  /**
+   * The `testIdAttribute` this page was created with, which holds until the
+   * next `selectors.setTestIdAttribute()`.
+   */
+  private readonly ownTestIdAttribute:
+    { readonly name: string; readonly setting: number } | undefined;
+
   constructor(
     browserWindow: Window & typeof globalThis,
-    public testIdAttribute = DEFAULT_TEST_ID_ATTRIBUTE
+    testIdAttribute?: string
   ) {
+    this.ownTestIdAttribute =
+      testIdAttribute === undefined
+        ? undefined
+        : { name: testIdAttribute, setting: currentTestIdAttribute().setting };
     this.window = browserWindow;
     this.document = browserWindow.document;
     this.keyboard = new BrowserKeyboard(this);
@@ -636,6 +644,15 @@ export class PageImpl {
     this.startPageErrorCollection();
   }
 
+  /**
+   * The InjectedScripts that drew this page's highlights. A test ID
+   * attribute change gives the page another one, and the earlier one still
+   * owns what it drew, which the page must keep able to remove.
+   */
+  private readonly highlighters = new Set<
+    ReturnType<typeof injectedScriptFor>
+  >();
+
   private get injected() {
     return injectedScriptFor(
       this.document.documentElement,
@@ -643,9 +660,16 @@ export class PageImpl {
     );
   }
 
+  /** The attribute `getByTestId` matches: the latest one set. */
+  get testIdAttribute(): string {
+    const shared = currentTestIdAttribute();
+    const own = this.ownTestIdAttribute;
+    return own && own.setting >= shared.setting ? own.name : shared.name;
+  }
+
   static fromWindow(
     browserWindow: Window & typeof globalThis = window,
-    testIdAttribute = DEFAULT_TEST_ID_ATTRIBUTE
+    testIdAttribute?: string
   ) {
     return new PageImpl(browserWindow, testIdAttribute);
   }
@@ -731,7 +755,9 @@ export class PageImpl {
   async addHighlight(selector: string, style?: string): Promise<void> {
     if (style !== undefined) style = validateString(style, "style");
     try {
-      this.injected.addHighlight(this.parseSelector(selector), style);
+      const injected = this.injected;
+      this.highlighters.add(injected);
+      injected.addHighlight(this.parseSelector(selector), style);
     } catch (error) {
       throw presentOriginalXPath(error, selector);
     }
@@ -739,7 +765,9 @@ export class PageImpl {
 
   async removeHighlight(selector: string): Promise<void> {
     try {
-      this.injected.removeHighlight(this.parseSelector(selector));
+      const parsed = this.parseSelector(selector);
+      for (const injected of this.highlighters)
+        injected.removeHighlight(parsed);
     } catch (error) {
       throw presentOriginalXPath(error, selector);
     }
@@ -747,6 +775,8 @@ export class PageImpl {
 
   async hideHighlight(): Promise<void> {
     this.injected.hideHighlight();
+    for (const injected of this.highlighters) injected.hideHighlight();
+    this.highlighters.clear();
   }
 
   // ── Selector query operations ──────────────────────────────────

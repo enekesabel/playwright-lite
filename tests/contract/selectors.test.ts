@@ -1,4 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import type { Locator } from "@playwright/test";
 
 import { createPage, expect as pageExpect, selectors } from "../../src/index";
 
@@ -8,6 +17,128 @@ const tagEngineSource = `({
   query(root, selector) { return root.querySelector(selector); },
   queryAll(root, selector) { return Array.from(root.querySelectorAll(selector)); },
 })`;
+
+describe("Selectors.setTestIdAttribute", () => {
+  afterEach(() => selectors.setTestIdAttribute("data-testid"));
+
+  it("applies to getByTestId on every page, including pages created before", async () => {
+    document.body.innerHTML =
+      '<section data-qa="panel"><button data-qa="save">Save</button></section>';
+    const before = createPage();
+    const panel = before.locator("section");
+
+    selectors.setTestIdAttribute("data-qa");
+
+    expect(await before.getByTestId("save").textContent()).toBe("Save");
+    expect(await panel.getByTestId("save").textContent()).toBe("Save");
+    expect(await createPage().getByTestId("panel").count()).toBe(1);
+    await pageExpect(before.getByTestId("save")).toHaveText("Save");
+  });
+
+  it("leaves locators already created on the previous attribute", async () => {
+    document.body.innerHTML =
+      '<button data-testid="save">Default</button><button data-qa="save">Custom</button>';
+    const page = createPage();
+    const existing = page.getByTestId("save");
+
+    selectors.setTestIdAttribute("data-qa");
+
+    expect(await existing.textContent()).toBe("Default");
+    expect(await page.getByTestId("save").textContent()).toBe("Custom");
+  });
+
+  it("replaces a createPage testIdAttribute until a later page sets its own", async () => {
+    document.body.innerHTML =
+      '<button data-a="save">A</button><button data-b="save">B</button><button data-c="save">C</button>';
+    const first = createPage({ testIdAttribute: "data-a" });
+
+    selectors.setTestIdAttribute("data-b");
+    const second = createPage({ testIdAttribute: "data-c" });
+
+    expect(await first.getByTestId("save").textContent()).toBe("B");
+    expect(await second.getByTestId("save").textContent()).toBe("C");
+    expect(await createPage().getByTestId("save").textContent()).toBe("B");
+  });
+
+  // Pinned tests/library/selector-generator.spec.ts "should use data-testid
+  // in strict errors", which also needs a second browser context.
+  it("names strict-mode matches by the new attribute", async () => {
+    document.body.innerHTML =
+      "<div class='foo bar:0' data-custom-id='One'></div><div class='foo bar:1' data-custom-id='Two'></div>";
+    const page = createPage();
+
+    selectors.setTestIdAttribute("data-custom-id");
+
+    const error = await page
+      .locator(".foo")
+      .hover()
+      .catch((error: Error) => error);
+    expect((error as Error).message).toContain("strict mode violation");
+    expect((error as Error).message).toContain("aka getByTestId('One')");
+    expect((error as Error).message).toContain("aka getByTestId('Two')");
+  });
+
+  describe("with a highlight drawn before the change", () => {
+    // The overlay's shadow root is closed and drawn once per InjectedScript,
+    // so the roots are collected for the whole block.
+    const roots: ShadowRoot[] = [];
+    const attachShadow = Element.prototype.attachShadow;
+    beforeAll(() => {
+      vi.spyOn(Element.prototype, "attachShadow").mockImplementation(function (
+        this: Element,
+        options: ShadowRootInit
+      ) {
+        const root = attachShadow.call(this, options);
+        if (this.localName === "x-pw-glass") roots.push(root);
+        return root;
+      });
+    });
+    afterAll(() => vi.restoreAllMocks());
+    const highlights = () =>
+      roots.flatMap((root) =>
+        Array.from(root.querySelectorAll("x-pw-highlight")).filter(
+          (element) => element.isConnected
+        )
+      );
+
+    it.each([
+      [
+        "locator.hideHighlight()",
+        (locator: Locator) => locator.hideHighlight(),
+      ],
+      [
+        "page.hideHighlight()",
+        (locator: Locator) => locator.page().hideHighlight(),
+      ],
+      [
+        "the highlight's dispose()",
+        (_locator: Locator, disposable: { dispose(): Promise<void> }) =>
+          disposable.dispose(),
+      ],
+    ] as const)("removes it with %s", async (_name, hide) => {
+      document.body.innerHTML = "<button>Save</button>";
+      const locator = createPage().locator("button");
+      const disposable = await locator.highlight();
+      await expect.poll(() => highlights().length).toBe(1);
+
+      selectors.setTestIdAttribute("data-qa");
+      await hide(locator, disposable);
+
+      await expect.poll(() => highlights().length).toBe(0);
+    });
+  });
+
+  it("generates normalized test ID selectors with the new attribute", async () => {
+    document.body.innerHTML = '<div class="card" data-qa="save">Save</div>';
+    const page = createPage();
+
+    selectors.setTestIdAttribute("data-qa");
+
+    expect((await page.locator("div.card").normalize()).toString()).toBe(
+      "getByTestId('save')"
+    );
+  });
+});
 
 describe("Selectors.register", () => {
   it("resolves locators, $, $$ and expect through the engine", async () => {

@@ -351,6 +351,41 @@ describe("expect(locator)", () => {
     ).rejects.toThrow('Expected: "upper"');
   });
 
+  it("throws synchronously for a non-string toHaveRole role", () => {
+    const matchers = browserExpect(createPage().locator("#missing")) as any;
+    for (const role of [/button/, 42, undefined])
+      for (const call of [matchers.toHaveRole, matchers.not.toHaveRole])
+        expect(() => call(role)).toThrow(
+          new Error('"role" argument in toHaveRole must be a string')
+        );
+  });
+
+  it("rejects a boxed String toHaveRole role through text validation", async () => {
+    const matchers = browserExpect(createPage().locator("#missing")) as any;
+    await expect(matchers.toHaveRole(new String("button"))).rejects.toThrow(
+      "expected value must be a string or regular expression"
+    );
+  });
+
+  it("throws a RegExp toContainClass expectation synchronously", async () => {
+    document.body.innerHTML =
+      '<div class="foo"></div><div class="hello bar"></div><div class="baz"></div>';
+    const locator = createPage().locator("div");
+    const matchers = browserExpect(locator.first()) as any;
+    expect(() => matchers.toContainClass(/foo|bar/)).toThrow(
+      '"expected" argument in toContainClass cannot be a RegExp value'
+    );
+    expect(() => matchers.not.toContainClass(/foo/)).toThrow(
+      '"expected" argument in toContainClass cannot be a RegExp value'
+    );
+    expect(() =>
+      (browserExpect(locator) as any).toContainClass(["foo", "hello", /baz/])
+    ).toThrow(
+      '"expected" argument in toContainClass cannot contain RegExp values'
+    );
+    await browserExpect(locator).toContainClass(["foo", "hello", "baz"]);
+  });
+
   it("allows an extended matcher to override a Locator matcher name", async () => {
     const extended = browserExpect.extend({
       toHaveText(_received: unknown, expected: string) {

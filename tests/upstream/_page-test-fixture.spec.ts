@@ -144,6 +144,65 @@ test.describe.serial("page fixture selectors.register route", () => {
   });
 });
 
+test.describe("page fixture selectors.setTestIdAttribute route", () => {
+  test("records the test's call as an adapter call", async ({
+    page,
+    playwright,
+  }) => {
+    await page.setContent('<b data-qa="x">x</b>');
+    playwright.selectors.setTestIdAttribute("data-qa");
+    await expect(page.getByTestId("x")).toHaveCount(1);
+
+    const evidence = await page.evaluate(
+      () => (window as any).__pwLiteEvidence
+    );
+    expect(
+      evidence.entered.filter(
+        (member: string) => member === "Selectors.setTestIdAttribute"
+      )
+    ).toEqual(["Selectors.setTestIdAttribute"]);
+  });
+
+  test("reports the first failed call even when a later one succeeds", async ({
+    page,
+    playwright,
+  }) => {
+    await page.setContent('<b data-qa="x">x</b>');
+    await page.evaluate(() => {
+      const selectors = (window as any).__pwLiteAdapter.selectors;
+      const setTestIdAttribute = selectors.setTestIdAttribute;
+      let calls = 0;
+      selectors.setTestIdAttribute = function (name: string) {
+        if (calls++ === 0) throw new Error("first setter call failed");
+        return setTestIdAttribute.call(this, name);
+      };
+    });
+    playwright.selectors.setTestIdAttribute("data-other");
+    playwright.selectors.setTestIdAttribute("data-qa");
+
+    await expect(page.getByTestId("x").count()).rejects.toThrow(
+      "first setter call failed"
+    );
+    expect(await page.getByTestId("x").count()).toBe(1);
+  });
+
+  test.describe("under a sabotaged setTestIdAttribute", () => {
+    test.use({ sabotagedMethod: "Selectors.setTestIdAttribute" });
+
+    test("fails the next adapter call with the withheld marker", async ({
+      page,
+      playwright,
+    }) => {
+      await page.setContent('<b data-qa="x">x</b>');
+      playwright.selectors.setTestIdAttribute("data-qa");
+
+      await expect(page.getByTestId("x").count()).rejects.toThrow(
+        "__pwLiteSabotagedMethod: Selectors.setTestIdAttribute was withheld for promotion review."
+      );
+    });
+  });
+});
+
 test.describe("pageTest timeout configuration", () => {
   test.use({ actionTimeout: 15, navigationTimeout: 20 });
 

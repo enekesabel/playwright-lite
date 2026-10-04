@@ -226,12 +226,17 @@ export const objectSections: readonly ObjectSection[] = [
     name: "ElementHandle and JSHandle",
     covers:
       "The `ElementHandle` and `JSHandle` objects this package returns, for example from `$()`, `waitForSelector()`, `evaluateHandle()` or `locator.elementHandle()`.",
-    notAvailable: "`ElementHandle.contentFrame()`, `ownerFrame()` and `tap()`.",
+    notAvailable: "`ElementHandle.contentFrame()` and `ownerFrame()`.",
     members: [
       {
         member: "`ElementHandle.click()`",
         lite: "Does not wait for navigation.",
         playwright: "Waits for a navigation the click starts.",
+      },
+      {
+        member: "`ElementHandle.tap()`",
+        lite: "Needs the document to report touch points, as `page.tap()` does; see [Touchscreen](#touchscreen).",
+        playwright: "Taps without checking the `hasTouch` context option.",
       },
     ],
     edgeCases: [
@@ -303,7 +308,7 @@ export const objectSections: readonly ObjectSection[] = [
     covers:
       "The package exports `Request` and `Response` types listing exactly the available members. Annotating with them is optional: `createPage()` returns Playwright's own `Page`, so code written against Playwright keeps type-checking.",
     notAvailable:
-      "`Request.allHeaders()`, `existingResponse()`, `frame()`, `headersArray()`, `redirectedFrom()`, `redirectedTo()`, `serviceWorker()`, `sizes()` and `timing()`; `Response.allHeaders()`, `frame()`, `fromServiceWorker()`, `headersArray()`, `headerValues()`, `httpVersion()`, `securityDetails()` and `serverAddr()`. Calling one throws a `TypeError`.",
+      "`Request.existingResponse()`, `frame()`, `redirectedFrom()`, `redirectedTo()`, `serviceWorker()`, `sizes()` and `timing()`; `Response.frame()`, `fromServiceWorker()`, `httpVersion()`, `securityDetails()` and `serverAddr()`. Calling one throws a `TypeError`.",
     members: [
       {
         member: "`resourceType()`",
@@ -316,14 +321,24 @@ export const objectSections: readonly ObjectSection[] = [
         playwright: "`true` for navigation requests.",
       },
       {
-        member: "`Request.headers()`, `Request.headerValue()`",
+        member:
+          "`Request.headers()`, `Request.allHeaders()`, `Request.headersArray()`, `Request.headerValue()`",
         lite: "The headers the call set: the `Request` headers of a `fetch()`, the `setRequestHeader()` values of an `XMLHttpRequest`. `Cookie`, `Origin`, `User-Agent`, other browser-added headers and the `Content-Type` an `XMLHttpRequest` derives from its body are missing.",
-        playwright: "`headerValue()` reads the headers that went on the wire.",
+        playwright:
+          "`allHeaders()`, `headersArray()` and `headerValue()` read the headers that went on the wire.",
       },
       {
-        member: "`Response.headers()`, `Response.headerValue()`",
+        member:
+          "`Response.headers()`, `Response.allHeaders()`, `Response.headersArray()`, `Response.headerValue()`, `Response.headerValues()`",
         lite: "The headers the browser exposes to the document: never `Set-Cookie`, and for a cross-origin response only the CORS-safelisted names plus those its `Access-Control-Expose-Headers` lists.",
-        playwright: "`headerValue()` reads the headers received on the wire.",
+        playwright:
+          "`allHeaders()`, `headersArray()`, `headerValue()` and `headerValues()` read the headers received on the wire.",
+      },
+      {
+        member: "`headersArray()`, `Response.headerValues()`",
+        lite: "One lowercase entry per name; a repeated header is one value the browser joined with `, `.",
+        playwright:
+          "One entry per header line, with its name as sent; `headerValues()` returns each value separately.",
       },
       {
         member: "`postData()`, `postDataBuffer()`, `postDataJSON()`",
@@ -457,10 +472,10 @@ export const objectSections: readonly ObjectSection[] = [
   {
     name: "Touchscreen",
     covers:
-      "`page.touchscreen` taps the document with one touch point per tap, which `page.tap()` and `locator.tap()` also use.",
+      "`page.touchscreen` taps the document with one touch point per tap, which `page.tap()`, `locator.tap()` and `elementHandle.tap()` also use.",
     members: [{ member: "`tap()`", ...tapDifference }],
     differences: [
-      "`page.tap()` and `locator.tap()` run `tap()` after the actionability checks, with the differences above.",
+      "`page.tap()`, `locator.tap()` and `elementHandle.tap()` run `tap()` after the actionability checks, with the differences above.",
     ],
     edgeCases: [
       "A `touchstart` event is always cancelable. When no listener on its path is non-passive, the browser reports `cancelable` as `false`.",
@@ -768,7 +783,9 @@ export const selectorsLedger = {
   register: partial(
     "A `script` of `{ path }` rejects, where Playwright reads the file; pass `content`. `contentScript: true` has no effect: the engine sees the page's JavaScript globals, where Playwright runs it in an isolated world. An engine takes effect in pages already in use, where Playwright applies it to documents loaded afterwards, so a source that throws when evaluated fails the page's next selector, where Playwright fails the next document's selectors. Registering an engine clears any active `highlight()`, which Playwright keeps."
   ),
-  setTestIdAttribute: undecided(),
+  setTestIdAttribute: partial(
+    "Test ID selectors that [`locator.normalize()`](https://playwright.dev/docs/api/class-locator#locator-normalize) generates and the `aka getByTestId(...)` hints in strict-mode errors use the new attribute at once; Playwright keeps, until the next document loads, the attribute in effect when the document first resolved a selector."
+  ),
 } as const satisfies Ledger<Selectors>;
 
 /**
@@ -805,9 +822,7 @@ export const locatorAssertionLedger = {
   toBeHidden: implemented(),
   toBeInViewport: implemented(),
   toBeVisible: implemented(),
-  toContainClass: partial(
-    "A RegExp `expected` rejects the returned promise, where Playwright throws synchronously."
-  ),
+  toContainClass: implemented(),
   toContainText: implemented(),
   toHaveAccessibleDescription: implemented(),
   toHaveAccessibleErrorMessage: implemented(),
@@ -818,9 +833,7 @@ export const locatorAssertionLedger = {
   toHaveCSS: implemented(),
   toHaveId: implemented(),
   toHaveJSProperty: implemented(),
-  toHaveRole: partial(
-    "A non-string role rejects the returned promise, where Playwright throws synchronously."
-  ),
+  toHaveRole: implemented(),
   toHaveScreenshot: outOfScope(screenshotExcluded),
   toHaveText: implemented(),
   toHaveValue: implemented(),
