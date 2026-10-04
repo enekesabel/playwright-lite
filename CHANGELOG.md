@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.0](https://github.com/enekesabel/playwright-lite/compare/v0.8.0...v0.9.0) (2026-10-04)
+
+
+### Features
+
+* add elementHandle.tap on the tap pipeline ([#283](https://github.com/enekesabel/playwright-lite/issues/283)) ([3210d64](https://github.com/enekesabel/playwright-lite/commit/3210d64747dd5fb2382e37bd0cfeb899967c387e))
+* add headersArray, allHeaders and headerValues to Request and Response ([#280](https://github.com/enekesabel/playwright-lite/issues/280)) ([70a70c3](https://github.com/enekesabel/playwright-lite/commit/70a70c3090064ae8e00ee252d722e492f8231d80))
+* add locator.normalize on the pinned selector generator ([#277](https://github.com/enekesabel/playwright-lite/issues/277)) ([f3c93f5](https://github.com/enekesabel/playwright-lite/commit/f3c93f542ac703201918a5cce5f6f287831f0075))
+* add selectors.setTestIdAttribute ([#282](https://github.com/enekesabel/playwright-lite/issues/282)) ([b71ff08](https://github.com/enekesabel/playwright-lite/commit/b71ff088eaec3f51a05fd8cb382480ff09e247c4))
+* throw synchronously from toHaveRole for a non-string role ([#279](https://github.com/enekesabel/playwright-lite/issues/279)) ([eb52125](https://github.com/enekesabel/playwright-lite/commit/eb521252a47707a449ef7135fe03b53cc1814e95))
+
+
+### Bug Fixes
+
+* resolve goto when the page's router keeps the navigation in the document ([#285](https://github.com/enekesabel/playwright-lite/issues/285)) ([3e6eb84](https://github.com/enekesabel/playwright-lite/commit/3e6eb84bdd8a575225f0551fd2bb4dca644e9927)), closes [#284](https://github.com/enekesabel/playwright-lite/issues/284)
+* throw toContainClass RegExp arguments synchronously ([#281](https://github.com/enekesabel/playwright-lite/issues/281)) ([30744d3](https://github.com/enekesabel/playwright-lite/commit/30744d3c2dbd10d55d260e5b61f07e0bfe5ecad2))
+
 ## [0.8.0](https://github.com/enekesabel/playwright-lite/compare/v0.7.0...v0.8.0) (2026-10-02)
 
 

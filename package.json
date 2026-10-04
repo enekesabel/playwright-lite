@@ -1,6 +1,6 @@
 {
   "name": "@enekesabel/playwright-lite",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Playwright-compatible Page and Locator operations in the current browser document",
   "keywords": [
     "playwright",
