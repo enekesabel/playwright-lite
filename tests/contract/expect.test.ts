@@ -351,6 +351,15 @@ describe("expect(locator)", () => {
     ).rejects.toThrow('Expected: "upper"');
   });
 
+  it("throws synchronously for a non-string toHaveRole role", () => {
+    const matchers = browserExpect(createPage().locator("#missing")) as any;
+    for (const role of [/button/, 42, undefined])
+      for (const call of [matchers.toHaveRole, matchers.not.toHaveRole])
+        expect(() => call(role)).toThrow(
+          new Error('"role" argument in toHaveRole must be a string')
+        );
+  });
+
   it("allows an extended matcher to override a Locator matcher name", async () => {
     const extended = browserExpect.extend({
       toHaveText(_received: unknown, expected: string) {

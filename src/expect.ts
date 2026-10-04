@@ -1029,10 +1029,7 @@ const locatorMatchers: MatchersObject = {
       expectation: "expected",
     })
   ),
-  toHaveRole: textMatcher("to.have.role", {}, (expected) => {
-    if (typeof expected !== "string")
-      throw new Error('"role" argument in toHaveRole must be a string');
-  }),
+  toHaveRole,
   toHaveText: locatorMatcher("toHaveText", ([expected, options]) => {
     if (!Array.isArray(expected)) assertTextExpected(expected);
     return Array.isArray(expected)
@@ -1091,14 +1088,12 @@ const locatorMatchers: MatchersObject = {
 
 function textMatcher(
   expression: string,
-  settings: { ignoreCase?: boolean; normalizeWhiteSpace?: boolean } = {},
-  validate?: (expected: unknown) => void
+  settings: { ignoreCase?: boolean; normalizeWhiteSpace?: boolean } = {}
 ): RawMatcherFn {
   return locatorMatcher(
     expressionToMatcherName(expression),
     ([expected, options]) => {
       assertTextExpected(expected);
-      validate?.(expected);
       return {
         expression,
         expected,
@@ -1119,6 +1114,22 @@ function textMatcher(
       };
     }
   );
+}
+
+const toHaveRoleText = textMatcher("to.have.role");
+
+/**
+ * Pinned 26a9e47 matchers.ts `toHaveRole` checks the role before its async
+ * part, so a non-string role throws synchronously.
+ */
+function toHaveRole(
+  this: MatcherContext,
+  actual: unknown,
+  ...args: unknown[]
+): Promise<MatcherResult> {
+  if (typeof args[0] !== "string")
+    throw new Error('"role" argument in toHaveRole must be a string');
+  return toHaveRoleText.call(this, actual, ...args) as Promise<MatcherResult>;
 }
 
 function classMatcher(

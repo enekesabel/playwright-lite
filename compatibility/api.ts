@@ -818,9 +818,7 @@ export const locatorAssertionLedger = {
   toHaveCSS: implemented(),
   toHaveId: implemented(),
   toHaveJSProperty: implemented(),
-  toHaveRole: partial(
-    "A non-string role rejects the returned promise, where Playwright throws synchronously."
-  ),
+  toHaveRole: implemented(),
   toHaveScreenshot: outOfScope(screenshotExcluded),
   toHaveText: implemented(),
   toHaveValue: implemented(),
