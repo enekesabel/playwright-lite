@@ -443,13 +443,14 @@ A failed assertion throws an error whose `matcherResult` describes the failure: 
 
 The `ElementHandle` and `JSHandle` objects this package returns, for example from `$()`, `waitForSelector()`, `evaluateHandle()` or `locator.elementHandle()`.
 
-**Not available:** `ElementHandle.contentFrame()`, `ownerFrame()` and `tap()`.
+**Not available:** `ElementHandle.contentFrame()` and `ownerFrame()`.
 
 **Differences from Playwright:**
 
-| Member                  | playwright-lite               | Playwright                               |
-| ----------------------- | ----------------------------- | ---------------------------------------- |
-| `ElementHandle.click()` | Does not wait for navigation. | Waits for a navigation the click starts. |
+| Member                  | playwright-lite                                                                                   | Playwright                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `ElementHandle.click()` | Does not wait for navigation.                                                                     | Waits for a navigation the click starts.             |
+| `ElementHandle.tap()`   | Needs the document to report touch points, as `page.tap()` does; see [Touchscreen](#touchscreen). | Taps without checking the `hasTouch` context option. |
 
 <details>
 <summary>Edge cases</summary>
@@ -648,7 +649,7 @@ The package exports `Request` and `Response` types listing exactly the available
 
 ### Touchscreen
 
-`page.touchscreen` taps the document with one touch point per tap, which `page.tap()` and `locator.tap()` also use.
+`page.touchscreen` taps the document with one touch point per tap, which `page.tap()`, `locator.tap()` and `elementHandle.tap()` also use.
 
 **Differences from Playwright:**
 
@@ -656,7 +657,7 @@ The package exports `Request` and `Response` types listing exactly the available
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `tap()` | Needs the document to report touch points (`navigator.maxTouchPoints` above 0) and otherwise throws Playwright's `hasTouch` error; dispatches Chromium's touch, pointer and compatibility mouse events, but no gesture handling runs, so every tap is a single tap and nothing zooms. | Needs the `hasTouch` context option; the browser counts quick taps close together as a multi-tap (`detail` 2 and a `dblclick`) and can zoom on a double tap. |
 
-- `page.tap()` and `locator.tap()` run `tap()` after the actionability checks, with the differences above.
+- `page.tap()`, `locator.tap()` and `elementHandle.tap()` run `tap()` after the actionability checks, with the differences above.
 
 <details>
 <summary>Edge cases</summary>

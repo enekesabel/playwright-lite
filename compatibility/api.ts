@@ -226,12 +226,17 @@ export const objectSections: readonly ObjectSection[] = [
     name: "ElementHandle and JSHandle",
     covers:
       "The `ElementHandle` and `JSHandle` objects this package returns, for example from `$()`, `waitForSelector()`, `evaluateHandle()` or `locator.elementHandle()`.",
-    notAvailable: "`ElementHandle.contentFrame()`, `ownerFrame()` and `tap()`.",
+    notAvailable: "`ElementHandle.contentFrame()` and `ownerFrame()`.",
     members: [
       {
         member: "`ElementHandle.click()`",
         lite: "Does not wait for navigation.",
         playwright: "Waits for a navigation the click starts.",
+      },
+      {
+        member: "`ElementHandle.tap()`",
+        lite: "Needs the document to report touch points, as `page.tap()` does; see [Touchscreen](#touchscreen).",
+        playwright: "Taps without checking the `hasTouch` context option.",
       },
     ],
     edgeCases: [
@@ -457,10 +462,10 @@ export const objectSections: readonly ObjectSection[] = [
   {
     name: "Touchscreen",
     covers:
-      "`page.touchscreen` taps the document with one touch point per tap, which `page.tap()` and `locator.tap()` also use.",
+      "`page.touchscreen` taps the document with one touch point per tap, which `page.tap()`, `locator.tap()` and `elementHandle.tap()` also use.",
     members: [{ member: "`tap()`", ...tapDifference }],
     differences: [
-      "`page.tap()` and `locator.tap()` run `tap()` after the actionability checks, with the differences above.",
+      "`page.tap()`, `locator.tap()` and `elementHandle.tap()` run `tap()` after the actionability checks, with the differences above.",
     ],
     edgeCases: [
       "A `touchstart` event is always cancelable. When no listener on its path is non-passive, the browser reports `cancelable` as `false`.",

@@ -58,6 +58,7 @@ const ELEMENT_HANDLE_LIFETIME_CALLS: Record<
   selectText: true,
   setChecked: true,
   setInputFiles: true,
+  tap: true,
   textContent: true,
   type: true,
   uncheck: true,
@@ -118,6 +119,19 @@ export class AdapterElementHandle extends AdapterJSHandle<Element> {
       "elementHandle.hover",
       options?.timeout,
       undefined,
+      options
+    );
+  }
+
+  /**
+   * Pinned dom.ts `ElementHandle.tap` taps without frames.ts's `hasTouch`
+   * check; the touch points stand in for `hasTouch` here, as for
+   * `Locator.tap`, since the page cannot construct touch input without them.
+   */
+  async tap(options?: Parameters<ElementHandle["tap"]>[0]): Promise<void> {
+    await this.ownerPage.tapSelector(
+      this.requireElement(),
+      "elementHandle.tap",
       options
     );
   }

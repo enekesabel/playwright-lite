@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createPage } from "../../src/index";
 import { PageImpl } from "../../src/page";
 import { closedShadow } from "./closedShadow";
+import { emulateTouch } from "./touch";
 
 describe("ElementHandle", () => {
   it("keeps page dollar results fixed while querying within their subtree", async () => {
@@ -269,6 +270,27 @@ describe("ElementHandle", () => {
     );
     await handle.dispose();
     await expect(handle.click()).rejects.toThrow(/disposed/);
+  });
+
+  // Contract coverage: pinned dom.ts taps a handle without frames.ts's
+  // hasTouch check, which the touch points stand in for here.
+  it("taps its element only when the document reports touch points", async () => {
+    document.body.innerHTML = "<button>go</button>";
+    const page = createPage();
+    const handle = (await page.$("button"))!;
+    const taps: string[] = [];
+    const button = document.querySelector("button")!;
+    for (const type of ["touchstart", "click"])
+      button.addEventListener(type, () => taps.push(type));
+
+    await expect(handle.tap()).rejects.toThrow(
+      "elementHandle.tap: The page does not support tap. Use hasTouch context option to enable touch support."
+    );
+    expect(taps).toEqual([]);
+    emulateTouch();
+    await handle.tap();
+
+    expect(taps).toEqual(["touchstart", "click"]);
   });
 
   it("supports every handle pointer method and preserves checked idempotence", async () => {
