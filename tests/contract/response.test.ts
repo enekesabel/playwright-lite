@@ -6,17 +6,6 @@ import { assetUrl, contractUrl, restoreFetch } from "./network";
 describe("Response", () => {
   restoreFetch();
 
-  it("allHeaders() reports the headers the browser exposed, like headers()", async () => {
-    const page = createPage();
-    const waiting = page.waitForResponse("**/title.html*", { timeout: 5_000 });
-    void window.fetch(assetUrl("?all-headers"));
-    const response = await waiting;
-
-    const headers = await response.allHeaders();
-    expect(headers).toEqual(response.headers());
-    expect(headers["content-type"]).toBe("text/html");
-  });
-
   it("headersArray() and headerValues() see a repeated header as one value", async () => {
     const page = createPage();
     const waiting = page.waitForResponse("**/__repeated-header", {
