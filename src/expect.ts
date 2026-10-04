@@ -1119,15 +1119,16 @@ function textMatcher(
 const toHaveRoleText = textMatcher("to.have.role");
 
 /**
- * Pinned 26a9e47 matchers.ts `toHaveRole` checks the role before its async
- * part, so a non-string role throws synchronously.
+ * Pinned 26a9e47 matchers.ts `toHaveRole` checks the role with `isString`
+ * before its async part, so a non-string role throws synchronously. A boxed
+ * String passes that check and its async text validation rejects.
  */
 function toHaveRole(
   this: MatcherContext,
   actual: unknown,
   ...args: unknown[]
 ): Promise<MatcherResult> {
-  if (typeof args[0] !== "string")
+  if (typeof args[0] !== "string" && !(args[0] instanceof String))
     throw new Error('"role" argument in toHaveRole must be a string');
   return toHaveRoleText.call(this, actual, ...args) as Promise<MatcherResult>;
 }

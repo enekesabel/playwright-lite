@@ -360,6 +360,13 @@ describe("expect(locator)", () => {
         );
   });
 
+  it("rejects a boxed String toHaveRole role through text validation", async () => {
+    const matchers = browserExpect(createPage().locator("#missing")) as any;
+    await expect(matchers.toHaveRole(new String("button"))).rejects.toThrow(
+      "expected value must be a string or regular expression"
+    );
+  });
+
   it("allows an extended matcher to override a Locator matcher name", async () => {
     const extended = browserExpect.extend({
       toHaveText(_received: unknown, expected: string) {
