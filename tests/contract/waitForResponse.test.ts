@@ -10,9 +10,6 @@ import { assetUrl, contractUrl, restoreFetch, sendXhr } from "./network";
  */
 type AbsentOnResponse = Extract<
   keyof Response,
-  | "allHeaders"
-  | "headersArray"
-  | "headerValues"
   | "frame"
   | "fromServiceWorker"
   | "httpVersion"
@@ -34,8 +31,8 @@ describe("Page.waitForResponse", () => {
     void window.fetch(contractUrl("./untyped"));
     const response = await waiting;
 
-    // `allHeaders()` is on Playwright's `Response`, so this type-checks.
-    expect(() => response.allHeaders()).toThrow(TypeError);
+    // `httpVersion()` is on Playwright's `Response`, so this type-checks.
+    expect(() => response.httpVersion()).toThrow(TypeError);
   });
 
   it("resolves with the response the document received", async () => {

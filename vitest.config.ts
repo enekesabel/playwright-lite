@@ -28,8 +28,28 @@ function delayedResponsePlugin(): Plugin {
   };
 }
 
+/**
+ * `/__repeated-header` answers with `x-repeated` sent twice, so a contract test
+ * can see how the browser shows a repeated response header to the document.
+ */
+function repeatedHeaderPlugin(): Plugin {
+  return {
+    name: "playwright-lite-contract-repeated-header",
+    configureServer(server) {
+      server.middlewares.use("/__repeated-header", (_, response) => {
+        response.setHeader("x-repeated", ["one", "two"]);
+        response.end("done");
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [playwrightInjectedPlugin(), delayedResponsePlugin()],
+  plugins: [
+    playwrightInjectedPlugin(),
+    delayedResponsePlugin(),
+    repeatedHeaderPlugin(),
+  ],
   // The screenshot renderer is served as published, so the injected plugin
   // binds its builtins the way the package build does. It has no imports, so
   // the first capture's lazy import discovers no dependency to optimize and
