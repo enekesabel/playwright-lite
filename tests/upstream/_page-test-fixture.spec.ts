@@ -163,6 +163,29 @@ test.describe("page fixture selectors.setTestIdAttribute route", () => {
     ).toEqual(["Selectors.setTestIdAttribute"]);
   });
 
+  test("reports the first failed call even when a later one succeeds", async ({
+    page,
+    playwright,
+  }) => {
+    await page.setContent('<b data-qa="x">x</b>');
+    await page.evaluate(() => {
+      const selectors = (window as any).__pwLiteAdapter.selectors;
+      const setTestIdAttribute = selectors.setTestIdAttribute;
+      let calls = 0;
+      selectors.setTestIdAttribute = function (name: string) {
+        if (calls++ === 0) throw new Error("first setter call failed");
+        return setTestIdAttribute.call(this, name);
+      };
+    });
+    playwright.selectors.setTestIdAttribute("data-other");
+    playwright.selectors.setTestIdAttribute("data-qa");
+
+    await expect(page.getByTestId("x").count()).rejects.toThrow(
+      "first setter call failed"
+    );
+    expect(await page.getByTestId("x").count()).toBe(1);
+  });
+
   test.describe("under a sabotaged setTestIdAttribute", () => {
     test.use({ sabotagedMethod: "Selectors.setTestIdAttribute" });
 

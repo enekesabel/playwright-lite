@@ -666,6 +666,7 @@ export async function installTestIdAttributeSynchronization(
     playwright.selectors as SelectorsWithWritableTestIdAttribute;
   const originalSetTestIdAttribute = selectors.setTestIdAttribute;
   let synchronization = Promise.resolve();
+  let failure: { error: unknown } | undefined;
 
   const restore = () => {
     selectors.setTestIdAttribute = originalSetTestIdAttribute;
@@ -700,12 +701,23 @@ export async function installTestIdAttributeSynchronization(
         },
         encodedArgs
       );
-    synchronization = synchronization.then(call, call);
-    // Awaited by the next adapter call; a call nothing awaits is not an
-    // unhandled rejection.
-    synchronization.catch(() => {});
+    // Every call runs, as each of Playwright's does; the first that fails
+    // is kept, so a later call that succeeds cannot hide it.
+    synchronization = synchronization.then(() =>
+      call().catch((error: unknown) => {
+        failure ??= { error };
+      })
+    );
   };
-  testIdAttributeSynchronizers.set(realPage, () => synchronization);
+  // The next adapter call waits for the queued calls and reports the first
+  // failure among them, once.
+  testIdAttributeSynchronizers.set(realPage, async () => {
+    await synchronization;
+    if (!failure) return;
+    const { error } = failure;
+    failure = undefined;
+    throw error;
+  });
 
   return async () => {
     // The fixture discards this page. Reset only shared worker state; the

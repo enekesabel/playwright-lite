@@ -1,4 +1,13 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import type { Locator } from "@playwright/test";
 
 import { createPage, expect as pageExpect, selectors } from "../../src/index";
 
@@ -67,6 +76,56 @@ describe("Selectors.setTestIdAttribute", () => {
     expect((error as Error).message).toContain("strict mode violation");
     expect((error as Error).message).toContain("aka getByTestId('One')");
     expect((error as Error).message).toContain("aka getByTestId('Two')");
+  });
+
+  describe("with a highlight drawn before the change", () => {
+    // The overlay's shadow root is closed and drawn once per InjectedScript,
+    // so the roots are collected for the whole block.
+    const roots: ShadowRoot[] = [];
+    const attachShadow = Element.prototype.attachShadow;
+    beforeAll(() => {
+      vi.spyOn(Element.prototype, "attachShadow").mockImplementation(function (
+        this: Element,
+        options: ShadowRootInit
+      ) {
+        const root = attachShadow.call(this, options);
+        if (this.localName === "x-pw-glass") roots.push(root);
+        return root;
+      });
+    });
+    afterAll(() => vi.restoreAllMocks());
+    const highlights = () =>
+      roots.flatMap((root) =>
+        Array.from(root.querySelectorAll("x-pw-highlight")).filter(
+          (element) => element.isConnected
+        )
+      );
+
+    it.each([
+      [
+        "locator.hideHighlight()",
+        (locator: Locator) => locator.hideHighlight(),
+      ],
+      [
+        "page.hideHighlight()",
+        (locator: Locator) => locator.page().hideHighlight(),
+      ],
+      [
+        "the highlight's dispose()",
+        (_locator: Locator, disposable: { dispose(): Promise<void> }) =>
+          disposable.dispose(),
+      ],
+    ] as const)("removes it with %s", async (_name, hide) => {
+      document.body.innerHTML = "<button>Save</button>";
+      const locator = createPage().locator("button");
+      const disposable = await locator.highlight();
+      await expect.poll(() => highlights().length).toBe(1);
+
+      selectors.setTestIdAttribute("data-qa");
+      await hide(locator, disposable);
+
+      await expect.poll(() => highlights().length).toBe(0);
+    });
   });
 
   it("generates normalized test ID selectors with the new attribute", async () => {

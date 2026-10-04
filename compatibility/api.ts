@@ -769,7 +769,7 @@ export const selectorsLedger = {
     "A `script` of `{ path }` rejects, where Playwright reads the file; pass `content`. `contentScript: true` has no effect: the engine sees the page's JavaScript globals, where Playwright runs it in an isolated world. An engine takes effect in pages already in use, where Playwright applies it to documents loaded afterwards, so a source that throws when evaluated fails the page's next selector, where Playwright fails the next document's selectors. Registering an engine clears any active `highlight()`, which Playwright keeps."
   ),
   setTestIdAttribute: partial(
-    "`locator.normalize()` generates test ID selectors with the new attribute at once, where Playwright keeps the attribute in effect when the document first resolved a selector until the next document loads."
+    "Test ID selectors that [`locator.normalize()`](https://playwright.dev/docs/api/class-locator#locator-normalize) generates and the `aka getByTestId(...)` hints in strict-mode errors use the new attribute at once; Playwright keeps, until the next document loads, the attribute in effect when the document first resolved a selector."
   ),
 } as const satisfies Ledger<Selectors>;
 

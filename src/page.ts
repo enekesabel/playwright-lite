@@ -644,6 +644,15 @@ export class PageImpl {
     this.startPageErrorCollection();
   }
 
+  /**
+   * The InjectedScripts that drew this page's highlights. A test ID
+   * attribute change gives the page another one, and the earlier one still
+   * owns what it drew, which the page must keep able to remove.
+   */
+  private readonly highlighters = new Set<
+    ReturnType<typeof injectedScriptFor>
+  >();
+
   private get injected() {
     return injectedScriptFor(
       this.document.documentElement,
@@ -746,7 +755,9 @@ export class PageImpl {
   async addHighlight(selector: string, style?: string): Promise<void> {
     if (style !== undefined) style = validateString(style, "style");
     try {
-      this.injected.addHighlight(this.parseSelector(selector), style);
+      const injected = this.injected;
+      this.highlighters.add(injected);
+      injected.addHighlight(this.parseSelector(selector), style);
     } catch (error) {
       throw presentOriginalXPath(error, selector);
     }
@@ -754,7 +765,9 @@ export class PageImpl {
 
   async removeHighlight(selector: string): Promise<void> {
     try {
-      this.injected.removeHighlight(this.parseSelector(selector));
+      const parsed = this.parseSelector(selector);
+      for (const injected of this.highlighters)
+        injected.removeHighlight(parsed);
     } catch (error) {
       throw presentOriginalXPath(error, selector);
     }
@@ -762,6 +775,8 @@ export class PageImpl {
 
   async hideHighlight(): Promise<void> {
     this.injected.hideHighlight();
+    for (const injected of this.highlighters) injected.hideHighlight();
+    this.highlighters.clear();
   }
 
   // ── Selector query operations ──────────────────────────────────
