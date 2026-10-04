@@ -59,4 +59,14 @@ describe("Request", () => {
       { name: "x-repeated", value: "one, two" },
     ]);
   });
+
+  it("headerValue() reads no header from the headers object's prototype", async () => {
+    const page = createPage();
+    const waiting = page.waitForRequest("**/title.html*", { timeout: 5_000 });
+    void window.fetch(assetUrl("?prototype-names"));
+    const request = await waiting;
+
+    expect(await request.headerValue("constructor")).toBe(null);
+    expect(await request.headerValue("__proto__")).toBe(null);
+  });
 });

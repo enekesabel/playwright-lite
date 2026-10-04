@@ -184,6 +184,18 @@ async function xhrResponseBody(xhr: XMLHttpRequest): Promise<Uint8Array> {
   );
 }
 
+/**
+ * The value of header `name`, or `null`. Only own entries count, so a name
+ * such as `constructor` never reads the object's prototype.
+ */
+function headerValue(
+  headers: Record<string, string>,
+  name: string
+): string | null {
+  const key = name.toLowerCase();
+  return Object.hasOwn(headers, key) ? headers[key] : null;
+}
+
 /** One `{ name, value }` entry per header, in `headers()` order. */
 function headersArray(
   headers: Record<string, string>
@@ -260,7 +272,7 @@ class ObservedRequest implements Request {
   }
 
   async headerValue(name: string) {
-    return this._init.headers[name.toLowerCase()] ?? null;
+    return headerValue(this._init.headers, name);
   }
 
   postData() {
@@ -366,7 +378,7 @@ class ObservedResponse implements Response {
   }
 
   async headerValue(name: string) {
-    return this._init.headers[name.toLowerCase()] ?? null;
+    return headerValue(this._init.headers, name);
   }
 
   async headerValues(name: string) {

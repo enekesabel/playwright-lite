@@ -34,4 +34,16 @@ describe("Response", () => {
     first.length = 0;
     expect((await response.headersArray()).length).toBeGreaterThan(0);
   });
+
+  it("headerValue() and headerValues() read no header from the headers object's prototype", async () => {
+    const page = createPage();
+    const waiting = page.waitForResponse("**/title.html*", { timeout: 5_000 });
+    void window.fetch(assetUrl("?prototype-names"));
+    const response = await waiting;
+
+    expect(await response.headerValue("constructor")).toBe(null);
+    expect(await response.headerValue("__proto__")).toBe(null);
+    expect(await response.headerValues("constructor")).toEqual([]);
+    expect(await response.headerValues("__proto__")).toEqual([]);
+  });
 });
