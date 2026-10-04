@@ -3067,7 +3067,6 @@ export class PageImpl {
       const settle = (error?: Error) => {
         this.window.clearTimeout(timer);
         loadState.release();
-        this.window.removeEventListener("hashchange", check);
         this.window.removeEventListener("load", check);
         this.document.removeEventListener("readystatechange", check);
         if (error) reject(error);
@@ -3078,7 +3077,6 @@ export class PageImpl {
           committed = fragmentOnly && this.window.location.href === target.href;
         if (committed && loadState.reached()) settle();
       };
-      this.window.addEventListener("hashchange", check);
       this.window.addEventListener("load", check);
       this.document.addEventListener("readystatechange", check);
       // If navigation is blocked or does not replace the document (e.g. 204),

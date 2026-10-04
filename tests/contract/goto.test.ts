@@ -5,22 +5,6 @@ import { createPage } from "../../src/index";
 import { framePage } from "./history";
 import { assetUrl, idleWindow } from "./network";
 
-/** Routes `/app/` URLs in the frame's document the way a client router does. */
-function interceptAppRoutes(frameWindow: Window & typeof globalThis) {
-  const view = frameWindow.document.createElement("div");
-  frameWindow.document.body.append(view);
-  frameWindow.navigation.addEventListener("navigate", (event) => {
-    const url = new URL(event.destination.url);
-    if (event.canIntercept && url.pathname.startsWith("/app/"))
-      event.intercept({
-        handler: async () => {
-          view.textContent = url.pathname;
-        },
-      });
-  });
-  return view;
-}
-
 describe("Page.goto", () => {
   it("waits for network idle after same-document navigation through the networkidle0 alias", async () => {
     // Pinned verifyLoadState accepts networkidle0 as networkidle, so the
@@ -66,8 +50,18 @@ describe("Page.goto", () => {
     // intercept it, and returns the new document's Response. Here the
     // navigation commits in the same document, which Playwright resolves null.
     const { page, frameWindow } = await framePage(assetUrl());
-    const view = interceptAppRoutes(frameWindow());
     const document = frameWindow().document;
+    const view = document.createElement("div");
+    document.body.append(view);
+    frameWindow().navigation.addEventListener("navigate", (event) => {
+      const url = new URL(event.destination.url);
+      if (event.canIntercept && url.pathname.startsWith("/app/"))
+        event.intercept({
+          handler: async () => {
+            view.textContent = url.pathname;
+          },
+        });
+    });
 
     await expect(
       page.goto("/app/route2", { timeout: 1_000 })
