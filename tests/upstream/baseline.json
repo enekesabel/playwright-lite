@@ -6131,6 +6131,11 @@
       "evidence": "After a setup Page.tap on #a, Page.tap on #b dispatches to #b exactly Chromium's 14-event tap sequence: pointerover, pointerenter, pointerdown, touchstart, pointerup, pointerout, pointerleave, touchend, then the compatibility mouseover, mouseenter, mousemove, mousedown, mouseup and click. Native setContent only writes the document."
     },
     {
+      "id": "tap.spec.ts > should wait until an element is visible to tap it",
+      "method": "ElementHandle.tap",
+      "evidence": "ElementHandle.tap on a handle to a display:none button waits until the button is visible, then taps it, so the click handler attached after the call started fires and textContent reads 'clicked'. evaluateHandle, evaluate and textContent only build and read the element."
+    },
+    {
       "id": "tap.spec.ts > should work with modifiers",
       "method": "Page.tap",
       "evidence": "Page.tap('body', { modifiers: ['Alt'] }) holds Alt through the keyboard for the tap, so the touchstart the page listens for reports altKey true. Native setContent only writes the document."
