@@ -537,7 +537,7 @@ export const pageLedger = {
   goBack: partial(historyTraversalNote),
   goForward: partial(historyTraversalNote),
   goto: partial(
-    "Returns no `Response` (`null` only for same-document hash navigation); relative URLs resolve against `document.baseURI`, with no `baseURL`; rejects `referer` and `signal`; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call, even when already idle."
+    "Returns no `Response` (`null` only for same-document navigation, including one the page's own `navigate` listener intercepts where Playwright loads a new document); relative URLs resolve against `document.baseURI`, with no `baseURL`; rejects `referer` and `signal`; [`networkidle`](#network-idle) resolves no sooner than 500 ms after the call, even when already idle."
   ),
   hideHighlight: implemented("Clears highlights in the current document."),
   hover: implemented(),

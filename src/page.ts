@@ -3004,7 +3004,13 @@ export class PageImpl {
   /**
    * Pinned 26a9e47 client/frame.ts and server/frames.ts default to load,
    * wait for navigation then lifecycle, and return null for same-document
-   * navigation. Location supplies the browser-side navigation here.
+   * navigation. The Navigation API supplies the browser-side navigation
+   * here, so a navigation the document keeps in place (a fragment, or one its
+   * own `navigate` listener intercepts) is seen committing as a same-document
+   * navigation and resolves null. Without it, or in a document whose
+   * Navigation API has no entries, Location starts the navigation and only a
+   * fragment change counts. A navigation the page cancels
+   * never commits, so like a blocked one it waits until the timeout.
    * Full-document navigation ends this execution; it never resolves with a
    * fabricated Response or destination-ready result in the old document.
    * Relative URLs use document.baseURI. Custom referer and AbortSignal are
@@ -3042,13 +3048,21 @@ export class PageImpl {
       !["http:", "https:", "about:", "file:", "data:"].includes(target.protocol)
     )
       throw new Error(`Unsupported navigation protocol: ${target.protocol}`);
+    // The DOM typings declare `navigation` unconditionally. A document with
+    // no current entry (the initial about:blank) has its Navigation API
+    // events disabled, so its navigate() promises never settle.
+    const navigation = (this.window.navigation as Navigation | undefined)
+      ?.currentEntry
+      ? this.window.navigation
+      : undefined;
     const current = new URL(this.window.location.href);
-    const sameDocument =
+    const fragmentOnly =
       target.href.includes("#") &&
       target.href.split("#", 1)[0] === current.href.split("#", 1)[0];
 
     return new Promise<null>((resolve, reject) => {
       let timer: number | undefined;
+      let committed = false;
       const loadState = this.watchLoadState(waitUntil, () => check());
       const settle = (error?: Error) => {
         this.window.clearTimeout(timer);
@@ -3060,14 +3074,13 @@ export class PageImpl {
         else resolve(null);
       };
       const check = () => {
-        if (!sameDocument || this.window.location.href !== target.href) return;
-        if (loadState.reached()) settle();
+        if (!navigation)
+          committed = fragmentOnly && this.window.location.href === target.href;
+        if (committed && loadState.reached()) settle();
       };
-      if (sameDocument) {
-        this.window.addEventListener("hashchange", check);
-        this.window.addEventListener("load", check);
-        this.document.addEventListener("readystatechange", check);
-      }
+      this.window.addEventListener("hashchange", check);
+      this.window.addEventListener("load", check);
+      this.document.addEventListener("readystatechange", check);
       // If navigation is blocked or does not replace the document (e.g. 204),
       // time out rather than claiming destination readiness. Zero disables it.
       if (timeout > 0)
@@ -3081,8 +3094,23 @@ export class PageImpl {
           timeout
         );
       try {
-        this.window.location.assign(target.href);
-        check();
+        if (navigation) {
+          // Only a navigation that stays in this document commits here; a
+          // cross-document one never settles these, and a canceled one
+          // rejects them. The router's handler outcome is not goto's.
+          const navigated = navigation.navigate(target.href);
+          void navigated.finished?.catch(() => {});
+          navigated.committed?.then(
+            () => {
+              committed = true;
+              check();
+            },
+            () => {}
+          );
+        } else {
+          this.window.location.assign(target.href);
+          check();
+        }
       } catch (error) {
         settle(asError(error));
       }
