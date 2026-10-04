@@ -4741,6 +4741,11 @@
       "evidence": "The awaited page function parses a multipart body with the document's own Response.formData(), and field1 'value1', filename 'test.txt' and file text 'hello' come back by value, so the injected adapter leaves the page's Response and FormData working."
     },
     {
+      "id": "page-network-response.spec.ts > should behave the same way for headers and allHeaders",
+      "method": "Response.allHeaders",
+      "evidence": "The response awaited from waitForResponse for the document's own fetch('/headers') resolves allHeaders() to exactly what headers() reports, with the browser's joined values for the repeated header-a ('a=b, c=d') and Name-A/Name-a/name-A ('v1, v2, v3') lines and name-b 'v4': allHeaders() reads the headers the browser exposed to the document. Native goto only establishes the document."
+    },
+    {
       "id": "page-network-response.spec.ts > should wait until response completes",
       "method": "Response.text",
       "evidence": "The response awaited from waitForEvent('response') reports status 200 while the server has sent only 'hello ', and its text() resolves with 'hello world!' only after the server writes the rest and ends: text() reads the observed fetch's body to its end rather than returning what had arrived with the headers. The test's requestfinished assertion is vacuous here, because the fixture cannot deliver an event to a Node listener; the promoted evidence is the body assertion."

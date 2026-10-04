@@ -351,6 +351,22 @@ describe("expect(locator)", () => {
     ).rejects.toThrow('Expected: "upper"');
   });
 
+  it("throws synchronously for a non-string toHaveRole role", () => {
+    const matchers = browserExpect(createPage().locator("#missing")) as any;
+    for (const role of [/button/, 42, undefined])
+      for (const call of [matchers.toHaveRole, matchers.not.toHaveRole])
+        expect(() => call(role)).toThrow(
+          new Error('"role" argument in toHaveRole must be a string')
+        );
+  });
+
+  it("rejects a boxed String toHaveRole role through text validation", async () => {
+    const matchers = browserExpect(createPage().locator("#missing")) as any;
+    await expect(matchers.toHaveRole(new String("button"))).rejects.toThrow(
+      "expected value must be a string or regular expression"
+    );
+  });
+
   it("throws a RegExp toContainClass expectation synchronously", async () => {
     document.body.innerHTML =
       '<div class="foo"></div><div class="hello bar"></div><div class="baz"></div>';

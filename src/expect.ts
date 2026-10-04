@@ -1041,8 +1041,10 @@ const locatorMatchers: MatchersObject = {
       expectation: "expected",
     })
   ),
-  toHaveRole: textMatcher("to.have.role", {}, (expected) => {
-    if (typeof expected !== "string")
+  toHaveRole: textMatcher("to.have.role", {}, ([expected]) => {
+    // Pinned 26a9e47 matchers.ts `toHaveRole` checks `isString` before its
+    // async part; a boxed String passes and its text validation rejects.
+    if (typeof expected !== "string" && !(expected instanceof String))
       throw new Error('"role" argument in toHaveRole must be a string');
   }),
   toHaveText: locatorMatcher("toHaveText", ([expected, options]) => {
@@ -1104,13 +1106,12 @@ const locatorMatchers: MatchersObject = {
 function textMatcher(
   expression: string,
   settings: { ignoreCase?: boolean; normalizeWhiteSpace?: boolean } = {},
-  validate?: (expected: unknown) => void
+  validate?: (args: unknown[]) => void
 ): RawMatcherFn {
   return locatorMatcher(
     expressionToMatcherName(expression),
     ([expected, options]) => {
       assertTextExpected(expected);
-      validate?.(expected);
       return {
         expression,
         expected,
@@ -1129,7 +1130,8 @@ function textMatcher(
         kind: "text",
         expectation: "expected",
       };
-    }
+    },
+    validate
   );
 }
 
