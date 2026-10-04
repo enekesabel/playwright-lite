@@ -276,6 +276,25 @@ test("all preserves the actual runtime-returned locators", async ({
   expect(await results[0].locator("..").count()).toBe(1);
 });
 
+test("normalize preserves the actual runtime-returned locator", async ({
+  page,
+  adapterPage,
+}) => {
+  await page.setContent("<p>first</p><p>second</p>");
+  await page.evaluate(() => {
+    const runtime = (window as any).__pwLiteAdapterPage;
+    const locator = runtime.locator.bind(runtime);
+    runtime.locator = (...args: unknown[]) => {
+      const result = locator(...args);
+      result.normalize = async () => locator("p").nth(1);
+      return result;
+    };
+  });
+  const result = await adapterPage.locator("p").normalize();
+  expect(await result.textContent()).toBe("second");
+  expect(result.toString()).toBe("locator('p').nth(1)");
+});
+
 test("waitForFunction invokes the public runtime and preserves its handle", async ({
   page,
   adapterPage,

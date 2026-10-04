@@ -134,6 +134,7 @@ const LOCATOR_LIFETIME_CALLS: Record<
   isEnabled: true,
   isHidden: true,
   isVisible: true,
+  normalize: true,
   press: true,
   pressSequentially: true,
   screenshot: true,
@@ -341,6 +342,26 @@ export class LocatorImpl {
 
   last() {
     return this.nth(-1);
+  }
+
+  /**
+   * Mirrors pinned 26a9e47 Locator.normalize: a new locator for the selector
+   * the first match regenerates to, without this locator's description.
+   */
+  async normalize() {
+    let selector: string;
+    try {
+      selector = this.ownerPage.resolveSelector(this.selector);
+    } catch (error) {
+      if (error instanceof Error)
+        error.message = `locator.normalize: ${error.message}`;
+      throw error;
+    }
+    return new LocatorImpl(
+      this.ownerPage,
+      selector,
+      `page.locator(${JSON.stringify(selector)})`
+    );
   }
 
   // ── Collection ────────────────────────────────────────────────

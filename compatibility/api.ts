@@ -711,7 +711,7 @@ export const locatorLedger = {
   isVisible: implemented(),
   last: implemented(),
   locator: implemented(),
-  normalize: undecided(),
+  normalize: implemented(),
   nth: implemented(),
   or: implemented(),
   page: implemented("Returns the adapter Page facade."),

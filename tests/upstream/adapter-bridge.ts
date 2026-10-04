@@ -2406,6 +2406,34 @@ function createLocatorProxy(
         };
       }
 
+      // The returned locator is stored like an all() entry, so later calls
+      // execute on the adapter's own object.
+      if (prop === "normalize") {
+        return async () => {
+          const { id, selector }: { id: string; selector: string } =
+            await evaluateAdapter(
+              realPage,
+              async ({ chain: c }) => {
+                const host = window as any;
+                return host.__pwLiteInvokeAdapter(async () => {
+                  const current: any = host.__pwLiteReplayAdapterChain(c);
+                  return host.__pwLiteStoreLocator(await current.normalize());
+                });
+              },
+              { chain: encodeBridgeValueForPage(chain, realPage) }
+            );
+          let nativeReferences = nativeLocatorReferences.get(realPage);
+          if (!nativeReferences) {
+            nativeReferences = new Map();
+            nativeLocatorReferences.set(realPage, nativeReferences);
+          }
+          nativeReferences.set(id, realPage.locator(selector));
+          return createLocatorProxy(realPage, state, [
+            ["__pwLiteLocatorRef", [id]],
+          ]);
+        };
+      }
+
       // page(): return the proxy page.
       if (prop === "page") {
         return () => createPageProxy(realPage, state);
