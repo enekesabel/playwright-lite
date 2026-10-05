@@ -1,4 +1,5 @@
 import { HostObservation, perWindow } from "./hostGlobals";
+import { timersFor } from "./timers";
 import {
   Set,
   WeakMap,
@@ -497,11 +498,11 @@ export class NetworkObservation {
   observeIdle(onIdle: () => void): () => void {
     let timer: number | undefined;
     const stopTimer = () => {
-      this.window.clearTimeout(timer);
+      timersFor(this.window).clearTimeout(timer);
       timer = undefined;
     };
     const startTimer = () => {
-      timer = this.window.setTimeout(() => {
+      timer = timersFor(this.window).setTimeout(() => {
         timer = undefined;
         onIdle();
       }, NETWORK_IDLE_TIMEOUT);

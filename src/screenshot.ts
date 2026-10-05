@@ -16,6 +16,7 @@ import type { Locator, Page } from "@playwright/test";
 import { compressCallLog } from "./callLog";
 import { AdapterTimeoutError } from "./errors";
 import { isTargetClosedError, TargetClosedError } from "./lifetime";
+import { timersFor } from "./timers";
 import {
   validateBoolean,
   validateFloat,
@@ -387,7 +388,7 @@ export function capture(task: CaptureTask): Promise<Uint8Array> {
   return new Promise<Uint8Array>((resolve, reject) => {
     let timer: number | undefined;
     const settle = (finish: () => void) => {
-      if (timer !== undefined) task.window.clearTimeout(timer);
+      if (timer !== undefined) timersFor(task.window).clearTimeout(timer);
       signal.removeEventListener("abort", onAbort);
       finish();
     };
@@ -398,7 +399,7 @@ export function capture(task: CaptureTask): Promise<Uint8Array> {
     const onAbort = () => cancel(aborted(signal, log, true));
     signal.addEventListener("abort", onAbort, { once: true });
     if (task.timeout > 0)
-      timer = task.window.setTimeout(
+      timer = timersFor(task.window).setTimeout(
         () =>
           cancel(
             new AdapterTimeoutError(

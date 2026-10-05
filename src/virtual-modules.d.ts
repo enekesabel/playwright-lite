@@ -68,6 +68,15 @@ declare module "virtual:playwright-lite-injected" {
     addHighlight(selector: ParsedSelector, style?: string): void;
     removeHighlight(selector: ParsedSelector): void;
     hideHighlight(): void;
+    /** Pinned `viewportRatio`: one IntersectionObserver report for `element`. */
+    viewportRatio(element: Element): Promise<number>;
+    /** Pinned `UtilityScript.builtins`, read by the InjectedScript at each call. */
+    utils: {
+      builtins: {
+        requestAnimationFrame(callback: (time: number) => void): number;
+        cancelAnimationFrame(id: number): void;
+      };
+    };
   }
 }
 

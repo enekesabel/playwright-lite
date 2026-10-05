@@ -151,7 +151,9 @@ try {
       : `\nAll ${names.length} hidden-tab cases passed.`
   );
 } finally {
+  const exited = new Promise((done) => browser.once("exit", done));
   browser.kill();
+  await exited;
   await server.close();
   rmSync(profile, { recursive: true, force: true });
 }

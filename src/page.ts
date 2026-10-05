@@ -60,6 +60,7 @@ import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
 import { BrowserMouse, Pointer } from "./mouse";
 import { BrowserTouchscreen, supportsTouch } from "./touchscreen";
+import { timersFor } from "./timers";
 import type { Disposable, Keyboard, Locator, Page } from "@playwright/test";
 import type { ByRoleOptions, LocatorOptions } from "./locator";
 import { LOCATOR_BRAND, LocatorImpl } from "./locator";
@@ -1033,9 +1034,18 @@ export class PageImpl {
         if (preCheck !== "done") return unmatched(preCheck);
       }
 
+      // Pinned `_expectInternal` runs each check under `progress.race`, so a
+      // check the browser never answers still ends at the deadline.
+      const expired = new AdapterTimeoutError("");
       try {
-        lastAttempt = await check();
+        lastAttempt = await this.waitForActionDeadline(
+          check(),
+          { expiresAt: deadline, signal },
+          () => expired
+        );
       } catch (error) {
+        if (error === expired) return unmatched("timedOut");
+        if (signal.aborted) return unmatched("aborted");
         return unmatched({ error });
       }
       if (lastAttempt.matches !== isNot) return { matches: !isNot };
@@ -2103,7 +2113,7 @@ export class PageImpl {
       // message, which arrives while `appendChild` runs. In the document the
       // browser reports the same violation as a queued event, so let that task
       // run before reporting success, like the pinned asynchronous-CSP path.
-      await new Promise<void>((resolve) => this.window.setTimeout(resolve));
+      await new Promise<void>((resolve) => this.timers.setTimeout(resolve));
       return this.elementHandleFor(script)!;
     });
   }
@@ -2398,7 +2408,7 @@ export class PageImpl {
           const finish = (done: () => void) => {
             this.removeListener(event, listener);
             signal.removeEventListener("abort", onAbort);
-            this.window.clearTimeout(timer);
+            this.timers.clearTimeout(timer);
             done();
           };
           const listener = async (payload: unknown) => {
@@ -2414,7 +2424,7 @@ export class PageImpl {
           this.addListener(event, listener);
           signal.addEventListener("abort", onAbort, { once: true });
           if (timeout > 0)
-            timer = this.window.setTimeout(
+            timer = this.timers.setTimeout(
               () =>
                 finish(() =>
                   reject(
@@ -3095,7 +3105,7 @@ export class PageImpl {
       let committed = false;
       const loadState = this.watchLoadState(waitUntil, () => check());
       const settle = (error?: Error) => {
-        this.window.clearTimeout(timer);
+        this.timers.clearTimeout(timer);
         loadState.release();
         this.window.removeEventListener("load", check);
         this.document.removeEventListener("readystatechange", check);
@@ -3112,7 +3122,7 @@ export class PageImpl {
       // If navigation is blocked or does not replace the document (e.g. 204),
       // time out rather than claiming destination readiness. Zero disables it.
       if (timeout > 0)
-        timer = this.window.setTimeout(
+        timer = this.timers.setTimeout(
           () =>
             settle(
               new AdapterTimeoutError(
@@ -3312,7 +3322,7 @@ export class PageImpl {
       const settle = (error?: Error) => {
         this.window.removeEventListener("DOMContentLoaded", ready);
         signal.removeEventListener("abort", aborted);
-        if (timeoutId !== undefined) this.window.clearTimeout(timeoutId);
+        if (timeoutId !== undefined) this.timers.clearTimeout(timeoutId);
         if (error) reject(error);
         else resolve();
       };
@@ -3322,7 +3332,7 @@ export class PageImpl {
       this.window.addEventListener("DOMContentLoaded", ready, { once: true });
       signal.addEventListener("abort", aborted, { once: true });
       if (timeout > 0)
-        timeoutId = this.window.setTimeout(
+        timeoutId = this.timers.setTimeout(
           () =>
             settle(
               new AdapterTimeoutError(
@@ -3782,7 +3792,7 @@ export class PageImpl {
 
           // Independent timeout timer — rejects even if predicate never settles.
           if (timeout > 0) {
-            timeoutId = this.window.setTimeout(() => {
+            timeoutId = this.timers.setTimeout(() => {
               cleanup();
               reject(
                 new AdapterTimeoutError(
@@ -3796,10 +3806,10 @@ export class PageImpl {
           const cleanup = () => {
             aborted = true;
             signal.removeEventListener("abort", onAbort);
-            if (timeoutId !== undefined) this.window.clearTimeout(timeoutId);
+            if (timeoutId !== undefined) this.timers.clearTimeout(timeoutId);
             if (pollTimerId !== undefined)
-              this.window.clearTimeout(pollTimerId);
-            if (rafId !== undefined) this.window.cancelAnimationFrame(rafId);
+              this.timers.clearTimeout(pollTimerId);
+            if (rafId !== undefined) this.timers.cancelAnimationFrame(rafId);
           };
 
           // `signal` never reaches the pinned protocol; it cancels the wait the
@@ -3872,8 +3882,8 @@ export class PageImpl {
           const scheduleNext = () => {
             if (aborted) return;
             if (polling === "raf")
-              rafId = this.window.requestAnimationFrame(check);
-            else pollTimerId = this.window.setTimeout(check, polling as number);
+              rafId = this.timers.requestAnimationFrame(check);
+            else pollTimerId = this.timers.setTimeout(check, polling as number);
           };
 
           check();
@@ -4094,7 +4104,7 @@ export class PageImpl {
       const cleanup = () => {
         unobserve();
         signal?.removeEventListener("abort", onAbort);
-        if (timeoutId !== undefined) this.window.clearTimeout(timeoutId);
+        if (timeoutId !== undefined) this.timers.clearTimeout(timeoutId);
       };
       const settle = (result: CurrentDocumentObservation) => {
         if (settled) return;
@@ -4128,7 +4138,7 @@ export class PageImpl {
 
       signal?.addEventListener("abort", onAbort, { once: true });
       unobserve = this.observeDocument(checkDocument);
-      if (timeout > 0) timeoutId = this.window.setTimeout(onTimeout, timeout);
+      if (timeout > 0) timeoutId = this.timers.setTimeout(onTimeout, timeout);
       checkDocument();
     });
   }
@@ -4146,7 +4156,7 @@ export class PageImpl {
       const notify = () => {
         for (const observer of [...this.documentObservers]) observer();
       };
-      const pollId = this.window.setInterval(
+      const pollId = this.timers.setInterval(
         notify,
         CURRENT_DOCUMENT_WAIT_POLL_DELAY
       );
@@ -4155,7 +4165,7 @@ export class PageImpl {
       this.window.addEventListener("load", notify);
       this.document.addEventListener("readystatechange", notify);
       this.unobserveDocument = () => {
-        this.window.clearInterval(pollId);
+        this.timers.clearInterval(pollId);
         this.window.removeEventListener("hashchange", notify);
         this.window.removeEventListener("popstate", notify);
         this.window.removeEventListener("load", notify);
@@ -4267,7 +4277,7 @@ export class PageImpl {
   private async wait(durationMs: number | undefined) {
     if (!durationMs || durationMs <= 0) return;
     await new Promise<void>((resolve) =>
-      this.window.setTimeout(resolve, durationMs)
+      this.timers.setTimeout(resolve, durationMs)
     );
   }
 
@@ -4773,7 +4783,7 @@ export class PageImpl {
         // inspect an element, so ending our await cannot cause a late input
         // action; the pinned primitive exposes no cancellation handle.
         if (deadline.expiresAt !== Infinity)
-          timeoutHandle = this.window.setTimeout(
+          timeoutHandle = this.timers.setTimeout(
             () => reject(timeoutError()),
             Math.max(0, deadline.expiresAt - Date.now())
           );
@@ -4784,7 +4794,7 @@ export class PageImpl {
         operation.then(resolve, reject);
       });
     } finally {
-      if (timeoutHandle !== undefined) this.window.clearTimeout(timeoutHandle);
+      if (timeoutHandle !== undefined) this.timers.clearTimeout(timeoutHandle);
       if (onAbort) deadline.signal?.removeEventListener("abort", onAbort);
     }
   }
@@ -5466,6 +5476,11 @@ export class PageImpl {
     return element.dispatchEvent(event);
   }
 
+  /** The window's timers, kept at their foreground pace while it is hidden. */
+  get timers() {
+    return timersFor(this.window);
+  }
+
   private get actionableInjected() {
     return this.injected as typeof this.injected & ActionableInjectedScript;
   }
@@ -5813,7 +5828,7 @@ class BrowserKeyboard {
     // next DevTools input command is handled. A single Promise.resolve() only
     // yields one queued continuation, so it misses microtasks queued by other
     // microtasks. Crossing a timer task flushes that complete microtask turn.
-    await new Promise<void>((resolve) => this.page.window.setTimeout(resolve));
+    await new Promise<void>((resolve) => this.page.timers.setTimeout(resolve));
     this.page.checkKeyboardActionDeadline(deadline);
   }
 }
@@ -6080,14 +6095,15 @@ function waitForExpectationRetry(
   delay: number,
   signal?: AbortSignal
 ): Promise<boolean> {
+  const timers = timersFor(browserWindow);
   return new Promise((resolve) => {
     const finish = (completed: boolean) => {
-      browserWindow.clearTimeout(timeoutId);
+      timers.clearTimeout(timeoutId);
       signal?.removeEventListener("abort", onAbort);
       resolve(completed);
     };
     const onAbort = () => finish(false);
-    const timeoutId = browserWindow.setTimeout(() => finish(true), delay);
+    const timeoutId = timers.setTimeout(() => finish(true), delay);
 
     if (signal?.aborted) {
       finish(false);

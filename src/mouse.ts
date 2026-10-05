@@ -9,6 +9,7 @@ import {
 
 import { inputShadowRoot } from "./closedShadowRoots";
 import { DragDataStore, type DragEventType, type DropEffect } from "./drag";
+import { timersFor } from "./timers";
 import {
   guardLifetimeCalls,
   type LifetimeCalls,
@@ -1121,7 +1122,7 @@ export class Pointer {
     // Like pinned WebViewInput._postTask, each event is a browser task. The
     // deadline is checked inside the task, so expiry cannot fire input later.
     return new Promise<T>((resolve, reject) =>
-      this.host.window.setTimeout(() => {
+      timersFor(this.host.window).setTimeout(() => {
         try {
           this.host.assertDeadline(input.deadline, input.action);
           resolve(run());

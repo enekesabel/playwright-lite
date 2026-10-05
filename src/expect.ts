@@ -48,6 +48,7 @@ import {
   type PageExpectationResult,
 } from "./page";
 import { rejectUnsupportedOptions } from "./protocolValidation";
+import { timersFor } from "./timers";
 import {
   Promise,
   Error,
@@ -443,17 +444,18 @@ async function raceAgainstDeadline<T>(
   callback: () => Promise<T>,
   deadline: number
 ): Promise<{ result: T; timedOut: false } | { timedOut: true }> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timers = timersFor(window);
+  let timer: number | undefined;
   return Promise.race([
     callback().then((result) => ({ result, timedOut: false }) as const),
     new Promise<{ timedOut: true }>((resolve) => {
       if (!deadline) return;
-      timer = setTimeout(
+      timer = timers.setTimeout(
         () => resolve({ timedOut: true }),
         Math.max(0, deadline - performance.now())
       );
     }),
-  ]).finally(() => clearTimeout(timer));
+  ]).finally(() => timers.clearTimeout(timer));
 }
 
 async function pollAgainstDeadline<T>(
@@ -476,7 +478,9 @@ async function pollAgainstDeadline<T>(
       return { result: lastResult, timedOut: false };
     const interval = remainingIntervals.shift() ?? lastInterval;
     if (deadline && deadline <= performance.now() + interval) break;
-    await new Promise((resolve) => setTimeout(resolve, interval));
+    await new Promise<void>((resolve) =>
+      timersFor(window).setTimeout(resolve, interval)
+    );
   }
   return { result: lastResult, timedOut: true };
 }

@@ -8,6 +8,7 @@ import type { PageImpl } from "./page";
 type LocatorHandlerPage = Pick<
   PageImpl,
   | "window"
+  | "timers"
   | "resolveAll"
   | "resolveLocatorElement"
   | "elementState"
@@ -210,8 +211,8 @@ export class LocatorHandlers {
         backoff[Math.min(retry, backoff.length - 1)] ?? 0,
         Math.max(0, deadline.expiresAt - Date.now())
       );
-      await new Promise((resolve) =>
-        this.page.window.setTimeout(resolve, delay)
+      await new Promise<void>((resolve) =>
+        this.page.timers.setTimeout(resolve, delay)
       );
     }
   }

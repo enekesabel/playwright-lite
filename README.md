@@ -127,6 +127,18 @@ Playwright runs its page scripts in an isolated world, which no change the page 
 
 </details>
 
+### Hidden tabs
+
+Browsers stop animation frames and slow timers down in a background tab. Playwright's browser runs with that turned off, and playwright-lite keeps actions, waits and assertions at their foreground pace while the document is hidden.
+
+<details>
+<summary>Edge cases</summary>
+
+- When the page's Content Security Policy blocks `blob:` workers, each timed wait, such as a `delay` option, `waitForTimeout()`, a polling interval or the stability check before an action, takes about a second while the tab is hidden.
+- While the tab is hidden, `toBeInViewport()` measures the element against the viewport and the ancestors that clip its overflow, and ignores clipping by CSS transforms, `clip-path` and `contain: paint`.
+
+</details>
+
 ### Navigation timeouts
 
 `waitForNavigation()`, `waitForURL()`, `waitForLoadState()`, `goBack()`, `goForward()` and `reload()` time out with only `page.<method>: Timeout <n>ms exceeded.`, where Playwright appends the navigation steps it logged, such as `waiting for navigation until "load"`.
