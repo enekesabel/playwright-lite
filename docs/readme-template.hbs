@@ -69,6 +69,7 @@ here instead of a row note.
 - **No browser control.** No browser launch, browser contexts, or browser-level control over network traffic, downloads, or other tabs.
 - **Content Security Policy applies.** Evaluation callbacks need the page's policy to allow dynamic JavaScript evaluation; the library does not bypass it.
 - **Closing keeps the document.** `close()` disposes the `Page` object, not the document; see [Closing a page](#closing-a-page).
+- **Hidden tabs keep their pace.** Actions and waits run at foreground speed in a background tab, with a few exceptions; see [Hidden tabs](#hidden-tabs).
 - **Shared JavaScript globals.** The library runs alongside the page's own scripts, so some changes the page makes to built-in globals reach it; see [Page globals](#page-globals).
 
 ### Page functions playwright-lite replaces

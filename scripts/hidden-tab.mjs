@@ -66,7 +66,7 @@ const origin = server.resolvedUrls.local[0].replace(/\/$/, "");
 
 const profile = mkdtempSync(resolve(tmpdir(), "playwright-lite-hidden-tab-"));
 const browser = spawn(
-  process.env.HIDDEN_TAB_CHROMIUM ?? chromium.executablePath(),
+  chromium.executablePath(),
   [
     "--headless",
     "--no-sandbox",

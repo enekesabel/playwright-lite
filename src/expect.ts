@@ -463,6 +463,7 @@ async function pollAgainstDeadline<T>(
   deadline: number,
   intervals: number[] = DEFAULT_INTERVALS
 ): Promise<{ result?: T; timedOut: boolean }> {
+  const timers = timersFor(window);
   const remainingIntervals = [...intervals];
   const lastInterval = remainingIntervals.pop() ?? 1_000;
   let lastResult: T | undefined;
@@ -478,9 +479,7 @@ async function pollAgainstDeadline<T>(
       return { result: lastResult, timedOut: false };
     const interval = remainingIntervals.shift() ?? lastInterval;
     if (deadline && deadline <= performance.now() + interval) break;
-    await new Promise<void>((resolve) =>
-      timersFor(window).setTimeout(resolve, interval)
-    );
+    await new Promise<void>((resolve) => timers.setTimeout(resolve, interval));
   }
   return { result: lastResult, timedOut: true };
 }

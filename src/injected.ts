@@ -67,16 +67,20 @@ export function injectedScriptFor(
  * browser stops animation frames: its stability check, highlight and
  * `viewportRatio` read their frames from `utils.builtins`, which pinned
  * `UtilityScript` binds to the window's own functions. While the document is
- * visible, the replacements call those same functions.
+ * visible, the replacements call the window's functions as `timersFor` bound
+ * them.
  */
 function keepPaceWhileHidden(
   injectedScript: InjectedScript,
   browserWindow: Window & typeof globalThis
 ) {
   const timers = timersFor(browserWindow);
-  const { builtins } = injectedScript.utils;
-  builtins.requestAnimationFrame = timers.requestAnimationFrame;
-  builtins.cancelAnimationFrame = timers.cancelAnimationFrame;
+  // A new object, since pinned `UtilityScript` can hand out one it shares.
+  injectedScript.utils.builtins = {
+    ...injectedScript.utils.builtins,
+    requestAnimationFrame: timers.requestAnimationFrame,
+    cancelAnimationFrame: timers.cancelAnimationFrame,
+  };
   // Pinned `viewportRatio` waits for an IntersectionObserver report, which
   // only comes with a rendering update. A hidden document gets none, so the
   // ratio is read from layout there, also when the document is hidden while

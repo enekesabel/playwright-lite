@@ -209,6 +209,17 @@ export const hiddenTabCases: readonly HiddenTabCase[] = [
     },
   ],
   [
+    "locator.press (chord)",
+    async () => {
+      const page = setUp('<input id="target">');
+      await within(1_000, () =>
+        page.locator("#target").press("Shift+KeyA", actionTimeout)
+      );
+      const value = document.querySelector<HTMLInputElement>("#target")!.value;
+      check(value === "A", `typed ${JSON.stringify(value)}`);
+    },
+  ],
+  [
     "keyboard.type",
     async () => {
       const page = setUp('<input id="target">');
@@ -300,6 +311,16 @@ export const hiddenTabCases: readonly HiddenTabCase[] = [
           actionTimeout
         );
       });
+    },
+  ],
+  [
+    "expect.poll",
+    async () => {
+      setUp("");
+      let calls = 0;
+      await within(1_200, () =>
+        expect.poll(() => ++calls, actionTimeout).toBe(3)
+      );
     },
   ],
   [

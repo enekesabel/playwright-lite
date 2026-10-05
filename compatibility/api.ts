@@ -820,7 +820,9 @@ export const locatorAssertionLedger = {
   toBeEnabled: implemented(),
   toBeFocused: implemented(),
   toBeHidden: implemented(),
-  toBeInViewport: implemented(),
+  toBeInViewport: implemented(
+    "While the tab is hidden, clipping by CSS transforms, `clip-path` and `contain: paint` is not counted; see [Hidden tabs](#hidden-tabs)."
+  ),
   toBeVisible: implemented(),
   toContainClass: implemented(),
   toContainText: implemented(),

@@ -496,13 +496,14 @@ export class NetworkObservation {
    * server/frames.ts fires `networkidle`. Subscribes until the release is called.
    */
   observeIdle(onIdle: () => void): () => void {
+    const timers = timersFor(this.window);
     let timer: number | undefined;
     const stopTimer = () => {
-      timersFor(this.window).clearTimeout(timer);
+      timers.clearTimeout(timer);
       timer = undefined;
     };
     const startTimer = () => {
-      timer = timersFor(this.window).setTimeout(() => {
+      timer = timers.setTimeout(() => {
         timer = undefined;
         onIdle();
       }, NETWORK_IDLE_TIMEOUT);

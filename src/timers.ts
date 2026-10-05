@@ -21,9 +21,11 @@ type BrowserWindow = Window & typeof globalThis;
  *   blocks the worker, it falls back to the window's clamped timer;
  * - an animation frame becomes a timed wait of one frame.
  *
- * While the document is visible, every call goes straight to the window's own
- * function. A wait armed while visible moves to the hidden path when the
- * document is hidden before it fires.
+ * While the document is visible, every wait is armed on the window's own
+ * function: its timers as the page has them at each call, and its animation
+ * frames as they were when these timers were created. A wait armed while
+ * visible moves to the hidden path when the document is hidden before it
+ * fires.
  */
 export interface Timers {
   setTimeout(callback: () => void, delay?: number): number;
@@ -61,8 +63,18 @@ function createTimers(browserWindow: BrowserWindow): Timers {
   let worker: Worker | null | undefined;
   let listening = false;
 
+  // Bound once, like pinned `UtilityScript.builtins`, so a page that swaps
+  // them later (fake timers) does not reach the stability check.
+  const requestFrame = browserWindow.requestAnimationFrame?.bind(browserWindow);
+  const cancelFrame = browserWindow.cancelAnimationFrame?.bind(browserWindow);
   const hidden = () => document.visibilityState === "hidden";
   const now = () => browserWindow.performance.now();
+  const remaining = (entry: Pending) => Math.max(0, entry.due - now());
+  const listen = () => {
+    if (listening) return;
+    listening = true;
+    document.addEventListener("visibilitychange", onVisibilityChange);
+  };
 
   const fire = (id: number, time = now()) => {
     const entry = pending.get(id);
@@ -102,12 +114,12 @@ function createTimers(browserWindow: BrowserWindow): Timers {
   };
 
   const armClamped = (id: number, entry: Pending) => {
-    browserWindow.setTimeout(() => fire(id), Math.max(0, entry.due - now()));
+    browserWindow.setTimeout(() => fire(id), remaining(entry));
   };
 
   const armHidden = (id: number, entry: Pending) => {
     entry.cancelVisible = undefined;
-    const delay = entry.frame ? FRAME_MS : Math.max(0, entry.due - now());
+    const delay = entry.frame ? FRAME_MS : remaining(entry);
     if (delay === 0) return zeroDelayTask(id);
     const timer = workerTimer();
     if (timer) timer.postMessage([id, delay]);
@@ -116,15 +128,10 @@ function createTimers(browserWindow: BrowserWindow): Timers {
 
   const armVisible = (id: number, entry: Pending) => {
     if (entry.frame) {
-      const frame = browserWindow.requestAnimationFrame((time) =>
-        fire(id, time)
-      );
-      entry.cancelVisible = () => browserWindow.cancelAnimationFrame(frame);
+      const frame = requestFrame((time) => fire(id, time));
+      entry.cancelVisible = () => cancelFrame(frame);
     } else {
-      const timer = browserWindow.setTimeout(
-        () => fire(id),
-        Math.max(0, entry.due - now())
-      );
+      const timer = browserWindow.setTimeout(() => fire(id), remaining(entry));
       entry.cancelVisible = () => browserWindow.clearTimeout(timer);
     }
   };
@@ -140,16 +147,13 @@ function createTimers(browserWindow: BrowserWindow): Timers {
   };
 
   const schedule = (
-    fire: (time: number) => void,
+    callback: (time: number) => void,
     delay: number,
     frame: boolean
   ): number => {
-    if (!listening) {
-      listening = true;
-      document.addEventListener("visibilitychange", onVisibilityChange);
-    }
+    listen();
     const id = ++lastId;
-    const entry: Pending = { fire, frame, due: now() + delay };
+    const entry: Pending = { fire: callback, frame, due: now() + delay };
     pending.set(id, entry);
     if (hidden()) armHidden(id, entry);
     else armVisible(id, entry);
@@ -199,10 +203,7 @@ function createTimers(browserWindow: BrowserWindow): Timers {
       cancel(id);
     },
     onHidden(callback) {
-      if (!listening) {
-        listening = true;
-        document.addEventListener("visibilitychange", onVisibilityChange);
-      }
+      listen();
       hiddenListeners.add(callback);
       return () => hiddenListeners.delete(callback);
     },
