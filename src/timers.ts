@@ -126,12 +126,13 @@ function createTimers(browserWindow: BrowserWindow): Timers {
     else armClamped(id, entry);
   };
 
-  const armVisible = (id: number, entry: Pending) => {
+  /** Only ever arms a new wait, so the window sees the caller's own delay. */
+  const armVisible = (id: number, entry: Pending, delay: number) => {
     if (entry.frame) {
       const frame = requestFrame((time) => fire(id, time));
       entry.cancelVisible = () => cancelFrame(frame);
     } else {
-      const timer = browserWindow.setTimeout(() => fire(id), remaining(entry));
+      const timer = browserWindow.setTimeout(() => fire(id), delay);
       entry.cancelVisible = () => browserWindow.clearTimeout(timer);
     }
   };
@@ -156,7 +157,7 @@ function createTimers(browserWindow: BrowserWindow): Timers {
     const entry: Pending = { fire: callback, frame, due: now() + delay };
     pending.set(id, entry);
     if (hidden()) armHidden(id, entry);
-    else armVisible(id, entry);
+    else armVisible(id, entry, delay);
     return id;
   };
 
