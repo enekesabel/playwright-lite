@@ -145,7 +145,12 @@ Place a test by the member whose behaviour it asserts:
 - A rule asserted across two or more members goes in
   `tests/contract/rules/<rule>.test.ts`, written once as a case table of
   `[apiName, run]`. The rule files are `cancellation`, `timeouts`,
-  `option-validation`, `strictness`, `serialization`, `page-globals`.
+  `option-validation`, `strictness`, `serialization`, `page-globals`,
+  `hidden-tab`.
+- `hidden-tab` keeps its case table in `tests/contract/hidden-tab.ts`, free of
+  Vitest, because a tab Playwright drives never reports hidden. Vitest runs the
+  table in its visible tab; `pnpm test:hidden-tab` runs it in a hidden one over
+  raw CDP and needs full Chromium (`pnpm exec playwright install chromium`).
 - Using other members as setup does not make a test cross-API; it stays with the
   member it asserts. Multi-API scenarios are the corpus's job.
 

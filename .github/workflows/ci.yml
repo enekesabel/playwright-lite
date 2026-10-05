@@ -64,6 +64,10 @@ jobs:
       # everything here runs headless.
       - run: pnpm exec playwright install --only-shell chromium
       - run: pnpm check
+      # The hidden-tab rule needs full Chromium: the headless shell never
+      # hides a tab, so it never throttles one.
+      - run: pnpm exec playwright install chromium
+      - run: pnpm test:hidden-tab
       - name: Pack the verified build
         run: |
           mkdir -p "$RUNNER_TEMP/package"
