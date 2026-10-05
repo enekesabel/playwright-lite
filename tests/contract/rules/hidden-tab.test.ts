@@ -10,7 +10,10 @@ afterEach(() => {
 // hold in a foreground tab. `pnpm test:hidden-tab` runs the same table in a
 // hidden one.
 describe("hidden-tab", () => {
-  it.each(hiddenTabCases)("%s keeps its pace", async (_apiName, run) => {
-    await run();
-  });
+  it.each(hiddenTabCases)(
+    "%s behaves as in a foreground tab",
+    async (_apiName, run) => {
+      await run();
+    }
+  );
 });

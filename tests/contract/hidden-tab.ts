@@ -2,8 +2,9 @@ import { createPage, expect } from "../../src/index";
 
 /**
  * The `hidden-tab` rule's cases: public members that must keep their
- * foreground pace while the document's tab is hidden, where the browser stops
- * animation frames and clamps timers. Playwright never sees a hidden page
+ * foreground pace and outcome while the document's tab is hidden, where the
+ * browser stops animation frames, clamps timers and delivers no
+ * IntersectionObserver reports. Playwright never sees a hidden page
  * because it launches the browser with background throttling off.
  *
  * `rules/hidden-tab.test.ts` runs them in Vitest's visible tab, and
@@ -296,6 +297,48 @@ export const hiddenTabCases: readonly HiddenTabCase[] = [
     async () => {
       const page = setUp(`<div style="height:3000px"></div>${button}`);
       await expect(page.locator("#target")).not.toBeInViewport(actionTimeout);
+    },
+  ],
+  [
+    "expect(locator).toBeInViewport (ratio under clipping)",
+    async () => {
+      // Each layout with the ratio a foreground tab's IntersectionObserver
+      // reports for `#target`.
+      const layouts: [html: string, ratio: number][] = [
+        [
+          '<span style="overflow:hidden"><span id="target" style="display:inline-block;width:50px;height:50px"></span></span>',
+          1,
+        ],
+        [
+          '<div style="display:contents;overflow:hidden"><div id="target" style="width:50px;height:50px"></div></div>',
+          1,
+        ],
+        [
+          '<div style="overflow:clip;overflow-clip-margin:20px;width:10px;height:50px"><div id="target" style="width:50px;height:50px"></div></div>',
+          0.6,
+        ],
+        [
+          '<div id="host"><div id="target" style="width:80px;height:50px"></div></div>',
+          0.25,
+        ],
+      ];
+      for (const [html, ratio] of layouts) {
+        const page = setUp(html);
+        const host = document.querySelector("#host");
+        if (host)
+          host.attachShadow({ mode: "open" }).innerHTML =
+            '<div style="overflow:hidden;width:20px;height:50px"><slot></slot></div>';
+        const target = page.locator("#target");
+        await expect(target).toBeInViewport({
+          ...actionTimeout,
+          ratio: ratio - 0.05,
+        });
+        if (ratio < 1)
+          await expect(target).not.toBeInViewport({
+            ...actionTimeout,
+            ratio: ratio + 0.05,
+          });
+      }
     },
   ],
   [

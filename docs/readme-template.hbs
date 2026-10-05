@@ -146,7 +146,7 @@ Browsers stop animation frames and slow timers down in a background tab. Playwri
 <summary>Edge cases</summary>
 
 - When the page's Content Security Policy blocks `blob:` workers, each timed wait, such as a `delay` option, `waitForTimeout()`, a polling interval or the stability check before an action, takes about a second while the tab is hidden.
-- While the tab is hidden, `toBeInViewport()` measures the element against the viewport and the ancestors that clip its overflow, and ignores clipping by CSS transforms, `clip-path` and `contain: paint`.
+- While the tab is hidden, `toBeInViewport()` measures the element against the viewport and the ancestors that clip its overflow, and ignores clipping by CSS transforms, `clip-path` and `contain: paint`, or inside a closed shadow root the element is slotted into.
 
 </details>
 
