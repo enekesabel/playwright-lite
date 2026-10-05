@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/enekesabel/playwright-lite/compare/v0.9.0...v0.9.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* keep actions and waits at foreground pace in a hidden tab ([#287](https://github.com/enekesabel/playwright-lite/issues/287)) ([19f7ced](https://github.com/enekesabel/playwright-lite/commit/19f7ced0206b538f9bbeb07f04302eba29cc6b4e))
+
 ## [0.9.0](https://github.com/enekesabel/playwright-lite/compare/v0.8.0...v0.9.0) (2026-10-04)
 
 
