@@ -136,7 +136,7 @@ Browsers stop animation frames and slow timers down in a background tab. Playwri
 <summary>Edge cases</summary>
 
 - When the page's Content Security Policy blocks `blob:` workers, each timed wait, such as a `delay` option, `waitForTimeout()`, a polling interval or the stability check before an action, takes about a second while the tab is hidden.
-- When other programs keep the CPU busy, the operating system can give a hidden tab almost no CPU time, as macOS does, so an action, a wait or its timeout can run tens of seconds late until the tab gets time again. Playwright's browser does not lower a hidden tab's priority, so its tabs keep running.
+- When other programs keep the CPU busy, the operating system can give a hidden tab almost no CPU time, as macOS does, so an action, a wait or its timeout can run tens of seconds late until the tab gets time again. Playwright's browser keeps a hidden tab at foreground priority, so it competes for the CPU like a visible one.
 - While the tab is hidden, `toBeInViewport()` measures the element against the viewport and the ancestors that clip its overflow, and ignores clipping by CSS transforms, `clip-path` and `contain: paint`, or inside a closed shadow root the element is slotted into.
 
 </details>
