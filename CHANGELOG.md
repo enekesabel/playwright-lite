@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.2](https://github.com/enekesabel/playwright-lite/compare/v0.9.1...v0.9.2) (2026-10-14)
+
+
+### Bug Fixes
+
+* fill a contenteditable through Keyboard.insertText ([#291](https://github.com/enekesabel/playwright-lite/issues/291)) ([c30cf50](https://github.com/enekesabel/playwright-lite/commit/c30cf508c71f650a24a37ec261f088705777972d))
+
 ## [0.9.1](https://github.com/enekesabel/playwright-lite/compare/v0.9.0...v0.9.1) (2026-10-05)
 
 
