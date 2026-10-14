@@ -4326,6 +4326,11 @@
       "evidence": "Fills an existing contenteditable despite its focus listener collapsing selection and asserts replacement text."
     },
     {
+      "id": "page-fill.spec.ts > should fill contenteditable with new lines",
+      "method": "Locator.fill",
+      "evidence": "Locator.fill('John\\nDoe') on an empty contenteditable makes its innerText exactly 'John\\nDoe', so the line break reaches the editor as a line break rather than a collapsed space."
+    },
+    {
       "id": "page-fill.spec.ts > should fill date input after clicking",
       "method": "Page.fill",
       "evidence": "Clicks then fills a date control and asserts its date value."

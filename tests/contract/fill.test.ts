@@ -48,6 +48,33 @@ describe("Locator.fill", () => {
     expect(inputEvents).toEqual(["input", "textarea", "editable"]);
   });
 
+  // Playwright answers needsinput with Keyboard.insertText, so a rich-text
+  // editor that owns its DOM cancels beforeinput and inserts the text into
+  // the range the event names.
+  it("lets an editor that cancels beforeinput insert into its target range", async () => {
+    document.body.innerHTML = '<div id="editor" contenteditable>old</div>';
+    const page = createPage();
+    const editor = document.querySelector("#editor") as HTMLElement;
+    const events: string[] = [];
+    editor.addEventListener("beforeinput", (event) => {
+      event.preventDefault();
+      events.push(`${event.type}:${event.inputType}:${event.data}`);
+      const [target] = event.getTargetRanges();
+      const range = document.createRange();
+      range.setStart(target.startContainer, target.startOffset);
+      range.setEnd(target.endContainer, target.endOffset);
+      range.deleteContents();
+      range.insertNode(document.createTextNode(event.data!));
+    });
+    for (const type of ["textInput", "input"])
+      editor.addEventListener(type, () => events.push(type));
+
+    await page.locator("#editor").fill("new");
+
+    expect(editor.textContent).toBe("new");
+    expect(events).toEqual(["beforeinput:insertText:new"]);
+  });
+
   it("fills number inputs through the pinned needsinput path", async () => {
     document.body.innerHTML = '<input id="number" type="number" value="123" />';
     const page = createPage();

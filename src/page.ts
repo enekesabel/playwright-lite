@@ -5183,6 +5183,20 @@ export class PageImpl {
     }
 
     this.assertActionDeadline(deadline, actionName);
+    // Playwright's server answers `needsinput` with Keyboard.insertText, so a
+    // rich-text editor sees a beforeinput it can take over before the browser
+    // edits the DOM. The in-document Keyboard.insertText path does the same
+    // here for a contenteditable host that InjectedScript.fill has focused
+    // and selected: an editor that reconciles the DOM itself cancels the
+    // beforeinput and inserts the text through its own model. Playwright
+    // presses Delete for an empty value; the DOM replacement below covers
+    // that case and a host that leaves the events alone but refuses the
+    // editing command.
+    if (isContentEditable(element) && value !== "") {
+      if (!this.dispatchBeforeInput(element, value, "insertText")) return;
+      if (!this.dispatchTextInput(element, value)) return;
+      if (this.insertTextAtCaret(element, value, "insertText")) return;
+    }
     this.replaceSelectedText(element, value);
   }
 
@@ -5397,6 +5411,14 @@ export class PageImpl {
   ): boolean {
     const InputEvent = this.window.InputEvent;
     if (!InputEvent) return true;
+    // Chromium hands a contenteditable's beforeinput the selection it is about
+    // to edit; an editor that cancels the event inserts into that range.
+    const selection = this.window.getSelection();
+    const StaticRange = this.window.StaticRange;
+    const targetRanges =
+      isContentEditable(element) && selection?.rangeCount && StaticRange
+        ? [new StaticRange(selection.getRangeAt(0))]
+        : [];
     return element.dispatchEvent(
       new InputEvent("beforeinput", {
         bubbles: true,
@@ -5404,6 +5426,7 @@ export class PageImpl {
         composed: true,
         data,
         inputType,
+        targetRanges,
       })
     );
   }
