@@ -117,6 +117,8 @@ declare module "virtual:playwright-lite-evaluation" {
       ...argsAndHandles: unknown[]
     ): unknown;
     jsonValue(returnByValue: true, value: unknown): unknown;
+    /** Pinned: `evaluate`'s by-value result, `jsonValue` of the settled value, or `undefined` for one it cannot serialize. */
+    _promiseAwareJsonValueNoThrow(value: unknown): unknown;
   }
 }
 
