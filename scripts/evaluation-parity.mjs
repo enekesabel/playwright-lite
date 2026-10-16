@@ -89,10 +89,9 @@ async function observe(page) {
   output.nestedCopied = nested.container.count === 0;
   const onlyInCaller = 42;
   try {
-    await page.evaluate(() => onlyInCaller);
-    output.closureRejected = false;
+    output.closure = { value: await page.evaluate(() => onlyInCaller) };
   } catch (error) {
-    output.closureRejected = error.message.includes("onlyInCaller");
+    output.closure = { rejected: error.message.includes("onlyInCaller") };
   }
   output.callerValue = onlyInCaller;
   output.errors = [];
@@ -188,9 +187,15 @@ try {
   }, String(observe));
   console.log("Stock observations:", expected);
   console.log("Lite observations:", actual);
+  // The one decided difference: Lite calls a function as it is, so it keeps
+  // its closure, where stock Playwright evaluates its source in the page.
+  assert.deepEqual(expected.closure, { rejected: true });
+  assert.deepEqual(actual.closure, { value: 42 });
+  delete expected.closure;
+  delete actual.closure;
   assert.deepEqual(actual, expected);
   console.log(
-    "Evaluation parity passed against stock Playwright 1.62.1: argument/result copies, object graphs, special values, all target entry points, nested handles, closures, errors, waitForFunction jsonValue, and object/primitive handle disposal."
+    "Evaluation parity passed against stock Playwright 1.62.1: argument/result copies, object graphs, special values, all target entry points, nested handles, errors, waitForFunction jsonValue, and object/primitive handle disposal, with a function keeping its closure in Lite alone."
   );
 } finally {
   await browser?.close();

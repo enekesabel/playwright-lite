@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createPage } from "../../../src/index";
 
@@ -111,6 +111,61 @@ describe("serialization", () => {
     await button.dispose();
   });
 
+  it("calls a page function as it is, never evaluating its source, and still copies its argument and result", async () => {
+    document.body.innerHTML = "<button>Go</button>";
+    const page = createPage();
+    const button = await page.$("button");
+    if (!button) throw new Error("Missing button");
+    const handle = await page.evaluateHandle(() => ({}));
+    type PageFunction = (...args: unknown[]) => unknown;
+    const argument = (args: unknown[]) =>
+      args[args.length - 1] as { nested: { value: number } };
+    // Evaluated from its source, neither function would find `closedOver` or
+    // `argument`, and the bound function's source does not even parse.
+    const closedOver = { value: 1 };
+    const copies: PageFunction = (...args) => {
+      const value = argument(args);
+      value.nested.value = closedOver.value + 1;
+      return value;
+    };
+    const bound = function (this: { bump: number }, ...args: unknown[]) {
+      return argument(args).nested.value + this.bump;
+    }.bind({ bump: 10 });
+    const original = { nested: { value: 1 } };
+    const cases: [string, (run: PageFunction) => Promise<unknown>][] = [
+      ["page.evaluate", (run) => page.evaluate(run, original)],
+      [
+        "locator.evaluate",
+        (run) => page.locator("button").evaluate(run, original),
+      ],
+      ["elementHandle.evaluate", (run) => button.evaluate(run, original)],
+      ["jsHandle.evaluate", (run) => handle.evaluate(run, original)],
+      [
+        "page.waitForFunction",
+        async (run) =>
+          (
+            await page.waitForFunction(run, original, { polling: 1 })
+          ).jsonValue(),
+      ],
+    ];
+    const evaluated = vi.spyOn(window, "eval");
+    try {
+      for (const [apiName, run] of cases) {
+        const result = (await run(copies)) as typeof original;
+        expect(result, apiName).toEqual({ nested: { value: 2 } });
+        expect(result, apiName).not.toBe(original);
+        expect(original, apiName).toEqual({ nested: { value: 1 } });
+        await expect(run(bound), apiName).resolves.toBe(11);
+      }
+      for (const [source] of evaluated.mock.calls)
+        expect(String(source)).not.toMatch(/closedOver|bump/);
+    } finally {
+      evaluated.mockRestore();
+    }
+    await handle.dispose();
+    await button.dispose();
+  });
+
   it("infers an empty or omitted file payload MIME type from the name for every file-accepting member", async () => {
     // Contract coverage: no pinned upstream spec sends an empty or omitted
     // mimeType. Pinned server/fileUploadUtils.ts falls back to
@@ -182,6 +237,44 @@ describe("serialization", () => {
         (await run()).map((file) => file.type),
         apiName
       ).toEqual(expected);
+    }
+    await handle.dispose();
+  });
+
+  it("calls a page function plainly at every entry point, so its this follows its own strictness", async () => {
+    document.body.innerHTML = "<button>Go</button>";
+    const page = createPage();
+    const handle = await page.$("button");
+    if (!handle) throw new Error("Missing test handle");
+    const strict = function (this: unknown) {
+      "use strict";
+      return this === undefined;
+    };
+    const sloppy = new Function("return this === window") as () => boolean;
+    const cases: [string, (fn: () => boolean) => Promise<unknown>][] = [
+      ["page.evaluate", (fn) => page.evaluate(fn)],
+      ["page.$eval", (fn) => page.$eval("button", fn)],
+      ["locator.evaluate", (fn) => page.locator("button").evaluate(fn)],
+      ["elementHandle.evaluate", (fn) => handle.evaluate(fn)],
+      [
+        "page.waitForFunction",
+        (fn) =>
+          page
+            .waitForFunction(fn, undefined, { timeout: 100 })
+            .then((result) => result.jsonValue()),
+      ],
+      [
+        "locator.waitForFunction",
+        (fn) =>
+          page
+            .locator("button")
+            .waitForFunction(fn, undefined, { timeout: 100 })
+            .then(() => true),
+      ],
+    ];
+    for (const [apiName, run] of cases) {
+      await expect(run(strict), apiName).resolves.toBe(true);
+      await expect(run(sloppy), apiName).resolves.toBe(true);
     }
     await handle.dispose();
   });

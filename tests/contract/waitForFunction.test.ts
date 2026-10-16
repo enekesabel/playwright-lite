@@ -204,16 +204,18 @@ describe("Page.waitForFunction", () => {
     await expect(handle.jsonValue()).rejects.toThrow(/disposed/i);
   });
 
-  it("does not leak DOM values or closures through waitForFunction", async () => {
+  it("does not leak DOM values through waitForFunction and keeps a function's closure", async () => {
     const page = createPage();
     const node = await page.waitForFunction(() => document.body);
     await expect(node.jsonValue()).resolves.toBe("ref: <Node>");
     await node.dispose();
     const closureValue = 1;
     expect(closureValue).toBe(1);
-    await expect(
-      page.waitForFunction(() => closureValue, undefined, { timeout: 50 })
-    ).rejects.toThrow("closureValue");
+    const closed = await page.waitForFunction(() => closureValue, undefined, {
+      timeout: 50,
+    });
+    await expect(closed.jsonValue()).resolves.toBe(1);
+    await closed.dispose();
     await expect(
       page.waitForFunction(() => Promise.reject("stop waiting"), undefined, {
         timeout: 50,

@@ -167,12 +167,10 @@ describe("Page.evaluate", () => {
     expect(result.nested).not.toBe(original.nested);
   });
 
-  it("does not transport lexical closures", async () => {
+  it("runs a function as it is, keeping its closure", async () => {
     const onlyInCaller = 42;
     expect(onlyInCaller).toBe(42);
-    await expect(createPage().evaluate(() => onlyInCaller)).rejects.toThrow(
-      "onlyInCaller"
-    );
+    await expect(createPage().evaluate(() => onlyInCaller)).resolves.toBe(42);
   });
 
   it("preserves graph structure without sharing caller objects", async () => {
