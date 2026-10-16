@@ -57,8 +57,9 @@ const predefinedEngines = new Set([
  * Pinned client/clientHelper.ts `evaluationScript(script, undefined, false)`,
  * which reads `path` from disk; this runtime has no file system to read.
  */
-function engineSource(script: SelectorEngineScript): unknown {
-  if (typeof script === "function") return `(${script.toString()})(undefined)`;
+function engineSource(
+  script: Exclude<SelectorEngineScript, (...args: unknown[]) => unknown>
+): unknown {
   if (typeof script === "string") return script;
   if (script.content !== undefined) return script.content;
   if (script.path !== undefined)
@@ -113,10 +114,13 @@ class SelectorsImpl {
       throw new Error(
         `selectors.register: "${name}" selector engine has been already registered`
       );
-    const engine = { ...options, name, source: engineSource(script) };
-    const engineName = protocolString(engine.name, "selectorEngine.name");
-    const source = protocolString(engine.source, "selectorEngine.source");
-    const contentScript = engine.contentScript as unknown;
+    const engineName = protocolString(name, "selectorEngine.name");
+    // A function is kept as it is, so its source is never read.
+    const source =
+      typeof script === "function"
+        ? undefined
+        : protocolString(engineSource(script), "selectorEngine.source");
+    const contentScript = options.contentScript as unknown;
     if (
       contentScript !== undefined &&
       typeof contentScript !== "boolean" &&
@@ -129,7 +133,13 @@ class SelectorsImpl {
       fail("Selector engine name may only contain [a-zA-Z0-9_] characters");
     if (predefinedEngines.has(engineName))
       fail(`"${engineName}" is a predefined selector engine`);
-    registerSelectorEngine(engineName, source);
+    // Pinned server/dom.ts evaluates the source in the page; here the page's
+    // own function is at hand, so it runs as it is, with the argument the
+    // evaluated source would pass.
+    registerSelectorEngine(
+      engineName,
+      typeof script === "function" ? () => script(undefined) : source!
+    );
     this.names.add(engineName);
   }
 

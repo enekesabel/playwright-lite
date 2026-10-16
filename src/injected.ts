@@ -12,9 +12,15 @@ export const DEFAULT_TEST_ID_ATTRIBUTE = "data-testid";
 /**
  * Engines `selectors.register()` accepted, in registration order. Pinned
  * server/dom.ts hands the same list to every InjectedScript it creates, each
- * source wrapped in parentheses so an object literal evaluates as one.
+ * source wrapped in parentheses so an object literal evaluates as one. A
+ * function engine is kept as the function: it already lives in the page's
+ * JavaScript world, the only one there is, so it is called rather than
+ * evaluated from its source, and a Content Security Policy that forbids
+ * `eval` does not stop it.
  */
-const customEngines: { name: string; source: string }[] = [];
+type CustomEngine =
+  { name: string; source: string } | { name: string; create: () => unknown };
+const customEngines: CustomEngine[] = [];
 
 /** Per window, one InjectedScript per test ID attribute. */
 const injectedScripts = new WeakMap<
@@ -24,8 +30,8 @@ const injectedScripts = new WeakMap<
 
 /**
  * The InjectedScript for the window and test ID attribute, created again once
- * an engine was registered after it, so the pinned constructor always
- * evaluates the current `customEngines`.
+ * an engine was registered after it, so it always carries the current
+ * `customEngines`.
  */
 export function injectedScriptFor(
   root: Element,
@@ -41,9 +47,23 @@ export function injectedScriptFor(
   }
   let entry = byTestId.get(testIdAttributeName);
   if (!entry || entry.engineCount !== customEngines.length) {
+    // Each engine is made in registration order before the script, as the
+    // constructor makes the evaluated ones before it installs its listeners
+    // and observers: a source is evaluated as the constructor would, a
+    // function is called as it is, and one that throws leaves nothing behind.
+    // One registered while another is made is reached too, as the loop
+    // visits what the list gains.
+    const engines: (readonly [string, unknown])[] = [];
+    for (const engine of customEngines)
+      engines.push([
+        engine.name,
+        "source" in engine
+          ? browserWindow.eval(engine.source)
+          : engine.create(),
+      ]);
     const injectedScript = new InjectedScript(browserWindow, {
       browserName: "chromium",
-      customEngines: [...customEngines],
+      customEngines: [],
       frameSeq: 0,
       isUnderTest: false,
       isUtilityWorld: false,
@@ -52,6 +72,8 @@ export function injectedScriptFor(
       stableRafCount: 0,
       testIdAttributeName,
     });
+    for (const [name, engine] of engines)
+      injectedScript._engines.set(name, engine);
     keepPaceWhileHidden(injectedScript, browserWindow);
     // The replaced InjectedScript owns the highlight overlay it drew, which
     // the new one cannot remove, so it takes the overlay down first.
@@ -98,11 +120,19 @@ function keepPaceWhileHidden(
 
 /**
  * Adds a selector engine for every InjectedScript created from now on; the
- * next `injectedScriptFor()` call creates one. Like Playwright, the source is
- * first evaluated there, so a source that throws fails that call.
+ * next `injectedScriptFor()` call creates one. Like Playwright, a source is
+ * first evaluated there, and a function first called, so one that throws
+ * fails that call.
  */
-export function registerSelectorEngine(name: string, source: string): void {
-  customEngines.push({ name, source: `(${source})` });
+export function registerSelectorEngine(
+  name: string,
+  script: string | (() => unknown)
+): void {
+  customEngines.push(
+    typeof script === "function"
+      ? { name, create: script }
+      : { name, source: `(${script})` }
+  );
 }
 
 export function parseAriaExpectation(value: string): unknown {

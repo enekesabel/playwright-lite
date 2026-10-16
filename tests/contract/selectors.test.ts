@@ -171,6 +171,76 @@ describe("Selectors.register", () => {
       expect(await page.locator(`${name}=p`).textContent()).toBe("function");
   });
 
+  it("calls a function engine as it is, never evaluating its source", async () => {
+    document.body.innerHTML = "<p>closed over</p><p>other</p>";
+    const page = createPage();
+    const closedOver = document.querySelector("p")!;
+    const evaluated = vi.spyOn(window, "eval");
+    try {
+      // Evaluated from its source, the engine would not find `closedOver`.
+      await selectors.register("closedOver", () => ({
+        query: () => closedOver,
+        queryAll: () => [closedOver],
+      }));
+      expect(await page.locator("closedOver=any").textContent()).toBe(
+        "closed over"
+      );
+      for (const [source] of evaluated.mock.calls)
+        expect(String(source)).not.toContain("closedOver");
+    } finally {
+      evaluated.mockRestore();
+    }
+  });
+
+  it("installs engines in registration order, whatever their form", async () => {
+    document.body.innerHTML = "<p>ordered</p>";
+    const page = createPage();
+    // The source engine reads, as it is evaluated, what the function engine
+    // set up before it.
+    await selectors.register("setsUp", () => {
+      (window as { __setUp?: string }).__setUp = "p";
+      return { query: () => null, queryAll: () => [] };
+    });
+    await selectors.register(
+      "readsSetUp",
+      "(() => { const tag = window.__setUp; return { query: (root) => root.querySelector(tag), queryAll: (root) => [...root.querySelectorAll(tag)] }; })()"
+    );
+    try {
+      expect(await page.locator("readsSetUp=any").count()).toBe(1);
+    } finally {
+      delete (window as { __setUp?: string }).__setUp;
+    }
+  });
+
+  it("installs an engine registered while another is made", async () => {
+    document.body.innerHTML = "<p>nested</p>";
+    const page = createPage();
+    // The factory runs again on every later build, so it registers once.
+    let registered = false;
+    await selectors.register("registersInner", () => {
+      if (!registered) {
+        registered = true;
+        void selectors.register("inner", tagEngineSource);
+      }
+      return { query: () => null, queryAll: () => [] };
+    });
+    expect(await page.locator("inner=p").count()).toBe(1);
+  });
+
+  it("registers a function engine without reading its source", async () => {
+    document.body.innerHTML = "<p>unread</p>";
+    const page = createPage();
+    const engine = () => ({
+      query: (root: Element) => root.querySelector("p"),
+      queryAll: (root: Element) => [...root.querySelectorAll("p")],
+    });
+    engine.toString = () => {
+      throw new Error("source read");
+    };
+    await selectors.register("unreadSource", engine);
+    expect(await page.locator("unreadSource=any").textContent()).toBe("unread");
+  });
+
   it("reaches pages that resolved selectors before the registration", async () => {
     document.body.innerHTML = "<section>late</section>";
     const page = createPage();
@@ -305,7 +375,7 @@ describe("Selectors.register", () => {
   });
 
   // Last: as in Playwright, a source that throws breaks every later selector.
-  it("registers a source that throws, which then fails the page's next selector", async () => {
+  it("registers a source that throws, which then fails the page's next selector and leaves nothing behind", async () => {
     document.body.innerHTML = "<div></div>";
     const page = createPage();
     expect(await page.locator("div").count()).toBe(1);
@@ -315,6 +385,15 @@ describe("Selectors.register", () => {
       "(() => { throw new Error('boom'); })()"
     );
 
-    await expect(page.locator("div").count()).rejects.toThrow("boom");
+    // The failed call builds no InjectedScript, so it installs none of the
+    // listeners one installs on the window.
+    const added = vi.spyOn(window, "addEventListener");
+    try {
+      await expect(page.locator("div").count()).rejects.toThrow("boom");
+      await expect(page.locator("div").count()).rejects.toThrow("boom");
+      expect(added).not.toHaveBeenCalled();
+    } finally {
+      added.mockRestore();
+    }
   });
 });
