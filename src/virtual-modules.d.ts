@@ -36,6 +36,8 @@ declare module "virtual:playwright-lite-injected" {
 
   export class InjectedScript {
     constructor(browserWindow: Window, options: InjectedScriptOptions);
+    /** Evaluates `expression` in the window's JavaScript world. */
+    eval(expression: string): unknown;
     ariaSnapshot(
       node: Element,
       options: {

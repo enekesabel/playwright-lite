@@ -192,6 +192,41 @@ describe("Selectors.register", () => {
     }
   });
 
+  it("installs engines in registration order, whatever their form", async () => {
+    document.body.innerHTML = "<p>ordered</p>";
+    const page = createPage();
+    // The source engine reads what the function engine set up before it.
+    await selectors.register("setsUp", () => {
+      (window as { __setUp?: string }).__setUp = "p";
+      return { query: () => null, queryAll: () => [] };
+    });
+    await selectors.register(
+      "readsSetUp",
+      "({ query: (root) => root.querySelector(window.__setUp), queryAll: (root) => [...root.querySelectorAll(window.__setUp)] })"
+    );
+    try {
+      expect(await page.locator("readsSetUp=any").textContent()).toBe(
+        "ordered"
+      );
+    } finally {
+      delete (window as { __setUp?: string }).__setUp;
+    }
+  });
+
+  it("registers a function engine without reading its source", async () => {
+    document.body.innerHTML = "<p>unread</p>";
+    const page = createPage();
+    const engine = () => ({
+      query: (root: Element) => root.querySelector("p"),
+      queryAll: (root: Element) => [...root.querySelectorAll("p")],
+    });
+    engine.toString = () => {
+      throw new Error("source read");
+    };
+    await selectors.register("unreadSource", engine);
+    expect(await page.locator("unreadSource=any").textContent()).toBe("unread");
+  });
+
   it("reaches pages that resolved selectors before the registration", async () => {
     document.body.innerHTML = "<section>late</section>";
     const page = createPage();
