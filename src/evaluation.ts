@@ -185,10 +185,14 @@ export class Evaluation {
    * already lives in the page's JavaScript world, the only one there is, so
    * it runs as the function it is: it keeps its closure, it needs no `eval`,
    * which a Content Security Policy may forbid, and its source need not
-   * re-parse. Around the call everything is the pinned script's: each
-   * argument is parsed with its handles, a by-value result goes through the
-   * promise-aware `jsonValue` that answers `undefined` for what it cannot
-   * serialize, and a handle result is the raw value, promise included.
+   * re-parse. It is called plainly, as the pinned script calls its evaluated
+   * copy, so its `this` follows its own strictness: `undefined` for a strict
+   * function, the window for a sloppy one, which is what the pinned copy is
+   * unless its body says otherwise. Around the call everything is the pinned
+   * script's: each argument is parsed with its handles, a by-value result
+   * goes through the promise-aware `jsonValue` that answers `undefined` for
+   * what it cannot serialize, and a handle result is the raw value, promise
+   * included.
    */
   private call(
     pageFunction: (...args: unknown[]) => unknown,
@@ -199,7 +203,7 @@ export class Evaluation {
     const parameters = args.map((argument) =>
       parseEvaluationResultValue(argument, handles)
     );
-    const result = callAsEvaluated(pageFunction, this.page.window, parameters);
+    const result = pageFunction(...parameters);
     return returnByValue
       ? this.script._promiseAwareJsonValueNoThrow(result)
       : result;
@@ -233,10 +237,8 @@ export class Evaluation {
         const result = callback ?? this.page.window.eval(normalized!);
         if (isFunction) callback = result;
         const value = isFunction
-          ? callAsEvaluated(
-              callback!,
-              this.page.window,
-              target === undefined ? [argument] : [target, argument]
+          ? callback!(
+              ...(target === undefined ? [argument] : [target, argument])
             )
           : result;
         if (value && typeof (value as Promise<unknown>).then === "function")
@@ -312,21 +314,6 @@ function protocolResult(value: unknown): unknown {
   return parseSerializedValue(
     serializeValue(value, (value) => ({ fallThrough: value }))
   );
-}
-
-/**
- * Pinned `UtilityScript.evaluate` calls the evaluated function plainly, and
- * an evaluated source is sloppy-mode code, so that function sees the window
- * as `this`; the consumer's own function is given the same, whatever its
- * strictness. An arrow function keeps its lexical `this`, as the pinned one
- * keeps the window the source was evaluated in.
- */
-function callAsEvaluated(
-  pageFunction: (...args: unknown[]) => unknown,
-  browserWindow: Window,
-  parameters: unknown[]
-): unknown {
-  return Reflect.apply(pageFunction, browserWindow, parameters);
 }
 
 // Pinned server/javascript.ts normalizes method shorthand before evaluating

@@ -89,7 +89,7 @@ export type EventRow = {
 const elementHandleNote =
   "Returned `ElementHandle` methods and options differ; see [ElementHandle and JSHandle](#elementhandle-and-jshandle).";
 const byValueNote =
-  "Uses the pinned Playwright by-value argument and result serializers, and rejects a result nested deeper than Chromium's DevTools protocol accepts (298 serialized levels) in every browser, as Playwright does on Chromium. A function runs as the function it is, where Playwright evaluates its source in the page, so it needs no `eval`, which a Content Security Policy may forbid, and keeps its closure and its strict mode; a string expression is evaluated as in Playwright. A function whose source does not re-parse, such as a bound or native function or a class method, runs, where Playwright rejects it as not well-serializable.";
+  "Uses the pinned Playwright by-value argument and result serializers, and rejects a result nested deeper than Chromium's DevTools protocol accepts (298 serialized levels) in every browser, as Playwright does on Chromium. A function runs as the function it is, where Playwright evaluates its source in the page, so it needs no `eval`, which a Content Security Policy may forbid, and keeps its closure and its strict mode, where Playwright's copy is sloppy-mode code unless its body says otherwise; a string expression is evaluated as in Playwright. A function whose source does not re-parse, such as a bound or native function, runs, where Playwright rejects it as not well-serializable.";
 const handlePreviewNote =
   "The returned handle previews differently; see [ElementHandle and JSHandle](#elementhandle-and-jshandle).";
 const listenerNote =

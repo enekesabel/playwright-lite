@@ -280,6 +280,29 @@ describe("Page.evaluate", () => {
     ).resolves.toBe("A");
   });
 
+  it("calls a function plainly, so its this follows its own strictness", async () => {
+    const page = createPage();
+    await expect(
+      page.evaluate(function (this: unknown) {
+        "use strict";
+        return this === undefined;
+      })
+    ).resolves.toBe(true);
+    await expect(
+      page.evaluate(new Function("return this === window") as () => boolean)
+    ).resolves.toBe(true);
+    await expect(
+      page.waitForFunction(
+        function (this: unknown) {
+          "use strict";
+          return this === undefined;
+        },
+        undefined,
+        { timeout: 100 }
+      )
+    ).resolves.toBeDefined();
+  });
+
   it("uses a native element handle as a page evaluation argument", async () => {
     document.body.innerHTML = '<div id="target">before</div>';
     const page = createPage();
