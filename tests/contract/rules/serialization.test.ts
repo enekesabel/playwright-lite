@@ -240,4 +240,42 @@ describe("serialization", () => {
     }
     await handle.dispose();
   });
+
+  it("calls a page function plainly at every entry point, so its this follows its own strictness", async () => {
+    document.body.innerHTML = "<button>Go</button>";
+    const page = createPage();
+    const handle = await page.$("button");
+    if (!handle) throw new Error("Missing test handle");
+    const strict = function (this: unknown) {
+      "use strict";
+      return this === undefined;
+    };
+    const sloppy = new Function("return this === window") as () => boolean;
+    const cases: [string, (fn: () => boolean) => Promise<unknown>][] = [
+      ["page.evaluate", (fn) => page.evaluate(fn)],
+      ["page.$eval", (fn) => page.$eval("button", fn)],
+      ["locator.evaluate", (fn) => page.locator("button").evaluate(fn)],
+      ["elementHandle.evaluate", (fn) => handle.evaluate(fn)],
+      [
+        "page.waitForFunction",
+        (fn) =>
+          page
+            .waitForFunction(fn, undefined, { timeout: 100 })
+            .then((result) => result.jsonValue()),
+      ],
+      [
+        "locator.waitForFunction",
+        (fn) =>
+          page
+            .locator("button")
+            .waitForFunction(fn, undefined, { timeout: 100 })
+            .then(() => true),
+      ],
+    ];
+    for (const [apiName, run] of cases) {
+      await expect(run(strict), apiName).resolves.toBe(true);
+      await expect(run(sloppy), apiName).resolves.toBe(true);
+    }
+    await handle.dispose();
+  });
 });
