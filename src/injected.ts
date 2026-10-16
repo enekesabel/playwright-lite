@@ -30,8 +30,8 @@ const injectedScripts = new WeakMap<
 
 /**
  * The InjectedScript for the window and test ID attribute, created again once
- * an engine was registered after it, so the pinned constructor always
- * evaluates the current `customEngines`.
+ * an engine was registered after it, so it always carries the current
+ * `customEngines`.
  */
 export function injectedScriptFor(
   root: Element,
@@ -49,7 +49,7 @@ export function injectedScriptFor(
   if (!entry || entry.engineCount !== customEngines.length) {
     const injectedScript = new InjectedScript(browserWindow, {
       browserName: "chromium",
-      customEngines: customEngines.filter((engine) => "source" in engine),
+      customEngines: [],
       frameSeq: 0,
       isUnderTest: false,
       isUtilityWorld: false,
@@ -58,10 +58,16 @@ export function injectedScriptFor(
       stableRafCount: 0,
       testIdAttributeName,
     });
-    // A function engine goes where the constructor put the evaluated ones.
+    // Each engine is installed in registration order, as the constructor
+    // installs the evaluated ones: a source is evaluated as the constructor
+    // would, a function is called as it is.
     for (const engine of customEngines)
-      if ("create" in engine)
-        injectedScript._engines.set(engine.name, engine.create());
+      injectedScript._engines.set(
+        engine.name,
+        "source" in engine
+          ? injectedScript.eval(engine.source)
+          : engine.create()
+      );
     keepPaceWhileHidden(injectedScript, browserWindow);
     // The replaced InjectedScript owns the highlight overlay it drew, which
     // the new one cannot remove, so it takes the overlay down first.
