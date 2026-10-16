@@ -215,8 +215,13 @@ describe("Selectors.register", () => {
   it("installs an engine registered while another is made", async () => {
     document.body.innerHTML = "<p>nested</p>";
     const page = createPage();
+    // The factory runs again on every later build, so it registers once.
+    let registered = false;
     await selectors.register("registersInner", () => {
-      void selectors.register("inner", tagEngineSource);
+      if (!registered) {
+        registered = true;
+        void selectors.register("inner", tagEngineSource);
+      }
       return { query: () => null, queryAll: () => [] };
     });
     expect(await page.locator("inner=p").count()).toBe(1);
