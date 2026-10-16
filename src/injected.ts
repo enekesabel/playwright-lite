@@ -51,15 +51,16 @@ export function injectedScriptFor(
     // constructor makes the evaluated ones before it installs its listeners
     // and observers: a source is evaluated as the constructor would, a
     // function is called as it is, and one that throws leaves nothing behind.
-    const engines = customEngines.map(
-      (engine) =>
-        [
-          engine.name,
-          "source" in engine
-            ? browserWindow.eval(engine.source)
-            : engine.create(),
-        ] as const
-    );
+    // One registered while another is made is reached too, as the loop
+    // visits what the list gains.
+    const engines: (readonly [string, unknown])[] = [];
+    for (const engine of customEngines)
+      engines.push([
+        engine.name,
+        "source" in engine
+          ? browserWindow.eval(engine.source)
+          : engine.create(),
+      ]);
     const injectedScript = new InjectedScript(browserWindow, {
       browserName: "chromium",
       customEngines: [],

@@ -212,6 +212,16 @@ describe("Selectors.register", () => {
     }
   });
 
+  it("installs an engine registered while another is made", async () => {
+    document.body.innerHTML = "<p>nested</p>";
+    const page = createPage();
+    await selectors.register("registersInner", () => {
+      void selectors.register("inner", tagEngineSource);
+      return { query: () => null, queryAll: () => [] };
+    });
+    expect(await page.locator("inner=p").count()).toBe(1);
+  });
+
   it("registers a function engine without reading its source", async () => {
     document.body.innerHTML = "<p>unread</p>";
     const page = createPage();
