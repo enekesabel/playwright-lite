@@ -47,6 +47,19 @@ export function injectedScriptFor(
   }
   let entry = byTestId.get(testIdAttributeName);
   if (!entry || entry.engineCount !== customEngines.length) {
+    // Each engine is made in registration order before the script, as the
+    // constructor makes the evaluated ones before it installs its listeners
+    // and observers: a source is evaluated as the constructor would, a
+    // function is called as it is, and one that throws leaves nothing behind.
+    const engines = customEngines.map(
+      (engine) =>
+        [
+          engine.name,
+          "source" in engine
+            ? browserWindow.eval(engine.source)
+            : engine.create(),
+        ] as const
+    );
     const injectedScript = new InjectedScript(browserWindow, {
       browserName: "chromium",
       customEngines: [],
@@ -58,16 +71,8 @@ export function injectedScriptFor(
       stableRafCount: 0,
       testIdAttributeName,
     });
-    // Each engine is installed in registration order, as the constructor
-    // installs the evaluated ones: a source is evaluated as the constructor
-    // would, a function is called as it is.
-    for (const engine of customEngines)
-      injectedScript._engines.set(
-        engine.name,
-        "source" in engine
-          ? injectedScript.eval(engine.source)
-          : engine.create()
-      );
+    for (const [name, engine] of engines)
+      injectedScript._engines.set(name, engine);
     keepPaceWhileHidden(injectedScript, browserWindow);
     // The replaced InjectedScript owns the highlight overlay it drew, which
     // the new one cannot remove, so it takes the overlay down first.
