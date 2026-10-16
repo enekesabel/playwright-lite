@@ -70,6 +70,8 @@ declare module "virtual:playwright-lite-injected" {
     hideHighlight(): void;
     /** Pinned `viewportRatio`: one IntersectionObserver report for `element`. */
     viewportRatio(element: Element): Promise<number>;
+    /** Pinned `_engines`: the selector engines by name, the custom ones evaluated by the constructor. */
+    _engines: Map<string, unknown>;
     /** Pinned `UtilityScript.builtins`, read by the InjectedScript at each call. */
     utils: {
       builtins: {

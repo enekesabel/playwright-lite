@@ -129,7 +129,13 @@ class SelectorsImpl {
       fail("Selector engine name may only contain [a-zA-Z0-9_] characters");
     if (predefinedEngines.has(engineName))
       fail(`"${engineName}" is a predefined selector engine`);
-    registerSelectorEngine(engineName, source);
+    // Pinned server/dom.ts evaluates the source in the page; here the page's
+    // own function is at hand, so it runs as it is, with the argument the
+    // evaluated source would pass.
+    registerSelectorEngine(
+      engineName,
+      typeof script === "function" ? () => script(undefined) : source
+    );
     this.names.add(engineName);
   }
 

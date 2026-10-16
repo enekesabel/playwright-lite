@@ -171,6 +171,27 @@ describe("Selectors.register", () => {
       expect(await page.locator(`${name}=p`).textContent()).toBe("function");
   });
 
+  it("calls a function engine as it is, never evaluating its source", async () => {
+    document.body.innerHTML = "<p>closed over</p><p>other</p>";
+    const page = createPage();
+    const closedOver = document.querySelector("p")!;
+    const evaluated = vi.spyOn(window, "eval");
+    try {
+      // Evaluated from its source, the engine would not find `closedOver`.
+      await selectors.register("closedOver", () => ({
+        query: () => closedOver,
+        queryAll: () => [closedOver],
+      }));
+      expect(await page.locator("closedOver=any").textContent()).toBe(
+        "closed over"
+      );
+      for (const [source] of evaluated.mock.calls)
+        expect(String(source)).not.toContain("closedOver");
+    } finally {
+      evaluated.mockRestore();
+    }
+  });
+
   it("reaches pages that resolved selectors before the registration", async () => {
     document.body.innerHTML = "<section>late</section>";
     const page = createPage();
