@@ -195,19 +195,18 @@ describe("Selectors.register", () => {
   it("installs engines in registration order, whatever their form", async () => {
     document.body.innerHTML = "<p>ordered</p>";
     const page = createPage();
-    // The source engine reads what the function engine set up before it.
+    // The source engine reads, as it is evaluated, what the function engine
+    // set up before it.
     await selectors.register("setsUp", () => {
       (window as { __setUp?: string }).__setUp = "p";
       return { query: () => null, queryAll: () => [] };
     });
     await selectors.register(
       "readsSetUp",
-      "({ query: (root) => root.querySelector(window.__setUp), queryAll: (root) => [...root.querySelectorAll(window.__setUp)] })"
+      "(() => { const tag = window.__setUp; return { query: (root) => root.querySelector(tag), queryAll: (root) => [...root.querySelectorAll(tag)] }; })()"
     );
     try {
-      expect(await page.locator("readsSetUp=any").textContent()).toBe(
-        "ordered"
-      );
+      expect(await page.locator("readsSetUp=any").count()).toBe(1);
     } finally {
       delete (window as { __setUp?: string }).__setUp;
     }
@@ -361,7 +360,7 @@ describe("Selectors.register", () => {
   });
 
   // Last: as in Playwright, a source that throws breaks every later selector.
-  it("registers a source that throws, which then fails the page's next selector", async () => {
+  it("registers a source that throws, which then fails the page's next selector and leaves nothing behind", async () => {
     document.body.innerHTML = "<div></div>";
     const page = createPage();
     expect(await page.locator("div").count()).toBe(1);
@@ -371,6 +370,15 @@ describe("Selectors.register", () => {
       "(() => { throw new Error('boom'); })()"
     );
 
-    await expect(page.locator("div").count()).rejects.toThrow("boom");
+    // The failed call builds no InjectedScript, so it installs none of the
+    // listeners one installs on the window.
+    const added = vi.spyOn(window, "addEventListener");
+    try {
+      await expect(page.locator("div").count()).rejects.toThrow("boom");
+      await expect(page.locator("div").count()).rejects.toThrow("boom");
+      expect(added).not.toHaveBeenCalled();
+    } finally {
+      added.mockRestore();
+    }
   });
 });
