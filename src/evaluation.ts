@@ -21,7 +21,11 @@ export type EvaluationOptions = { exposeFunctions?: boolean };
 /** The value an evaluation runs against: a `this` for the page function. */
 type EvaluationTarget = Element | Element[] | AdapterJSHandle;
 
-/** Uses the pinned UtilityScript for by-value calls without a browser protocol. */
+/**
+ * Uses the pinned UtilityScript for by-value calls without a browser protocol.
+ * A function is called as it is, never evaluated from its source; a string
+ * expression is evaluated as the pinned script does.
+ */
 export class Evaluation {
   private utility: UtilityScript | undefined;
 
@@ -141,7 +145,6 @@ export class Evaluation {
     exposeFunctions?: boolean
   ): Promise<unknown> {
     if (this.page.lifetime.closed) throw new TargetClosedError();
-    const normalized = normalizeExpression(String(expression), isFunction);
     const { serialized, handles } = this.argument(arg, exposeFunctions);
     const parameters = [serialized];
     if (target !== undefined) {
@@ -155,14 +158,16 @@ export class Evaluation {
     let evaluated: Promise<unknown>;
     try {
       evaluated = Promise.resolve(
-        this.script.evaluate(
-          isFunction,
-          returnByValue,
-          normalized,
-          parameters.length,
-          ...parameters,
-          ...handles
-        )
+        isFunction && typeof expression === "function"
+          ? this.call(expression, returnByValue, parameters, handles)
+          : this.script.evaluate(
+              isFunction,
+              returnByValue,
+              normalizeExpression(String(expression), isFunction),
+              parameters.length,
+              ...parameters,
+              ...handles
+            )
       ).catch((error: unknown) => {
         throw evaluationError(error);
       });
@@ -174,24 +179,62 @@ export class Evaluation {
   }
 
   /**
+   * The pinned `UtilityScript.evaluate` around a direct call. The pinned
+   * script evaluates the page function from its source, a detour the client
+   * needs because its function lives in Node; here the consumer's function
+   * already lives in the page's JavaScript world, the only one there is, so
+   * it runs as the function it is: it keeps its closure, it needs no `eval`,
+   * which a Content Security Policy may forbid, and its source need not
+   * re-parse. It is called plainly, as the pinned script calls its evaluated
+   * copy, so its `this` follows its own strictness: `undefined` for a strict
+   * function, the window for a sloppy one, which is what the pinned copy is
+   * unless its body says otherwise. Around the call everything is the pinned
+   * script's: each argument is parsed with its handles, a by-value result
+   * goes through the promise-aware `jsonValue` that answers `undefined` for
+   * what it cannot serialize, and a handle result is the raw value, promise
+   * included.
+   */
+  private call(
+    pageFunction: (...args: unknown[]) => unknown,
+    returnByValue: boolean,
+    args: unknown[],
+    handles: unknown[]
+  ): unknown {
+    const parameters = args.map((argument) =>
+      parseEvaluationResultValue(argument, handles)
+    );
+    const result = pageFunction(...parameters);
+    return returnByValue
+      ? this.script._promiseAwareJsonValueNoThrow(result)
+      : result;
+  }
+
+  /**
    * Deserialize once, retaining predicate argument state across polls.
    *
    * The returned poll accepts the element a `Locator` predicate is called on,
    * which the pinned element form passes ahead of the argument
-   * (`server/frames.ts` `waitForFunctionExpressionOnElement`).
+   * (`server/frames.ts` `waitForFunctionExpressionOnElement`). A function is
+   * called as it is on each poll, as `call()` does; a string expression is
+   * evaluated, once for a function source and on every poll otherwise.
    */
   predicate(
     expression: EvaluationFunction,
     isFunction: boolean,
     arg?: unknown
   ): (target?: Element) => unknown {
-    const normalized = normalizeExpression(String(expression), isFunction);
+    const direct = isFunction && typeof expression === "function";
+    const normalized = direct
+      ? undefined
+      : normalizeExpression(String(expression), isFunction);
     const { serialized, handles } = this.argument(arg);
     const argument = parseEvaluationResultValue(serialized, handles);
-    let callback: ((...args: unknown[]) => unknown) | undefined;
+    let callback: ((...args: unknown[]) => unknown) | undefined = direct
+      ? expression
+      : undefined;
     return (target?: Element) => {
       try {
-        const result = callback ?? this.page.window.eval(normalized);
+        const result = callback ?? this.page.window.eval(normalized!);
         if (isFunction) callback = result;
         const value = isFunction
           ? callback!(
@@ -273,7 +316,9 @@ function protocolResult(value: unknown): unknown {
   );
 }
 
-// Pinned server/javascript.ts normalizes method shorthand before evaluating it.
+// Pinned server/javascript.ts normalizes method shorthand before evaluating
+// it, with `new Function` as the parse check; only a string expression comes
+// here, a function being called as it is.
 function normalizeExpression(expression: string, isFunction: boolean): string {
   let result = expression.trim();
   if (isFunction) {
