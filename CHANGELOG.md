@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.2](https://github.com/enekesabel/playwright-lite/compare/v0.9.1...v0.9.2) (2026-10-17)
+
+
+### Bug Fixes
+
+* call a function selector engine as it is, without eval ([#293](https://github.com/enekesabel/playwright-lite/issues/293)) ([1628182](https://github.com/enekesabel/playwright-lite/commit/162818201ffa4b02b08cfa3ea1dd6376099481c4))
+* fill a contenteditable through Keyboard.insertText ([#291](https://github.com/enekesabel/playwright-lite/issues/291)) ([c30cf50](https://github.com/enekesabel/playwright-lite/commit/c30cf508c71f650a24a37ec261f088705777972d))
+
 ## [0.9.1](https://github.com/enekesabel/playwright-lite/compare/v0.9.0...v0.9.1) (2026-10-05)
 
 
