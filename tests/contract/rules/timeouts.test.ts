@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import type { Page } from "@playwright/test";
 
 import { ADAPTER_TIMEOUT_ERROR } from "../../../src/errors";
 import { createPage, expect as browserExpect } from "../../../src/index";
@@ -40,6 +41,63 @@ describe("timeouts", () => {
 
     for (const [apiName, action] of actions)
       await expect(action(), apiName).rejects.toThrow("Timeout 1ms exceeded");
+  });
+
+  // Pinned crInput.ts hands each raw input, and a click without a delay, to
+  // the browser at once, so the deadline cannot split it; the action times
+  // out once the input has landed. The slow listener outlasts the deadline.
+  it("delivers pointer input under way whole before timing out", async () => {
+    emulateTouch();
+    const actions: [
+      string,
+      (page: Page) => Promise<unknown>,
+      string,
+      string,
+    ][] = [
+      [
+        "locator.click",
+        (page) => page.locator("button").click({ timeout: 500 }),
+        "pointerdown",
+        "click",
+      ],
+      [
+        "locator.hover",
+        (page) => page.locator("button").hover({ timeout: 500 }),
+        "pointerover",
+        "mousemove",
+      ],
+      [
+        "locator.tap",
+        (page) => page.locator("button").tap({ timeout: 500 }),
+        "pointerdown",
+        "click",
+      ],
+    ];
+
+    for (const [apiName, action, slowEvent, lastEvent] of actions) {
+      document.body.innerHTML = "<button>Go</button>";
+      const target = document.querySelector("button")!;
+      const events: string[] = [];
+      // The browser's own boundary events for its real cursor are trusted;
+      // only the action's input counts.
+      for (const type of [slowEvent, lastEvent])
+        target.addEventListener(type, (event) => {
+          if (!event.isTrusted) events.push(type);
+        });
+      target.addEventListener(slowEvent, (event) => {
+        const end = performance.now() + 700;
+        while (!event.isTrusted && performance.now() < end);
+      });
+      const error = (await action(createPage()).catch(
+        (error) => error
+      )) as Error;
+
+      expect(events, apiName).toContain(lastEvent);
+      expect(error.message, apiName).toMatch(
+        new RegExp(`^${apiName}: Timeout 500ms exceeded\\.\\nCall log:\\n`)
+      );
+      expect(error.message, apiName).toMatch(/\n {4}- performing \w+ action$/);
+    }
   });
 
   it("preserves zero as an unbounded explicit locator action timeout", async () => {

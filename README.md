@@ -637,6 +637,7 @@ The package exports `Request` and `Response` types listing exactly the available
 - When the element under a still pointer changes, its over/out and enter/leave events fire with the next `mouse` call or pointer action; the browser fires them by itself after the next layout.
 - Mouse and keyboard input reach an element inside a closed shadow root only once an action has targeted an element in that root, such as one a custom selector engine or a handle returns; until then its host receives the events, where the browser reaches every closed root.
 - A `wheel` event is always cancelable and reaches the page's listeners before any scroll. When every `wheel` listener is passive, the browser scrolls first and reports `cancelable` as `false`.
+- A pointer action or tap whose timeout passes while the page handles its input, such as in a slow `pointerdown` listener, rejects once every event of that input has fired, where Playwright rejects at the timeout and the input it sent still arrives.
 
 </details>
 

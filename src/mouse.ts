@@ -175,9 +175,7 @@ export class BrowserMouse implements Mouse {
         ? undefined
         : validateFloat(params.delay, "delay");
     const { button, clickCount } = pressOptions(params);
-    const input = { action };
-    await this.#pointer.moveTo(point, input);
-    await this.#pointer.clickHere(button, clickCount, delay, input);
+    await this.#pointer.click(point, button, clickCount, delay, { action });
   }
 }
 
@@ -254,6 +252,7 @@ export class Pointer {
 
   /** Pinned crInput.ts mouseWheel at the current position. */
   async wheel(delta: Point, input: PointerInput) {
+    input = this.start(input);
     const point = this.position;
     await this.task(input, () => {
       // crInput.ts sends mouseWheel without a button or buttons mask.
@@ -297,17 +296,25 @@ export class Pointer {
   }
 
   /**
-   * Pinned Mouse.click after its move: a press and release for each click
-   * count, `delay` apart. `beforePress` lets a Page action stop when its
-   * target is replaced between clicks.
+   * Pinned Mouse.click: a move to `point`, then a press and release for each
+   * click count, `delay` apart. Without a delay pinned Mouse.click sends the
+   * move, after its steps when there are several, and every press and
+   * release at once, so the deadline cannot stop the click halfway.
+   * `beforePress` lets a Page action stop when its target is replaced
+   * between clicks.
    */
-  async clickHere(
+  async click(
+    point: Point,
     button: MouseButton,
     clickCount: number,
     delay: number | undefined,
     input: PointerInput,
+    steps = 1,
     beforePress?: () => void
   ) {
+    if (!delay && steps <= 1) input = this.start(input);
+    await this.moveTo(point, input, steps);
+    if (!delay) input = this.start(input);
     for (let count = 1; count <= clickCount; count++) {
       beforePress?.();
       await this.press(button, count, input);
@@ -329,6 +336,7 @@ export class Pointer {
    * single tap, since no gesture detector counts taps.
    */
   async tap(point: Point, input: PointerInput) {
+    input = this.start(input);
     const touch: PointerSource = {
       pointerId: this.nextTouchId++,
       pointerType: "touch",
@@ -504,6 +512,7 @@ export class Pointer {
    * the left button held since a press that may start one tries a drag.
    */
   private async moveStep(point: Point, input: PointerInput) {
+    input = this.start(input);
     if (this.drag) return this.dragOver(this.drag, point, input);
     const buttons = this.buttonsMask();
     const gained = await this.processCapture(
@@ -696,6 +705,7 @@ export class Pointer {
    * While a button is held, the page can capture the mouse.
    */
   async press(button: MouseButton, clickCount: number, input: PointerInput) {
+    input = this.start(input);
     const point = this.position;
     const first = this.pressed.size === 0;
     this.pressed.add(button);
@@ -758,6 +768,7 @@ export class Pointer {
    * the element under it; an earlier one loses it with the next event.
    */
   async release(button: MouseButton, clickCount: number, input: PointerInput) {
+    input = this.start(input);
     try {
       await this.releaseButton(button, clickCount, input);
     } finally {
@@ -1116,6 +1127,19 @@ export class Pointer {
       top: blocked(viewport.overflowY) ? 0 : delta.y,
       behavior: "instant",
     });
+  }
+
+  /**
+   * Begins one raw input, checking the deadline before its first event.
+   * Pinned crInput.ts hands a raw input to the browser at once, which then
+   * dispatches every event of it, so the returned input carries no expiry;
+   * an abort still stops it.
+   */
+  private start(input: PointerInput): PointerInput {
+    this.host.assertDeadline(input.deadline, input.action);
+    return input.deadline
+      ? { ...input, deadline: { ...input.deadline, expiresAt: Infinity } }
+      : input;
   }
 
   private task<T>(input: PointerInput, run: () => T): Promise<T> {

@@ -52,6 +52,10 @@ describe("Locator.click", () => {
 
     expect(error?.message).not.toContain("action: Timeout");
     expect(error?.message).toMatch(/^locator\.click: Timeout 200ms exceeded\./);
+    // The deadline ended the wait for stability before it compared two
+    // boxes, so nothing says the element moved.
+    expect(error?.message).not.toContain("not stable");
+    expect(error?.message).toMatch(/\n {4}- scrolling into view if needed$/);
   });
 
   it("dispatches an ordered pointer/mouse prefix before one native click", async () => {
