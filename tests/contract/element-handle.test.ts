@@ -272,6 +272,27 @@ describe("ElementHandle", () => {
     await expect(handle.click()).rejects.toThrow(/disposed/);
   });
 
+  it("times out, not detaches, when its click outlasts the deadline and removes it", async () => {
+    document.body.innerHTML = "<button>go</button>";
+    const page = createPage();
+    const handle = (await page.$("button"))!;
+    const button = document.querySelector("button")!;
+    button.addEventListener("click", () => {
+      const end = performance.now() + 700;
+      while (performance.now() < end);
+      button.remove();
+    });
+
+    const error = (await handle
+      .click({ force: true, timeout: 500 })
+      .catch((error) => error)) as Error;
+
+    expect(error.name).toBe("TimeoutError");
+    expect(error.message).toMatch(
+      /^elementHandle\.click: Timeout 500ms exceeded\.\nCall log:\n[\s\S]*\n {4}- performing click action$/
+    );
+  });
+
   // Contract coverage: pinned dom.ts taps a handle without frames.ts's
   // hasTouch check, which the touch points stand in for here.
   it("taps its element only when the document reports touch points", async () => {

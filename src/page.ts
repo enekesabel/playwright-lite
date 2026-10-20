@@ -1552,6 +1552,8 @@ export class PageImpl {
           );
           return;
         } catch (error) {
+          // Pinned progress times out whatever the input did to the handle.
+          if (isAdapterTimeoutError(error)) throw error;
           if (typeof selector !== "string" && !selector.isConnected)
             throw new Error("Element is not attached to the DOM", {
               cause: error,
