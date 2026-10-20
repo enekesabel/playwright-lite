@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.3](https://github.com/enekesabel/playwright-lite/compare/v0.9.2...v0.9.3) (2026-10-20)
+
+
+### Bug Fixes
+
+* time out a cut-off stability check plainly and send pointer input whole ([#295](https://github.com/enekesabel/playwright-lite/issues/295)) ([98f4f90](https://github.com/enekesabel/playwright-lite/commit/98f4f90a7ff87da00d5b441aa3ebfb909529d689))
+
 ## [0.9.2](https://github.com/enekesabel/playwright-lite/compare/v0.9.1...v0.9.2) (2026-10-17)
 
 
