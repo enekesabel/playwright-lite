@@ -9,7 +9,6 @@ import {
 
 import { inputShadowRoot } from "./closedShadowRoots";
 import { DragDataStore, type DragEventType, type DropEffect } from "./drag";
-import { timersFor } from "./timers";
 import {
   guardLifetimeCalls,
   type LifetimeCalls,
@@ -179,6 +178,9 @@ export class BrowserMouse implements Mouse {
   }
 }
 
+/** The events one input task can dispatch before the rest go to another. */
+const EVENTS_PER_TASK = 64;
+
 /**
  * The one pointer of a Page: the analogue of pinned `server/input.ts` Mouse,
  * which `page.mouse` and the pointer actions (`click()`, `hover()` and their
@@ -240,6 +242,13 @@ export class Pointer {
   private readonly touchCaptures = new Set<PointerCapture>();
   /** Restores the capture members `observeCapture` wrapped. */
   private unobserveCapture: (() => void) | undefined;
+  /** The events waiting for a listener of the input task. */
+  private readonly events: (() => void)[] = [];
+  /** Whether the input task's message is being dispatched. */
+  private dispatching = false;
+  /** Whether an input task's message is posted and not yet dispatched. */
+  private posted = false;
+  private port: MessagePort | undefined;
 
   constructor(private readonly host: PointerHost) {}
 
@@ -252,7 +261,7 @@ export class Pointer {
 
   /** Pinned crInput.ts mouseWheel at the current position. */
   async wheel(delta: Point, input: PointerInput) {
-    input = this.start(input);
+    input = await this.start(input);
     const point = this.position;
     await this.task(input, () => {
       // crInput.ts sends mouseWheel without a button or buttons mask.
@@ -312,9 +321,9 @@ export class Pointer {
     steps = 1,
     beforePress?: () => void
   ) {
-    if (!delay && steps <= 1) input = this.start(input);
+    if (!delay && steps <= 1) input = this.unexpiring(input);
     await this.moveTo(point, input, steps);
-    if (!delay) input = this.start(input);
+    if (!delay) input = this.unexpiring(input);
     for (let count = 1; count <= clickCount; count++) {
       beforePress?.();
       await this.press(button, count, input);
@@ -336,7 +345,7 @@ export class Pointer {
    * single tap, since no gesture detector counts taps.
    */
   async tap(point: Point, input: PointerInput) {
-    input = this.start(input);
+    input = await this.start(input);
     const touch: PointerSource = {
       pointerId: this.nextTouchId++,
       pointerType: "touch",
@@ -512,7 +521,7 @@ export class Pointer {
    * the left button held since a press that may start one tries a drag.
    */
   private async moveStep(point: Point, input: PointerInput) {
-    input = this.start(input);
+    input = await this.start(input);
     if (this.drag) return this.dragOver(this.drag, point, input);
     const buttons = this.buttonsMask();
     const gained = await this.processCapture(
@@ -705,7 +714,7 @@ export class Pointer {
    * While a button is held, the page can capture the mouse.
    */
   async press(button: MouseButton, clickCount: number, input: PointerInput) {
-    input = this.start(input);
+    input = await this.start(input);
     const point = this.position;
     const first = this.pressed.size === 0;
     this.pressed.add(button);
@@ -768,7 +777,7 @@ export class Pointer {
    * the element under it; an earlier one loses it with the next event.
    */
   async release(button: MouseButton, clickCount: number, input: PointerInput) {
-    input = this.start(input);
+    input = await this.start(input);
     try {
       await this.releaseButton(button, clickCount, input);
     } finally {
@@ -1130,31 +1139,74 @@ export class Pointer {
   }
 
   /**
-   * Begins one raw input, checking the deadline before its first event.
-   * Pinned crInput.ts hands a raw input to the browser at once, which then
-   * dispatches every event of it, so the returned input carries no expiry;
-   * an abort still stops it.
+   * Begins one raw input. Its events run in the current input task, or a new
+   * one when none is running, so input sent back to back, like a click's
+   * move, press and release, lands in one task as in Chromium. The deadline
+   * is checked before its first event.
    */
-  private start(input: PointerInput): PointerInput {
+  private start(input: PointerInput): Promise<PointerInput> {
+    return this.task(input, () => this.unexpiring(input));
+  }
+
+  /**
+   * Checks the deadline once. Pinned crInput.ts hands a raw input to the
+   * browser at once, which then dispatches every event of it, so the
+   * returned input carries no expiry; an abort still stops it.
+   */
+  private unexpiring(input: PointerInput): PointerInput {
     this.host.assertDeadline(input.deadline, input.action);
     return input.deadline
       ? { ...input, deadline: { ...input.deadline, expiresAt: Infinity } }
       : input;
   }
 
+  /**
+   * One event of the current raw input. Chromium dispatches each one from the
+   * browser, so every microtask its listeners queue runs before the next
+   * event. Here each event is one listener of a single `MessagePort` message,
+   * after which the browser runs microtasks the same way, and the caller's
+   * continuation queues the next event before the next listener runs.
+   */
   private task<T>(input: PointerInput, run: () => T): Promise<T> {
-    // Like pinned WebViewInput._postTask, each event is a browser task. The
-    // deadline is checked inside the task, so expiry cannot fire input later.
-    return new Promise<T>((resolve, reject) =>
-      timersFor(this.host.window).setTimeout(() => {
+    return new Promise<T>((resolve, reject) => {
+      this.events.push(() => {
         try {
           this.host.assertDeadline(input.deadline, input.action);
           resolve(run());
         } catch (error) {
           reject(error);
         }
-      })
-    );
+      });
+      this.post();
+    });
+  }
+
+  /** Posts the input task's message unless one is posted or dispatching. */
+  private post() {
+    if (this.dispatching || this.posted) return;
+    this.posted = true;
+    this.inputPort().postMessage(null);
+  }
+
+  private inputPort(): MessagePort {
+    if (this.port) return this.port;
+    const { port1, port2 } = new this.host.window.MessageChannel();
+    // A listener added during a dispatch does not run, so the task has a
+    // fixed number; events past it, like a long stepped move's, go on in the
+    // next task.
+    for (let index = 0; index < EVENTS_PER_TASK; index++)
+      port1.addEventListener("message", () => {
+        if (index === 0) {
+          this.posted = false;
+          this.dispatching = true;
+        }
+        this.events.shift()?.();
+        if (index < EVENTS_PER_TASK - 1) return;
+        this.dispatching = false;
+        if (this.events.length) this.post();
+      });
+    port1.start();
+    return (this.port = port2);
   }
 
   /**

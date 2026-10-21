@@ -133,12 +133,19 @@ describe("Page.close", () => {
     };
     for (const type of ["pointermove", "mousemove", "mousedown", "click"])
       document.addEventListener(type, count);
-    try {
-      const moving = page.mouse.move(200, 200, { steps: 200 });
-      const clicking = page.mouse.dblclick(20, 20);
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      await page.close();
+    let moves = 0;
+    let closing: Promise<void> | undefined;
+    const closeMidway = () => {
+      if (++moves !== 10) return;
+      closing = page.close();
       closed = true;
+    };
+    document.addEventListener("pointermove", closeMidway);
+    try {
+      const clicking = page.mouse.dblclick(20, 20, { delay: 100 });
+      const moving = page.mouse.move(200, 200, { steps: 200 });
+      await rejection(moving);
+      await closing;
 
       expect((await rejection(moving))?.message).toBe(
         `mouse.move: ${closedMessage}`
@@ -149,6 +156,7 @@ describe("Page.close", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
       expect(afterClose).toBe(0);
     } finally {
+      document.removeEventListener("pointermove", closeMidway);
       for (const type of ["pointermove", "mousemove", "mousedown", "click"])
         document.removeEventListener(type, count);
     }
