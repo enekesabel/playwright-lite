@@ -555,17 +555,13 @@ export class PageImpl {
     this.window = browserWindow;
     this.document = browserWindow.document;
     this.keyboard = new BrowserKeyboard(this);
+    inputTaskFor(browserWindow);
     this.pointer = new Pointer({
       window: browserWindow,
       modifiers: () => this.keyboard.modifierState(),
       deepActiveElement: () => this.deepActiveElement(),
-      assertDeadline: (deadline, action) => {
-        // A `page.mouse` call has no deadline, whose signal would carry the
-        // closure; closing the page still ends it before its next event.
-        if (!deadline && this.lifetime.closed)
-          throw this.lifetime.interruption();
-        this.assertActionDeadline(deadline, action);
-      },
+      assertDeadline: (deadline, action) =>
+        this.assertInputDeadline(deadline, action),
       wait: (durationMs, deadline, action) =>
         this.waitWithinActionDeadline(durationMs, deadline, action),
     });
@@ -2920,8 +2916,8 @@ export class PageImpl {
   }
 
   /** Pinned crInput.ts: an Escape keydown cancels a drag instead. */
-  cancelDrag(deadline: ActionDeadline | undefined): Promise<boolean> {
-    return this.pointer.cancelDrag({ deadline, action: "press" });
+  cancelDrag(): Promise<boolean> {
+    return this.pointer.cancelDrag();
   }
 
   /** Whether an HTML drag is in progress, during which Chromium delivers no keys. */
@@ -4260,8 +4256,13 @@ export class PageImpl {
       );
   }
 
-  checkKeyboardActionDeadline(deadline: ActionDeadline | undefined) {
-    this.assertActionDeadline(deadline, "press");
+  /** The check before each raw input of the mouse, a tap or the keyboard. */
+  assertInputDeadline(deadline: ActionDeadline | undefined, action: string) {
+    // A `page.mouse` or `page.keyboard` call has no deadline, whose signal
+    // would carry the closure; closing the page still ends it before its
+    // next raw input.
+    if (!deadline && this.lifetime.closed) throw this.lifetime.interruption();
+    this.assertActionDeadline(deadline, action);
   }
 
   // Pinned Keyboard.press/type delay through progress.wait, which races the
@@ -5676,16 +5677,16 @@ class BrowserKeyboard {
   }
 
   async insertText(text: string, deadline?: ActionDeadline): Promise<void> {
-    deadline = await this.start(deadline);
+    await this.start(deadline);
     await this.event(() =>
       this.page.insertKeyboardText(
         this.activeTarget(),
         text,
         "insertText",
-        text,
-        deadline
+        text
       )
     );
+    this.landed(deadline);
   }
 
   async type(
@@ -5757,52 +5758,51 @@ class BrowserKeyboard {
     key: string,
     deadline?: ActionDeadline
   ): Promise<void> {
-    deadline = await this.start(deadline);
+    await this.start(deadline);
     const description = this.descriptionFor(key);
     const repeat = this.pressedKeys.has(description.code);
     this.pressedKeys.add(description.code);
     if (isModifier(description.key)) this.pressedModifiers.add(description.key);
     // Pinned crInput.ts swallows the Escape keydown that cancels a drag;
     // Chromium delivers no other key during a drag, which keeps its state.
-    if (description.code === "Escape" && (await this.page.cancelDrag(deadline)))
-      return;
-    if (this.page.dragging) return;
+    if (description.code === "Escape" && (await this.page.cancelDrag()))
+      return this.landed(deadline);
+    if (this.page.dragging) return this.landed(deadline);
 
-    const keyDownTarget = this.activeTarget();
-    const keyDownAllowed = await this.event(() =>
-      this.page.dispatchKeyboardEvent(
-        keyDownTarget,
+    const keyDown = await this.event(() => {
+      const target = this.activeTarget();
+      const allowed = this.page.dispatchKeyboardEvent(
+        target,
         "keydown",
         description,
         this.pressedModifiers,
         repeat
-      )
-    );
-    this.keydownState.set(description.code, {
-      allowed: keyDownAllowed,
-      target: keyDownTarget,
+      );
+      return { target, allowed };
     });
+    this.keydownState.set(description.code, keyDown);
     const dispatchKeyPress =
-      keyDownAllowed &&
+      keyDown.allowed &&
       (description.text.length > 0 || description.key === "Enter");
-    const keyPressAllowed = await this.event(() => {
-      const allowed =
-        dispatchKeyPress &&
-        this.page.dispatchKeyboardEvent(
-          this.activeTarget(),
-          "keypress",
-          description,
-          this.pressedModifiers,
-          repeat
-        );
-      if (keyDownAllowed)
+    const keyPressAllowed =
+      keyDown.allowed &&
+      (await this.event(() => {
+        const allowed =
+          dispatchKeyPress &&
+          this.page.dispatchKeyboardEvent(
+            this.activeTarget(),
+            "keypress",
+            description,
+            this.pressedModifiers,
+            repeat
+          );
         this.page.applyKeydownDefault(
           this.activeTarget(),
           description,
           this.pressedModifiers
         );
-      return allowed;
-    });
+        return allowed;
+      }));
     if (keyPressAllowed && description.text && description.key !== "Enter")
       await this.event(() =>
         this.page.insertKeyboardText(
@@ -5810,14 +5810,13 @@ class BrowserKeyboard {
           description.text,
           "insertText",
           description.text,
-          deadline,
+          undefined,
           true
         )
       );
     if (keyPressAllowed && description.key === "Enter")
-      await this.event(() =>
-        this.page.pressEnter(this.activeTarget(), deadline)
-      );
+      await this.event(() => this.page.pressEnter(this.activeTarget()));
+    this.landed(deadline);
   }
 
   private async upForTarget(
@@ -5829,25 +5828,25 @@ class BrowserKeyboard {
     if (isModifier(description.key))
       this.pressedModifiers.delete(description.key);
     this.pressedKeys.delete(description.code);
-    if (this.page.dragging) {
-      this.keydownState.delete(description.code);
-      return;
-    }
-    const keyUpTarget = this.activeTarget();
-    const keyUpAllowed = await this.event(() =>
-      this.page.dispatchKeyboardEvent(
-        keyUpTarget,
+    const keyDownState = this.keydownState.get(description.code);
+    this.keydownState.delete(description.code);
+    if (this.page.dragging) return this.landed(deadline);
+    const keyUp = await this.event(() => {
+      const target = this.activeTarget();
+      const allowed = this.page.dispatchKeyboardEvent(
+        target,
         "keyup",
         description,
         this.pressedModifiers
-      )
-    );
-    const keyDownState = this.keydownState.get(description.code);
-    this.keydownState.delete(description.code);
+      );
+      return { target, allowed };
+    });
+    // Only Space has a keyup default.
     if (
+      description.code === "Space" &&
+      keyUp.allowed &&
       keyDownState?.allowed &&
-      keyUpAllowed &&
-      keyUpTarget === keyDownState.target
+      keyUp.target === keyDownState.target
     )
       await this.event(() => {
         if (this.activeTarget() === keyDownState.target)
@@ -5857,6 +5856,7 @@ class BrowserKeyboard {
             this.pressedModifiers
           );
       });
+    this.landed(deadline);
   }
 
   private activeTarget(): Element {
@@ -5878,21 +5878,26 @@ class BrowserKeyboard {
   }
 
   /**
-   * Begins one raw input in the window's input task, checking the deadline
-   * once. Pinned crInput.ts hands a key to the browser at once, which then
-   * dispatches every event of it, so the returned deadline never expires;
-   * an abort still stops it.
+   * Begins one key or text input in the window's input task, checking the
+   * deadline, abort and closure once. Pinned crInput.ts hands the input to
+   * the browser at once, which then dispatches every event of it.
    */
-  private start(deadline?: ActionDeadline) {
-    return this.event(() => {
-      this.page.checkKeyboardActionDeadline(deadline);
-      return deadline && { ...deadline, expiresAt: Infinity };
-    });
+  private async start(deadline?: ActionDeadline) {
+    await inputTaskFor(this.page.window).start();
+    this.page.assertInputDeadline(deadline, "press");
   }
 
-  /** One event of the current raw input, in the window's input task. */
+  /** One event of the current input, in the window's input task. */
   private event<T>(run: () => T): Promise<T> {
-    return inputTaskFor(this.page.window)(run);
+    return inputTaskFor(this.page.window).event(run);
+  }
+
+  /**
+   * Pinned crInput.ts races each input against the deadline, which rejects
+   * once it has passed, though the input has landed.
+   */
+  private landed(deadline?: ActionDeadline) {
+    this.page.assertInputDeadline(deadline, "press");
   }
 }
 

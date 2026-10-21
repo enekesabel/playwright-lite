@@ -46,8 +46,15 @@ const MOUSE: PointerSource = {
 /** The two event kinds whose over/out and enter/leave state Chromium keeps apart. */
 type BoundaryKind = "pointer" | "mouse";
 
-/** The Page action an input belongs to; the mouse API itself has no deadline. */
-export type PointerInput = { deadline?: ActionDeadline; action: string };
+/**
+ * The Page action an input belongs to; the mouse API itself has no deadline.
+ * Raw inputs with the same `batch` are sent together and share a task.
+ */
+export type PointerInput = {
+  deadline?: ActionDeadline;
+  action: string;
+  batch?: object;
+};
 
 /** What the pointer needs from the Page that owns the document. */
 export type PointerHost = {
@@ -187,7 +194,7 @@ export class BrowserMouse implements Mouse {
  * here too, since their compatibility mouse events move the same mouse state,
  * and so does HTML drag and drop, which pinned `crDragDrop.ts` intercepts
  * from the mouse. Every event is script-dispatched in the current document,
- * one browser task each, like pinned `WebViewInput`.
+ * each raw input's events in one task (see `inputTask.ts`).
  */
 export class Pointer {
   /** Pinned input.ts Mouse starts at the document origin and tracks its moves. */
@@ -252,9 +259,9 @@ export class Pointer {
 
   /** Pinned crInput.ts mouseWheel at the current position. */
   async wheel(delta: Point, input: PointerInput) {
-    input = await this.start(input);
+    await this.start(input);
     const point = this.position;
-    await this.task(input, () => {
+    await this.task(() => {
       // crInput.ts sends mouseWheel without a button or buttons mask.
       const target = this.hitTarget(point);
       const event = new this.host.window.WheelEvent("wheel", {
@@ -275,7 +282,7 @@ export class Pointer {
       if (dispatch(target, event)) this.scrollForWheel(target, delta);
     });
     // After a scroll the browser updates the element under the pointer.
-    await this.updateHover(point, input);
+    await this.updateHover(point);
   }
 
   /**
@@ -312,9 +319,10 @@ export class Pointer {
     steps = 1,
     beforePress?: () => void
   ) {
-    if (!delay && steps <= 1) input = this.unexpiring(input);
+    const batch = {};
+    if (!delay && steps <= 1) input = { ...this.unexpiring(input), batch };
     await this.moveTo(point, input, steps);
-    if (!delay) input = this.unexpiring(input);
+    if (!delay) input = { ...this.unexpiring(input), batch };
     for (let count = 1; count <= clickCount; count++) {
       beforePress?.();
       await this.press(button, count, input);
@@ -336,7 +344,7 @@ export class Pointer {
    * single tap, since no gesture detector counts taps.
    */
   async tap(point: Point, input: PointerInput) {
-    input = await this.start(input);
+    await this.start(input);
     const touch: PointerSource = {
       pointerId: this.nextTouchId++,
       pointerType: "touch",
@@ -350,7 +358,7 @@ export class Pointer {
     this.touchCaptures.add(capture);
     this.observeCapture();
     try {
-      await this.tapDown(point, touch, capture, input, () => (down = false));
+      await this.tapDown(point, touch, capture, () => (down = false));
     } finally {
       // An interrupted tap still ends its capture, which stops observing
       // removals.
@@ -364,78 +372,46 @@ export class Pointer {
     point: Point,
     touch: PointerSource,
     capture: PointerCapture,
-    input: PointerInput,
     lift: () => void
   ) {
     const pressed = { button: 0, buttons: 1 };
     const released = { button: 0, buttons: 0 };
     const touchTarget = this.hitTarget(point);
     let target = touchTarget;
-    await this.boundary(
-      "pointer",
-      undefined,
-      target,
-      point,
-      pressed,
-      input,
-      touch
-    );
+    await this.boundary("pointer", undefined, target, point, pressed, touch);
     // Chromium sets the implicit capture before `pointerdown` reaches its
     // listeners.
     capture.pending = target;
-    const pointerAllowed = await this.task(input, () =>
+    const pointerAllowed = await this.task(() =>
       this.fire(target, "pointerdown", point, pressed, touch)
     );
-    const started = await this.task(input, () =>
+    const started = await this.task(() =>
       this.fireTouch(touchTarget, "touchstart", point, true)
     );
     // Without a capture target still in the document, the element under the
     // touch point takes its events.
-    const gained = await this.processCapture(
-      capture,
-      point,
-      released,
-      input,
-      touch
-    );
+    const gained = await this.processCapture(capture, point, released, touch);
     const next = capture.current ?? this.hitTarget(point);
     if (next !== target) {
-      await this.boundary(
-        "pointer",
-        target,
-        next,
-        point,
-        released,
-        input,
-        touch
-      );
+      await this.boundary("pointer", target, next, point, released, touch);
       target = next;
     }
     if (gained)
-      await this.task(input, () =>
+      await this.task(() =>
         this.fire(gained.target, "gotpointercapture", point, released, touch)
       );
-    await this.task(input, () =>
+    await this.task(() =>
       this.fire(target, "pointerup", point, released, touch)
     );
     lift();
     capture.pending = undefined;
-    await this.processCapture(capture, point, released, input, touch);
-    await this.boundary(
-      "pointer",
-      target,
-      undefined,
-      point,
-      released,
-      input,
-      touch
-    );
-    const ended = await this.task(input, () =>
+    await this.processCapture(capture, point, released, touch);
+    await this.boundary("pointer", target, undefined, point, released, touch);
+    const ended = await this.task(() =>
       this.fireTouch(touchTarget, "touchend", point, false)
     );
     this.touchCaptures.delete(capture);
-    if (started && ended)
-      await this.tapGesture(point, pointerAllowed, touch, input);
+    if (started && ended) await this.tapGesture(point, pointerAllowed, touch);
   }
 
   /**
@@ -447,8 +423,7 @@ export class Pointer {
   private async tapGesture(
     touchPoint: Point,
     pointerAllowed: boolean,
-    touch: PointerSource,
-    input: PointerInput
+    touch: PointerSource
   ) {
     const point = { x: Math.round(touchPoint.x), y: Math.round(touchPoint.y) };
     // Their screen coordinates are the touch point's, truncated.
@@ -463,16 +438,16 @@ export class Pointer {
     const previous = this.hovered.mouse;
     this.hovered.mouse = target;
     if (previous !== target)
-      await this.boundary("mouse", previous, target, point, idle, input);
+      await this.boundary("mouse", previous, target, point, idle);
     let pressTarget: Element | undefined;
     if (pointerAllowed) {
-      await this.task(input, () =>
+      await this.task(() =>
         this.fire(this.hitTarget(point), "mousemove", point, {
           ...idle,
           button: -1,
         })
       );
-      await this.task(input, () => {
+      await this.task(() => {
         pressTarget = this.hitTarget(point);
         const allowed = this.fire(pressTarget, "mousedown", point, {
           button: 0,
@@ -480,10 +455,9 @@ export class Pointer {
           detail: 1,
           screen,
         });
-        this.host.assertDeadline(input.deadline, input.action);
         if (allowed) this.focusForPress(pressTarget);
       });
-      await this.task(input, () =>
+      await this.task(() =>
         this.fire(this.hitTarget(point), "mouseup", point, {
           button: 0,
           buttons: 0,
@@ -492,7 +466,7 @@ export class Pointer {
         })
       );
     }
-    await this.task(input, () => {
+    await this.task(() => {
       const release = this.hitTarget(point);
       const clicked = commonAncestor(pressTarget ?? release, release);
       if (clicked)
@@ -512,22 +486,20 @@ export class Pointer {
    * the left button held since a press that may start one tries a drag.
    */
   private async moveStep(point: Point, input: PointerInput) {
-    input = await this.start(input);
-    if (this.drag) return this.dragOver(this.drag, point, input);
+    await this.start(input);
+    if (this.drag) return this.dragOver(this.drag, point);
     const buttons = this.buttonsMask();
-    const gained = await this.processCapture(
-      this.mouseCapture,
-      point,
-      { button: -1, buttons },
-      input
-    );
-    await this.updateHover(point, input, undefined, gained);
+    const gained = await this.processCapture(this.mouseCapture, point, {
+      button: -1,
+      buttons,
+    });
+    await this.updateHover(point, undefined, gained);
     const movement = this.lastMove
       ? { x: point.x - this.lastMove.x, y: point.y - this.lastMove.y }
       : undefined;
     this.lastMove = point;
     const targets = this.eventTargets(point);
-    await this.task(input, () =>
+    await this.task(() =>
       this.fire(targets.pointer(), "pointermove", point, {
         button: -1,
         buttons,
@@ -535,7 +507,7 @@ export class Pointer {
       })
     );
     if (!this.mouseEventsWithheld)
-      await this.task(input, () =>
+      await this.task(() =>
         this.fire(targets.mouse(), "mousemove", point, {
           button: this.lastButtonCode(),
           buttons,
@@ -545,7 +517,7 @@ export class Pointer {
     // Pinned crDragDrop.ts intercepts a drag only on a move with the left
     // button last pressed.
     if (this.dragPress && this.lastButton === "left")
-      await this.startDrag(this.dragPress, point, input);
+      await this.startDrag(this.dragPress, point);
   }
 
   /**
@@ -555,16 +527,12 @@ export class Pointer {
    * pointer is canceled and leaves the element under it, and the drag enters
    * the element under `point`.
    */
-  private async startDrag(
-    pressPoint: Point,
-    point: Point,
-    input: PointerInput
-  ) {
+  private async startDrag(pressPoint: Point, point: Point) {
     this.dragPress = undefined;
     const source = draggableAncestor(this.hitTarget(pressPoint));
     if (!source) return;
     const store = new DragDataStore(this.host.window);
-    const started = await this.task(input, () =>
+    const started = await this.task(() =>
       this.fireDrag(source, "dragstart", pressPoint, store)
     );
     if (!started) return;
@@ -580,10 +548,10 @@ export class Pointer {
     // A captured pointer is canceled at its capture target, which loses
     // capture there instead of the pointer leaving it.
     if (captured) {
-      await this.task(input, () =>
+      await this.task(() =>
         this.fire(captured, "pointercancel", origin, canceled)
       );
-      await this.task(input, () =>
+      await this.task(() =>
         this.fire(
           this.captureEventTarget(captured),
           "lostpointercapture",
@@ -592,17 +560,10 @@ export class Pointer {
         )
       );
     } else if (hovered) {
-      await this.task(input, () =>
+      await this.task(() =>
         this.fire(hovered, "pointercancel", origin, canceled)
       );
-      await this.boundary(
-        "pointer",
-        hovered,
-        undefined,
-        origin,
-        canceled,
-        input
-      );
+      await this.boundary("pointer", hovered, undefined, origin, canceled);
     }
     this.drag = {
       source,
@@ -611,7 +572,7 @@ export class Pointer {
       dragOverOnly: false,
       operation: "none",
     };
-    await this.dragOver(this.drag, point, input);
+    await this.dragOver(this.drag, point);
   }
 
   /**
@@ -621,15 +582,15 @@ export class Pointer {
    * fires only `dragover`, and every later one `drag` and `dragover`. The
    * canceled `dragenter` or `dragover` chooses the drag's operation.
    */
-  private async dragOver(drag: ActiveDrag, point: Point, input: PointerInput) {
+  private async dragOver(drag: ActiveDrag, point: Point) {
     const target = this.hitTarget(point);
     const previous = drag.target;
     const entering = target !== previous;
     if (entering || !drag.dragOverOnly)
-      await this.task(input, () =>
+      await this.task(() =>
         this.fireDrag(drag.source, "drag", point, drag.store)
       );
-    await this.task(input, () => {
+    await this.task(() => {
       const canceled = entering
         ? !this.fireDrag(target, "dragenter", point, drag.store, {
             relatedTarget: previous,
@@ -638,7 +599,7 @@ export class Pointer {
       drag.operation = drag.store.chosenOperation(canceled);
     });
     if (entering && previous)
-      await this.task(input, () =>
+      await this.task(() =>
         this.fireDrag(previous, "dragleave", point, drag.store, {
           relatedTarget: target,
         })
@@ -652,25 +613,25 @@ export class Pointer {
    * then drops on the target when an operation was chosen, and otherwise
    * cancels with `drag` and `dragleave`; the source gets `dragend`.
    */
-  private async drop(drag: ActiveDrag, point: Point, input: PointerInput) {
-    await this.dragOver(drag, point, input);
+  private async drop(drag: ActiveDrag, point: Point) {
+    await this.dragOver(drag, point);
     this.drag = undefined;
     const target = drag.target!;
     if (drag.operation !== "none")
-      await this.task(input, () =>
+      await this.task(() =>
         this.fireDrag(target, "drop", point, drag.store, {
           operation: drag.operation,
         })
       );
     else {
-      await this.task(input, () =>
+      await this.task(() =>
         this.fireDrag(drag.source, "drag", point, drag.store)
       );
-      await this.task(input, () =>
+      await this.task(() =>
         this.fireDrag(target, "dragleave", point, drag.store)
       );
     }
-    await this.task(input, () =>
+    await this.task(() =>
       this.fireDrag(drag.source, "dragend", point, drag.store, {
         operation: drag.operation,
       })
@@ -687,11 +648,11 @@ export class Pointer {
    * Escape keydown: the source gets `dragend` with no operation, and the
    * button stays held. Resolves whether a drag was in progress.
    */
-  async cancelDrag(input: PointerInput): Promise<boolean> {
+  async cancelDrag(): Promise<boolean> {
     const drag = this.drag;
     if (!drag) return false;
     this.drag = undefined;
-    await this.task(input, () =>
+    await this.task(() =>
       this.fireDrag(drag.source, "dragend", this.position, drag.store)
     );
     return true;
@@ -705,7 +666,7 @@ export class Pointer {
    * While a button is held, the page can capture the mouse.
    */
   async press(button: MouseButton, clickCount: number, input: PointerInput) {
-    input = await this.start(input);
+    await this.start(input);
     const point = this.position;
     const first = this.pressed.size === 0;
     this.pressed.add(button);
@@ -717,18 +678,13 @@ export class Pointer {
       button: BUTTONS[button].code,
       buttons: this.buttonsMask(),
     };
-    const gained = await this.processCapture(
-      this.mouseCapture,
-      point,
-      fields,
-      input
-    );
+    const gained = await this.processCapture(this.mouseCapture, point, fields);
     // Like the release, boundary events the press brings carry its button.
-    await this.updateHover(point, input, fields.button, gained);
+    await this.updateHover(point, fields.button, gained);
     const targets = this.eventTargets(point);
     this.clickTargetSet = true;
     this.clickTarget.element = targets.mouse();
-    const pointerAllowed = await this.task(input, () =>
+    const pointerAllowed = await this.task(() =>
       this.fire(
         targets.pointer(),
         first ? "pointerdown" : "pointermove",
@@ -738,19 +694,18 @@ export class Pointer {
     );
     if (first) this.mouseEventsWithheld = !pointerAllowed;
     if (!this.mouseEventsWithheld)
-      await this.task(input, () => {
+      await this.task(() => {
         const current = targets.mouse();
         const allowed = this.fire(current, "mousedown", point, {
           ...fields,
           detail: clickCount,
         });
-        this.host.assertDeadline(input.deadline, input.action);
         if (!allowed) return;
         this.focusForPress(current);
         if (button === "left" && clickCount <= 1) this.dragPress = point;
       });
     if (button === "right")
-      await this.task(input, () =>
+      await this.task(() =>
         this.fire(targets.mouse(), "contextmenu", point, fields)
       );
   }
@@ -768,9 +723,9 @@ export class Pointer {
    * the element under it; an earlier one loses it with the next event.
    */
   async release(button: MouseButton, clickCount: number, input: PointerInput) {
-    input = await this.start(input);
+    await this.start(input);
     try {
-      await this.releaseButton(button, clickCount, input);
+      await this.releaseButton(button, clickCount);
     } finally {
       // A release interrupted before its last button lost capture still
       // ends it, so the next move goes to the element under the pointer.
@@ -781,16 +736,12 @@ export class Pointer {
     }
   }
 
-  private async releaseButton(
-    button: MouseButton,
-    clickCount: number,
-    input: PointerInput
-  ) {
+  private async releaseButton(button: MouseButton, clickCount: number) {
     const point = this.position;
     this.pressed.delete(button);
     this.lastButton = undefined;
     this.dragPress = undefined;
-    if (this.drag) return this.drop(this.drag, point, input);
+    if (this.drag) return this.drop(this.drag, point);
     const fields = {
       button: BUTTONS[button].code,
       buttons: this.buttonsMask(),
@@ -800,14 +751,13 @@ export class Pointer {
     const gained = await this.processCapture(
       this.mouseCapture,
       point,
-      released,
-      input
+      released
     );
-    await this.updateHover(point, input, fields.button, gained);
+    await this.updateHover(point, fields.button, gained);
     const last = this.pressed.size === 0;
     const targets = this.eventTargets(point);
     const captured = this.mouseCapture.current;
-    await this.task(input, () =>
+    await this.task(() =>
       this.fire(
         targets.pointer(),
         last ? "pointerup" : "pointermove",
@@ -820,7 +770,7 @@ export class Pointer {
     const clickTargetSet = this.clickTargetSet;
     this.clickTargetSet = false;
     if (!withheld)
-      await this.task(input, () =>
+      await this.task(() =>
         this.fire(targets.mouse(), "mouseup", point, {
           ...fields,
           detail: clickTargetSet ? clickCount : 0,
@@ -828,11 +778,11 @@ export class Pointer {
       );
     if (last) {
       this.mouseCapture.pending = undefined;
-      await this.processCapture(this.mouseCapture, point, released, input);
+      await this.processCapture(this.mouseCapture, point, released);
     }
     if (clickTargetSet && clickCount >= 1) {
       let clicked: Element | undefined;
-      await this.task(input, () => {
+      await this.task(() => {
         // Read after the `pointerup` and `mouseup` listeners, whose removals
         // count too.
         const pressTarget = this.clickTarget.element;
@@ -848,7 +798,7 @@ export class Pointer {
           });
       });
       if (clicked && button === "left" && clickCount === 2)
-        await this.task(input, () =>
+        await this.task(() =>
           this.fire(clicked!, "dblclick", point, {
             ...fields,
             detail: clickCount,
@@ -856,7 +806,7 @@ export class Pointer {
         );
     }
     if (!last) this.mouseCapture.pending = undefined;
-    else if (captured) await this.updateHover(point, input, fields.button);
+    else if (captured) await this.updateHover(point, fields.button);
   }
 
   /**
@@ -878,7 +828,6 @@ export class Pointer {
    */
   private async updateHover(
     point: Point,
-    input: PointerInput,
     changedButton?: number,
     gained?: GainedCapture
   ) {
@@ -890,17 +839,10 @@ export class Pointer {
         this.hovered[kind] = target;
         const button =
           changedButton ?? (kind === "pointer" ? -1 : this.lastButtonCode());
-        await this.boundary(
-          kind,
-          previous,
-          target,
-          point,
-          { button, buttons },
-          input
-        );
+        await this.boundary(kind, previous, target, point, { button, buttons });
       }
       if (kind === "pointer" && gained)
-        await this.task(input, () =>
+        await this.task(() =>
           this.fire(gained.target, "gotpointercapture", point, gained.fields)
         );
     }
@@ -938,7 +880,6 @@ export class Pointer {
     capture: PointerCapture,
     point: Point,
     fields: EventFields,
-    input: PointerInput,
     source = MOUSE
   ): Promise<GainedCapture | undefined> {
     const pending = capture.pending;
@@ -946,7 +887,7 @@ export class Pointer {
     if (pending === previous) return undefined;
     capture.current = pending;
     if (previous)
-      await this.task(input, () =>
+      await this.task(() =>
         this.fire(
           this.captureEventTarget(previous),
           "lostpointercapture",
@@ -1003,7 +944,6 @@ export class Pointer {
     target: Element | undefined,
     point: Point,
     fields: Omit<EventFields, "relatedTarget">,
-    input: PointerInput,
     source = MOUSE
   ) {
     const previousPath = previous?.isConnected ? flatTreePath(previous) : [];
@@ -1011,7 +951,7 @@ export class Pointer {
     const left = previousPath.filter((node) => !path.includes(node)).reverse();
     const entered = path.filter((node) => !previousPath.includes(node));
     const send = (node: Node, type: string, relatedTarget?: Element) =>
-      this.task(input, () =>
+      this.task(() =>
         this.fire(
           node,
           `${kind}${type}`,
@@ -1130,33 +1070,27 @@ export class Pointer {
   }
 
   /**
-   * Begins one raw input. Its events run in the current input task, or a new
-   * one when none is running, so input sent back to back, like a click's
-   * move, press and release, lands in one task as in Chromium. The deadline
-   * is checked before its first event.
+   * Begins one raw input in the window's input task, checking the deadline,
+   * abort and closure once, before its first event.
    */
-  private start(input: PointerInput): Promise<PointerInput> {
-    return this.task(input, () => this.unexpiring(input));
+  private async start(input: PointerInput) {
+    await inputTaskFor(this.host.window).start(input.batch);
+    this.host.assertDeadline(input.deadline, input.action);
   }
 
   /**
    * Checks the deadline once. Pinned crInput.ts hands a raw input to the
    * browser at once, which then dispatches every event of it, so the
-   * returned input carries no expiry; an abort still stops it.
+   * returned input is never stopped.
    */
   private unexpiring(input: PointerInput): PointerInput {
     this.host.assertDeadline(input.deadline, input.action);
-    return input.deadline
-      ? { ...input, deadline: { ...input.deadline, expiresAt: Infinity } }
-      : input;
+    return { ...input, deadline: { timeout: 0, expiresAt: Infinity } };
   }
 
   /** One event of the current raw input, in the window's input task. */
-  private task<T>(input: PointerInput, run: () => T): Promise<T> {
-    return inputTaskFor(this.host.window)(() => {
-      this.host.assertDeadline(input.deadline, input.action);
-      return run();
-    });
+  private task<T>(run: () => T): Promise<T> {
+    return inputTaskFor(this.host.window).event(run);
   }
 
   /**

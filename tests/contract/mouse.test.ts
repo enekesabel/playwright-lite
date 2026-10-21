@@ -16,6 +16,21 @@ afterEach(() => {
  * Listens on the document for the events the adapter dispatches (the real
  * cursor can also move over the test frame) until the test ends.
  */
+/** Counts the window's tasks: each posted message is one, in turn with others. */
+function taskCounter() {
+  const { port1, port2 } = new MessageChannel();
+  const counter = {
+    task: 0,
+    stop: () => port1.close(),
+  };
+  port1.onmessage = () => {
+    counter.task++;
+    port2.postMessage(null);
+  };
+  port2.postMessage(null);
+  return counter;
+}
+
 function on<K extends keyof DocumentEventMap>(
   type: K,
   listener: (event: DocumentEventMap[K]) => void,
@@ -82,6 +97,90 @@ describe("Mouse", () => {
 
   // Contract coverage: the pinned click-generation tests also assert
   // isTrusted, which synthetic events never are.
+  it("lands a click without a delay in one task, running nested microtasks between its events", async () => {
+    document.body.innerHTML = "<button>go</button>";
+    const page = createPage();
+    const button = document.querySelector("button")!;
+    const seen: string[] = [];
+    const tasks = new Set<number>();
+    const counter = taskCounter();
+    try {
+      for (const type of [
+        "pointerdown",
+        "mousedown",
+        "pointerup",
+        "mouseup",
+        "click",
+      ])
+        button.addEventListener(type, () => {
+          tasks.add(counter.task);
+          seen.push(type);
+          queueMicrotask(() =>
+            queueMicrotask(() =>
+              queueMicrotask(() => seen.push(`${type} done`))
+            )
+          );
+        });
+      await page.mouse.click(10, 10);
+    } finally {
+      counter.stop();
+    }
+    expect(seen).toEqual(
+      ["pointerdown", "mousedown", "pointerup", "mouseup", "click"].flatMap(
+        (type) => [type, `${type} done`]
+      )
+    );
+    expect(tasks.size).toBe(1);
+  });
+
+  it("gives each separately sent raw input a task of its own", async () => {
+    document.body.innerHTML = "<button>go</button>";
+    const page = createPage();
+    const button = document.querySelector("button")!;
+    const tasks: Record<string, number> = {};
+    const counter = taskCounter();
+    try {
+      for (const type of ["pointermove", "pointerdown", "pointerup"])
+        button.addEventListener(type, () => (tasks[type] ??= counter.task));
+      await page.mouse.move(10, 10);
+      await page.mouse.down();
+      await page.mouse.up();
+    } finally {
+      counter.stop();
+    }
+    expect(tasks.pointerdown).toBeGreaterThan(tasks.pointermove!);
+    expect(tasks.pointerup).toBeGreaterThan(tasks.pointerdown!);
+  });
+
+  it("never splits one raw input across tasks", async () => {
+    document.body.innerHTML = `${"<div>".repeat(50)}<button>go</button>${"</div>".repeat(50)}`;
+    const page = createPage();
+    const tasks = new Set<number>();
+    const counter = taskCounter();
+    try {
+      for (const type of [
+        "pointerover",
+        "pointerenter",
+        "mouseover",
+        "mouseenter",
+        "pointermove",
+        "mousemove",
+      ])
+        document.addEventListener(
+          type,
+          // The browser's own boundary events for its real cursor, after a
+          // layout change, are not the adapter's.
+          (event) => event.isTrusted || tasks.add(counter.task),
+          true
+        );
+      const box = document.querySelector("button")!.getBoundingClientRect();
+      await page.mouse.move(box.x + 2, box.y + 2);
+    } finally {
+      counter.stop();
+    }
+    expect(tasks.size).toBe(1);
+  });
+
   it("clicks the nearest common ancestor of the press and release targets", async () => {
     document.body.innerHTML = `<div id=parent>${box("a", 10, 10)}${box("b", 110, 10)}</div>`;
     const page = createPage();

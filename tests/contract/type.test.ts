@@ -15,10 +15,12 @@ describe("Locator.type", () => {
     document.body.innerHTML = '<input id="input" />';
     const page = createPage();
     const input = document.querySelector("#input") as HTMLInputElement;
-    page.setDefaultTimeout(20);
+    // Long enough for the first key, which waits for its own input task,
+    // and short of the delay before the second.
+    page.setDefaultTimeout(60);
 
     await expect(page.type("#input", "ab", { delay: 100 })).rejects.toThrow(
-      "Timeout 20ms exceeded"
+      "Timeout 60ms exceeded"
     );
     await page.waitForTimeout(120);
 

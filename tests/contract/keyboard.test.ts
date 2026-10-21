@@ -126,19 +126,24 @@ describe("Keyboard", () => {
     expect(nestedClicks).toBe(0);
   });
 
-  it("dispatches a press in one task, running nested microtasks between its events", async () => {
+  it("dispatches each key input in one task, running nested microtasks between its events", async () => {
     document.body.innerHTML = "<input id=input />";
     const page = createPage();
     const input = document.querySelector("#input") as HTMLInputElement;
     const seen: string[] = [];
+    const tasks: Record<string, number> = {};
     let task = 0;
-    const tasks = new Set<number>();
-    const tick = setInterval(() => task++);
+    const { port1, port2 } = new MessageChannel();
+    port1.onmessage = () => {
+      task++;
+      port2.postMessage(null);
+    };
+    port2.postMessage(null);
     const types = ["keydown", "keypress", "input", "keyup"];
     try {
       for (const type of types)
         input.addEventListener(type, () => {
-          tasks.add(task);
+          tasks[type] = task;
           seen.push(type);
           queueMicrotask(() =>
             queueMicrotask(() =>
@@ -149,10 +154,24 @@ describe("Keyboard", () => {
       input.focus();
       await page.keyboard.press("a");
     } finally {
-      clearInterval(tick);
+      port1.close();
     }
     expect(seen).toEqual(types.flatMap((type) => [type, `${type} done`]));
-    expect(tasks.size).toBe(1);
+    // Pinned Keyboard.press sends the key up once the key down has landed.
+    expect(tasks.keypress).toBe(tasks.keydown);
+    expect(tasks.input).toBe(tasks.keydown);
+    expect(tasks.keyup).toBeGreaterThan(tasks.keydown!);
+  });
+
+  it("stops page.keyboard input queued before the page closes", async () => {
+    document.body.innerHTML = "<input id=input />";
+    const page = createPage();
+    const input = document.querySelector("#input") as HTMLInputElement;
+    input.focus();
+    const typing = page.keyboard.insertText("x");
+    await page.close();
+    await expect(typing).rejects.toThrow();
+    expect(input.value).toBe("");
   });
 
   it("exposes stable page.keyboard state to the current focused element", async () => {
