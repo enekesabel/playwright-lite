@@ -291,7 +291,9 @@ describe("Locator.press", () => {
     expect(second.value).toBe("a");
   });
 
-  it("does not insert after a selector press deadline expires during a keyboard phase", async () => {
+  // Pinned crInput.ts hands the keydown to the browser whole, so a deadline
+  // that expires during it stops the press only before the keyup.
+  it("lands a keydown whole when the press deadline expires during it", async () => {
     document.body.innerHTML = `<input id=input />`;
     const page = createPage();
     const input = document.querySelector("#input") as HTMLInputElement;
@@ -299,7 +301,7 @@ describe("Locator.press", () => {
       queueMicrotask(() => {
         const deadline = Date.now() + 40;
         while (Date.now() < deadline) {
-          // Keep the keyboard continuation behind a main-thread task.
+          // Outlast the deadline before the keypress.
         }
       })
     );
@@ -307,7 +309,7 @@ describe("Locator.press", () => {
     await expect(
       page.locator("#input").press("a", { timeout: 10 })
     ).rejects.toThrow("Timeout 10ms exceeded");
-    expect(input.value).toBe("");
+    expect(input.value).toBe("a");
   });
 
   // Contract coverage: no corpus spec presses a key on an input that takes no

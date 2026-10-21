@@ -126,6 +126,35 @@ describe("Keyboard", () => {
     expect(nestedClicks).toBe(0);
   });
 
+  it("dispatches a press in one task, running nested microtasks between its events", async () => {
+    document.body.innerHTML = "<input id=input />";
+    const page = createPage();
+    const input = document.querySelector("#input") as HTMLInputElement;
+    const seen: string[] = [];
+    let task = 0;
+    const tasks = new Set<number>();
+    const tick = setInterval(() => task++);
+    const types = ["keydown", "keypress", "input", "keyup"];
+    try {
+      for (const type of types)
+        input.addEventListener(type, () => {
+          tasks.add(task);
+          seen.push(type);
+          queueMicrotask(() =>
+            queueMicrotask(() =>
+              queueMicrotask(() => seen.push(`${type} done`))
+            )
+          );
+        });
+      input.focus();
+      await page.keyboard.press("a");
+    } finally {
+      clearInterval(tick);
+    }
+    expect(seen).toEqual(types.flatMap((type) => [type, `${type} done`]));
+    expect(tasks.size).toBe(1);
+  });
+
   it("exposes stable page.keyboard state to the current focused element", async () => {
     document.body.innerHTML =
       "<input id=input /><textarea id=textarea></textarea>";

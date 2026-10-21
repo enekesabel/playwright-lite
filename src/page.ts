@@ -60,6 +60,7 @@ import { inputFilePayloads, type InputFiles } from "./inputFiles";
 import { keyboardLayout, type KeyboardKeyDescription } from "./keyboardLayout";
 import { BrowserMouse, Pointer } from "./mouse";
 import { BrowserTouchscreen, supportsTouch } from "./touchscreen";
+import { inputTaskFor } from "./inputTask";
 import { timersFor } from "./timers";
 import type { Disposable, Keyboard, Locator, Page } from "@playwright/test";
 import type { ByRoleOptions, LocatorOptions } from "./locator";
@@ -5675,12 +5676,15 @@ class BrowserKeyboard {
   }
 
   async insertText(text: string, deadline?: ActionDeadline): Promise<void> {
-    this.page.insertKeyboardText(
-      this.activeTarget(),
-      text,
-      "insertText",
-      text,
-      deadline
+    deadline = await this.start(deadline);
+    await this.event(() =>
+      this.page.insertKeyboardText(
+        this.activeTarget(),
+        text,
+        "insertText",
+        text,
+        deadline
+      )
     );
   }
 
@@ -5753,7 +5757,7 @@ class BrowserKeyboard {
     key: string,
     deadline?: ActionDeadline
   ): Promise<void> {
-    this.page.checkKeyboardActionDeadline(deadline);
+    deadline = await this.start(deadline);
     const description = this.descriptionFor(key);
     const repeat = this.pressedKeys.has(description.code);
     this.pressedKeys.add(description.code);
@@ -5765,61 +5769,62 @@ class BrowserKeyboard {
     if (this.page.dragging) return;
 
     const keyDownTarget = this.activeTarget();
-    const keyDownAllowed = this.page.dispatchKeyboardEvent(
-      keyDownTarget,
-      "keydown",
-      description,
-      this.pressedModifiers,
-      repeat
+    const keyDownAllowed = await this.event(() =>
+      this.page.dispatchKeyboardEvent(
+        keyDownTarget,
+        "keydown",
+        description,
+        this.pressedModifiers,
+        repeat
+      )
     );
     this.keydownState.set(description.code, {
       allowed: keyDownAllowed,
       target: keyDownTarget,
     });
-    await this.waitForKeyboardPhase(deadline);
     const dispatchKeyPress =
       keyDownAllowed &&
       (description.text.length > 0 || description.key === "Enter");
-    this.page.checkKeyboardActionDeadline(deadline);
-    const keyPressAllowed =
-      dispatchKeyPress &&
-      this.page.dispatchKeyboardEvent(
-        this.activeTarget(),
-        "keypress",
-        description,
-        this.pressedModifiers,
-        repeat
+    const keyPressAllowed = await this.event(() => {
+      const allowed =
+        dispatchKeyPress &&
+        this.page.dispatchKeyboardEvent(
+          this.activeTarget(),
+          "keypress",
+          description,
+          this.pressedModifiers,
+          repeat
+        );
+      if (keyDownAllowed)
+        this.page.applyKeydownDefault(
+          this.activeTarget(),
+          description,
+          this.pressedModifiers
+        );
+      return allowed;
+    });
+    if (keyPressAllowed && description.text && description.key !== "Enter")
+      await this.event(() =>
+        this.page.insertKeyboardText(
+          this.activeTarget(),
+          description.text,
+          "insertText",
+          description.text,
+          deadline,
+          true
+        )
       );
-
-    if (keyDownAllowed)
-      this.page.applyKeydownDefault(
-        this.activeTarget(),
-        description,
-        this.pressedModifiers
+    if (keyPressAllowed && description.key === "Enter")
+      await this.event(() =>
+        this.page.pressEnter(this.activeTarget(), deadline)
       );
-    if (dispatchKeyPress) await this.waitForKeyboardPhase(deadline);
-    if (keyPressAllowed && description.text && description.key !== "Enter") {
-      this.page.checkKeyboardActionDeadline(deadline);
-      this.page.insertKeyboardText(
-        this.activeTarget(),
-        description.text,
-        "insertText",
-        description.text,
-        deadline,
-        true
-      );
-    }
-    if (keyPressAllowed && description.key === "Enter") {
-      this.page.checkKeyboardActionDeadline(deadline);
-      this.page.pressEnter(this.activeTarget(), deadline);
-    }
   }
 
   private async upForTarget(
     key: string,
     deadline?: ActionDeadline
   ): Promise<void> {
-    this.page.checkKeyboardActionDeadline(deadline);
+    await this.start(deadline);
     const description = this.descriptionFor(key);
     if (isModifier(description.key))
       this.pressedModifiers.delete(description.key);
@@ -5829,26 +5834,29 @@ class BrowserKeyboard {
       return;
     }
     const keyUpTarget = this.activeTarget();
-    const keyUpAllowed = this.page.dispatchKeyboardEvent(
-      keyUpTarget,
-      "keyup",
-      description,
-      this.pressedModifiers
+    const keyUpAllowed = await this.event(() =>
+      this.page.dispatchKeyboardEvent(
+        keyUpTarget,
+        "keyup",
+        description,
+        this.pressedModifiers
+      )
     );
     const keyDownState = this.keydownState.get(description.code);
     this.keydownState.delete(description.code);
-    await this.waitForKeyboardPhase(deadline);
     if (
       keyDownState?.allowed &&
       keyUpAllowed &&
-      keyUpTarget === keyDownState.target &&
-      this.activeTarget() === keyDownState.target
+      keyUpTarget === keyDownState.target
     )
-      this.page.applyKeyupDefault(
-        keyDownState.target,
-        description,
-        this.pressedModifiers
-      );
+      await this.event(() => {
+        if (this.activeTarget() === keyDownState.target)
+          this.page.applyKeyupDefault(
+            keyDownState.target,
+            description,
+            this.pressedModifiers
+          );
+      });
   }
 
   private activeTarget(): Element {
@@ -5869,14 +5877,22 @@ class BrowserKeyboard {
     return description;
   }
 
-  private async waitForKeyboardPhase(deadline?: ActionDeadline): Promise<void> {
-    this.page.checkKeyboardActionDeadline(deadline);
-    // Chromium completes nested microtasks from one input dispatch before the
-    // next DevTools input command is handled. A single Promise.resolve() only
-    // yields one queued continuation, so it misses microtasks queued by other
-    // microtasks. Crossing a timer task flushes that complete microtask turn.
-    await new Promise<void>((resolve) => this.page.timers.setTimeout(resolve));
-    this.page.checkKeyboardActionDeadline(deadline);
+  /**
+   * Begins one raw input in the window's input task, checking the deadline
+   * once. Pinned crInput.ts hands a key to the browser at once, which then
+   * dispatches every event of it, so the returned deadline never expires;
+   * an abort still stops it.
+   */
+  private start(deadline?: ActionDeadline) {
+    return this.event(() => {
+      this.page.checkKeyboardActionDeadline(deadline);
+      return deadline && { ...deadline, expiresAt: Infinity };
+    });
+  }
+
+  /** One event of the current raw input, in the window's input task. */
+  private event<T>(run: () => T): Promise<T> {
+    return inputTaskFor(this.page.window)(run);
   }
 }
 

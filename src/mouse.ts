@@ -9,6 +9,7 @@ import {
 
 import { inputShadowRoot } from "./closedShadowRoots";
 import { DragDataStore, type DragEventType, type DropEffect } from "./drag";
+import { inputTaskFor } from "./inputTask";
 import {
   guardLifetimeCalls,
   type LifetimeCalls,
@@ -178,9 +179,6 @@ export class BrowserMouse implements Mouse {
   }
 }
 
-/** The events one input task can dispatch before the rest go to another. */
-const EVENTS_PER_TASK = 64;
-
 /**
  * The one pointer of a Page: the analogue of pinned `server/input.ts` Mouse,
  * which `page.mouse` and the pointer actions (`click()`, `hover()` and their
@@ -242,13 +240,6 @@ export class Pointer {
   private readonly touchCaptures = new Set<PointerCapture>();
   /** Restores the capture members `observeCapture` wrapped. */
   private unobserveCapture: (() => void) | undefined;
-  /** The events waiting for a listener of the input task. */
-  private readonly events: (() => void)[] = [];
-  /** Whether the input task's message is being dispatched. */
-  private dispatching = false;
-  /** Whether an input task's message is posted and not yet dispatched. */
-  private posted = false;
-  private port: MessagePort | undefined;
 
   constructor(private readonly host: PointerHost) {}
 
@@ -1160,53 +1151,12 @@ export class Pointer {
       : input;
   }
 
-  /**
-   * One event of the current raw input. Chromium dispatches each one from the
-   * browser, so every microtask its listeners queue runs before the next
-   * event. Here each event is one listener of a single `MessagePort` message,
-   * after which the browser runs microtasks the same way, and the caller's
-   * continuation queues the next event before the next listener runs.
-   */
+  /** One event of the current raw input, in the window's input task. */
   private task<T>(input: PointerInput, run: () => T): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      this.events.push(() => {
-        try {
-          this.host.assertDeadline(input.deadline, input.action);
-          resolve(run());
-        } catch (error) {
-          reject(error);
-        }
-      });
-      this.post();
+    return inputTaskFor(this.host.window)(() => {
+      this.host.assertDeadline(input.deadline, input.action);
+      return run();
     });
-  }
-
-  /** Posts the input task's message unless one is posted or dispatching. */
-  private post() {
-    if (this.dispatching || this.posted) return;
-    this.posted = true;
-    this.inputPort().postMessage(null);
-  }
-
-  private inputPort(): MessagePort {
-    if (this.port) return this.port;
-    const { port1, port2 } = new this.host.window.MessageChannel();
-    // A listener added during a dispatch does not run, so the task has a
-    // fixed number; events past it, like a long stepped move's, go on in the
-    // next task.
-    for (let index = 0; index < EVENTS_PER_TASK; index++)
-      port1.addEventListener("message", () => {
-        if (index === 0) {
-          this.posted = false;
-          this.dispatching = true;
-        }
-        this.events.shift()?.();
-        if (index < EVENTS_PER_TASK - 1) return;
-        this.dispatching = false;
-        if (this.events.length) this.post();
-      });
-    port1.start();
-    return (this.port = port2);
   }
 
   /**
