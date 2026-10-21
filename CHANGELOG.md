@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.4](https://github.com/enekesabel/playwright-lite/compare/v0.9.3...v0.9.4) (2026-10-21)
+
+
+### Bug Fixes
+
+* dispatch each pointer input and key in one browser task ([#298](https://github.com/enekesabel/playwright-lite/issues/298)) ([7f1bc4a](https://github.com/enekesabel/playwright-lite/commit/7f1bc4acc0cd377d42d8b920067d70c8d2803da9))
+
 ## [0.9.3](https://github.com/enekesabel/playwright-lite/compare/v0.9.2...v0.9.3) (2026-10-20)
 
 
