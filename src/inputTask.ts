@@ -49,6 +49,12 @@ function createInputTask(browserWindow: Window & typeof globalThis): InputTask {
   let dispatching = false;
   let posted = false;
   const { port1, port2 } = new browserWindow.MessageChannel();
+  // jsdom's window has Node's MessageChannel, whose ports are not its
+  // EventTargets.
+  const listen =
+    port1 instanceof EventTarget
+      ? addEventListener
+      : (port1 as Pick<MessagePort, "addEventListener">).addEventListener;
   const post = () => {
     if (posted) return;
     posted = true;
@@ -62,7 +68,7 @@ function createInputTask(browserWindow: Window & typeof globalThis): InputTask {
     }
   };
   for (let index = 0; index < EVENTS_PER_TASK; index++)
-    addEventListener.call(port1, "message", (event) => {
+    listen.call(port1, "message", (event) => {
       if (index === 0) {
         posted = false;
         dispatching = true;
