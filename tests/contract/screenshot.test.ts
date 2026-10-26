@@ -274,6 +274,19 @@ describe("Page.screenshot", () => {
         // SnapDOM lays the region out in CSS pixels on Chromium, so content
         // at a half-CSS-pixel origin may land one device pixel off.
         expect([device.width, device.height]).toEqual([200, 100]);
+        // The green box starts at device pixel (79, 59). Past a one-pixel
+        // band at its left and top edges, its inside must be green and the
+        // pixels before it white.
+        const wrong: string[] = [];
+        for (let y = 53; y < 98; y++)
+          for (let x = 73; x < 118; x++) {
+            const pixel = device.pixel(x, y).join();
+            if (x >= 80 && y >= 60 && pixel !== green.join())
+              wrong.push(`${x},${y}`);
+            if ((x < 78 || y < 58) && pixel !== "255,255,255,255")
+              wrong.push(`${x},${y}`);
+          }
+        expect(wrong).toEqual([]);
       });
 
       await expect(
