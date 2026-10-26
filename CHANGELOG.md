@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.4](https://github.com/enekesabel/playwright-lite/compare/v0.9.3...v0.9.4) (2026-10-26)
+
+
+### Bug Fixes
+
+* bump SnapDOM to 3.4.0, which embeds fonts whose family name contains "__" ([#303](https://github.com/enekesabel/playwright-lite/issues/303)) ([747b819](https://github.com/enekesabel/playwright-lite/commit/747b819b469db24cd11055b49b15b466cb7a3822))
+* dispatch each pointer input and key in one browser task ([#298](https://github.com/enekesabel/playwright-lite/issues/298)) ([7f1bc4a](https://github.com/enekesabel/playwright-lite/commit/7f1bc4acc0cd377d42d8b920067d70c8d2803da9))
+* listen on a MessagePort that is not the window's EventTarget ([#300](https://github.com/enekesabel/playwright-lite/issues/300)) ([894eb64](https://github.com/enekesabel/playwright-lite/commit/894eb64c78641e02b7efcd8279781321b138d386))
+
 ## [0.9.3](https://github.com/enekesabel/playwright-lite/compare/v0.9.2...v0.9.3) (2026-10-20)
 
 
