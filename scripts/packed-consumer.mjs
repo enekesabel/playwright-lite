@@ -120,7 +120,7 @@ try {
   });
   // SnapDOM is bundled as a chunk of its own, which only a capture imports.
   assert.equal(installedPackage.dependencies?.["@zumer/snapdom"], undefined);
-  assert.equal(installedPackage.devDependencies["@zumer/snapdom"], "3.2.0");
+  assert.equal(installedPackage.devDependencies["@zumer/snapdom"], "3.4.0");
   assert.throws(() => consumerRequire.resolve("@zumer/snapdom"), {
     code: "MODULE_NOT_FOUND",
   });

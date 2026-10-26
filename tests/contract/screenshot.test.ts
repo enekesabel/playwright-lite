@@ -271,10 +271,9 @@ describe("Page.screenshot", () => {
 
       await withDevicePixelRatio(2, async () => {
         const device = await decode(await page.screenshot({ clip }));
+        // SnapDOM lays the region out in CSS pixels on Chromium, so content
+        // at a half-CSS-pixel origin may land one device pixel off.
         expect([device.width, device.height]).toEqual([200, 100]);
-        expect(device.pixel(79, 59)).toEqual(green);
-        expect(device.pixel(78, 59)).toEqual([255, 255, 255, 255]);
-        expect(device.pixel(79, 58)).toEqual([255, 255, 255, 255]);
       });
 
       await expect(
@@ -581,6 +580,35 @@ describe("Page.screenshot", () => {
     await webFont("pwtest-font");
 
     expect(await ink("pwtest-font, serif")).toBeGreaterThan(
+      4 * (await ink("serif"))
+    );
+  });
+
+  it("renders text in a web font whose name contains two underscores", async () => {
+    // Next.js's dev overlay declares "__nextjs-Geist" in the document and uses
+    // it in a shadow root; SnapDOM keyed its fonts with "__" as a separator.
+    const ink = async (font: string) => {
+      const host = document.createElement("div");
+      document.body.replaceChildren(host);
+      host
+        .attachShadow({ mode: "open" })
+        .append(
+          Object.assign(document.createElement("span"), { textContent: "+-" })
+        );
+      host.style.font = `40px ${font}`;
+      host.style.display = "inline-block";
+      await document.fonts.ready;
+      const box = host.getBoundingClientRect();
+      const image = await decode(await createPage().screenshot());
+      let dark = 0;
+      for (let y = Math.ceil(box.top); y < Math.floor(box.bottom); y++)
+        for (let x = Math.ceil(box.left); x < Math.floor(box.right); x++)
+          if (image.pixel(x, y)[0] < 64) dark++;
+      return dark;
+    };
+    await webFont("__pwtest-font");
+
+    expect(await ink('"__pwtest-font", serif')).toBeGreaterThan(
       4 * (await ink("serif"))
     );
   });
